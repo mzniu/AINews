@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网页内容抓取工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            display: none;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .result-header {
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .result-header h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .result-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .result-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .content-preview {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: #333;
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .image-card {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .image-card:hover {
+            transform: scale(1.05);
+        }
+
+        .image-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-card .status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .status.success {
+            background: rgba(76, 175, 80, 0.9);
+        }
+
+        .status.error {
+            background: rgba(244, 67, 54, 0.9);
+        }
+
+        .download-links {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .download-btn {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .download-btn:hover {
+            background: #45a049;
+        }
+
+        .edit-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .edit-section.active {
+            display: block;
+        }
+
+        .edit-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .image-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .selectable-image {
+            position: relative;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .selectable-image.selected {
+            border-color: #667eea;
+            transform: scale(0.95);
+        }
+
+        .selectable-image img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .selectable-image .checkbox {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .selectable-image.selected .checkbox {
+            background: #667eea;
+            border-color: #667eea;
+        }
+
+        .selectable-image.selected .checkbox::after {
+            content: '✓';
+            color: white;
+            font-weight: bold;
+        }
+
+        .image-effects {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .effect-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .effect-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .content-editor {
+            margin: 15px 0;
+        }
+
+        .content-editor textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .content-editor textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .ai-summary {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .ai-summary h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .ai-summary-content {
+            color: #333;
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .secondary-btn {
+            padding: 10px 20px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .secondary-btn:hover {
+            background: #5a6268;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .examples {
+            margin-top: 15px;
+        }
+
+        .examples-title {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .example-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .example-link {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 13px;
+            transition: background 0.3s;
+        }
+
+        .example-link:hover {
+            background: #e0e0e0;
+        }
+
+        /* ===== 图片查看器 & 去水印 模态框 ===== */
+        .image-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        .image-modal-overlay.active {
+            display: flex;
+        }
+        .image-modal {
+            position: relative;
+            background: #1a1a2e;
+            border-radius: 12px;
+            width: 95vw;
+            max-width: 1200px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .image-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: #16213e;
+            color: white;
+            flex-shrink: 0;
+        }
+        .image-modal-header h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+        .modal-toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .modal-toolbar button {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .modal-btn-zoom {
+            background: #0f3460;
+            color: white;
+        }
+        .modal-btn-zoom:hover { background: #1a5276; }
+        .modal-btn-draw {
+            background: #e94560;
+            color: white;
+        }
+        .modal-btn-draw:hover { background: #c0392b; }
+        .modal-btn-draw.active {
+            background: #27ae60;
+            box-shadow: 0 0 0 2px #2ecc71;
+        }
+        .modal-btn-action {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .modal-btn-action:hover { opacity: 0.9; }
+        .modal-btn-action:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .modal-btn-close {
+            background: transparent;
+            color: #ccc;
+            font-size: 22px;
+            padding: 4px 10px;
+            line-height: 1;
+        }
+        .modal-btn-close:hover { color: #e94560; }
+        .image-modal-body {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #111;
+        }
+        .image-modal-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.2s ease;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        .image-modal-body canvas {
+            position: absolute;
+            top: 0; left: 0;
+            cursor: crosshair;
+        }
+        .image-modal-footer {
+            padding: 10px 20px;
+            background: #16213e;
+            color: #aaa;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .region-badge {
+            display: inline-block;
+            background: #e94560;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-left: 6px;
+        }
+        .zoom-info {
+            color: #667eea;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌐 网页内容抓取工具</h1>
+            <p>输入任意网址，一键抓取内容和图片</p>
+        </div>
+
+        <div class="card">
+            <div class="input-group">
+                <input 
+                    type="url" 
+                    id="urlInput" 
+                    placeholder="请输入网页URL，例如：https://www.36kr.com/p/123456" 
+                    required
+                >
+                <button class="btn" id="fetchBtn" onclick="fetchUrl()">
+                    开始抓取
+                </button>
+            </div>
+
+            <div class="examples">
+                <div class="examples-title">示例链接：</div>
+                <div class="example-links">
+                    <a href="#" class="example-link" onclick="fillExample('https://www.36kr.com/p/2492318105786505')">36氪文章</a>
+                    <a href="#" class="example-link" onclick="fillExample('https://www.cnblogs.com/')">博客园</a>
+                    <a href="#" class="example-link" onclick="fillExample('https://www.infoq.cn/article/latest')">InfoQ</a>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在抓取中，请稍候...</p>
+            </div>
+
+            <div class="error" id="error"></div>
+
+            <div class="result" id="result">
+                <div class="result-header">
+                    <h2 id="resultTitle"></h2>
+                    <div class="result-meta">
+                        <span>🕐 抓取时间: <strong id="crawlTime"></strong></span>
+                        <span>📝 内容长度: <strong id="contentLength"></strong> 字符</span>
+                        <span>🖼️ 图片数量: <strong id="imagesCount"></strong> 张</span>
+                    </div>
+                </div>
+
+                <h3>📄 内容预览</h3>
+                <div class="content-preview" id="contentPreview"></div>
+
+                <div class="download-links">
+                    <a href="#" class="download-btn" id="downloadContent" target="_blank">
+                        📥 下载完整内容
+                    </a>
+                    <a href="#" class="download-btn" id="downloadMetadata" target="_blank">
+                        📊 下载元数据
+                    </a>
+                </div>
+
+                <h3 style="margin-top: 30px;">🖼️ 图片列表</h3>
+                <div class="images-grid" id="imagesGrid"></div>
+
+                <div class="edit-section" id="editSection">
+                    <h3>✏️ 编辑内容和图片</h3>
+                    
+                    <h4>📝 选择和编辑文章内容</h4>
+        let currentData = null;
+        let selectedImages = [];
+
+                    <div class="content-editor">
+                        <textarea id="contentEditor" placeholder="文章内容将显示在这里，您可以编辑..."></textarea>
+                    </div>
+
+                    <h4 style="margin-top: 20px;">🖼️ 选择图片（点击图片选择/取消选择）</h4>
+                    <div class="image-selector" id="imageSelector"></div>
+
+                    <div class="action-buttons">
+                        <button class="btn" onclick="generateSummary()">
+                            🤖 生成AI标题和摘要
+                        </button>
+                        <button class="secondary-btn" onclick="resetSelection()">
+                            🔄 重置选择
+                        </button>
+                    </div>
+                    
+                    <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 13px; color: #856404;">
+                        💡 提示：选择图片后点击"生成AI标题和摘要"，然后点击"生成视频关键帧"，将为每张选中的图片生成一帧
+                    </div>
+
+                    <div class="ai-summary" id="aiSummary" style="display: none;">
+                        <h4>🤖 AI生成内容</h4>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">标题：</strong>
+                            <div class="ai-summary-content" id="aiTitle" style="font-size: 1.2em; font-weight: bold; margin: 10px 0;"></div>
+                        </div>
+                        <div>
+                            <strong style="color: #667eea;">摘要：</strong>
+                            <div class="ai-summary-content" id="aiSummaryContent"></div>
+                        </div>
+                        <div>
+                            <strong style="color: #667eea;">标签：</strong>
+                            <div class="ai-summary-content" id="aiTags" style="margin-top: 8px; color: #764ba2; font-size: 14px;"></div>
+                        </div>
+                        <div style="margin-top: 10px; color: #666; font-size: 12px;" id="aiMeta"></div>
+                        
+                        <div class="action-buttons" style="margin-top: 20px;">
+                            <button class="btn" onclick="generateVideoImage()">
+                                🎨 生成视频关键帧
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="ai-summary" id="generatedImage" style="display: none; margin-top: 20px;">
+                        <h4>🎨 生成的视频关键帧</h4>
+                        <div id="framesInfo" style="margin: 10px 0; color: #666; font-size: 14px;"></div>
+                        <div id="framesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
+                        </div>                        <button id="createVideoBtn" onclick="createVideo()" 
+                            style="margin-top: 20px; padding: 12px 30px; font-size: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none;">
+                            🎬 合成视频 (2.5秒/帧)
+                        </button>
+                        <div id="videoResult" style="display: none; margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <h5 style="margin: 0 0 10px 0; color: #333;">🎥 视频生成成功</h5>
+                            <div id="videoInfo" style="margin: 10px 0; color: #666; font-size: 14px;"></div>
+                            <video id="generatedVideo" controls style="width: 100%; max-width: 600px; border-radius: 8px; margin-top: 10px;"></video>
+                            <div style="margin-top: 10px;">
+                                <a id="downloadVideoBtn" download style="display: inline-block; padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">
+                                    💾 下载视频
+                                </a>
+                            </div>
+                        </div>                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片查看器 & 去水印模态框 -->
+    <div class="image-modal-overlay" id="imageModalOverlay" onclick="if(event.target===this)closeImageModal()">
+        <div class="image-modal">
+            <div class="image-modal-header">
+                <h3 id="modalTitle">🔍 图片查看器</h3>
+                <div class="modal-toolbar">
+                    <button class="modal-btn-zoom" onclick="zoomImage(-0.2)" title="缩小">➖ 缩小</button>
+                    <button class="modal-btn-zoom" onclick="zoomImage(0.2)" title="放大">➕ 放大</button>
+                    <button class="modal-btn-zoom" onclick="resetZoom()" title="适应">🔄 适应</button>
+                    <span style="color:#555;">|</span>
+                    <button class="modal-btn-draw" id="drawModeBtn" onclick="toggleDrawMode()" title="框选水印区域">✏️ 框选水印</button>
+                    <button class="modal-btn-zoom" id="undoRegionBtn" onclick="undoLastRegion()" title="撤销上一个框选" style="display:none;">↩️ 撤销</button>
+                    <button class="modal-btn-zoom" id="clearRegionsBtn" onclick="clearRegions()" title="清除所有框选" style="display:none;">🗑️ 清除</button>
+                    <button class="modal-btn-action" id="removeWatermarkBtn" onclick="removeWatermark()" disabled title="去除水印">🧹 去除水印</button>
+                    <span style="color:#555;">|</span>
+                    <button class="modal-btn-action" id="useCleanedBtn" onclick="useCleanedImage()" style="display:none;" title="使用去水印后的图片">✅ 使用此图</button>
+                    <button class="modal-btn-close" onclick="closeImageModal()">✕</button>
+                </div>
+            </div>
+            <div class="image-modal-body" id="modalBody">
+                <img id="modalImage" src="" alt="预览图片" draggable="false">
+                <canvas id="modalCanvas"></canvas>
+            </div>
+            <div class="image-modal-footer">
+                <div>
+                    <span id="modalImageInfo">-</span>
+                    <span id="regionsCount"></span>
+                </div>
+                <div class="zoom-info" id="zoomLevel">100%</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fillExample(url) {
+            event.preventDefault();
+            document.getElementById('urlInput').value = url;
+        }
+
+        async function fetchUrl() {
+            const urlInput = document.getElementById('urlInput');
+            const url = urlInput.value.trim();
+
+            if (!url) {
+                showError('请输入有效的URL');
+                return;
+            }
+
+            // 验证URL格式
+            try {
+                new URL(url);
+            } catch (e) {
+                showError('URL格式不正确');
+                return;
+            }
+
+            // 显示加载状态
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('result').classList.remove('active');
+            document.getElementById('error').classList.remove('active');
+            document.getElementById('fetchBtn').disabled = true;
+
+            try {
+                const response = await fetch('/api/fetch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '抓取失败');
+                }
+
+                if (data.success) {
+                    displayResult(data.data);
+                } else {
+                    showError(data.message);
+                }
+
+            } catch (error) {
+                showError('抓取失败: ' + error.message);
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('fetchBtn').disabled = false;
+            }
+        }
+
+        function displayResult(data) {
+            currentData = data;
+            selectedImages = [];
+
+            // 显示结果区域
+            document.getElementById('result').classList.add('active');
+
+            // 填充基本信息
+            document.getElementById('resultTitle').textContent = data.title;
+            document.getElementById('crawlTime').textContent = new Date(data.crawl_time).toLocaleString('zh-CN');
+            document.getElementById('contentLength').textContent = data.content_length.toLocaleString();
+            document.getElementById('imagesCount').textContent = data.images_count;
+
+            // 内容预览
+            document.getElementById('contentPreview').textContent = data.content_preview;
+
+            // 下载链接
+            document.getElementById('downloadContent').href = data.content_file;
+            document.getElementById('downloadMetadata').href = data.metadata_file;
+
+            // 显示图片
+            const imagesGrid = document.getElementById('imagesGrid');
+            imagesGrid.innerHTML = '';
+
+            data.images.forEach((img, index) => {
+                const imageCard = document.createElement('div');
+                imageCard.className = 'image-card';
+
+                if (img.success) {
+                    imageCard.innerHTML = `
+                        <img src="${img.local_path}" alt="${img.alt || '图片 ' + (index + 1)}" 
+                             style="cursor:pointer;"
+                             onclick="openImageModal('${img.local_path}', this)"
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
+                        <div class="status success">✓ 已下载</div>
+                    `;
+                } else {
+                    imageCard.innerHTML = `
+                        <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect fill='%23f5f5f5' width='200' height='200'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%23999'>下载失败</text></svg>">
+                        <div class="status error">✗ 失败</div>
+                    `;
+                }
+
+                imagesGrid.appendChild(imageCard);
+            });
+
+            // 显示编辑区域
+            setupEditSection(data);
+        }
+
+        function setupEditSection(data) {
+            // 加载完整内容到编辑器
+            fetch(data.content_file)
+                .then(response => response.text())
+                .then(content => {
+                    // 移除前面的元数据行
+                    const lines = content.split('\n');
+                    const contentStart = lines.findIndex(line => line.includes('===='));
+                    const actualContent = lines.slice(contentStart + 2).join('\n').trim();
+                    document.getElementById('contentEditor').value = actualContent;
+                })
+                .catch(err => console.error('加载内容失败:', err));
+
+            // 创建可选择的图片
+            const imageSelector = document.getElementById('imageSelector');
+            imageSelector.innerHTML = '';
+
+            const successImages = data.images.filter(img => img.success);
+            successImages.forEach((img, index) => {
+                const imgDiv = document.createElement('div');
+                imgDiv.className = 'selectable-image';
+                imgDiv.dataset.index = index;
+                imgDiv.dataset.path = img.local_path;
+                
+                imgDiv.innerHTML = `
+                    <img src="${img.local_path}" alt="图片 ${index + 1}">
+                    <div class="checkbox"></div>
+                    <div class="image-effects">
+                        <button class="effect-btn" onclick="processImage('${img.local_path}', 'enhance', event)">增强</button>
+                        <button class="effect-btn" onclick="processImage('${img.local_path}', 'sharpen', event)">锐化</button>
+                        <button class="effect-btn" onclick="openImageModal('${img.local_path}', this.closest('.selectable-image').querySelector('img')); event.stopPropagation();">🔍 查看/去水印</button>
+                    </div>
+                `;
+
+                imgDiv.onclick = (e) => {
+                    if (!e.target.classList.contains('effect-btn')) {
+                        toggleImageSelection(imgDiv);
+                    }
+                };
+
+                imageSelector.appendChild(imgDiv);
+            });
+
+            // 显示编辑区域
+            document.getElementById('editSection').classList.add('active');
+            document.getElementById('aiSummary').style.display = 'none';
+        }
+
+        function toggleImageSelection(imgDiv) {
+            const index = parseInt(imgDiv.dataset.index);
+            const path = imgDiv.dataset.path;
+
+            if (imgDiv.classList.contains('selected')) {
+                imgDiv.classList.remove('selected');
+                selectedImages = selectedImages.filter(i => i !== path);
+            } else {
+                imgDiv.classList.add('selected');
+                selectedImages.push(path);
+            }
+
+            console.log('已选择图片:', selectedImages.length);
+        }
+
+        async function processImage(imagePath, effect, event) {
+            event.stopPropagation();
+            
+            try {
+                const response = await fetch('/api/process-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image_path: imagePath,
+                        effect: effect
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`图片处理成功！\n效果: ${effect}\n保存位置: ${data.processed_path}`);
+                    // 可以选择更新预览
+                } else {
+                    alert('图片处理失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('图片处理失败: ' + error.message);
+            }
+        }
+
+        async function generateSummary() {
+            const content = document.getElementById('contentEditor').value;
+            
+            if (!content.trim()) {
+                alert('请先输入或编辑文章内容');
+                return;
+            }
+
+            // 显示加载状态
+            const summaryDiv = document.getElementById('aiSummary');
+            summaryDiv.style.display = 'block';
+            document.getElementById('aiTitle').textContent = '正在生成标题...';
+            document.getElementById('aiSummaryContent').textContent = '正在生成摘要...';
+            document.getElementById('aiMeta').textContent = '';
+
+            try {
+                const response = await fetch('/api/generate-summary', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        images: selectedImages,
+                        title: currentData.title
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    generatedTitle = data.title;
+                    generatedSummary = data.summary;
+                    
+                    document.getElementById('aiTitle').textContent = data.title;
+                    document.getElementById('aiSummaryContent').textContent = data.summary;
+                    document.getElementById('aiTags').textContent = data.tags || '';
+                    document.getElementById('aiMeta').textContent = 
+                        `标题: ${data.title.length}字 | 摘要: ${data.summary.length}字 | 模型: ${data.model} | tokens: ${data.tokens_used}`;
+                } else {
+                    document.getElementById('aiTitle').textContent = '';
+                    document.getElementById('aiSummaryContent').textContent = '生成失败: ' + data.message;
+                    document.getElementById('aiTags').textContent = '';
+                    document.getElementById('aiMeta').textContent = '';
+                }
+            } catch (error) {
+                document.getElementById('aiTitle').textContent = '';
+                document.getElementById('aiSummaryContent').textContent = '生成失败: ' + error.message;
+                document.getElementById('aiTags').textContent = '';
+                document.getElementById('aiMeta').textContent = '';
+            }
+        }
+
+        async function generateVideoImage() {
+            if (!generatedTitle || !generatedSummary) {
+                alert('请先生成AI标题和摘要');
+                return;
+            }
+
+            if (selectedImages.length === 0) {
+                alert('请至少选择一张图片');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/generate-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: generatedTitle,
+                        summary: generatedSummary,
+                        images: selectedImages
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 显示生成的关键帧
+                    document.getElementById('generatedImage').style.display = 'block';
+                    document.getElementById('framesInfo').textContent = 
+                        `✅ ${data.message} | 标题: ${data.title} | 摘要: ${data.summary.substring(0, 30)}...`;
+                    
+                    const framesContainer = document.getElementById('framesContainer');
+                    framesContainer.innerHTML = '';
+                    
+                    // 保存生成的帧目录路径，用于后续视频合成
+                    window.generatedFramesDir = data.output_dir;
+                    
+                    // 显示每一帧
+                    data.frames.forEach(frame => {
+                        const frameCard = document.createElement('div');
+                        frameCard.style.cssText = 'background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
+                        
+                        frameCard.innerHTML = `
+                            <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">
+                                关键帧 ${frame.frame_index}
+                            </div>
+                            <img src="${frame.image_path}" 
+                                 style="width: 100%; border-radius: 4px; cursor: pointer;" 
+                                 onclick="openImageModal('${frame.image_path}', this)">
+                            <div style="margin-top: 8px; display: flex; gap: 8px;">
+                                <a href="${frame.image_path}" download="frame_${frame.frame_index}.png" 
+                                   class="download-btn" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 13px;">
+                                    📥 下载
+                                </a>
+                            </div>
+                        `;
+                        
+                        framesContainer.appendChild(frameCard);
+                    });
+                    
+                    // 显示合成视频按钮
+                    document.getElementById('createVideoBtn').style.display = 'inline-block';
+                    
+                    alert(`视频关键帧生成成功！共 ${data.total} 帧`);
+                } else {
+                    alert('关键帧生成失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('关键帧生成失败: ' + error.message);
+            }
+        }
+
+        async function createVideo() {
+            if (!window.generatedFramesDir) {
+                alert('请先生成视频关键帧');
+                return;
+            }
+            
+            const btn = document.getElementById('createVideoBtn');
+            btn.disabled = true;
+            btn.textContent = '🎬 正在合成视频...';
+            
+            try {
+                const response = await fetch('/api/create-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        frames_dir: window.generatedFramesDir,
+                        duration_per_frame: 2.5,
+                        audio_path: 'static/music/background.mp3'  // 背景音乐
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 显示视频结果
+                    const videoResult = document.getElementById('videoResult');
+                    const videoInfo = document.getElementById('videoInfo');
+                    const videoPlayer = document.getElementById('generatedVideo');
+                    const downloadBtn = document.getElementById('downloadVideoBtn');
+                    
+                    videoInfo.textContent = `🎬 关键帧: ${data.frames_count} | 时长: ${data.duration.toFixed(1)}秒 | 大小: ${data.file_size_mb}MB`;
+                    videoPlayer.src = data.video_path;
+                    downloadBtn.href = data.video_path;
+                    downloadBtn.download = data.video_path.split('/').pop();
+                    
+                    videoResult.style.display = 'block';
+                    
+                    alert('视频生成成功！');
+                } else {
+                    alert('视频生成失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('视频生成失败: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🎬 合成视频 (带背景音乐)';
+            }
+        }
+
+
+        function resetSelection() {
+            // 清除所有选择
+            document.querySelectorAll('.selectable-image').forEach(img => {
+                img.classList.remove('selected');
+            });
+            selectedImages = [];
+            
+            // 重置内容
+            if (currentData && currentData.content_file) {
+                fetch(currentData.content_file)
+                    .then(response => response.text())
+                    .then(content => {
+                        const lines = content.split('\n');
+                        const contentStart = lines.findIndex(line => line.includes('===='));
+                        const actualContent = lines.slice(contentStart + 2).join('\n').trim();
+                        document.getElementById('contentEditor').value = actualContent;
+                    });
+            }
+
+            // 隐藏AI摘要
+            document.getElementById('aiSummary').style.display = 'none';
+            
+            alert('已重置所有选择');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.classList.add('active');
+        }
+
+        // 支持回车键提交
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                fetchUrl();
+            }
+        });
+
+        // ===== 图片查看器 & 去水印功能 =====
+        let modalState = {
+            currentPath: '',       // 当前图片路径
+            cleanedPath: '',       // 去水印后路径
+            zoom: 1,
+            drawMode: false,
+            drawing: false,
+            regions: [],           // 框选的水印区域 [{x, y, width, height}]
+            startX: 0,
+            startY: 0,
+            imgNaturalW: 0,
+            imgNaturalH: 0,
+            imgDisplayW: 0,
+            imgDisplayH: 0,
+            imgOffsetX: 0,
+            imgOffsetY: 0,
+            sourceElement: null    // 点击来源的img元素
+        };
+
+        function openImageModal(imgSrc, sourceEl) {
+            modalState.currentPath = imgSrc;
+            modalState.cleanedPath = '';
+            modalState.zoom = 1;
+            modalState.drawMode = false;
+            modalState.regions = [];
+            modalState.sourceElement = sourceEl || null;
+
+            const overlay = document.getElementById('imageModalOverlay');
+            const img = document.getElementById('modalImage');
+            
+            img.src = imgSrc;
+            img.style.transform = 'scale(1)';
+            
+            overlay.classList.add('active');
+            document.getElementById('drawModeBtn').classList.remove('active');
+            document.getElementById('drawModeBtn').textContent = '✏️ 框选水印';
+            document.getElementById('removeWatermarkBtn').disabled = true;
+            document.getElementById('useCleanedBtn').style.display = 'none';
+            document.getElementById('undoRegionBtn').style.display = 'none';
+            document.getElementById('clearRegionsBtn').style.display = 'none';
+            document.getElementById('regionsCount').innerHTML = '';
+            document.getElementById('zoomLevel').textContent = '100%';
+            document.getElementById('modalTitle').textContent = '🔍 图片查看器';
+
+            img.onload = function() {
+                modalState.imgNaturalW = img.naturalWidth;
+                modalState.imgNaturalH = img.naturalHeight;
+                document.getElementById('modalImageInfo').textContent = 
+                    `${img.naturalWidth} × ${img.naturalHeight} px`;
+                updateCanvasSize();
+            };
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModalOverlay').classList.remove('active');
+            clearCanvas();
+        }
+
+        function zoomImage(delta) {
+            modalState.zoom = Math.max(0.2, Math.min(5, modalState.zoom + delta));
+            document.getElementById('modalImage').style.transform = `scale(${modalState.zoom})`;
+            document.getElementById('zoomLevel').textContent = `${Math.round(modalState.zoom * 100)}%`;
+            updateCanvasSize();
+        }
+
+        function resetZoom() {
+            modalState.zoom = 1;
+            document.getElementById('modalImage').style.transform = 'scale(1)';
+            document.getElementById('zoomLevel').textContent = '100%';
+            updateCanvasSize();
+        }
+
+        function toggleDrawMode() {
+            modalState.drawMode = !modalState.drawMode;
+            const btn = document.getElementById('drawModeBtn');
+            const canvas = document.getElementById('modalCanvas');
+            
+            if (modalState.drawMode) {
+                btn.classList.add('active');
+                btn.textContent = '✏️ 框选中...';
+                canvas.style.pointerEvents = 'auto';
+                // 重置缩放到100%方便框选
+                resetZoom();
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '✏️ 框选水印';
+                canvas.style.pointerEvents = 'none';
+            }
+        }
+
+        function updateCanvasSize() {
+            const body = document.getElementById('modalBody');
+            const img = document.getElementById('modalImage');
+            const canvas = document.getElementById('modalCanvas');
+            
+            // 获取图片在容器中的实际渲染尺寸和位置
+            const bodyRect = body.getBoundingClientRect();
+            canvas.width = bodyRect.width;
+            canvas.height = bodyRect.height;
+            
+            // 计算图片在容器中的实际显示尺寸（考虑object-fit: contain）
+            const imgRect = img.getBoundingClientRect();
+            const bodyR = body.getBoundingClientRect();
+            
+            modalState.imgDisplayW = imgRect.width;
+            modalState.imgDisplayH = imgRect.height;
+            modalState.imgOffsetX = imgRect.left - bodyR.left;
+            modalState.imgOffsetY = imgRect.top - bodyR.top;
+            
+            // 重绘已有的框选区域
+            redrawRegions();
+        }
+
+        function getCanvasCoords(e) {
+            const canvas = document.getElementById('modalCanvas');
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        // 将canvas坐标转换为图片原始像素坐标
+        function canvasToImageCoords(cx, cy) {
+            const scaleX = modalState.imgNaturalW / modalState.imgDisplayW;
+            const scaleY = modalState.imgNaturalH / modalState.imgDisplayH;
+            
+            const imgX = (cx - modalState.imgOffsetX) * scaleX;
+            const imgY = (cy - modalState.imgOffsetY) * scaleY;
+            
+            return {
+                x: Math.max(0, Math.min(modalState.imgNaturalW, imgX)),
+                y: Math.max(0, Math.min(modalState.imgNaturalH, imgY))
+            };
+        }
+
+        // 将图片原始像素坐标转换为canvas坐标
+        function imageToCanvasCoords(ix, iy) {
+            const scaleX = modalState.imgDisplayW / modalState.imgNaturalW;
+            const scaleY = modalState.imgDisplayH / modalState.imgNaturalH;
+            
+            return {
+                x: ix * scaleX + modalState.imgOffsetX,
+                y: iy * scaleY + modalState.imgOffsetY
+            };
+        }
+
+        function redrawRegions() {
+            const canvas = document.getElementById('modalCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            modalState.regions.forEach((region, idx) => {
+                const topLeft = imageToCanvasCoords(region.x, region.y);
+                const bottomRight = imageToCanvasCoords(region.x + region.width, region.y + region.height);
+                const w = bottomRight.x - topLeft.x;
+                const h = bottomRight.y - topLeft.y;
+                
+                // 半透明红色填充
+                ctx.fillStyle = 'rgba(233, 69, 96, 0.25)';
+                ctx.fillRect(topLeft.x, topLeft.y, w, h);
+                
+                // 红色虚线边框
+                ctx.strokeStyle = '#e94560';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 3]);
+                ctx.strokeRect(topLeft.x, topLeft.y, w, h);
+                ctx.setLineDash([]);
+                
+                // 区域编号
+                ctx.fillStyle = '#e94560';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.fillText(`${idx + 1}`, topLeft.x + 4, topLeft.y + 16);
+            });
+        }
+
+        function clearCanvas() {
+            const canvas = document.getElementById('modalCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function updateRegionUI() {
+            const count = modalState.regions.length;
+            document.getElementById('regionsCount').innerHTML = count > 0 
+                ? `<span class="region-badge">${count} 个区域</span>` : '';
+            document.getElementById('removeWatermarkBtn').disabled = count === 0;
+            document.getElementById('undoRegionBtn').style.display = count > 0 ? 'inline-block' : 'none';
+            document.getElementById('clearRegionsBtn').style.display = count > 0 ? 'inline-block' : 'none';
+        }
+
+        function undoLastRegion() {
+            modalState.regions.pop();
+            redrawRegions();
+            updateRegionUI();
+        }
+
+        function clearRegions() {
+            modalState.regions = [];
+            clearCanvas();
+            updateRegionUI();
+        }
+
+        // Canvas事件：画框
+        const modalCanvas = document.getElementById('modalCanvas');
+        modalCanvas.style.pointerEvents = 'none';
+
+        modalCanvas.addEventListener('mousedown', function(e) {
+            if (!modalState.drawMode) return;
+            const coords = getCanvasCoords(e);
+            modalState.drawing = true;
+            modalState.startX = coords.x;
+            modalState.startY = coords.y;
+        });
+
+        modalCanvas.addEventListener('mousemove', function(e) {
+            if (!modalState.drawing || !modalState.drawMode) return;
+            const coords = getCanvasCoords(e);
+            
+            // 重绘已有区域 + 当前正在画的框
+            redrawRegions();
+            
+            const ctx = modalCanvas.getContext('2d');
+            const x = Math.min(modalState.startX, coords.x);
+            const y = Math.min(modalState.startY, coords.y);
+            const w = Math.abs(coords.x - modalState.startX);
+            const h = Math.abs(coords.y - modalState.startY);
+            
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.3)';
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.setLineDash([]);
+        });
+
+        modalCanvas.addEventListener('mouseup', function(e) {
+            if (!modalState.drawing || !modalState.drawMode) return;
+            modalState.drawing = false;
+            
+            const coords = getCanvasCoords(e);
+            const cx = Math.min(modalState.startX, coords.x);
+            const cy = Math.min(modalState.startY, coords.y);
+            const cw = Math.abs(coords.x - modalState.startX);
+            const ch = Math.abs(coords.y - modalState.startY);
+            
+            // 忽略太小的框选（小于5px的意外点击）
+            if (cw < 5 || ch < 5) {
+                redrawRegions();
+                return;
+            }
+            
+            // 转换为图片原始坐标
+            const topLeft = canvasToImageCoords(cx, cy);
+            const bottomRight = canvasToImageCoords(cx + cw, cy + ch);
+            
+            const region = {
+                x: Math.round(topLeft.x),
+                y: Math.round(topLeft.y),
+                width: Math.round(bottomRight.x - topLeft.x),
+                height: Math.round(bottomRight.y - topLeft.y)
+            };
+            
+            if (region.width > 0 && region.height > 0) {
+                modalState.regions.push(region);
+            }
+            
+            redrawRegions();
+            updateRegionUI();
+        });
+
+        // 窗口大小变化时重新计算
+        window.addEventListener('resize', function() {
+            if (document.getElementById('imageModalOverlay').classList.contains('active')) {
+                setTimeout(updateCanvasSize, 100);
+            }
+        });
+
+        async function removeWatermark() {
+            if (modalState.regions.length === 0) {
+                alert('请先框选水印区域');
+                return;
+            }
+            
+            const btn = document.getElementById('removeWatermarkBtn');
+            btn.disabled = true;
+            btn.textContent = '🧹 处理中...';
+            
+            try {
+                const response = await fetch('/api/remove-watermark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: modalState.currentPath,
+                        regions: modalState.regions
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 显示去水印后的图片
+                    modalState.cleanedPath = data.cleaned_path;
+                    document.getElementById('modalImage').src = data.cleaned_path + '?t=' + Date.now();
+                    document.getElementById('modalTitle').textContent = '✅ 去水印完成 - 点击"使用此图"替换原图';
+                    document.getElementById('useCleanedBtn').style.display = 'inline-block';
+                    
+                    // 清除框选
+                    modalState.regions = [];
+                    clearCanvas();
+                    updateRegionUI();
+                    
+                    alert('水印去除成功！');
+                } else {
+                    alert('去水印失败: ' + data.message);
+                }
+            } catch (error) {
+                alert('去水印失败: ' + error.message);
+            } finally {
+                btn.disabled = modalState.regions.length === 0;
+                btn.textContent = '🧹 去除水印';
+            }
+        }
+
+        function useCleanedImage() {
+            if (!modalState.cleanedPath || !modalState.sourceElement) return;
+            
+            // 更新原图预览为去水印后的图片
+            modalState.sourceElement.src = modalState.cleanedPath;
+            
+            // 更新data-path（用于后续选中生成关键帧）
+            const parent = modalState.sourceElement.closest('.selectable-image');
+            if (parent) {
+                parent.dataset.path = modalState.cleanedPath;
+                // 如果该图片已被选中，也更新selectedImages
+                const oldPath = selectedImages.indexOf(modalState.currentPath);
+                if (oldPath >= 0) {
+                    selectedImages[oldPath] = modalState.cleanedPath;
+                }
+            }
+            
+            closeImageModal();
+            alert('已替换为去水印后的图片');
+        }
+    </script>
+</body>
+</html>

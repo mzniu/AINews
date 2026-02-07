@@ -1,0 +1,34 @@
+sources:
+  - name: jiqizhixin
+    display_name: 机器之心
+    enabled: true
+    base_url: https://www.jiqizhixin.com
+    list_url: https://www.jiqizhixin.com/articles
+    article_pattern: https://www.jiqizhixin.com/articles/{date}-{id}
+    update_frequency: 120  # 分钟
+    priority: 1
+    requires_proxy: true
+    
+  - name: 36kr_ai
+    display_name: 36氪AI频道
+    enabled: true
+    base_url: https://www.36kr.com
+    list_url: https://www.36kr.com/information/AI/
+    article_pattern: https://www.36kr.com/p/{id}
+    update_frequency: 120
+    priority: 2
+    requires_proxy: false
+    
+  - name: qbitai
+    display_name: 量子位
+    enabled: false
+    base_url: https://www.qbitai.com
+    list_url: https://www.qbitai.com/latest
+    priority: 3
+    
+  - name: leiphone
+    display_name: 雷锋网AI科技评论
+    enabled: false
+    base_url: https://www.leiphone.com
+    list_url: https://www.leiphone.com/category/ai
+    priority: 4
