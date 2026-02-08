@@ -552,6 +552,193 @@
             color: #667eea;
             font-weight: 500;
         }
+
+        /* 水印区域列表面板 */
+        .region-list-panel {
+            display: none;
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            bottom: 10px;
+            width: 220px;
+            background: rgba(22, 33, 62, 0.95);
+            border-radius: 10px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            z-index: 10;
+            flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+        }
+        .region-list-panel.active {
+            display: flex;
+        }
+        .region-list-header {
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(15, 52, 96, 0.8);
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .region-list-header .panel-close {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0 4px;
+            line-height: 1;
+        }
+        .region-list-header .panel-close:hover { color: #e94560; }
+        .region-list-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px;
+        }
+        .region-list-body::-webkit-scrollbar { width: 4px; }
+        .region-list-body::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        .region-list-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            margin-bottom: 4px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .region-list-item:hover {
+            background: rgba(233, 69, 96, 0.15);
+            border-color: rgba(233, 69, 96, 0.4);
+        }
+        .region-list-item.highlighted {
+            background: rgba(233, 69, 96, 0.25);
+            border-color: #e94560;
+        }
+        .region-item-num {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #e94560;
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .region-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .region-item-size {
+            font-size: 12px;
+            color: #ccc;
+        }
+        .region-item-pos {
+            font-size: 10px;
+            color: #888;
+            margin-top: 1px;
+        }
+        .region-item-del {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .region-item-del:hover {
+            color: #e94560;
+            background: rgba(233, 69, 96, 0.15);
+        }
+        .region-list-empty {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            padding: 20px 10px;
+        }
+        .region-list-footer {
+            padding: 8px 10px;
+            border-top: 1px solid rgba(102, 126, 234, 0.2);
+            flex-shrink: 0;
+        }
+        .region-list-footer button {
+            width: 100%;
+            padding: 6px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            background: #e94560;
+            color: white;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+        .region-list-footer button:hover { background: #c0392b; }
+
+        /* Toast 通知 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+            min-width: 280px;
+            max-width: 420px;
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-size: 14px;
+            line-height: 1.5;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            backdrop-filter: blur(10px);
+            transform: translateX(120%);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .toast.hiding {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+        .toast-success {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+        }
+        .toast-error {
+            background: linear-gradient(135deg, #e17055, #d63031);
+        }
+        .toast-info {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+        }
+        .toast-title {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+        .toast-body {
+            opacity: 0.92;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -633,6 +820,9 @@
                         <button class="btn" onclick="generateSummary()">
                             🤖 生成AI标题和摘要
                         </button>
+                        <button class="btn" id="oneClickBtn" onclick="oneClickGenerate()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            🚀 一键生成视频
+                        </button>
                         <button class="secondary-btn" onclick="resetSelection()">
                             🔄 重置选择
                         </button>
@@ -699,6 +889,8 @@
                     <button class="modal-btn-zoom" onclick="resetZoom()" title="适应">🔄 适应</button>
                     <span style="color:#555;">|</span>
                     <button class="modal-btn-draw" id="drawModeBtn" onclick="toggleDrawMode()" title="框选水印区域">✏️ 框选水印</button>
+                    <button class="modal-btn-zoom" id="autoDetectBtn" onclick="autoDetectWatermark()" title="AI自动检测水印">🔍 自动检测</button>
+                    <button class="modal-btn-action" id="autoRemoveBtn" onclick="autoDetectAndRemove()" title="自动检测水印并一键去除" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">🚀 一键去水印</button>
                     <button class="modal-btn-zoom" id="undoRegionBtn" onclick="undoLastRegion()" title="撤销上一个框选" style="display:none;">↩️ 撤销</button>
                     <button class="modal-btn-zoom" id="clearRegionsBtn" onclick="clearRegions()" title="清除所有框选" style="display:none;">🗑️ 清除</button>
                     <button class="modal-btn-action" id="removeWatermarkBtn" onclick="removeWatermark()" disabled title="去除水印">🧹 去除水印</button>
@@ -710,6 +902,19 @@
             <div class="image-modal-body" id="modalBody">
                 <img id="modalImage" src="" alt="预览图片" draggable="false">
                 <canvas id="modalCanvas"></canvas>
+                <!-- 水印区域列表面板 -->
+                <div class="region-list-panel" id="regionListPanel">
+                    <div class="region-list-header">
+                        <span>📋 检测区域</span>
+                        <button class="panel-close" onclick="toggleRegionPanel(false)" title="关闭面板">✕</button>
+                    </div>
+                    <div class="region-list-body" id="regionListBody">
+                        <div class="region-list-empty">暂无检测区域</div>
+                    </div>
+                    <div class="region-list-footer" id="regionListFooter" style="display:none;">
+                        <button onclick="clearRegions()">🗑️ 清除全部区域</button>
+                    </div>
+                </div>
             </div>
             <div class="image-modal-footer">
                 <div>
@@ -721,7 +926,26 @@
         </div>
     </div>
 
+    <div class="toast-container" id="toastContainer"></div>
     <script>
+        function showToast(message, type = 'success', duration = 3500) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+            toast.innerHTML = `<div class="toast-title">${icon} ${type === 'success' ? '成功' : type === 'error' ? '失败' : '提示'}</div><div class="toast-body">${message}</div>`;
+            
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 400);
+            }, duration);
+        }
+
         function fillExample(url) {
             event.preventDefault();
             document.getElementById('urlInput').value = url;
@@ -811,7 +1035,7 @@
                     imageCard.innerHTML = `
                         <img src="${img.local_path}" alt="${img.alt || '图片 ' + (index + 1)}" 
                              style="cursor:pointer;"
-                             onclick="openImageModal('${img.local_path}', this)"
+                             onclick="openImageModal(this.src, this)"
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
                         <div class="status success">✓ 已下载</div>
                     `;
@@ -857,9 +1081,9 @@
                     <img src="${img.local_path}" alt="图片 ${index + 1}">
                     <div class="checkbox"></div>
                     <div class="image-effects">
-                        <button class="effect-btn" onclick="processImage('${img.local_path}', 'enhance', event)">增强</button>
-                        <button class="effect-btn" onclick="processImage('${img.local_path}', 'sharpen', event)">锐化</button>
-                        <button class="effect-btn" onclick="openImageModal('${img.local_path}', this.closest('.selectable-image').querySelector('img')); event.stopPropagation();">🔍 查看/去水印</button>
+                        <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'enhance', event)">增强</button>
+                        <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'sharpen', event)">锐化</button>
+                        <button class="effect-btn" onclick="openImageModal(this.closest('.selectable-image').dataset.path, this.closest('.selectable-image').querySelector('img')); event.stopPropagation();">🔍 查看/去水印</button>
                     </div>
                 `;
 
@@ -1022,7 +1246,7 @@
                             </div>
                             <img src="${frame.image_path}" 
                                  style="width: 100%; border-radius: 4px; cursor: pointer;" 
-                                 onclick="openImageModal('${frame.image_path}', this)">
+                                 onclick="openImageModal(this.src, this)">
                             <div style="margin-top: 8px; display: flex; gap: 8px;">
                                 <a href="${frame.image_path}" download="frame_${frame.frame_index}.png" 
                                    class="download-btn" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 13px;">
@@ -1037,12 +1261,12 @@
                     // 显示合成视频按钮
                     document.getElementById('createVideoBtn').style.display = 'inline-block';
                     
-                    alert(`视频关键帧生成成功！共 ${data.total} 帧`);
+                    showToast(`视频关键帧生成成功！共 ${data.total} 帧`, 'success');
                 } else {
-                    alert('关键帧生成失败: ' + data.message);
+                    showToast('关键帧生成失败: ' + data.message, 'error');
                 }
             } catch (error) {
-                alert('关键帧生成失败: ' + error.message);
+                showToast('关键帧生成失败: ' + error.message, 'error');
             }
         }
 
@@ -1083,18 +1307,168 @@
                     
                     videoResult.style.display = 'block';
                     
-                    alert('视频生成成功！');
+                    showToast(`视频生成成功！时长 ${data.duration.toFixed(1)}秒，大小 ${data.file_size_mb}MB`, 'success', 4500);
                 } else {
-                    alert('视频生成失败: ' + data.message);
+                    showToast('视频生成失败: ' + data.message, 'error');
                 }
             } catch (error) {
-                alert('视频生成失败: ' + error.message);
+                showToast('视频生成失败: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = '🎬 合成视频 (带背景音乐)';
             }
         }
 
+
+        async function oneClickGenerate() {
+            const btn = document.getElementById('oneClickBtn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+
+            const content = document.getElementById('contentEditor').value;
+            if (!content.trim()) {
+                showToast('请先抓取网页内容', 'error');
+                btn.disabled = false;
+                return;
+            }
+
+            // 如果没有手动选择图片，自动选择前5张
+            if (selectedImages.length === 0) {
+                const allImgs = document.querySelectorAll('.selectable-image');
+                const maxAuto = Math.min(allImgs.length, 5);
+                for (let i = 0; i < maxAuto; i++) {
+                    if (!allImgs[i].classList.contains('selected')) {
+                        toggleImageSelection(allImgs[i]);
+                    }
+                }
+                if (selectedImages.length === 0) {
+                    showToast('没有可用的图片', 'error');
+                    btn.disabled = false;
+                    return;
+                }
+                showToast(`已自动选择 ${selectedImages.length} 张图片`, 'info');
+            }
+
+            try {
+                // 第1步：生成AI标题和摘要
+                btn.textContent = '🚀 [1/3] 生成标题摘要...';
+                showToast('开始一键生成：正在生成AI标题和摘要...', 'info');
+
+                const summaryDiv = document.getElementById('aiSummary');
+                summaryDiv.style.display = 'block';
+                document.getElementById('aiTitle').textContent = '正在生成标题...';
+                document.getElementById('aiSummaryContent').textContent = '正在生成摘要...';
+
+                const summaryResp = await fetch('/api/generate-summary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: content,
+                        images: selectedImages,
+                        title: currentData ? currentData.title : ''
+                    })
+                });
+                const summaryData = await summaryResp.json();
+
+                if (!summaryData.success) {
+                    showToast('标题摘要生成失败: ' + summaryData.message, 'error');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                    return;
+                }
+
+                generatedTitle = summaryData.title;
+                generatedSummary = summaryData.summary;
+                document.getElementById('aiTitle').textContent = summaryData.title;
+                document.getElementById('aiSummaryContent').textContent = summaryData.summary;
+                document.getElementById('aiTags').textContent = summaryData.tags || '';
+                document.getElementById('aiMeta').textContent =
+                    `标题: ${summaryData.title.length}字 | 摘要: ${summaryData.summary.length}字 | 模型: ${summaryData.model} | tokens: ${summaryData.tokens_used}`;
+
+                showToast('✅ 标题摘要已生成，开始生成关键帧...', 'success');
+
+                // 第2步：生成关键帧
+                btn.textContent = '🚀 [2/3] 生成关键帧...';
+
+                const frameResp = await fetch('/api/generate-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: generatedTitle,
+                        summary: generatedSummary,
+                        images: selectedImages
+                    })
+                });
+                const frameData = await frameResp.json();
+
+                if (!frameData.success) {
+                    showToast('关键帧生成失败: ' + frameData.message, 'error');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                    return;
+                }
+
+                // 显示关键帧
+                document.getElementById('generatedImage').style.display = 'block';
+                document.getElementById('framesInfo').textContent =
+                    `✅ ${frameData.message} | 标题: ${frameData.title} | 摘要: ${frameData.summary.substring(0, 30)}...`;
+                const framesContainer = document.getElementById('framesContainer');
+                framesContainer.innerHTML = '';
+                window.generatedFramesDir = frameData.output_dir;
+
+                frameData.frames.forEach(frame => {
+                    const frameCard = document.createElement('div');
+                    frameCard.style.cssText = 'background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
+                    frameCard.innerHTML = `
+                        <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">关键帧 ${frame.frame_index}</div>
+                        <img src="${frame.image_path}" style="width: 100%; border-radius: 4px; cursor: pointer;" onclick="openImageModal(this.src, this)">
+                        <div style="margin-top: 8px; display: flex; gap: 8px;">
+                            <a href="${frame.image_path}" download="frame_${frame.frame_index}.png" class="download-btn" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 13px;">📥 下载</a>
+                        </div>
+                    `;
+                    framesContainer.appendChild(frameCard);
+                });
+                document.getElementById('createVideoBtn').style.display = 'inline-block';
+
+                showToast(`✅ ${frameData.total} 帧关键帧已生成，开始合成视频...`, 'success');
+
+                // 第3步：合成视频
+                btn.textContent = '🚀 [3/3] 合成视频...';
+
+                const videoResp = await fetch('/api/create-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        frames_dir: window.generatedFramesDir,
+                        duration_per_frame: 2.5,
+                        audio_path: 'static/music/background.mp3'
+                    })
+                });
+                const videoData = await videoResp.json();
+
+                if (videoData.success) {
+                    const videoResult = document.getElementById('videoResult');
+                    const videoInfo = document.getElementById('videoInfo');
+                    const videoPlayer = document.getElementById('generatedVideo');
+                    const downloadBtn = document.getElementById('downloadVideoBtn');
+
+                    videoInfo.textContent = `🎬 关键帧: ${videoData.frames_count} | 时长: ${videoData.duration.toFixed(1)}秒 | 大小: ${videoData.file_size_mb}MB`;
+                    videoPlayer.src = videoData.video_path;
+                    downloadBtn.href = videoData.video_path;
+                    downloadBtn.download = videoData.video_path.split('/').pop();
+                    videoResult.style.display = 'block';
+
+                    showToast(`🎉 一键生成完成！时长 ${videoData.duration.toFixed(1)}秒，大小 ${videoData.file_size_mb}MB`, 'success', 5000);
+                } else {
+                    showToast('视频合成失败: ' + videoData.message, 'error');
+                }
+            } catch (error) {
+                showToast('一键生成失败: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
 
         function resetSelection() {
             // 清除所有选择
@@ -1150,7 +1524,8 @@
             imgDisplayH: 0,
             imgOffsetX: 0,
             imgOffsetY: 0,
-            sourceElement: null    // 点击来源的img元素
+            sourceElement: null,   // 点击来源的img元素
+            skipAutoDetect: false  // 去水印后跳过自动检测
         };
 
         function openImageModal(imgSrc, sourceEl) {
@@ -1160,6 +1535,7 @@
             modalState.drawMode = false;
             modalState.regions = [];
             modalState.sourceElement = sourceEl || null;
+            modalState.skipAutoDetect = false;
 
             const overlay = document.getElementById('imageModalOverlay');
             const img = document.getElementById('modalImage');
@@ -1184,12 +1560,22 @@
                 document.getElementById('modalImageInfo').textContent = 
                     `${img.naturalWidth} × ${img.naturalHeight} px`;
                 updateCanvasSize();
+                
+                // 默认进入框选模式
+                if (!modalState.drawMode) {
+                    toggleDrawMode();
+                }
+                // 自动检测水印（去水印后的图不再检测）
+                if (!modalState.skipAutoDetect) {
+                    autoDetectWatermark();
+                }
             };
         }
 
         function closeImageModal() {
             document.getElementById('imageModalOverlay').classList.remove('active');
             clearCanvas();
+            toggleRegionPanel(false);
         }
 
         function zoomImage(delta) {
@@ -1318,11 +1704,101 @@
 
         function updateRegionUI() {
             const count = modalState.regions.length;
+            // 更新底部徽章（点击可切换面板）
             document.getElementById('regionsCount').innerHTML = count > 0 
-                ? `<span class="region-badge">${count} 个区域</span>` : '';
+                ? `<span class="region-badge" style="cursor:pointer;" onclick="toggleRegionPanel()" title="查看区域列表">${count} 个区域 ▸</span>` : '';
             document.getElementById('removeWatermarkBtn').disabled = count === 0;
             document.getElementById('undoRegionBtn').style.display = count > 0 ? 'inline-block' : 'none';
             document.getElementById('clearRegionsBtn').style.display = count > 0 ? 'inline-block' : 'none';
+            
+            // 更新区域列表面板内容
+            const listBody = document.getElementById('regionListBody');
+            const listFooter = document.getElementById('regionListFooter');
+            const panel = document.getElementById('regionListPanel');
+            
+            if (count === 0) {
+                listBody.innerHTML = '<div class="region-list-empty">暂无检测区域<br><small style="color:#555;">使用"自动检测"或"框选水印"添加</small></div>';
+                listFooter.style.display = 'none';
+                panel.classList.remove('active');
+            } else {
+                let html = '';
+                modalState.regions.forEach((r, idx) => {
+                    html += `<div class="region-list-item" data-region-idx="${idx}" 
+                                  onmouseenter="highlightRegion(${idx}, true)" 
+                                  onmouseleave="highlightRegion(${idx}, false)"
+                                  onclick="focusRegion(${idx})">
+                        <span class="region-item-num">${idx + 1}</span>
+                        <div class="region-item-info">
+                            <div class="region-item-size">${r.width} × ${r.height} px</div>
+                            <div class="region-item-pos">位置: (${r.x}, ${r.y})</div>
+                        </div>
+                        <button class="region-item-del" onclick="event.stopPropagation(); removeRegion(${idx})" title="删除此区域">✕</button>
+                    </div>`;
+                });
+                listBody.innerHTML = html;
+                listFooter.style.display = 'block';
+                // 自动显示面板
+                panel.classList.add('active');
+            }
+        }
+
+        function toggleRegionPanel(forceState) {
+            const panel = document.getElementById('regionListPanel');
+            if (typeof forceState === 'boolean') {
+                panel.classList.toggle('active', forceState);
+            } else {
+                panel.classList.toggle('active');
+            }
+        }
+
+        function removeRegion(index) {
+            if (index >= 0 && index < modalState.regions.length) {
+                modalState.regions.splice(index, 1);
+                redrawRegions();
+                updateRegionUI();
+                showToast(`已删除区域 ${index + 1}`, 'info', 2000);
+            }
+        }
+
+        function highlightRegion(index, isHighlight) {
+            // 高亮列表项
+            const items = document.querySelectorAll('.region-list-item');
+            items.forEach((item, i) => {
+                item.classList.toggle('highlighted', i === index && isHighlight);
+            });
+            
+            // 在canvas上高亮显示对应区域
+            redrawRegions();
+            if (isHighlight && index >= 0 && index < modalState.regions.length) {
+                const region = modalState.regions[index];
+                const canvas = document.getElementById('modalCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                const topLeft = imageToCanvasCoords(region.x, region.y);
+                const bottomRight = imageToCanvasCoords(region.x + region.width, region.y + region.height);
+                const w = bottomRight.x - topLeft.x;
+                const h = bottomRight.y - topLeft.y;
+                
+                // 加粗高亮边框
+                ctx.strokeStyle = '#ffcc00';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([]);
+                ctx.strokeRect(topLeft.x - 1, topLeft.y - 1, w + 2, h + 2);
+                
+                // 黄色半透明覆盖
+                ctx.fillStyle = 'rgba(255, 204, 0, 0.15)';
+                ctx.fillRect(topLeft.x, topLeft.y, w, h);
+            }
+        }
+
+        function focusRegion(index) {
+            // 点击列表项时闪烁对应区域
+            highlightRegion(index, true);
+            setTimeout(() => {
+                highlightRegion(index, false);
+                setTimeout(() => highlightRegion(index, true), 150);
+                setTimeout(() => highlightRegion(index, false), 600);
+            }, 300);
         }
 
         function undoLastRegion() {
@@ -1335,6 +1811,7 @@
             modalState.regions = [];
             clearCanvas();
             updateRegionUI();
+            toggleRegionPanel(false);
         }
 
         // Canvas事件：画框
@@ -1413,6 +1890,97 @@
             }
         });
 
+        async function autoDetectWatermark() {
+            const btn = document.getElementById('autoDetectBtn');
+            btn.disabled = true;
+            btn.textContent = '🔍 检测中...';
+            
+            try {
+                const response = await fetch('/api/detect-watermark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_path: modalState.currentPath })
+                });
+                const data = await response.json();
+                
+                if (data.success && data.regions && data.regions.length > 0) {
+                    // 将检测到的区域添加到框选列表
+                    data.regions.forEach(r => modalState.regions.push(r));
+                    redrawRegions();
+                    updateRegionUI();
+                    showToast(`检测到 ${data.regions.length} 个可疑水印区域`, 'success');
+                } else {
+                    showToast('未检测到明显水印，请手动框选', 'info');
+                }
+            } catch (error) {
+                showToast('自动检测失败: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔍 自动检测';
+            }
+        }
+
+        async function autoDetectAndRemove() {
+            const btn = document.getElementById('autoRemoveBtn');
+            btn.disabled = true;
+            btn.textContent = '🚀 检测中...';
+            
+            try {
+                // 第1步：自动检测
+                const detectResp = await fetch('/api/detect-watermark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_path: modalState.currentPath })
+                });
+                const detectData = await detectResp.json();
+                
+                if (!detectData.success || !detectData.regions || detectData.regions.length === 0) {
+                    showToast('未检测到水印区域，请手动框选后去除', 'info');
+                    return;
+                }
+                
+                // 将检测区域显示出来
+                modalState.regions = detectData.regions;
+                redrawRegions();
+                updateRegionUI();
+                showToast(`检测到 ${detectData.regions.length} 个水印区域，正在去除...`, 'info');
+                
+                // 第2步：自动去除
+                btn.textContent = '🚀 去除中...';
+                
+                const removeResp = await fetch('/api/remove-watermark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: modalState.currentPath,
+                        regions: modalState.regions
+                    })
+                });
+                const removeData = await removeResp.json();
+                
+                if (removeData.success) {
+                    modalState.cleanedPath = removeData.cleaned_path;
+                    modalState.skipAutoDetect = true;
+                    document.getElementById('modalImage').src = removeData.cleaned_path + '?t=' + Date.now();
+                    document.getElementById('modalTitle').textContent = '✅ 去水印完成 - 点击"使用此图"替换原图';
+                    document.getElementById('useCleanedBtn').style.display = 'inline-block';
+                    
+                    modalState.regions = [];
+                    clearCanvas();
+                    updateRegionUI();
+                    
+                    showToast(`已自动检测并去除 ${detectData.regions.length} 个水印区域`, 'success');
+                } else {
+                    showToast('去水印失败: ' + removeData.message, 'error');
+                }
+            } catch (error) {
+                showToast('一键去水印失败: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 一键去水印';
+            }
+        }
+
         async function removeWatermark() {
             if (modalState.regions.length === 0) {
                 alert('请先框选水印区域');
@@ -1438,6 +2006,7 @@
                 if (data.success) {
                     // 显示去水印后的图片
                     modalState.cleanedPath = data.cleaned_path;
+                    modalState.skipAutoDetect = true;  // 去水印后的图不再自动检测
                     document.getElementById('modalImage').src = data.cleaned_path + '?t=' + Date.now();
                     document.getElementById('modalTitle').textContent = '✅ 去水印完成 - 点击"使用此图"替换原图';
                     document.getElementById('useCleanedBtn').style.display = 'inline-block';
@@ -1447,12 +2016,12 @@
                     clearCanvas();
                     updateRegionUI();
                     
-                    alert('水印去除成功！');
+                    showToast('水印去除成功！可点击「使用此图」替换', 'success');
                 } else {
-                    alert('去水印失败: ' + data.message);
+                    showToast('去水印失败: ' + data.message, 'error');
                 }
             } catch (error) {
-                alert('去水印失败: ' + error.message);
+                showToast('去水印失败: ' + error.message, 'error');
             } finally {
                 btn.disabled = modalState.regions.length === 0;
                 btn.textContent = '🧹 去除水印';
@@ -1462,22 +2031,32 @@
         function useCleanedImage() {
             if (!modalState.cleanedPath || !modalState.sourceElement) return;
             
+            const newPath = modalState.cleanedPath;
+            const oldPath = modalState.currentPath;
+            
             // 更新原图预览为去水印后的图片
-            modalState.sourceElement.src = modalState.cleanedPath;
+            modalState.sourceElement.src = newPath;
             
             // 更新data-path（用于后续选中生成关键帧）
             const parent = modalState.sourceElement.closest('.selectable-image');
             if (parent) {
-                parent.dataset.path = modalState.cleanedPath;
+                parent.dataset.path = newPath;
                 // 如果该图片已被选中，也更新selectedImages
-                const oldPath = selectedImages.indexOf(modalState.currentPath);
-                if (oldPath >= 0) {
-                    selectedImages[oldPath] = modalState.cleanedPath;
+                const idx = selectedImages.indexOf(oldPath);
+                if (idx >= 0) {
+                    selectedImages[idx] = newPath;
                 }
             }
             
+            // 同步更新image-card中的图片（顶部预览区域）
+            document.querySelectorAll('.image-card img').forEach(img => {
+                if (img.src.endsWith(oldPath) || img.getAttribute('src') === oldPath) {
+                    img.src = newPath;
+                }
+            });
+            
             closeImageModal();
-            alert('已替换为去水印后的图片');
+            showToast('已替换为去水印后的图片', 'success');
         }
     </script>
 </body>

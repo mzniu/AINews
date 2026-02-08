@@ -83,15 +83,31 @@ class RemoveWatermarkRequest(BaseModel):
     image_path: str
     regions: List[dict] = []  # [{x, y, width, height}, ...]
 
+class DetectWatermarkRequest(BaseModel):
+    image_path: str
+
 
 # 核心功能
 async def get_page_content(url: str) -> tuple[str, str]:
-    """使用Playwright获取页面"""
+    """使用Playwright获取页面（自动降级等待策略）"""
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            await page.goto(url, wait_until='networkidle', timeout=30000)
+            
+            # 先尝试 networkidle（最完整），超时则降级到 domcontentloaded
+            try:
+                await page.goto(url, wait_until='networkidle', timeout=15000)
+            except Exception:
+                logger.warning(f"networkidle 超时，降级为 domcontentloaded: {url}")
+                try:
+                    await page.goto(url, wait_until='domcontentloaded', timeout=30000)
+                    # 额外等待一段时间让JS渲染完成
+                    await page.wait_for_timeout(3000)
+                except Exception:
+                    logger.warning(f"domcontentloaded 也超时，使用 commit 策略: {url}")
+                    await page.goto(url, wait_until='commit', timeout=30000)
+                    await page.wait_for_timeout(5000)
             
             title = await page.title()
             html = await page.content()
@@ -127,7 +143,7 @@ def extract_content(html: str, base_url: str) -> dict:
     images = []
     for img in soup.find_all('img'):
         src = img.get('src') or img.get('data-src') or img.get('data-original')
-        if src:
+        if src and not src.startswith('data:'):
             images.append({
                 'url': urljoin(base_url, src),
                 'alt': img.get('alt', '')
@@ -136,16 +152,30 @@ def extract_content(html: str, base_url: str) -> dict:
     return {'content': content_text, 'images': images}
 
 
-def download_image(image_url: str, save_dir: Path, index: int) -> dict:
-    """下载图片"""
+def download_image(image_url: str, save_dir: Path, index: int, page_url: str = '') -> dict:
+    """下载图片（带Referer防盗链绕过）"""
     try:
+        # 跳过 data URI
+        if image_url.startswith('data:'):
+            return {'url': image_url[:50], 'success': False, 'error': 'data URI, skipped'}
+        
         ext = Path(urlparse(image_url).path).suffix or '.jpg'
         filename = f"image_{index:03d}{ext}"
         filepath = save_dir / filename
         
-        response = requests.get(image_url, headers={
-            'User-Agent': 'Mozilla/5.0'
-        }, timeout=10)
+        # 构造完整请求头，带 Referer 绕过防盗链
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        }
+        if page_url:
+            headers['Referer'] = page_url
+            # 设置 Origin 为源站域名
+            parsed = urlparse(page_url)
+            headers['Origin'] = f"{parsed.scheme}://{parsed.netloc}"
+        
+        response = requests.get(image_url, headers=headers, timeout=15)
         response.raise_for_status()
         
         with open(filepath, 'wb') as f:
@@ -165,7 +195,7 @@ def save_results(url: str, title: str, content: str, images: list) -> dict:
     images_dir = save_dir / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
     
-    downloaded_images = [download_image(img['url'], images_dir, i) for i, img in enumerate(images, 1)]
+    downloaded_images = [download_image(img['url'], images_dir, i, page_url=url) for i, img in enumerate(images, 1)]
     
     content_file = save_dir / "content.txt"
     with open(content_file, 'w', encoding='utf-8') as f:
@@ -297,19 +327,62 @@ async def generate_image(request: GenerateImageRequest):
             title_font = ImageFont.load_default()
             summary_font = ImageFont.load_default()
         
-        # 文字自动换行函数
+        # 文字自动换行函数（词感知：不截断英文单词）
         def wrap_text(text, font, max_width, draw_obj):
+            import re
+            # 将文本拆分为"token"：连续的ASCII单词/数字为一个token，每个中文字符单独为一个token，
+            # 空格和标点也单独为token，这样换行时不会把英文单词从中间截断
+            tokens = re.findall(r'[A-Za-z0-9]+(?:[\''\-][A-Za-z0-9]+)*|[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]|[^\S\n]|[^\w\s]|\n', text)
+            
             lines = []
             current_line = ""
-            for char in text:
-                test_line = current_line + char
+            
+            for token in tokens:
+                if token == '\n':
+                    lines.append(current_line)
+                    current_line = ""
+                    continue
+                    
+                test_line = current_line + token
                 bbox = draw_obj.textbbox((0, 0), test_line, font=font)
-                if bbox[2] - bbox[0] <= max_width:
+                line_width = bbox[2] - bbox[0]
+                
+                if line_width <= max_width:
                     current_line = test_line
                 else:
-                    if current_line:
+                    # 当前行放不下这个token
+                    if current_line.strip():
                         lines.append(current_line)
-                    current_line = char
+                        # 新行开头去掉前导空格
+                        current_line = token.lstrip() if token.isspace() else token
+                    else:
+                        # 当前行为空但单个token就超宽了（超长单词），强制按字符拆分
+                        for char in token:
+                            test_char = current_line + char
+                            bbox = draw_obj.textbbox((0, 0), test_char, font=font)
+                            if bbox[2] - bbox[0] <= max_width:
+                                current_line = test_char
+                            else:
+                                if current_line:
+                                    lines.append(current_line)
+                                current_line = char
+                    
+                    # 检查新行是否也超宽（token本身超宽时的后续处理）
+                    bbox = draw_obj.textbbox((0, 0), current_line, font=font)
+                    if bbox[2] - bbox[0] > max_width and len(current_line) > 1:
+                        # 对超长的current_line进行字符级拆分
+                        temp = ""
+                        for char in current_line:
+                            test_char = temp + char
+                            bbox = draw_obj.textbbox((0, 0), test_char, font=font)
+                            if bbox[2] - bbox[0] <= max_width:
+                                temp = test_char
+                            else:
+                                if temp:
+                                    lines.append(temp)
+                                temp = char
+                        current_line = temp
+            
             if current_line:
                 lines.append(current_line)
             return lines
@@ -650,6 +723,136 @@ async def process_image(request: ProcessImageRequest):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
+
+@app.post("/api/detect-watermark")
+async def detect_watermark(request: DetectWatermarkRequest):
+    """自动检测图片中可能的水印区域"""
+    try:
+        image_path = Path(request.image_path.lstrip('/'))
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="图片不存在")
+        
+        img = cv2.imread(str(image_path))
+        if img is None:
+            return {"success": False, "message": "无法读取图片"}
+        
+        h, w = img.shape[:2]
+        regions = []
+        
+        # 策略1: 扫描四个角落区域（水印最常出现的位置）
+        corner_regions = [
+            (int(w * 0.65), int(h * 0.90), int(w * 0.35), int(h * 0.10)),  # 右下角
+            (0, int(h * 0.90), int(w * 0.35), int(h * 0.10)),              # 左下角
+            (int(w * 0.65), 0, int(w * 0.35), int(h * 0.08)),              # 右上角
+            (0, 0, int(w * 0.35), int(h * 0.08)),                          # 左上角
+        ]
+        
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        for rx, ry, rw, rh in corner_regions:
+            roi = gray[ry:ry+rh, rx:rx+rw]
+            if roi.size == 0:
+                continue
+            
+            # 使用Canny边缘检测 + 形态学操作找文字/Logo区域
+            edges = cv2.Canny(roi, 50, 150)
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 5))
+            dilated = cv2.dilate(edges, kernel, iterations=2)
+            
+            contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            for cnt in contours:
+                cx, cy, cw, ch = cv2.boundingRect(cnt)
+                area = cw * ch
+                roi_area = rw * rh
+                # 过滤: 面积合理（不能太小也不能占满整个角落）
+                if area < roi_area * 0.01 or area > roi_area * 0.9:
+                    continue
+                if cw < 20 or ch < 8:
+                    continue
+                
+                # 转换为全图坐标，并适当扩展边界
+                pad = 8
+                abs_x = max(0, rx + cx - pad)
+                abs_y = max(0, ry + cy - pad)
+                abs_w = min(w - abs_x, cw + pad * 2)
+                abs_h = min(h - abs_y, ch + pad * 2)
+                regions.append({'x': abs_x, 'y': abs_y, 'width': abs_w, 'height': abs_h})
+        
+        # 合并重叠区域
+        regions = merge_regions(regions)
+        
+        # 策略2: 如果角落没检测到，尝试查找半透明文字水印（全图高亮区域）
+        if len(regions) == 0:
+            # 查找接近白色的大面积文字（常见半透明水印）
+            _, bright = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
+            kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 10))
+            bright_dilated = cv2.dilate(bright, kernel2, iterations=2)
+            contours2, _ = cv2.findContours(bright_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            for cnt in contours2:
+                cx, cy, cw, ch = cv2.boundingRect(cnt)
+                # 水印通常不会太小也不会太大
+                if cw * ch < w * h * 0.001 or cw * ch > w * h * 0.3:
+                    continue
+                if cw < 30 or ch < 15:
+                    continue
+                pad = 10
+                regions.append({
+                    'x': max(0, cx - pad),
+                    'y': max(0, cy - pad),
+                    'width': min(w - max(0, cx - pad), cw + pad * 2),
+                    'height': min(h - max(0, cy - pad), ch + pad * 2)
+                })
+            regions = merge_regions(regions)
+        
+        logger.info(f"水印检测完成: 找到 {len(regions)} 个可疑区域")
+        return {
+            "success": True,
+            "regions": regions[:10],  # 最多返回10个
+            "count": len(regions)
+        }
+    except Exception as e:
+        logger.error(f"水印检测失败: {e}")
+        return {"success": False, "message": str(e), "regions": []}
+
+
+def merge_regions(regions):
+    """合并重叠的区域"""
+    if len(regions) <= 1:
+        return regions
+    
+    merged = True
+    while merged:
+        merged = False
+        new_regions = []
+        used = set()
+        for i in range(len(regions)):
+            if i in used:
+                continue
+            r1 = regions[i]
+            for j in range(i + 1, len(regions)):
+                if j in used:
+                    continue
+                r2 = regions[j]
+                # 检查是否重叠或相邻
+                if (r1['x'] <= r2['x'] + r2['width'] + 10 and
+                    r2['x'] <= r1['x'] + r1['width'] + 10 and
+                    r1['y'] <= r2['y'] + r2['height'] + 10 and
+                    r2['y'] <= r1['y'] + r1['height'] + 10):
+                    # 合并
+                    nx = min(r1['x'], r2['x'])
+                    ny = min(r1['y'], r2['y'])
+                    nx2 = max(r1['x'] + r1['width'], r2['x'] + r2['width'])
+                    ny2 = max(r1['y'] + r1['height'], r2['y'] + r2['height'])
+                    r1 = {'x': nx, 'y': ny, 'width': nx2 - nx, 'height': ny2 - ny}
+                    used.add(j)
+                    merged = True
+            new_regions.append(r1)
+            used.add(i)
+        regions = new_regions
+    return regions
 
 
 # LaMa模型全局实例（延迟加载）
