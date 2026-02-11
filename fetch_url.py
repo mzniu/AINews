@@ -69,12 +69,13 @@ def extract_content(html: str, base_url: str) -> dict:
     # 提取图片（根据网站类型采用不同策略）
     images = []
     
-    # 检查是否为qbitai网站
+    # 检查网站类型
     parsed_url = urlparse(base_url)
     is_qbitai = 'qbitai.com' in parsed_url.netloc
+    is_36kr = '36kr.com' in parsed_url.netloc
     
     if is_qbitai:
-        # 提取具有syl-page-img类和pgc-img类的图片
+        # qbitai网站：提取syl-page-img和pgc-img类的图片
         logger.info("检测到qbitai网站，提取syl-page-img和pgc-img类的图片")
         
         # 提取syl-page-img类图片
@@ -110,6 +111,34 @@ def extract_content(html: str, base_url: str) -> dict:
                     })
         
         logger.info(f"qbitai网站提取完成: syl-page-img {len(syl_img_elements)}张, pgc-img {len(pgc_containers)}张")
+        
+    elif is_36kr:
+        # 36kr网站：只提取image-wrapper类容器中的图片
+        logger.info("检测到36kr网站，只提取image-wrapper类容器中的图片")
+        
+        # 查找所有image-wrapper容器
+        wrapper_containers = soup.find_all('div', class_='image-wrapper')
+        logger.info(f"找到 {len(wrapper_containers)} 个image-wrapper容器")
+        
+        for container in wrapper_containers:
+            # 在每个容器中查找图片
+            imgs = container.find_all('img')
+            for img in imgs:
+                src = img.get('src') or img.get('data-src') or img.get('data-original')
+                if src:
+                    # 转换为绝对URL
+                    absolute_url = urljoin(base_url, src)
+                    images.append({
+                        'url': absolute_url,
+                        'alt': img.get('alt', ''),
+                        'width': img.get('width'),
+                        'height': img.get('height'),
+                        'class': 'image-wrapper',
+                        'container': 'image-wrapper'
+                    })
+        
+        logger.info(f"36kr网站提取完成: 共 {len(images)} 张图片")
+        
     else:
         # 其他网站提取所有图片
         logger.info("提取页面所有图片")
