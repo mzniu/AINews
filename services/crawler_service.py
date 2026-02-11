@@ -109,8 +109,8 @@ class CrawlerService:
             # 36kr网站：只提取image-wrapper类容器中的图片
             logger.info("检测到36kr网站，只提取image-wrapper类容器中的图片")
             
-            # 查找所有image-wrapper容器
-            wrapper_containers = soup.find_all('div', class_='image-wrapper')
+            # 查找所有image-wrapper容器（包括p标签和div标签）
+            wrapper_containers = soup.find_all(['p', 'div'], class_='image-wrapper')
             logger.info(f"找到 {len(wrapper_containers)} 个image-wrapper容器")
             
             for container in wrapper_containers:
@@ -123,7 +123,8 @@ class CrawlerService:
                             'url': urljoin(base_url, src),
                             'alt': img.get('alt', ''),
                             'class': 'image-wrapper',
-                            'container': 'image-wrapper'
+                            'container': 'image-wrapper',
+                            'data_img_size': img.get('data-img-size-val', '')
                         })
             
             logger.info(f"36kr网站提取完成: 共 {len(images)} 张图片")

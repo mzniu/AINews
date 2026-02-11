@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 测试36kr网站image-wrapper图片提取功能
+注意：36kr的图片结构是 <p class="image-wrapper"><img ...></p>
 """
 
 import sys
