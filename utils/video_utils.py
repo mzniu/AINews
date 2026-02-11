@@ -1,9 +1,61 @@
 """视频处理工具函数"""
 import math
 import random
-from typing import Tuple
-from PIL import Image, ImageDraw
+import re
+from typing import Tuple, List
+from PIL import Image, ImageDraw, ImageFont
 import numpy as np
+
+
+def _load_fonts():
+    """加载字体，返回 (title_font, subtitle_font, summary_font)"""
+    try:
+        return (ImageFont.truetype("msyhbd.ttc", 66),
+                ImageFont.truetype("msyhbd.ttc", 58),
+                ImageFont.truetype("msyh.ttc", 48))
+    except:
+        try:
+            return (ImageFont.truetype("simhei.ttf", 66),
+                    ImageFont.truetype("simhei.ttf", 58),
+                    ImageFont.truetype("simhei.ttf", 48))
+        except:
+            df = ImageFont.load_default()
+            return df, df, df
+
+
+def _wrap_text(text, font, max_width, draw_obj):
+    """词感知自动换行（不截断英文单词）"""
+    tokens = re.findall(
+        r"[A-Za-z0-9]+(?:['\u2019\-][A-Za-z0-9]+)*|[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]|[^\S\n]|[^\w\s]|\n",
+        text
+    )
+    lines, current_line = [], ""
+    for token in tokens:
+        if token == '\n':
+            lines.append(current_line)
+            current_line = ""
+            continue
+        test_line = current_line + token
+        bbox = draw_obj.textbbox((0, 0), test_line, font=font)
+        if bbox[2] - bbox[0] <= max_width:
+            current_line = test_line
+        else:
+            if current_line.strip():
+                lines.append(current_line)
+                current_line = token.lstrip() if token.isspace() else token
+            else:
+                for char in token:
+                    test_char = current_line + char
+                    bbox = draw_obj.textbbox((0, 0), test_char, font=font)
+                    if bbox[2] - bbox[0] <= max_width:
+                        current_line = test_char
+                    else:
+                        if current_line:
+                            lines.append(current_line)
+                        current_line = char
+    if current_line:
+        lines.append(current_line)
+    return lines
 
 
 def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y,
