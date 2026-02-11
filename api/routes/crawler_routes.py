@@ -6,7 +6,9 @@ from ..schemas.request_models import (
     FetchRequest, FetchResponse, GenerateSummaryRequest,
     GenerateImageRequest, ProcessImageRequest
 )
-from services.crawler_service import CrawlerService
+import os
+import json
+from openai import OpenAI
 
 router = APIRouter(prefix="/api", tags=["爬虫"])
 
@@ -29,18 +31,67 @@ async def fetch_url(request: FetchRequest):
 
 @router.post("/generate-summary")
 async def generate_summary(request: GenerateSummaryRequest):
-    """生成AI摘要（模拟实现）"""
+    """生成AI摘要"""
     try:
-        # 这里应该调用真实的AI服务
-        summary = f"根据提供的内容，这是一篇关于{request.title or '相关内容'}的文章摘要..."
-        keywords = ["AI", "技术", "发展"]
+        api_key = os.getenv("DEEPSEEK_API_KEY", "")
+        if not api_key or api_key == "your_deepseek_api_key_here":
+            return {"success": False, "message": "请在.env文件中配置DEEPSEEK_API_KEY"}
+        
+        client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        
+        prompt = f"""请为以下文章生成适合短视频的主标题、副标题、摘要和标签，要求：
+1. 主标题：8-15字，一句话点明核心看点，简短有力，不使用任何emoji表情
+   - 用数字或对比制造冲击感（如"暴涨300%"、"碾压GPT-4"）
+   - 用疑问/反问/感叹激发好奇心
+   - 直击痛点或利益点
+   - 要有观点和态度，不要平淡叙述
+2. 副标题：10-20字，补充主标题的信息，提供更多细节或悬念，不使用任何emoji表情
+3. 摘要：50-70字，简洁有力，适合短视频口播解说，节奏感强
+4. 标签：10个相关标签，每个标签以#开头，用空格分隔
+
+原标题：{request.title}
+
+正文：
+{request.content[:3000]}
+
+请按以下JSON格式返回：
+{{
+  "main_title": "主标题（8-15字，不含emoji）",
+  "sub_title": "副标题（10-20字，不含emoji）",
+  "summary": "生成的摘要（50-70字）",
+  "tags": "#AI #人工智能 #科技 ... (10个标签)"
+}}"""
+
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "你是顶级自媒体爆款标题大师，精通短视频内容运营。你的标题总能引发强烈的点击冲动，既有信息量又有情绪张力。你擅长用最凝练的文字传递最大的信息密度和情绪冲击。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.85,
+            max_tokens=500,
+            response_format={"type": "json_object"}
+        )
+        
+        result_text = response.choices[0].message.content.strip()
+        result = json.loads(result_text)
+        
+        tags = result.get('tags', '')
+        main_title = result.get('main_title', result.get('title', ''))
+        sub_title = result.get('sub_title', '')
+        # 组合标题供前端显示，用 | 分隔主副标题
+        combined_title = f"{main_title}|{sub_title}" if sub_title else main_title
+        logger.success(f"标题生成成功 - 主标题: {main_title}, 副标题: {sub_title}, 摘要: {len(result['summary'])}字")
         
         return {
             "success": True,
-            "title": request.title or "AI资讯摘要",
-            "summary": summary,
-            "keywords": keywords,
-            "word_count": len(summary)
+            "title": combined_title,
+            "main_title": main_title,
+            "sub_title": sub_title,
+            "summary": result['summary'],
+            "tags": tags,
+            "tokens_used": response.usage.total_tokens,
+            "model": "deepseek-chat"
         }
     except Exception as e:
         logger.error(f"生成摘要失败: {e}")
