@@ -6,6 +6,7 @@ from ..schemas.request_models import (
     FetchRequest, FetchResponse, GenerateSummaryRequest,
     GenerateImageRequest, ProcessImageRequest
 )
+from services.crawler_service import CrawlerService
 import os
 import json
 from openai import OpenAI
