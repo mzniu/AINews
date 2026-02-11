@@ -6,7 +6,7 @@ import json as _json
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from loguru import logger
-from ..utils.video_utils import _load_fonts, _wrap_text, _draw_text_overlay
+from utils.video_utils import _load_fonts, _wrap_text, _draw_text_overlay
 
 
 class VideoService:
