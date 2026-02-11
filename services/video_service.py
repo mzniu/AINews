@@ -6,7 +6,6 @@ import json as _json
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from loguru import logger
-from utils.video_utils import _load_fonts, _wrap_text, _draw_text_overlay
 
 
 class VideoService:
@@ -28,8 +27,17 @@ class VideoService:
             
             img_width, img_height = bg_template.size
             
-            # 加载字体
-            title_font, subtitle_font, summary_font = VideoService._load_fonts()
+            # 加载字体（保持与原始版本一致）
+            try:
+                title_font = ImageFont.truetype("msyhbd.ttc", 66)       # 微软雅黑粗体，更大
+                summary_font = ImageFont.truetype("msyh.ttc", 48)       # 微软雅黑常规
+            except:
+                try:
+                    title_font = ImageFont.truetype("simhei.ttf", 66)   # 备选：黑体
+                    summary_font = ImageFont.truetype("simhei.ttf", 48)
+                except:
+                    title_font = ImageFont.load_default()
+                    summary_font = ImageFont.load_default()
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_dir = Path("data/generated") / f"frames_{timestamp}"
@@ -92,14 +100,51 @@ class VideoService:
                     title_start_y = int(img_height * 0.15)
                     current_y = title_start_y
                     
-                    # 使用utils中的函数来绘制文字
-                    # 绘制标题
-                    bg, title_block_height = _draw_text_overlay(
-                        bg, title_lines, title_font, title_start_y, 
-                        img_width, margin, text_width,
-                        text_color=(255, 255, 255), glow_color=(102, 126, 234), line_spacing=18
-                    )
-                    current_y = title_start_y + title_block_height + 30
+                    # 绘制标题背景（渐变毛玻璃效果）
+                    title_bg_y = current_y - 25
+                    title_bg_height = title_height + 40
+                    overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
+                    overlay_draw = ImageDraw.Draw(overlay)
+                    # 多层渐变：上下边缘更透明，中间稍实
+                    for i in range(title_bg_height):
+                        progress = i / title_bg_height
+                        if progress < 0.1:
+                            alpha = int(220 * (progress / 0.1))
+                        elif progress > 0.9:
+                            alpha = int(220 * ((1 - progress) / 0.1))
+                        else:
+                            alpha = 220
+                        overlay_draw.rectangle(
+                            [(0, title_bg_y + i), (img_width, title_bg_y + i + 1)],
+                            fill=(20, 20, 40, alpha)
+                        )
+                    bg = Image.alpha_composite(bg.convert('RGBA'), overlay).convert('RGB')
+                    draw = ImageDraw.Draw(bg)  # 重新创建draw对象
+                    
+                    # 绘制标题（多层光影效果）
+                    for line in title_lines:
+                        bbox = draw.textbbox((0, 0), line, font=title_font)
+                        line_width = bbox[2] - bbox[0]
+                        x = margin + (text_width - line_width) // 2
+                        
+                        # 第1层：柔和外发光（模拟光晕）
+                        for dx in range(-3, 4):
+                            for dy in range(-3, 4):
+                                if dx*dx + dy*dy <= 9:
+                                    draw.text((x + dx, current_y + dy), line, font=title_font, 
+                                             fill=(102, 126, 234, 60))  # 品牌蓝色光晕
+                        
+                        # 第2层：深色阴影（增加立体感）
+                        draw.text((x + 3, current_y + 3), line, font=title_font, fill=(0, 0, 0))
+                        draw.text((x + 2, current_y + 2), line, font=title_font, fill=(10, 10, 30))
+                        
+                        # 第3层：主文字（纯白）
+                        draw.text((x, current_y), line, font=title_font, fill=(255, 255, 0))
+                        
+                        current_y += bbox[3] - bbox[1] + 18
+                    
+                    # 标题和图片之间的间距
+                    current_y += 30
                     
                     # 计算摘要的起始位置（距离底部15%）
                     summary_start_y = int(img_height * 0.85) - summary_height
@@ -120,12 +165,38 @@ class VideoService:
                         else:
                             bg.paste(user_img_resized, (paste_x, paste_y))
                     
-                    # 绘制摘要
-                    bg, summary_block_height = _draw_text_overlay(
-                        bg, summary_lines, summary_font, summary_start_y,
-                        img_width, margin, text_width,
-                        text_color=(255, 255, 255), line_spacing=12
-                    )
+                    # 绘制摘要背景（柔和渐变半透明）
+                    current_y = summary_start_y
+                    summary_bg_y = current_y - 35
+                    summary_bg_height = summary_height + 50
+                    overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
+                    overlay_draw = ImageDraw.Draw(overlay)
+                    for i in range(summary_bg_height):
+                        progress = i / summary_bg_height
+                        if progress < 0.1:
+                            alpha = int(220 * (progress / 0.1))
+                        elif progress > 0.9:
+                            alpha = int(220 * ((1 - progress) / 0.1))
+                        else:
+                            alpha = 220
+                        overlay_draw.rectangle(
+                            [(0, summary_bg_y + i), (img_width, summary_bg_y + i + 1)],
+                            fill=(20, 20, 40, alpha)
+                        )
+                    bg = Image.alpha_composite(bg.convert('RGBA'), overlay).convert('RGB')
+                    draw = ImageDraw.Draw(bg)  # 重新创建draw对象
+                    
+                    # 绘制摘要文字
+                    for line in summary_lines:
+                        bbox = draw.textbbox((0, 0), line, font=summary_font)
+                        line_width = bbox[2] - bbox[0]
+                        x = margin + (text_width - line_width) // 2
+                        
+                        # 阴影
+                        draw.text((x + 2, current_y + 2), line, font=summary_font, fill=(0, 0, 0))
+                        # 文字（亮白色）
+                        draw.text((x, current_y), line, font=summary_font, fill=(255, 255, 255))
+                        current_y += bbox[3] - bbox[1] + 12
                     
                     # 保存关键帧
                     output_path = output_dir / f"frame_{idx:02d}.png"
