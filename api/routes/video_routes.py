@@ -1,5 +1,5 @@
 """视频处理相关API路由"""
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from typing import List
 from pathlib import Path
@@ -7,7 +7,7 @@ from datetime import datetime
 from loguru import logger
 from PIL import Image, ImageDraw
 from ..schemas.request_models import (
-    CreateVideoRequest, CreateAnimatedVideoRequest
+    CreateVideoRequest, CreateAnimatedVideoRequest, CreateUserVideoRequest
 )
 from utils.video_utils import (
     _render_frame_animated, _apply_video_effect, _safe_paste, _draw_text_overlay,
@@ -324,16 +324,202 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"动画视频生成失败: {str(e)}")
 
-@router.get("/video-templates")
-async def get_video_templates():
-    """获取可用的视频模板"""
+@router.post("/create-user-video")
+async def create_user_video(
+    title: str = Form(default=""),
+    subtitle: str = Form(default=""),
+    images: str = Form(...),  # JSON array string of image paths
+    audio_path: str = Form(default="static/music/background.mp3"),
+    clip_duration: float = Form(default=3.0),
+    effect: str = Form(default="none"),  # none/gold_sparkle/snowfall/bokeh/firefly/bubble
+):
+    """用户上传图片生成视频（可选标题，8种入场动画，背景音乐）"""
     try:
-        templates = [
-            {"id": "standard", "name": "标准模板", "description": "经典竖屏视频模板"},
-            {"id": "dynamic", "name": "动态模板", "description": "带动画效果的模板"},
-            {"id": "minimal", "name": "简约模板", "description": "极简风格模板"}
-        ]
-        return {"templates": templates}
+        import json as _json
+        image_list = _json.loads(images)
+        if not image_list:
+            return JSONResponse(status_code=400,
+                                content={"success": False, "message": "请至少上传一张图片"})
+
+        from moviepy import concatenate_videoclips, AudioFileClip, VideoClip
+
+        FPS = 24
+        ENTRANCE_DUR = 0.7       # 入场动画时长
+
+        # ===== 第一轮：扫描所有图片，确定画布尺寸（取最大宽高） =====
+        valid_images = []
+        max_w, max_h = 0, 0
+        for img_path in image_list:
+            try:
+                p = Path(img_path.lstrip('/'))
+                if not p.exists():
+                    continue
+                im = Image.open(p)
+                valid_images.append((img_path, im.width, im.height))
+                max_w = max(max_w, im.width)
+                max_h = max(max_h, im.height)
+                im.close()
+            except Exception:
+                continue
+
+        if not valid_images:
+            return JSONResponse(status_code=400,
+                                content={"success": False, "message": "没有可用的图片"})
+
+        # 画布尺寸：最大图片的宽高（确保是偶数，h264要求）
+        canvas_w = max_w if max_w % 2 == 0 else max_w + 1
+        canvas_h = max_h if max_h % 2 == 0 else max_h + 1
+        logger.info(f"用户视频画布尺寸: {canvas_w}x{canvas_h}, 共 {len(valid_images)} 张有效图片")
+
+        # 黑色背景模板
+        bg_template = Image.new('RGB', (canvas_w, canvas_h), (0, 0, 0))
+
+        # 如果有标题，预计算
+        title_info = None
+        summary_info = None
+        if title.strip():
+            title_font, subtitle_font, summary_font = _load_fonts()
+            margin = int(canvas_w * 0.06)
+            text_width = canvas_w - 2 * margin
+            temp_draw = ImageDraw.Draw(bg_template.copy())
+            main_title_lines = _wrap_text(title.strip(), title_font, text_width, temp_draw)
+            sub_title_lines = _wrap_text(subtitle.strip(), subtitle_font, text_width, temp_draw) if subtitle.strip() else []
+
+            main_title_height = sum(
+                temp_draw.textbbox((0, 0), l, font=title_font)[3] -
+                temp_draw.textbbox((0, 0), l, font=title_font)[1] + 18
+                for l in main_title_lines
+            )
+            title_start_y = int(canvas_h * 0.03)  # 标题靠顶部
+
+            title_info = (title_font, subtitle_font, main_title_lines, sub_title_lines,
+                          title_start_y, main_title_height, margin, text_width)
+            summary_info = (summary_font if title.strip() else None, [], 0)
+
+        clips = []
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path("data/generated") / f"user_{timestamp}"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # 动画队列
+        import random
+        all_anim_types = ['zoom_in', 'zoom_out', 'unfold', 'scroll_up',
+                          'slide_left', 'slide_right', 'fade_in', 'drop_bounce']
+        random.shuffle(all_anim_types)
+        anim_queue = [all_anim_types[i % len(all_anim_types)] for i in range(len(valid_images))]
+
+        for idx, (img_path, orig_w, orig_h) in enumerate(valid_images, 1):
+            try:
+                user_img = Image.open(Path(img_path.lstrip('/')))
+                if user_img.mode != 'RGBA':
+                    user_img = user_img.convert('RGBA')
+
+                # 图片原始大小居中放置（不缩放）
+                target_w, target_h = user_img.width, user_img.height
+                paste_x = (canvas_w - target_w) // 2
+                paste_y = (canvas_h - target_h) // 2
+
+                anim = anim_queue.pop(0)
+                logger.info(f"用户视频片段 {idx}: 动画={anim}, 图片={target_w}x{target_h}, 偏移=({paste_x},{paste_y})")
+
+                _effect = effect
+                _clip_dur = clip_duration
+                _seed = idx  # 每段粒子不同
+
+                def make_frame_func(t, _bg=bg_template, _img=user_img,
+                                    _px=paste_x, _py=paste_y,
+                                    _tw=target_w, _th=target_h,
+                                    _ti=title_info, _si=summary_info,
+                                    _anim=anim, _eff=_effect, _sd=_seed,
+                                    _cd=_clip_dur):
+                    frame = _render_frame_animated(
+                        _bg, _img, _px, _py, _tw, _th, canvas_w, canvas_h,
+                        _ti, _si, t,
+                        entrance_duration=ENTRANCE_DUR,
+                        hold_with_text_start=ENTRANCE_DUR,
+                        anim_type=_anim
+                    )
+                    return _apply_video_effect(frame, t, _eff, canvas_w, canvas_h, _cd, seed=_sd)
+
+                clip = VideoClip(make_frame_func, duration=clip_duration).with_fps(FPS)
+                clips.append(clip)
+
+                # 保存预览帧（带特效）
+                preview_raw = _render_frame_animated(
+                    bg_template, user_img, paste_x, paste_y,
+                    target_w, target_h, canvas_w, canvas_h,
+                    title_info, summary_info, clip_duration,
+                    entrance_duration=ENTRANCE_DUR, hold_with_text_start=ENTRANCE_DUR,
+                    anim_type=anim
+                )
+                preview = _apply_video_effect(preview_raw, clip_duration * 0.5, effect, canvas_w, canvas_h, clip_duration, seed=idx)
+                preview_path = output_dir / f"preview_{idx:02d}.png"
+                Image.fromarray(preview).save(preview_path, quality=95)
+
+            except Exception as e:
+                logger.error(f"处理图片 {idx} 失败: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+
+        if not clips:
+            return JSONResponse(status_code=500,
+                                content={"success": False, "message": "所有图片处理失败"})
+
+        final_clip = concatenate_videoclips(clips, method="compose")
+        video_duration = final_clip.duration
+        logger.info(f"用户视频总时长: {video_duration:.2f}s, {len(clips)} 个片段")
+
+        # 音频
+        audio = None
+        _audio_path = audio_path.lstrip('/') if audio_path else None
+        if _audio_path:
+            audio_file = Path(_audio_path)
+            if audio_file.exists():
+                audio = AudioFileClip(str(audio_file))
+                speed = 1.1
+                audio = audio.time_transform(lambda t: t * speed).with_duration(audio.duration / speed)
+                if audio.duration < video_duration:
+                    from moviepy import concatenate_audioclips
+                    audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
+                audio = audio.subclipped(0, video_duration)
+                final_clip = final_clip.with_audio(audio)
+                logger.info("用户视频背景音乐已添加")
+
+        video_dir = Path("data/videos")
+        video_dir.mkdir(parents=True, exist_ok=True)
+        video_path = video_dir / f"user_video_{timestamp}.mp4"
+
+        final_clip.write_videofile(
+            str(video_path), fps=FPS, codec='libx264',
+            audio_codec='aac' if audio else None,
+            temp_audiofile='temp-audio.m4a' if audio else None,
+            remove_temp=True, logger=None
+        )
+
+        final_clip.close()
+        if audio:
+            audio.close()
+
+        rel = str(video_path.relative_to(Path("."))).replace("\\", "/")
+        size_mb = video_path.stat().st_size / (1024 * 1024)
+        logger.success(f"用户视频生成成功: {video_path} ({size_mb:.2f}MB)")
+
+        previews = []
+        for f in sorted(output_dir.glob("preview_*.png")):
+            previews.append(f"/{str(f.relative_to(Path('.'))).replace(chr(92), '/')}")
+
+        return {
+            "success": True,
+            "message": f"视频生成成功，共 {len(clips)} 个片段",
+            "video_path": f"/{rel}",
+            "preview_frames": previews,
+            "duration": video_duration,
+            "file_size_mb": round(size_mb, 2)
+        }
+
     except Exception as e:
-        logger.error(f"获取模板失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取模板失败: {str(e)}")
+        logger.error(f"用户视频生成失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"视频生成失败: {str(e)}")

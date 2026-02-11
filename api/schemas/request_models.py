@@ -61,6 +61,16 @@ class CreateAnimatedVideoRequest(BaseModel):
     audio_path: str = ""
 
 
+class CreateUserVideoRequest(BaseModel):
+    """创建用户自定义视频请求"""
+    title: str = ""
+    subtitle: str = ""
+    images: List[str] = []  # JSON array string of image paths
+    audio_path: str = "static/music/background.mp3"
+    clip_duration: float = 3.0
+    effect: str = "none"  # none/gold_sparkle/snowfall/bokeh/firefly/bubble
+
+
 class UploadImagesRequest(BaseModel):
     """上传图片请求"""
     pass  # 文件上传使用Form数据，这里只是占位
