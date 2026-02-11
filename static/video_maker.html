@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频制作 - 图片转视频</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* 导航栏样式 */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 0 20px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+        }
+        
+        .nav-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .nav-brand:hover {
+            color: #764ba2;
+        }
+        
+        .nav-menu {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .nav-link {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .nav-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: 80px; /* 为固定导航栏留出空间 */
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .header p { font-size: 1rem; opacity: 0.9; }
+        .header a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; }
+        .header a:hover { color: #fff; }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 上传区域 */
+        .upload-zone {
+            border: 3px dashed #ccc;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s, background 0.3s;
+            margin-bottom: 16px;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        .upload-zone .icon { font-size: 3rem; margin-bottom: 10px; }
+        .upload-zone .text { color: #888; font-size: 1rem; }
+        .upload-zone .hint { color: #aaa; font-size: 0.85rem; margin-top: 8px; }
+
+        /* 图片预览网格 */
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .preview-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            aspect-ratio: 1;
+            background: #f5f5f5;
+        }
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .preview-item:hover .remove-btn { opacity: 1; }
+        .preview-item .order-badge {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            background: rgba(102, 126, 234, 0.85);
+            color: white;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* 表单 */
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 14px;
+            align-items: center;
+        }
+        .form-row label {
+            min-width: 80px;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9rem;
+        }
+        .form-row input[type="text"],
+        .form-row select {
+            flex: 1;
+            padding: 10px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-row input:focus, .form-row select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-row .hint {
+            color: #aaa;
+            font-size: 0.8rem;
+            margin-left: 4px;
+        }
+
+        /* 按钮 */
+        .btn {
+            padding: 12px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        .btn-danger {
+            background: linear-gradient(135deg, #f5576c 0%, #ff6b6b 100%);
+        }
+        .btn-sm { padding: 8px 16px; font-size: 13px; }
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+        /* 进度 */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 12px 0;
+            display: none;
+        }
+        .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.5s;
+            border-radius: 3px;
+        }
+        .status-text {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 8px;
+            min-height: 20px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 14px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 9999;
+            transform: translateX(120%);
+            transition: transform 0.3s;
+            max-width: 400px;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { background: #4caf50; }
+        .toast.error { background: #f44336; }
+        .toast.info { background: #2196f3; }
+
+        /* 视频结果 */
+        .result-card { display: none; }
+        .result-card video {
+            width: 100%;
+            max-height: 600px;
+            border-radius: 8px;
+            background: #000;
+        }
+        .result-meta {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            color: #666;
+            font-size: 0.85rem;
+            flex-wrap: wrap;
+        }
+        .result-meta span {
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">🎬 AINews</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">🏠 主页</a>
+                <a href="/video-maker" class="nav-link active">📹 视频制作</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="header">
+            <h1>📹 图片转视频</h1>
+            <p>上传图片，自动添加入场动画和背景音乐，一键生成精美视频</p>
+            <a href="/">← 返回主页</a>
+        </div>
+
+        <!-- 上传区域 -->
+        <div class="card">
+            <h2>📷 上传图片</h2>
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                <div class="icon">📁</div>
+                <div class="text">点击选择图片，或将图片拖拽到此处</div>
+                <div class="hint">支持 JPG、PNG、GIF、WebP 格式，可多选</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
+            <div class="preview-grid" id="previewGrid"></div>
+            <div class="actions" id="uploadActions" style="display: none;">
+                <button class="btn btn-sm" onclick="uploadImages()">⬆️ 上传到服务器</button>
+                <button class="btn btn-sm btn-danger" onclick="clearImages()">🗑️ 清空</button>
+                <span class="status-text" id="uploadStatus"></span>
+            </div>
+        </div>
+
+        <!-- 选项配置 -->
+        <div class="card">
+            <h2>⚙️ 视频设置</h2>
+            <div class="form-row">
+                <label>主标题</label>
+                <input type="text" id="inputTitle" placeholder="可选，将显示在视频顶部">
+            </div>
+            <div class="form-row">
+                <label>副标题</label>
+                <input type="text" id="inputSubtitle" placeholder="可选，显示在主标题下方（黄色字）">
+            </div>
+            <div class="form-row">
+                <label>每张时长</label>
+                <select id="clipDuration">
+                    <option value="2.0">2 秒</option>
+                    <option value="2.5">2.5 秒</option>
+                    <option value="3.0" selected>3 秒</option>
+                    <option value="4.0">4 秒</option>
+                    <option value="5.0">5 秒</option>
+                    <option value="6.0">6 秒</option>
+                    <option value="7.0">7 秒</option>
+                    <option value="8.0">8 秒</option>
+                    <option value="9.0">9 秒</option>
+                    <option value="10.0">10 秒</option>
+                </select>
+                <span class="hint">每张图片展示的时间</span>
+            </div>
+            <div class="form-row">
+                <label>视觉特效</label>
+                <select id="effectSelect">
+                    <option value="none">无特效</option>
+                    <option value="gold_sparkle">✨ 金粉闪闪</option>
+                    <option value="snowfall">❄️ 雪花飘落</option>
+                    <option value="bokeh">💡 柔和光斑</option>
+                    <option value="firefly">🌟 萤火虫</option>
+                    <option value="bubble">🫧 气泡</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>背景音乐</label>
+                <select id="audioSelect">
+                    <option value="static/music/background.mp3">默认背景音乐</option>
+                    <option value="">不使用背景音乐</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 生成按钮 -->
+        <div class="card" style="text-align: center;">
+            <button class="btn" id="generateBtn" onclick="generateVideo()" disabled>
+                🎬 生成视频
+            </button>
+            <div class="progress-bar" id="progressBar">
+                <div class="fill" id="progressFill"></div>
+            </div>
+            <div class="status-text" id="genStatus"></div>
+        </div>
+
+        <!-- 视频结果 -->
+        <div class="card result-card" id="resultCard">
+            <h2>🎉 生成结果</h2>
+            <video id="resultVideo" controls></video>
+            <div class="result-meta" id="resultMeta"></div>
+            <div class="actions" style="margin-top: 16px;">
+                <a id="downloadLink" class="btn btn-sm" download>⬇️ 下载视频</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // 状态
+        let localFiles = [];          // 本地选择的文件
+        let uploadedPaths = [];       // 已上传到服务器的路径
+
+        // ===== 上传区域 =====
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const previewGrid = document.getElementById('previewGrid');
+
+        // 拖拽
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            addFiles(files);
+        });
+
+        // 文件选择
+        fileInput.addEventListener('change', () => {
+            addFiles(Array.from(fileInput.files));
+            fileInput.value = '';
+        });
+
+        function addFiles(files) {
+            localFiles = localFiles.concat(files);
+            uploadedPaths = [];  // 重新上传
+            renderPreviews();
+            updateGenerateBtn();
+        }
+
+        function renderPreviews() {
+            previewGrid.innerHTML = '';
+            localFiles.forEach((file, i) => {
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                const url = URL.createObjectURL(file);
+                item.innerHTML = `
+                    <img src="${url}" alt="${file.name}">
+                    <button class="remove-btn" onclick="removeImage(${i})">&times;</button>
+                    <span class="order-badge">${i + 1}</span>
+                `;
+                previewGrid.appendChild(item);
+            });
+            document.getElementById('uploadActions').style.display = localFiles.length > 0 ? 'flex' : 'none';
+        }
+
+        function removeImage(idx) {
+            localFiles.splice(idx, 1);
+            uploadedPaths = [];
+            renderPreviews();
+            updateGenerateBtn();
+        }
+
+        function clearImages() {
+            localFiles = [];
+            uploadedPaths = [];
+            renderPreviews();
+            updateGenerateBtn();
+            document.getElementById('uploadStatus').textContent = '';
+        }
+
+        function updateGenerateBtn() {
+            document.getElementById('generateBtn').disabled = localFiles.length === 0;
+        }
+
+        // ===== 上传图片 =====
+        async function uploadImages() {
+            if (localFiles.length === 0) return;
+
+            const statusEl = document.getElementById('uploadStatus');
+            statusEl.textContent = '正在上传...';
+
+            const formData = new FormData();
+            localFiles.forEach(f => formData.append('files', f));
+
+            try {
+                const resp = await fetch('/api/upload-images', { method: 'POST', body: formData });
+                const data = await resp.json();
+                if (data.success) {
+                    uploadedPaths = data.images;
+                    statusEl.textContent = `✅ 已上传 ${data.count} 张图片`;
+                    showToast(`上传成功：${data.count} 张图片`, 'success');
+                } else {
+                    statusEl.textContent = '❌ 上传失败';
+                    showToast('上传失败', 'error');
+                }
+            } catch (e) {
+                statusEl.textContent = '❌ 上传出错';
+                showToast('上传出错: ' + e.message, 'error');
+            }
+        }
+
+        // ===== 生成视频 =====
+        async function generateVideo() {
+            if (localFiles.length === 0) {
+                showToast('请先选择图片', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('generateBtn');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const genStatus = document.getElementById('genStatus');
+
+            btn.disabled = true;
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+
+            try {
+                // 第1步：上传（如果还没上传）
+                if (uploadedPaths.length === 0) {
+                    genStatus.textContent = '⬆️ 正在上传图片...';
+                    progressFill.style.width = '20%';
+
+                    const formData = new FormData();
+                    localFiles.forEach(f => formData.append('files', f));
+                    const upResp = await fetch('/api/upload-images', { method: 'POST', body: formData });
+                    const upData = await upResp.json();
+                    if (!upData.success) throw new Error('上传失败');
+                    uploadedPaths = upData.images;
+                    document.getElementById('uploadStatus').textContent = `✅ 已上传 ${upData.count} 张图片`;
+                }
+
+                // 第2步：生成视频
+                genStatus.textContent = '🎬 正在合成视频，请稍候...';
+                progressFill.style.width = '50%';
+
+                const formData = new FormData();
+                formData.append('title', document.getElementById('inputTitle').value);
+                formData.append('subtitle', document.getElementById('inputSubtitle').value);
+                formData.append('images', JSON.stringify(uploadedPaths));
+                formData.append('audio_path', document.getElementById('audioSelect').value);
+                formData.append('clip_duration', document.getElementById('clipDuration').value);
+                formData.append('effect', document.getElementById('effectSelect').value);
+
+                const resp = await fetch('/api/create-user-video', { method: 'POST', body: formData });
+                const data = await resp.json();
+
+                progressFill.style.width = '100%';
+
+                if (data.success) {
+                    genStatus.textContent = '✅ 视频生成完成！';
+                    showToast('视频生成成功！', 'success');
+
+                    // 显示结果
+                    const resultCard = document.getElementById('resultCard');
+                    resultCard.style.display = 'block';
+                    const video = document.getElementById('resultVideo');
+                    video.src = data.video_path;
+                    video.load();
+
+                    document.getElementById('resultMeta').innerHTML = `
+                        <span>📹 时长: ${data.duration.toFixed(1)}s</span>
+                        <span>📦 大小: ${data.file_size_mb}MB</span>
+                        <span>🎞️ 片段: ${data.preview_frames ? data.preview_frames.length : '?'}</span>
+                    `;
+
+                    document.getElementById('downloadLink').href = data.video_path;
+                    resultCard.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    throw new Error(data.message || '生成失败');
+                }
+
+            } catch (e) {
+                genStatus.textContent = '❌ 生成失败: ' + e.message;
+                showToast('失败: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                setTimeout(() => { progressBar.style.display = 'none'; }, 2000);
+            }
+        }
+
+        // ===== Toast =====
+        function showToast(msg, type = 'info') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = `toast ${type} show`;
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>

@@ -66,21 +66,45 @@ def extract_content(html: str, base_url: str) -> dict:
                 logger.info(f"使用选择器提取内容: {selector}")
                 break
     
-    # 提取所有图片
+    # 提取图片（根据网站类型采用不同策略）
     images = []
-    for img in soup.find_all('img'):
-        src = img.get('src') or img.get('data-src') or img.get('data-original')
-        if src:
-            # 转换为绝对URL
-            absolute_url = urljoin(base_url, src)
-            images.append({
-                'url': absolute_url,
-                'alt': img.get('alt', ''),
-                'width': img.get('width'),
-                'height': img.get('height')
-            })
     
-    logger.info(f"提取到 {len(images)} 张图片")
+    # 检查是否为qbitai网站
+    parsed_url = urlparse(base_url)
+    is_qbitai = 'qbitai.com' in parsed_url.netloc
+    
+    if is_qbitai:
+        # 只提取具有syl-page-img类的图片
+        logger.info("检测到qbitai网站，只提取syl-page-img类的图片")
+        img_elements = soup.find_all('img', class_='syl-page-img')
+        for img in img_elements:
+            src = img.get('src') or img.get('data-src') or img.get('data-original')
+            if src:
+                # 转换为绝对URL
+                absolute_url = urljoin(base_url, src)
+                images.append({
+                    'url': absolute_url,
+                    'alt': img.get('alt', ''),
+                    'width': img.get('width'),
+                    'height': img.get('height'),
+                    'class': 'syl-page-img'
+                })
+    else:
+        # 其他网站提取所有图片
+        logger.info("提取页面所有图片")
+        for img in soup.find_all('img'):
+            src = img.get('src') or img.get('data-src') or img.get('data-original')
+            if src:
+                # 转换为绝对URL
+                absolute_url = urljoin(base_url, src)
+                images.append({
+                    'url': absolute_url,
+                    'alt': img.get('alt', ''),
+                    'width': img.get('width'),
+                    'height': img.get('height')
+                })
+    
+    logger.info(f"提取到 {len(images)} 张图片 (qbitai模式: {is_qbitai})")
     
     return {
         'content': content_text,

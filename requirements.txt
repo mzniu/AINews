@@ -23,7 +23,7 @@ opencv-python-headless>=4.8.0
 python-dotenv>=1.0.0
 pydantic>=2.5.0
 loguru>=0.7.2
-numpy>=1.24.0
+numpy>=2.1.0
 
 # 可选依赖
 # edge-tts>=6.1.10      # TTS语音合成（当前未启用）

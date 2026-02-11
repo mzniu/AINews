@@ -10,12 +10,77 @@
             padding: 0;
             box-sizing: border-box;
         }
+        
+        /* 导航栏样式 */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 0 20px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+        }
+        
+        .nav-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .nav-brand:hover {
+            color: #764ba2;
+        }
+        
+        .nav-menu {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .nav-link {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .nav-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
+            padding-top: 80px; /* 为固定导航栏留出空间 */
         }
 
         .container {
@@ -342,6 +407,37 @@
             border-color: #667eea;
         }
 
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .collapsible-header .toggle-icon {
+            display: inline-block;
+            transition: transform 0.25s;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .collapsible-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-body {
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.25s ease;
+            max-height: 2000px;
+            opacity: 1;
+        }
+
+        .collapsible-body.hidden {
+            max-height: 0;
+            opacity: 0;
+        }
+
         .ai-summary {
             margin-top: 20px;
             padding: 15px;
@@ -359,6 +455,40 @@
             color: #333;
             line-height: 1.8;
             white-space: pre-wrap;
+        }
+
+        .ai-field-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .ai-field-row .ai-summary-content {
+            flex: 1;
+        }
+
+        .copy-btn {
+            flex-shrink: 0;
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #888;
+            transition: all 0.2s;
+            line-height: 1;
+            margin-top: 2px;
+        }
+
+        .copy-btn:hover {
+            background: #f0f0ff;
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .copy-btn:active {
+            transform: scale(0.92);
         }
 
         .action-buttons {
@@ -742,6 +872,17 @@
     </style>
 </head>
 <body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">🎬 AINews</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link active">🏠 主页</a>
+                <a href="/video-maker" class="nav-link">📹 视频制作</a>
+            </div>
+        </div>
+    </nav>
+    
     <div class="container">
         <div class="header">
             <h1>🌐 网页内容抓取工具</h1>
@@ -787,20 +928,23 @@
                     </div>
                 </div>
 
-                <h3>📄 内容预览</h3>
-                <div class="content-preview" id="contentPreview"></div>
-
-                <div class="download-links">
-                    <a href="#" class="download-btn" id="downloadContent" target="_blank">
-                        📥 下载完整内容
-                    </a>
-                    <a href="#" class="download-btn" id="downloadMetadata" target="_blank">
-                        📊 下载元数据
-                    </a>
+                <h3 class="collapsible-header collapsed" onclick="toggleCollapse(this)">📄 内容预览 <span class="toggle-icon">▼</span></h3>
+                <div class="collapsible-body hidden">
+                    <div class="content-preview" id="contentPreview"></div>
+                    <div class="download-links">
+                        <a href="#" class="download-btn" id="downloadContent" target="_blank">
+                            📥 下载完整内容
+                        </a>
+                        <a href="#" class="download-btn" id="downloadMetadata" target="_blank">
+                            📊 下载元数据
+                        </a>
+                    </div>
                 </div>
 
-                <h3 style="margin-top: 30px;">🖼️ 图片列表</h3>
-                <div class="images-grid" id="imagesGrid"></div>
+                <h3 class="collapsible-header collapsed" style="margin-top: 30px;" onclick="toggleCollapse(this)">🖼️ 图片列表 <span class="toggle-icon">▼</span></h3>
+                <div class="collapsible-body hidden">
+                    <div class="images-grid" id="imagesGrid"></div>
+                </div>
 
                 <div class="edit-section" id="editSection">
                     <h3>✏️ 编辑内容和图片</h3>
@@ -836,15 +980,24 @@
                         <h4>🤖 AI生成内容</h4>
                         <div style="margin-bottom: 15px;">
                             <strong style="color: #667eea;">标题：</strong>
-                            <div class="ai-summary-content" id="aiTitle" style="font-size: 1.2em; font-weight: bold; margin: 10px 0;"></div>
+                            <div class="ai-field-row">
+                                <div class="ai-summary-content" id="aiTitle" style="font-size: 1.2em; font-weight: bold; margin: 10px 0;"></div>
+                                <button class="copy-btn" onclick="copyAiContent('aiTitle')" title="复制标题">📋</button>
+                            </div>
                         </div>
                         <div>
                             <strong style="color: #667eea;">摘要：</strong>
-                            <div class="ai-summary-content" id="aiSummaryContent"></div>
+                            <div class="ai-field-row">
+                                <div class="ai-summary-content" id="aiSummaryContent"></div>
+                                <button class="copy-btn" onclick="copyAiContent('aiSummaryContent')" title="复制摘要">📋</button>
+                            </div>
                         </div>
                         <div>
                             <strong style="color: #667eea;">标签：</strong>
-                            <div class="ai-summary-content" id="aiTags" style="margin-top: 8px; color: #764ba2; font-size: 14px;"></div>
+                            <div class="ai-field-row">
+                                <div class="ai-summary-content" id="aiTags" style="margin-top: 8px; color: #764ba2; font-size: 14px;"></div>
+                                <button class="copy-btn" onclick="copyAiContent('aiTags')" title="复制标签">📋</button>
+                            </div>
                         </div>
                         <div style="margin-top: 10px; color: #666; font-size: 12px;" id="aiMeta"></div>
                         
@@ -863,6 +1016,7 @@
                             style="margin-top: 20px; padding: 12px 30px; font-size: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none;">
                             🎬 合成视频 (2.5秒/帧)
                         </button>
+
                         <div id="videoResult" style="display: none; margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
                             <h5 style="margin: 0 0 10px 0; color: #333;">🎥 视频生成成功</h5>
                             <div id="videoInfo" style="margin: 10px 0; color: #666; font-size: 14px;"></div>
@@ -889,7 +1043,7 @@
                     <button class="modal-btn-zoom" onclick="resetZoom()" title="适应">🔄 适应</button>
                     <span style="color:#555;">|</span>
                     <button class="modal-btn-draw" id="drawModeBtn" onclick="toggleDrawMode()" title="框选水印区域">✏️ 框选水印</button>
-                    <button class="modal-btn-zoom" id="autoDetectBtn" onclick="autoDetectWatermark()" title="AI自动检测水印">🔍 自动检测</button>
+                    <button class="modal-btn-zoom" id="autoDetectBtn" onclick="autoDetectWatermark()" title="AI自动检测水印区域">🔍 自动检测</button>
                     <button class="modal-btn-action" id="autoRemoveBtn" onclick="autoDetectAndRemove()" title="自动检测水印并一键去除" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">🚀 一键去水印</button>
                     <button class="modal-btn-zoom" id="undoRegionBtn" onclick="undoLastRegion()" title="撤销上一个框选" style="display:none;">↩️ 撤销</button>
                     <button class="modal-btn-zoom" id="clearRegionsBtn" onclick="clearRegions()" title="清除所有框选" style="display:none;">🗑️ 清除</button>
@@ -944,6 +1098,33 @@
                 toast.classList.add('hiding');
                 setTimeout(() => toast.remove(), 400);
             }, duration);
+        }
+
+        function copyAiContent(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el || !el.textContent.trim()) {
+                showToast('没有可复制的内容', 'info');
+                return;
+            }
+            navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+                showToast('已复制到剪贴板', 'success', 2000);
+            }).catch(() => {
+                // fallback for older browsers
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                document.execCommand('copy');
+                sel.removeAllRanges();
+                showToast('已复制到剪贴板', 'success', 2000);
+            });
+        }
+
+        function toggleCollapse(header) {
+            const body = header.nextElementSibling;
+            header.classList.toggle('collapsed');
+            body.classList.toggle('hidden');
         }
 
         function fillExample(url) {
@@ -1178,11 +1359,14 @@
                     generatedTitle = data.title;
                     generatedSummary = data.summary;
                     
-                    document.getElementById('aiTitle').textContent = data.title;
+                    // 显示主副标题
+                    const mainT = data.main_title || data.title.split('|')[0];
+                    const subT = data.sub_title || (data.title.includes('|') ? data.title.split('|')[1] : '');
+                    document.getElementById('aiTitle').innerHTML = mainT + (subT ? `<div style="font-size:0.75em; color:#999; font-weight:normal; margin-top:4px;">${subT}</div>` : '');
                     document.getElementById('aiSummaryContent').textContent = data.summary;
                     document.getElementById('aiTags').textContent = data.tags || '';
                     document.getElementById('aiMeta').textContent = 
-                        `标题: ${data.title.length}字 | 摘要: ${data.summary.length}字 | 模型: ${data.model} | tokens: ${data.tokens_used}`;
+                        `主标题: ${mainT.length}字 | 副标题: ${subT.length}字 | 摘要: ${data.summary.length}字 | 模型: ${data.model} | tokens: ${data.tokens_used}`;
                 } else {
                     document.getElementById('aiTitle').textContent = '';
                     document.getElementById('aiSummaryContent').textContent = '生成失败: ' + data.message;
@@ -1261,6 +1445,7 @@
                     // 显示合成视频按钮
                     document.getElementById('createVideoBtn').style.display = 'inline-block';
                     
+                    
                     showToast(`视频关键帧生成成功！共 ${data.total} 帧`, 'success');
                 } else {
                     showToast('关键帧生成失败: ' + data.message, 'error');
@@ -1319,7 +1504,6 @@
             }
         }
 
-
         async function oneClickGenerate() {
             const btn = document.getElementById('oneClickBtn');
             const originalText = btn.textContent;
@@ -1351,7 +1535,7 @@
 
             try {
                 // 第1步：生成AI标题和摘要
-                btn.textContent = '🚀 [1/3] 生成标题摘要...';
+                btn.textContent = '🚀 [1/2] 生成标题摘要...';
                 showToast('开始一键生成：正在生成AI标题和摘要...', 'info');
 
                 const summaryDiv = document.getElementById('aiSummary');
@@ -1379,80 +1563,56 @@
 
                 generatedTitle = summaryData.title;
                 generatedSummary = summaryData.summary;
-                document.getElementById('aiTitle').textContent = summaryData.title;
+                const mainT2 = summaryData.main_title || summaryData.title.split('|')[0];
+                const subT2 = summaryData.sub_title || (summaryData.title.includes('|') ? summaryData.title.split('|')[1] : '');
+                document.getElementById('aiTitle').innerHTML = mainT2 + (subT2 ? `<div style="font-size:0.75em; color:#999; font-weight:normal; margin-top:4px;">${subT2}</div>` : '');
                 document.getElementById('aiSummaryContent').textContent = summaryData.summary;
                 document.getElementById('aiTags').textContent = summaryData.tags || '';
                 document.getElementById('aiMeta').textContent =
-                    `标题: ${summaryData.title.length}字 | 摘要: ${summaryData.summary.length}字 | 模型: ${summaryData.model} | tokens: ${summaryData.tokens_used}`;
+                    `主标题: ${mainT2.length}字 | 副标题: ${subT2.length}字 | 摘要: ${summaryData.summary.length}字 | 模型: ${summaryData.model} | tokens: ${summaryData.tokens_used}`;
 
-                showToast('✅ 标题摘要已生成，开始生成关键帧...', 'success');
+                showToast('✅ 标题摘要已生成，开始合成动画视频...', 'success');
 
-                // 第2步：生成关键帧
-                btn.textContent = '🚀 [2/3] 生成关键帧...';
+                // 第2步：合成动画视频（带弹入特效）
+                btn.textContent = '🚀 [2/2] 合成动画视频...';
 
-                const frameResp = await fetch('/api/generate-image', {
+                const videoResp = await fetch('/api/create-animated-video', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         title: generatedTitle,
                         summary: generatedSummary,
-                        images: selectedImages
-                    })
-                });
-                const frameData = await frameResp.json();
-
-                if (!frameData.success) {
-                    showToast('关键帧生成失败: ' + frameData.message, 'error');
-                    btn.disabled = false;
-                    btn.textContent = originalText;
-                    return;
-                }
-
-                // 显示关键帧
-                document.getElementById('generatedImage').style.display = 'block';
-                document.getElementById('framesInfo').textContent =
-                    `✅ ${frameData.message} | 标题: ${frameData.title} | 摘要: ${frameData.summary.substring(0, 30)}...`;
-                const framesContainer = document.getElementById('framesContainer');
-                framesContainer.innerHTML = '';
-                window.generatedFramesDir = frameData.output_dir;
-
-                frameData.frames.forEach(frame => {
-                    const frameCard = document.createElement('div');
-                    frameCard.style.cssText = 'background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
-                    frameCard.innerHTML = `
-                        <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">关键帧 ${frame.frame_index}</div>
-                        <img src="${frame.image_path}" style="width: 100%; border-radius: 4px; cursor: pointer;" onclick="openImageModal(this.src, this)">
-                        <div style="margin-top: 8px; display: flex; gap: 8px;">
-                            <a href="${frame.image_path}" download="frame_${frame.frame_index}.png" class="download-btn" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 13px;">📥 下载</a>
-                        </div>
-                    `;
-                    framesContainer.appendChild(frameCard);
-                });
-                document.getElementById('createVideoBtn').style.display = 'inline-block';
-
-                showToast(`✅ ${frameData.total} 帧关键帧已生成，开始合成视频...`, 'success');
-
-                // 第3步：合成视频
-                btn.textContent = '🚀 [3/3] 合成视频...';
-
-                const videoResp = await fetch('/api/create-video', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        frames_dir: window.generatedFramesDir,
-                        duration_per_frame: 2.5,
+                        images: selectedImages,
                         audio_path: 'static/music/background.mp3'
                     })
                 });
                 const videoData = await videoResp.json();
 
                 if (videoData.success) {
+                    // 显示预览帧
+                    if (videoData.preview_frames && videoData.preview_frames.length > 0) {
+                        document.getElementById('generatedImage').style.display = 'block';
+                        document.getElementById('framesInfo').textContent =
+                            `✅ 动画视频已生成 | 片段: ${videoData.preview_frames.length} | 标题: ${generatedTitle}`;
+                        const framesContainer = document.getElementById('framesContainer');
+                        framesContainer.innerHTML = '';
+                        videoData.preview_frames.forEach((framePath, i) => {
+                            const frameCard = document.createElement('div');
+                            frameCard.style.cssText = 'background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
+                            frameCard.innerHTML = `
+                                <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">片段 ${i + 1} 预览</div>
+                                <img src="${framePath}" style="width: 100%; border-radius: 4px; cursor: pointer;" onclick="openImageModal(this.src, this)">
+                            `;
+                            framesContainer.appendChild(frameCard);
+                        });
+                    }
+
                     const videoResult = document.getElementById('videoResult');
                     const videoInfo = document.getElementById('videoInfo');
                     const videoPlayer = document.getElementById('generatedVideo');
                     const downloadBtn = document.getElementById('downloadVideoBtn');
 
-                    videoInfo.textContent = `🎬 关键帧: ${videoData.frames_count} | 时长: ${videoData.duration.toFixed(1)}秒 | 大小: ${videoData.file_size_mb}MB`;
+                    videoInfo.textContent = `🎬 片段: ${videoData.preview_frames ? videoData.preview_frames.length : '?'} | 时长: ${videoData.duration.toFixed(1)}秒 | 大小: ${videoData.file_size_mb}MB`;
                     videoPlayer.src = videoData.video_path;
                     downloadBtn.href = videoData.video_path;
                     downloadBtn.download = videoData.video_path.split('/').pop();
@@ -1565,10 +1725,10 @@
                 if (!modalState.drawMode) {
                     toggleDrawMode();
                 }
-                // 自动检测水印（去水印后的图不再检测）
-                if (!modalState.skipAutoDetect) {
-                    autoDetectWatermark();
-                }
+                // 不再自动检测水印，用户可手动点击"自动检测"按钮
+                // if (!modalState.skipAutoDetect) {
+                //     autoDetectWatermark();
+                // }
             };
         }
 
