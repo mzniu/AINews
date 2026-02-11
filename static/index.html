@@ -570,10 +570,11 @@
         .image-modal {
             position: relative;
             background: #1a1a2e;
-            border-radius: 12px;
-            width: 95vw;
-            max-width: 1200px;
-            height: 90vh;
+            border-radius: 0;  /* 全屏时不需要圆角 */
+            width: 100vw;       /* 全屏宽度 */
+            height: 100vh;      /* 全屏高度 */
+            max-width: none;    /* 移除最大宽度限制 */
+            max-height: none;   /* 移除最大高度限制 */
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -582,10 +583,11 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 20px;
+            padding: 16px 24px;  /* 增加内边距使全屏时更舒适 */
             background: #16213e;
             color: white;
             flex-shrink: 0;
+            border-bottom: 1px solid #2a3a5a;  /* 添加底部分割线 */
         }
         .image-modal-header h3 {
             margin: 0;
@@ -1041,6 +1043,7 @@
                     <button class="modal-btn-zoom" onclick="zoomImage(-0.2)" title="缩小">➖ 缩小</button>
                     <button class="modal-btn-zoom" onclick="zoomImage(0.2)" title="放大">➕ 放大</button>
                     <button class="modal-btn-zoom" onclick="resetZoom()" title="适应">🔄 适应</button>
+                    <button class="modal-btn-zoom" onclick="toggleFullscreen()" title="切换全屏" id="fullscreenBtn">🔲 全屏</button>
                     <span style="color:#555;">|</span>
                     <button class="modal-btn-draw" id="drawModeBtn" onclick="toggleDrawMode()" title="框选水印区域">✏️ 框选水印</button>
                     <button class="modal-btn-zoom" id="autoDetectBtn" onclick="autoDetectWatermark()" title="AI自动检测水印区域">🔍 自动检测</button>
@@ -1675,6 +1678,7 @@
             zoom: 1,
             drawMode: false,
             drawing: false,
+            isFullscreen: true,    // 全屏状态
             regions: [],           // 框选的水印区域 [{x, y, width, height}]
             startX: 0,
             startY: 0,
@@ -1736,6 +1740,50 @@
             document.getElementById('imageModalOverlay').classList.remove('active');
             clearCanvas();
             toggleRegionPanel(false);
+            modalState.isFullscreen = true;  // 重置为全屏模式
+            updateFullscreenButton();
+        }
+
+        function toggleFullscreen() {
+            modalState.isFullscreen = !modalState.isFullscreen;
+            const modal = document.querySelector('.image-modal');
+            const btn = document.getElementById('fullscreenBtn');
+            
+            if (modalState.isFullscreen) {
+                // 切换到全屏
+                modal.style.width = '100vw';
+                modal.style.height = '100vh';
+                modal.style.maxWidth = 'none';
+                modal.style.maxHeight = 'none';
+                modal.style.borderRadius = '0';
+                btn.innerHTML = '🔲 全屏';
+                btn.title = '退出全屏';
+            } else {
+                // 切换到窗口模式
+                modal.style.width = '95vw';
+                modal.style.height = '90vh';
+                modal.style.maxWidth = '1200px';
+                modal.style.maxHeight = '800px';
+                modal.style.borderRadius = '12px';
+                btn.innerHTML = '🔳 窗口';
+                btn.title = '全屏显示';
+            }
+            
+            // 重新计算图片显示尺寸
+            setTimeout(updateCanvasSize, 100);
+        }
+
+        function updateFullscreenButton() {
+            const btn = document.getElementById('fullscreenBtn');
+            if (btn) {
+                if (modalState.isFullscreen) {
+                    btn.innerHTML = '🔲 全屏';
+                    btn.title = '退出全屏';
+                } else {
+                    btn.innerHTML = '🔳 窗口';
+                    btn.title = '全屏显示';
+                }
+            }
         }
 
         function zoomImage(delta) {
