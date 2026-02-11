@@ -75,17 +75,34 @@ class CrawlerService:
         is_qbitai = 'qbitai.com' in parsed_url.netloc
         
         if is_qbitai:
-            # 只提取具有syl-page-img类的图片
-            logger.info("检测到qbitai网站，只提取syl-page-img类的图片")
-            img_elements = soup.find_all('img', class_='syl-page-img')
-            for img in img_elements:
+            # 提取具有syl-page-img类和pgc-img类的图片
+            logger.info("检测到qbitai网站，提取syl-page-img和pgc-img类的图片")
+            
+            # 提取syl-page-img类图片
+            syl_img_elements = soup.find_all('img', class_='syl-page-img')
+            for img in syl_img_elements:
                 src = img.get('src') or img.get('data-src') or img.get('data-original')
                 if src and not src.startswith('data:'):
                     images.append({
                         'url': urljoin(base_url, src),
                         'alt': img.get('alt', ''),
-                        'class': 'syl-page-img'  # 标记来源
+                        'class': 'syl-page-img'
                     })
+            
+            # 提取pgc-img类图片（在pgc-img div容器内）
+            pgc_containers = soup.find_all('div', class_='pgc-img')
+            for container in pgc_containers:
+                img = container.find('img')
+                if img:
+                    src = img.get('src') or img.get('data-src') or img.get('data-original')
+                    if src and not src.startswith('data:'):
+                        images.append({
+                            'url': urljoin(base_url, src),
+                            'alt': img.get('alt', ''),
+                            'class': 'pgc-img'
+                        })
+            
+            logger.info(f"qbitai网站提取完成: syl-page-img {len(syl_img_elements)}张, pgc-img {len(pgc_containers)}张")
         else:
             # 其他网站提取所有图片
             logger.info("提取页面所有图片")

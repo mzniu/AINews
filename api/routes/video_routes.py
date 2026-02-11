@@ -166,8 +166,8 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             for l in summary_lines
         )
 
-        title_start_y = int(img_height * 0.15)
-        summary_start_y = int(img_height * 0.85) - summary_height
+        title_start_y = int(img_height * 0.1)
+        summary_start_y = int(img_height * 0.9) - summary_height
 
         title_info = (title_font, subtitle_font, main_title_lines, sub_title_lines,
                       title_start_y, main_title_height, margin, text_width)
