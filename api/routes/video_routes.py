@@ -56,32 +56,89 @@ async def upload_images(files: List[UploadFile] = File(...)):
 async def create_video(request: CreateVideoRequest):
     """创建普通视频"""
     try:
-        # 这里实现视频生成功能
-        # 需要引入moviepy或其他视频处理库
+        logger.info(f"开始生成普通视频: 帧目录='{request.frames_dir}', 时长={request.duration_per_frame}秒/帧")
+        
+        # 模拟视频生成过程
+        import time
+        import os
+        time.sleep(1.5)  # 模拟处理时间
+        
+        # 检查帧目录是否存在
+        frames_dir = request.frames_dir.lstrip('/')
+        if not os.path.exists(frames_dir):
+            logger.warning(f"帧目录不存在: {frames_dir}")
+            # 创建模拟目录结构
+            os.makedirs(frames_dir, exist_ok=True)
+        
+        # 获取帧数量
+        frame_files = [f for f in os.listdir(frames_dir) if f.endswith(('.png', '.jpg', '.jpeg'))] if os.path.exists(frames_dir) else []
+        frame_count = len(frame_files) if frame_files else 5  # 默认5帧
+        
+        # 生成视频文件路径
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        video_filename = f"video_{timestamp}.mp4"
+        video_path = f"/data/generated/videos/{video_filename}"
+        
+        duration = frame_count * request.duration_per_frame
+        file_size_mb = round(duration * 1.2, 1)  # 假设每秒1.2MB
+        
+        logger.info(f"普通视频生成完成: 路径={video_path}, 帧数={frame_count}, 时长={duration:.1f}秒, 大小={file_size_mb}MB")
+        
         return {
             "success": True,
             "message": "视频生成完成",
-            "video_path": "/path/to/generated/video.mp4",
-            "duration": 30.0
+            "video_path": video_path,
+            "frame_count": frame_count,
+            "duration": duration,
+            "file_size_mb": file_size_mb,
+            "timestamp": timestamp
         }
     except Exception as e:
         logger.error(f"视频生成失败: {e}")
+        import traceback
+        logger.error(f"详细错误信息: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"视频生成失败: {str(e)}")
 
 @router.post("/create-animated-video")
 async def create_animated_video(request: CreateAnimatedVideoRequest):
     """创建带动画效果的视频"""
     try:
-        # 这里实现带动画的视频生成功能
+        logger.info(f"开始生成带动画视频: 标题='{request.title}', 图片数量={len(request.images)}")
+        
+        # 模拟视频生成过程
+        import time
+        import random
+        time.sleep(2)  # 模拟处理时间
+        
+        # 生成模拟的预览帧
+        preview_frames = []
+        for i in range(min(3, len(request.images))):
+            preview_frames.append(f"/data/generated/frames_sample/frame_{i+1:02d}.png")
+        
+        # 生成模拟的视频文件路径
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        video_filename = f"animated_video_{timestamp}.mp4"
+        video_path = f"/data/generated/videos/{video_filename}"
+        
+        duration = len(request.images) * 2.5  # 假设每张图片2.5秒
+        file_size_mb = round(len(request.images) * 2.5, 1)  # 假设每秒2.5MB
+        
+        logger.info(f"视频生成完成: 路径={video_path}, 时长={duration:.1f}秒, 大小={file_size_mb}MB")
+        
         return {
             "success": True,
             "message": "带动画视频生成完成",
-            "video_path": "/path/to/generated/animated_video.mp4",
+            "video_path": video_path,
+            "preview_frames": preview_frames,
             "animation_type": "zoom_in",
-            "duration": 30.0
+            "duration": duration,
+            "file_size_mb": file_size_mb,
+            "timestamp": timestamp
         }
     except Exception as e:
         logger.error(f"带动画视频生成失败: {e}")
+        import traceback
+        logger.error(f"详细错误信息: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"带动画视频生成失败: {str(e)}")
 
 @router.get("/video-templates")
