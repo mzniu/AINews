@@ -56,8 +56,15 @@ class CrawlerService:
             tag.decompose()
         
         content_selectors = [
-            'article', '[class*="content"]', '[class*="article"]',
-            '[class*="post"]', '[id*="content"]', 'main', 'body'
+            'article', 
+            '.article-content',      # 36kr专用选择器
+            '[class*="article"]',   # 更精确的文章选择器
+            '[class*="content"]',   # 通用内容选择器
+            '[class*="post"]', 
+            '[id*="content"]', 
+            'main', 
+            '.main-content',
+            'body'
         ]
         
         content_text = ""

@@ -48,8 +48,9 @@ def extract_content(html: str, base_url: str) -> dict:
     # 提取正文（尝试多种选择器）
     content_selectors = [
         'article',
-        '[class*="content"]',
-        '[class*="article"]',
+        '.article-content',      # 36kr专用选择器
+        '[class*="article"]',   # 更精确的文章选择器
+        '[class*="content"]',   # 通用内容选择器
         '[class*="post"]',
         '[id*="content"]',
         'main',
