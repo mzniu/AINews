@@ -315,8 +315,8 @@
 
         .image-selector {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(2, 1fr);  /* 改为每行2个图片 */
+            gap: 15px;  /* 增加间距让图片更大 */
             margin: 15px 0;
         }
 
@@ -336,7 +336,7 @@
 
         .selectable-image img {
             width: 100%;
-            height: 120px;
+            height: 180px;  /* 增加图片高度 */
             object-fit: cover;
             display: block;
         }
