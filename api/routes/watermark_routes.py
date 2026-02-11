@@ -54,8 +54,9 @@ def merge_regions(regions):
 def get_lama_model():
     """获取LaMa去水印模型实例"""
     try:
-        from lama_cleaner.model_manager import ModelManager
-        model = ModelManager(name='lama', device='cpu')
+        from simple_lama_inpainting import SimpleLama
+        model = SimpleLama(device='cpu')
+        logger.info("LaMa模型加载成功")
         return model
     except ImportError:
         logger.warning("LaMa模型未安装，使用模拟实现")
