@@ -336,8 +336,20 @@ async def create_user_video(
     """用户上传图片生成视频（可选标题，8种入场动画，背景音乐）"""
     try:
         import json as _json
-        image_list = _json.loads(images)
-        if not image_list:
+        
+        # 参数验证
+        if not images or not images.strip():
+            return JSONResponse(status_code=400,
+                                content={"success": False, "message": "图片列表不能为空"})
+        
+        try:
+            image_list = _json.loads(images)
+        except _json.JSONDecodeError as e:
+            logger.error(f"JSON解析失败: {e}, 输入内容: {images[:100]}...")
+            return JSONResponse(status_code=400,
+                                content={"success": False, "message": "图片列表格式错误"})
+        
+        if not isinstance(image_list, list) or not image_list:
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少上传一张图片"})
 
