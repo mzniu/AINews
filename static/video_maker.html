@@ -494,8 +494,10 @@
             try {
                 const resp = await fetch('/api/upload-images', { method: 'POST', body: formData });
                 const data = await resp.json();
+                console.log('上传响应:', data);  // 调试信息
                 if (data.success) {
-                    uploadedPaths = data.images;
+                    uploadedPaths = data.files.map(f => f.saved_path);  // 注意这里是files字段
+                    console.log('上传后的路径:', uploadedPaths);  // 调试信息
                     statusEl.textContent = `✅ 已上传 ${data.count} 张图片`;
                     showToast(`上传成功：${data.count} 张图片`, 'success');
                 } else {
@@ -542,6 +544,20 @@
                 // 第2步：生成视频
                 genStatus.textContent = '🎬 正在合成视频，请稍候...';
                 progressFill.style.width = '50%';
+
+                // 调试信息
+                console.log('准备发送的数据:');
+                console.log('title:', document.getElementById('inputTitle').value);
+                console.log('subtitle:', document.getElementById('inputSubtitle').value);
+                console.log('images:', uploadedPaths);
+                console.log('audio_path:', document.getElementById('audioSelect').value);
+                console.log('clip_duration:', document.getElementById('clipDuration').value);
+                console.log('effect:', document.getElementById('effectSelect').value);
+
+                // 验证必要参数
+                if (!uploadedPaths || uploadedPaths.length === 0) {
+                    throw new Error('请先上传图片');
+                }
 
                 const formData = new FormData();
                 formData.append('title', document.getElementById('inputTitle').value);
