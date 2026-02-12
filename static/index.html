@@ -983,22 +983,22 @@
                         <div style="margin-bottom: 15px;">
                             <strong style="color: #667eea;">标题：</strong>
                             <div class="ai-field-row">
-                                <div class="ai-summary-content" id="aiTitle" style="font-size: 1.2em; font-weight: bold; margin: 10px 0;"></div>
-                                <button class="copy-btn" onclick="copyAiContent('aiTitle')" title="复制标题">📋</button>
+                                <input type="text" id="editableAiTitle" class="ai-edit-input" placeholder="AI生成的标题将显示在这里..." style="font-size: 1.2em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableAiTitle')" title="复制标题">📋</button>
                             </div>
                         </div>
                         <div>
                             <strong style="color: #667eea;">摘要：</strong>
                             <div class="ai-field-row">
-                                <div class="ai-summary-content" id="aiSummaryContent"></div>
-                                <button class="copy-btn" onclick="copyAiContent('aiSummaryContent')" title="复制摘要">📋</button>
+                                <textarea id="editableAiSummary" class="ai-edit-input" rows="4" placeholder="AI生成的摘要将显示在这里..." style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; resize: vertical;"></textarea>
+                                <button class="copy-btn" onclick="copyAiContent('editableAiSummary')" title="复制摘要">📋</button>
                             </div>
                         </div>
                         <div>
                             <strong style="color: #667eea;">标签：</strong>
                             <div class="ai-field-row">
-                                <div class="ai-summary-content" id="aiTags" style="margin-top: 8px; color: #764ba2; font-size: 14px;"></div>
-                                <button class="copy-btn" onclick="copyAiContent('aiTags')" title="复制标签">📋</button>
+                                <input type="text" id="editableAiTags" class="ai-edit-input" placeholder="#AI #人工智能 #科技..." style="margin-top: 8px; color: #764ba2; font-size: 14px; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; width: 100%;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableAiTags')" title="复制标签">📋</button>
                             </div>
                         </div>
                         <div style="margin-top: 10px; color: #666; font-size: 12px;" id="aiMeta"></div>
@@ -1006,6 +1006,9 @@
                         <div class="action-buttons" style="margin-top: 20px;">
                             <button class="btn" onclick="generateVideoImage()">
                                 🎨 生成视频关键帧
+                            </button>
+                            <button class="secondary-btn" onclick="saveEditedContent()" title="保存修改后的内容用于视频生成">
+                                💾 保存修改
                             </button>
                         </div>
                     </div>
@@ -1103,6 +1106,26 @@
             }, duration);
         }
 
+        // 全局变量存储编辑后的内容
+        let editedTitle = '';
+        let editedSummary = '';
+        let editedTags = '';
+        
+        function saveEditedContent() {
+            // 保存用户编辑的内容
+            editedTitle = document.getElementById('editableAiTitle').value.trim();
+            editedSummary = document.getElementById('editableAiSummary').value.trim();
+            editedTags = document.getElementById('editableAiTags').value.trim();
+            
+            if (!editedTitle || !editedSummary) {
+                showToast('请填写标题和摘要后再保存', 'error');
+                return;
+            }
+            
+            showToast('✅ 内容已保存，将在视频生成时使用', 'success');
+            console.log('保存的编辑内容:', { editedTitle, editedSummary, editedTags });
+        }
+        
         function copyAiContent(elementId) {
             const el = document.getElementById(elementId);
             if (!el || !el.textContent.trim()) {
@@ -1339,8 +1362,9 @@
             // 显示加载状态
             const summaryDiv = document.getElementById('aiSummary');
             summaryDiv.style.display = 'block';
-            document.getElementById('aiTitle').textContent = '正在生成标题...';
-            document.getElementById('aiSummaryContent').textContent = '正在生成摘要...';
+            document.getElementById('editableAiTitle').value = '正在生成标题...';
+            document.getElementById('editableAiSummary').value = '正在生成摘要...';
+            document.getElementById('editableAiTags').value = '';
             document.getElementById('aiMeta').textContent = '';
 
             try {
@@ -1362,24 +1386,29 @@
                     generatedTitle = data.title;
                     generatedSummary = data.summary;
                     
-                    // 显示主副标题
+                    // 显示主副标题到可编辑输入框
                     const mainT = data.main_title || data.title.split('|')[0];
                     const subT = data.sub_title || (data.title.includes('|') ? data.title.split('|')[1] : '');
-                    document.getElementById('aiTitle').innerHTML = mainT + (subT ? `<div style="font-size:0.75em; color:#999; font-weight:normal; margin-top:4px;">${subT}</div>` : '');
-                    document.getElementById('aiSummaryContent').textContent = data.summary;
-                    document.getElementById('aiTags').textContent = data.tags || '';
+                    const combinedTitle = subT ? `${mainT}|${subT}` : mainT;
+                    
+                    document.getElementById('editableAiTitle').value = combinedTitle;
+                    document.getElementById('editableAiSummary').value = data.summary;
+                    document.getElementById('editableAiTags').value = data.tags || '';
                     document.getElementById('aiMeta').textContent = 
                         `主标题: ${mainT.length}字 | 副标题: ${subT.length}字 | 摘要: ${data.summary.length}字 | 模型: ${data.model} | tokens: ${data.tokens_used}`;
+                    
+                    // 自动保存初始内容
+                    saveEditedContent();
                 } else {
-                    document.getElementById('aiTitle').textContent = '';
-                    document.getElementById('aiSummaryContent').textContent = '生成失败: ' + data.message;
-                    document.getElementById('aiTags').textContent = '';
+                    document.getElementById('editableAiTitle').value = '';
+                    document.getElementById('editableAiSummary').value = '生成失败: ' + data.message;
+                    document.getElementById('editableAiTags').value = '';
                     document.getElementById('aiMeta').textContent = '';
                 }
             } catch (error) {
-                document.getElementById('aiTitle').textContent = '';
-                document.getElementById('aiSummaryContent').textContent = '生成失败: ' + error.message;
-                document.getElementById('aiTags').textContent = '';
+                document.getElementById('editableAiTitle').value = '';
+                document.getElementById('editableAiSummary').value = '生成失败: ' + error.message;
+                document.getElementById('editableAiTags').value = '';
                 document.getElementById('aiMeta').textContent = '';
             }
         }
@@ -1402,8 +1431,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        title: generatedTitle,
-                        summary: generatedSummary,
+                        title: editedTitle || generatedTitle,
+                        summary: editedSummary || generatedSummary,
                         images: selectedImages
                     })
                 });
@@ -1574,11 +1603,17 @@
                 generatedSummary = summaryData.summary;
                 const mainT2 = summaryData.main_title || summaryData.title.split('|')[0];
                 const subT2 = summaryData.sub_title || (summaryData.title.includes('|') ? summaryData.title.split('|')[1] : '');
-                document.getElementById('aiTitle').innerHTML = mainT2 + (subT2 ? `<div style="font-size:0.75em; color:#999; font-weight:normal; margin-top:4px;">${subT2}</div>` : '');
-                document.getElementById('aiSummaryContent').textContent = summaryData.summary;
-                document.getElementById('aiTags').textContent = summaryData.tags || '';
+                const combinedTitle2 = subT2 ? `${mainT2}|${subT2}` : mainT2;
+                
+                // 填充到可编辑输入框
+                document.getElementById('editableAiTitle').value = combinedTitle2;
+                document.getElementById('editableAiSummary').value = summaryData.summary;
+                document.getElementById('editableAiTags').value = summaryData.tags || '';
                 document.getElementById('aiMeta').textContent =
                     `主标题: ${mainT2.length}字 | 副标题: ${subT2.length}字 | 摘要: ${summaryData.summary.length}字 | 模型: ${summaryData.model} | tokens: ${summaryData.tokens_used}`;
+                
+                // 自动保存内容
+                saveEditedContent();
 
                 showToast('✅ 标题摘要已生成，开始合成动画视频...', 'success');
 
@@ -1589,8 +1624,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        title: generatedTitle,
-                        summary: generatedSummary,
+                        title: editedTitle || generatedTitle,
+                        summary: editedSummary || generatedSummary,
                         images: selectedImages,
                         audio_path: 'static/music/background.mp3'
                     })
