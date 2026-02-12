@@ -1217,18 +1217,22 @@
             // 显示结果区域
             document.getElementById('result').classList.add('active');
 
-            // 填充基本信息
-            document.getElementById('resultTitle').textContent = data.title;
-            document.getElementById('crawlTime').textContent = new Date(data.crawl_time).toLocaleString('zh-CN');
-            document.getElementById('contentLength').textContent = data.content_length.toLocaleString();
-            document.getElementById('imagesCount').textContent = data.images_count;
-
-            // 内容预览
-            document.getElementById('contentPreview').textContent = data.content_preview;
-
-            // 下载链接
-            document.getElementById('downloadContent').href = data.content_file;
-            document.getElementById('downloadMetadata').href = data.metadata_file;
+            // 填充基本信息（添加安全检查）
+            const resultTitleEl = document.getElementById('resultTitle');
+            const crawlTimeEl = document.getElementById('crawlTime');
+            const contentLengthEl = document.getElementById('contentLength');
+            const imagesCountEl = document.getElementById('imagesCount');
+            const contentPreviewEl = document.getElementById('contentPreview');
+            const downloadContentEl = document.getElementById('downloadContent');
+            const downloadMetadataEl = document.getElementById('downloadMetadata');
+            
+            if (resultTitleEl) resultTitleEl.textContent = data.title;
+            if (crawlTimeEl) crawlTimeEl.textContent = new Date(data.crawl_time).toLocaleString('zh-CN');
+            if (contentLengthEl) contentLengthEl.textContent = data.content_length.toLocaleString();
+            if (imagesCountEl) imagesCountEl.textContent = data.images_count;
+            if (contentPreviewEl) contentPreviewEl.textContent = data.content_preview;
+            if (downloadContentEl) downloadContentEl.href = data.content_file;
+            if (downloadMetadataEl) downloadMetadataEl.href = data.metadata_file;
 
             // 显示图片
             const imagesGrid = document.getElementById('imagesGrid');
@@ -1527,18 +1531,19 @@
                 console.log('视频生成响应:', data);
                 
                 if (data.success) {
-                    // 显示视频结果
+                    // 显示视频结果（添加安全检查）
                     const videoResult = document.getElementById('videoResult');
                     const videoInfo = document.getElementById('videoInfo');
                     const videoPlayer = document.getElementById('generatedVideo');
                     const downloadBtn = document.getElementById('downloadVideoBtn');
                     
-                    videoInfo.textContent = `🎬 关键帧: ${data.frames_count} | 时长: ${data.duration.toFixed(1)}秒 | 大小: ${data.file_size_mb}MB`;
-                    videoPlayer.src = data.video_path;
-                    downloadBtn.href = data.video_path;
-                    downloadBtn.download = data.video_path.split('/').pop();
-                    
-                    videoResult.style.display = 'block';
+                    if (videoInfo) videoInfo.textContent = `🎬 关键帧: ${data.frames_count} | 时长: ${data.duration.toFixed(1)}秒 | 大小: ${data.file_size_mb}MB`;
+                    if (videoPlayer) videoPlayer.src = data.video_path;
+                    if (downloadBtn) {
+                        downloadBtn.href = data.video_path;
+                        downloadBtn.download = data.video_path.split('/').pop();
+                    }
+                    if (videoResult) videoResult.style.display = 'block';
                     
                     showToast(`视频生成成功！时长 ${data.duration.toFixed(1)}秒，大小 ${data.file_size_mb}MB`, 'success', 4500);
                 } else {
@@ -1588,9 +1593,14 @@
                 showToast('开始一键生成：正在生成AI标题和摘要...', 'info');
 
                 const summaryDiv = document.getElementById('aiSummary');
-                summaryDiv.style.display = 'block';
-                document.getElementById('aiTitle').textContent = '正在生成标题...';
-                document.getElementById('aiSummaryContent').textContent = '正在生成摘要...';
+                if (summaryDiv) summaryDiv.style.display = 'block';
+                
+                // 使用新的可编辑输入框ID（避免变量名冲突）
+                const oneClickTitleEl = document.getElementById('editableAiTitle');
+                const oneClickSummaryEl = document.getElementById('editableAiSummary');
+                
+                if (oneClickTitleEl) oneClickTitleEl.value = '正在生成标题...';
+                if (oneClickSummaryEl) oneClickSummaryEl.value = '正在生成摘要...';
 
                 const summaryResp = await fetch('/api/generate-summary', {
                     method: 'POST',
