@@ -296,12 +296,144 @@
             background: #45a049;
         }
 
-        .edit-section {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
+        /* 右侧排序面板样式 */
+        .sort-panel {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            width: 220px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            z-index: 1000;
             display: none;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .panel-header h4 {
+            margin: 0;
+            font-size: 14px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #999;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: #eee;
+            color: #666;
+        }
+        
+        .sortable-list {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+        
+        .sortable-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: move;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        
+        .sortable-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .sortable-item.dragging {
+            opacity: 0.5;
+            background: #e3f2fd;
+        }
+        
+        .sortable-item.over {
+            border-top: 2px solid #667eea;
+            background: #f0f4ff;
+        }
+        
+        .order-number {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: bold;
+            min-width: 20px;
+            margin-right: 8px;
+        }
+        
+        .sortable-item img {
+            width: 45px;
+            height: 45px;
+            object-fit: cover;
+            margin-right: 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        
+        .filename {
+            font-size: 12px;
+            color: #666;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .panel-footer {
+            padding: 12px 15px;
+            border-top: 1px solid #eee;
+            text-align: center;
+            background: #f8f9fa;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .btn-secondary {
+            padding: 8px 16px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+        
+        /* 拖拽相关样式 */
+        .drag-placeholder {
+            height: 65px;
+            background: #e3f2fd;
+            border: 2px dashed #667eea;
+            border-radius: 6px;
+            margin: 5px 15px;
         }
 
         .edit-section.active {
@@ -1035,6 +1167,20 @@
                 </div>
             </div>
         </div>
+        
+        <!-- 右侧排序面板 -->
+        <div id="sortPanel" class="sort-panel">
+            <div class="panel-header">
+                <h4>🖼️ 已选图片排序</h4>
+                <button id="closeSortPanel" class="close-btn">×</button>
+            </div>
+            <div id="sortableList" class="sortable-list">
+                <!-- 动态生成的排序项 -->
+            </div>
+            <div class="panel-footer">
+                <button id="resetOrder" class="btn-secondary">🔄 重置顺序</button>
+            </div>
+        </div>
     </div>
 
     <!-- 图片查看器 & 去水印模态框 -->
@@ -1110,6 +1256,145 @@
         let editedTitle = '';
         let editedSummary = '';
         let editedTags = '';
+        
+        // 拖拽排序相关变量
+        let dragSrcEl = null;
+        
+        // 排序面板功能
+        function initSortPanel() {
+            const panel = document.getElementById('sortPanel');
+            if (selectedImages.length > 0) {
+                panel.style.display = 'block';
+                updateSortPanel();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        
+        function updateSortPanel() {
+            const container = document.getElementById('sortableList');
+            container.innerHTML = '';
+            
+            selectedImages.forEach((path, index) => {
+                const item = createSortableItem(path, index + 1);
+                container.appendChild(item);
+            });
+            
+            // 初始化拖拽功能
+            initDragAndDrop();
+        }
+        
+        function createSortableItem(path, order) {
+            const div = document.createElement('div');
+            div.className = 'sortable-item';
+            div.draggable = true;
+            div.dataset.path = path;
+            
+            // 提取文件名
+            const fileName = path.split('/').pop() || '图片';
+            const displayName = fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName;
+            
+            div.innerHTML = `
+                <span class="order-number">${order}.</span>
+                <img src="${path}" alt="选中图片" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><circle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/><path d=%22M21 15l-5-5L5 21%22/></svg>'">
+                <span class="filename" title="${fileName}">${displayName}</span>
+            `;
+            
+            return div;
+        }
+        
+        function initDragAndDrop() {
+            const items = document.querySelectorAll('.sortable-item');
+            
+            items.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+        }
+        
+        function handleDragStart(e) {
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.outerHTML);
+            this.classList.add('dragging');
+        }
+        
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            
+            // 添加视觉指示器
+            if (this !== dragSrcEl) {
+                this.classList.add('over');
+            }
+            
+            return false;
+        }
+        
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (dragSrcEl !== this) {
+                // 交换元素位置
+                const parent = dragSrcEl.parentNode;
+                const dragIndex = Array.from(parent.children).indexOf(dragSrcEl);
+                const dropIndex = Array.from(parent.children).indexOf(this);
+                
+                if (dragIndex < dropIndex) {
+                    parent.insertBefore(dragSrcEl, this.nextSibling);
+                } else {
+                    parent.insertBefore(dragSrcEl, this);
+                }
+                
+                // 更新selectedImages数组
+                updateSelectedImagesFromSort();
+                // 更新序号显示
+                updateOrderNumbers();
+            }
+            
+            return false;
+        }
+        
+        function handleDragEnd() {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.sortable-item').forEach(item => {
+                item.classList.remove('over');
+            });
+            dragSrcEl = null;
+        }
+        
+        function updateSelectedImagesFromSort() {
+            const items = document.querySelectorAll('.sortable-item');
+            const newOrder = Array.from(items).map(item => item.dataset.path);
+            selectedImages = newOrder;
+            console.log('排序已更新:', selectedImages);
+        }
+        
+        function updateOrderNumbers() {
+            const items = document.querySelectorAll('.sortable-item');
+            items.forEach((item, index) => {
+                const numberSpan = item.querySelector('.order-number');
+                if (numberSpan) {
+                    numberSpan.textContent = `${index + 1}.`;
+                }
+            });
+        }
+        
+        function hideSortPanel() {
+            const panel = document.getElementById('sortPanel');
+            panel.style.display = 'none';
+        }
+        
+        function resetImageOrder() {
+            // 这里可以添加重置逻辑，比如按原始顺序重新排列
+            showToast('顺序重置功能待实现', 'info');
+        }
         
         function saveEditedContent() {
             // 保存用户编辑的内容
@@ -1325,6 +1610,9 @@
             }
 
             console.log('已选择图片:', selectedImages.length);
+            
+            // 更新排序面板
+            initSortPanel();
         }
 
         async function processImage(imagePath, effect, event) {
@@ -1727,7 +2015,10 @@
                         document.getElementById('contentEditor').value = actualContent;
                     });
             }
-
+            
+            // 隐藏排序面板
+            hideSortPanel();
+            
             // 隐藏AI摘要
             document.getElementById('aiSummary').style.display = 'none';
             
@@ -2341,6 +2632,26 @@
             
             closeImageModal();
             showToast('已替换为去水印后的图片', 'success');
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化事件监听器
+            initializeEventListeners();
+        });
+        
+        function initializeEventListeners() {
+            // 排序面板相关事件
+            const closeBtn = document.getElementById('closeSortPanel');
+            const resetBtn = document.getElementById('resetOrder');
+            
+            if (closeBtn) {
+                closeBtn.addEventListener('click', hideSortPanel);
+            }
+            
+            if (resetBtn) {
+                resetBtn.addEventListener('click', resetImageOrder);
+            }
         }
     </script>
 </body>
