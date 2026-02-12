@@ -1359,13 +1359,19 @@
                 return;
             }
 
-            // 显示加载状态
+            // 显示加载状态（添加安全检查）
             const summaryDiv = document.getElementById('aiSummary');
-            summaryDiv.style.display = 'block';
-            document.getElementById('editableAiTitle').value = '正在生成标题...';
-            document.getElementById('editableAiSummary').value = '正在生成摘要...';
-            document.getElementById('editableAiTags').value = '';
-            document.getElementById('aiMeta').textContent = '';
+            if (summaryDiv) summaryDiv.style.display = 'block';
+            
+            const aiTitleEl = document.getElementById('editableAiTitle');
+            const aiSummaryEl = document.getElementById('editableAiSummary');
+            const aiTagsEl = document.getElementById('editableAiTags');
+            const aiMetaEl = document.getElementById('aiMeta');
+            
+            if (aiTitleEl) aiTitleEl.value = '正在生成标题...';
+            if (aiSummaryEl) aiSummaryEl.value = '正在生成摘要...';
+            if (aiTagsEl) aiTagsEl.value = '';
+            if (aiMetaEl) aiMetaEl.textContent = '';
 
             try {
                 const response = await fetch('/api/generate-summary', {
@@ -1400,16 +1406,16 @@
                     // 自动保存初始内容
                     saveEditedContent();
                 } else {
-                    document.getElementById('editableAiTitle').value = '';
-                    document.getElementById('editableAiSummary').value = '生成失败: ' + data.message;
-                    document.getElementById('editableAiTags').value = '';
-                    document.getElementById('aiMeta').textContent = '';
+                    if (aiTitleEl) aiTitleEl.value = '';
+                    if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + data.message;
+                    if (aiTagsEl) aiTagsEl.value = '';
+                    if (aiMetaEl) aiMetaEl.textContent = '';
                 }
             } catch (error) {
-                document.getElementById('editableAiTitle').value = '';
-                document.getElementById('editableAiSummary').value = '生成失败: ' + error.message;
-                document.getElementById('editableAiTags').value = '';
-                document.getElementById('aiMeta').textContent = '';
+                if (aiTitleEl) aiTitleEl.value = '';
+                if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + error.message;
+                if (aiTagsEl) aiTagsEl.value = '';
+                if (aiMetaEl) aiMetaEl.textContent = '';
             }
         }
 
@@ -1605,11 +1611,16 @@
                 const subT2 = summaryData.sub_title || (summaryData.title.includes('|') ? summaryData.title.split('|')[1] : '');
                 const combinedTitle2 = subT2 ? `${mainT2}|${subT2}` : mainT2;
                 
-                // 填充到可编辑输入框
-                document.getElementById('editableAiTitle').value = combinedTitle2;
-                document.getElementById('editableAiSummary').value = summaryData.summary;
-                document.getElementById('editableAiTags').value = summaryData.tags || '';
-                document.getElementById('aiMeta').textContent =
+                // 填充到可编辑输入框（添加安全检查）
+                const aiTitleEl = document.getElementById('editableAiTitle');
+                const aiSummaryEl = document.getElementById('editableAiSummary');
+                const aiTagsEl = document.getElementById('editableAiTags');
+                const aiMetaEl = document.getElementById('aiMeta');
+                
+                if (aiTitleEl) aiTitleEl.value = combinedTitle2;
+                if (aiSummaryEl) aiSummaryEl.value = summaryData.summary;
+                if (aiTagsEl) aiTagsEl.value = summaryData.tags || '';
+                if (aiMetaEl) aiMetaEl.textContent =
                     `主标题: ${mainT2.length}字 | 副标题: ${subT2.length}字 | 摘要: ${summaryData.summary.length}字 | 模型: ${summaryData.model} | tokens: ${summaryData.tokens_used}`;
                 
                 // 自动保存内容
@@ -1633,22 +1644,30 @@
                 const videoData = await videoResp.json();
 
                 if (videoData.success) {
+                    // 显示预览帧（添加安全检查）
+                    const generatedImageEl = document.getElementById('generatedImage');
+                    const framesInfoEl = document.getElementById('framesInfo');
+                    
+                    if (generatedImageEl) generatedImageEl.style.display = 'block';
+                    if (framesInfoEl) framesInfoEl.textContent =
+                        `✅ 动画视频已生成 | 片段: ${videoData.preview_frames.length} | 标题: ${generatedTitle}`;
+                    
                     // 显示预览帧
                     if (videoData.preview_frames && videoData.preview_frames.length > 0) {
-                        document.getElementById('generatedImage').style.display = 'block';
-                        document.getElementById('framesInfo').textContent =
-                            `✅ 动画视频已生成 | 片段: ${videoData.preview_frames.length} | 标题: ${generatedTitle}`;
                         const framesContainer = document.getElementById('framesContainer');
-                        framesContainer.innerHTML = '';
-                        videoData.preview_frames.forEach((framePath, i) => {
-                            const frameCard = document.createElement('div');
-                            frameCard.style.cssText = 'background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
-                            frameCard.innerHTML = `
-                                <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">片段 ${i + 1} 预览</div>
-                                <img src="${framePath}" style="width: 100%; border-radius: 4px; cursor: pointer;" onclick="openImageModal(this.src, this)">
-                            `;
-                            framesContainer.appendChild(frameCard);
-                        });
+                        if (framesContainer) {
+                            framesContainer.innerHTML = '';
+                            videoData.preview_frames.forEach((framePath, i) => {
+                                const frameCard = document.createElement('div');
+                                frameCard.style.cssText = 'background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
+                                frameCard.innerHTML = `
+                                    <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">片段 ${i + 1} 预览</div>
+                                    <img src="${framePath}" style="width: 100%; border-radius: 4px; cursor: pointer;" onclick="openImageModal(this.src, this)">
+                                `;
+                                framesContainer.appendChild(frameCard);
+                            });
+                        }
+                    }
                     }
 
                     const videoResult = document.getElementById('videoResult');
