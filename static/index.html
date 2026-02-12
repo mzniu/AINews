@@ -1459,10 +1459,14 @@
         }
 
         async function createVideo() {
+            // 检查是否已有生成的视频帧目录
             if (!window.generatedFramesDir) {
-                alert('请先生成视频关键帧');
+                showToast('请先生成视频关键帧', 'error');
+                console.error('window.generatedFramesDir is undefined');
                 return;
             }
+            
+            console.log('使用的关键帧目录:', window.generatedFramesDir);
             
             const btn = document.getElementById('createVideoBtn');
             btn.disabled = true;
@@ -1480,6 +1484,7 @@
                 });
                 
                 const data = await response.json();
+                console.log('视频生成响应:', data);
                 
                 if (data.success) {
                     // 显示视频结果
@@ -1500,6 +1505,7 @@
                     showToast('视频生成失败: ' + data.message, 'error');
                 }
             } catch (error) {
+                console.error('视频生成错误:', error);
                 showToast('视频生成失败: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
