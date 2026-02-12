@@ -1446,43 +1446,48 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    // 显示生成的关键帧
-                    document.getElementById('generatedImage').style.display = 'block';
-                    document.getElementById('framesInfo').textContent = 
+                    // 显示生成的关键帧（添加安全检查）
+                    const generatedImageEl = document.getElementById('generatedImage');
+                    const framesInfoEl = document.getElementById('framesInfo');
+                    const framesContainer = document.getElementById('framesContainer');
+                    const createVideoBtn = document.getElementById('createVideoBtn');
+                    
+                    if (generatedImageEl) generatedImageEl.style.display = 'block';
+                    if (framesInfoEl) framesInfoEl.textContent = 
                         `✅ ${data.message} | 标题: ${data.title} | 摘要: ${data.summary.substring(0, 30)}...`;
                     
-                    const framesContainer = document.getElementById('framesContainer');
-                    framesContainer.innerHTML = '';
-                    
-                    // 保存生成的帧目录路径，用于后续视频合成
-                    window.generatedFramesDir = data.output_dir;
-                    
-                    // 显示每一帧
-                    data.frames.forEach(frame => {
-                        const frameCard = document.createElement('div');
-                        frameCard.style.cssText = 'background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
+                    if (framesContainer) {
+                        framesContainer.innerHTML = '';
                         
-                        frameCard.innerHTML = `
-                            <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">
-                                关键帧 ${frame.frame_index}
-                            </div>
-                            <img src="${frame.image_path}" 
-                                 style="width: 100%; border-radius: 4px; cursor: pointer;" 
-                                 onclick="openImageModal(this.src, this)">
-                            <div style="margin-top: 8px; display: flex; gap: 8px;">
-                                <a href="${frame.image_path}" download="frame_${frame.frame_index}.png" 
-                                   class="download-btn" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 13px;">
-                                    📥 下载
-                                </a>
-                            </div>
-                        `;
+                        // 保存生成的帧目录路径，用于后续视频合成
+                        window.generatedFramesDir = data.output_dir;
                         
-                        framesContainer.appendChild(frameCard);
-                    });
+                        // 显示每一帧
+                        data.frames.forEach(frame => {
+                            const frameCard = document.createElement('div');
+                            frameCard.style.cssText = 'background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
+                            
+                            frameCard.innerHTML = `
+                                <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">
+                                    关键帧 ${frame.frame_index}
+                                </div>
+                                <img src="${frame.image_path}" 
+                                     style="width: 100%; border-radius: 4px; cursor: pointer;" 
+                                     onclick="openImageModal(this.src, this)">
+                                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                                    <a href="${frame.image_path}" download="frame_${frame.frame_index}.png" 
+                                       class="download-btn" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 13px;">
+                                        📥 下载
+                                    </a>
+                                </div>
+                            `;
+                            
+                            framesContainer.appendChild(frameCard);
+                        });
+                    }
                     
                     // 显示合成视频按钮
-                    document.getElementById('createVideoBtn').style.display = 'inline-block';
-                    
+                    if (createVideoBtn) createVideoBtn.style.display = 'inline-block';
                     
                     showToast(`视频关键帧生成成功！共 ${data.total} 帧`, 'success');
                 } else {
@@ -1674,11 +1679,13 @@
                     const videoPlayer = document.getElementById('generatedVideo');
                     const downloadBtn = document.getElementById('downloadVideoBtn');
 
-                    videoInfo.textContent = `🎬 片段: ${videoData.preview_frames ? videoData.preview_frames.length : '?'} | 时长: ${videoData.duration.toFixed(1)}秒 | 大小: ${videoData.file_size_mb}MB`;
-                    videoPlayer.src = videoData.video_path;
-                    downloadBtn.href = videoData.video_path;
-                    downloadBtn.download = videoData.video_path.split('/').pop();
-                    videoResult.style.display = 'block';
+                    if (videoInfo) videoInfo.textContent = `🎬 片段: ${videoData.preview_frames ? videoData.preview_frames.length : '?'} | 时长: ${videoData.duration.toFixed(1)}秒 | 大小: ${videoData.file_size_mb}MB`;
+                    if (videoPlayer) videoPlayer.src = videoData.video_path;
+                    if (downloadBtn) {
+                        downloadBtn.href = videoData.video_path;
+                        downloadBtn.download = videoData.video_path.split('/').pop();
+                    }
+                    if (videoResult) videoResult.style.display = 'block';
 
                     showToast(`🎉 一键生成完成！时长 ${videoData.duration.toFixed(1)}秒，大小 ${videoData.file_size_mb}MB`, 'success', 5000);
                 } else {
