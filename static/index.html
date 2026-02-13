@@ -404,6 +404,18 @@
             max-width: 150px;  /* 增加最大宽度 */
         }
         
+        /* 排序面板中的GIF标识 */
+        .sortable-gif-indicator {
+            font-size: 16px;
+            margin-right: 8px;
+            animation: bounce 1s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        
         .panel-footer {
             padding: 12px 15px;
             border-top: 1px solid #eee;
@@ -521,6 +533,28 @@
         
         .selectable-image.selected .image-order-number {
             display: flex; /* 选中时显示 */
+        }
+        
+        /* GIF标识 */
+        .gif-badge {
+            position: absolute;
+            top: 5px;
+            right: 35px; /* 避开checkbox */
+            background: #ff6b6b;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
         .image-effects {
@@ -1167,6 +1201,9 @@
                             <button class="secondary-btn" onclick="saveEditedContent()" title="保存修改后的内容用于视频生成">
                                 💾 保存修改
                             </button>
+                            <button class="secondary-btn" onclick="analyzeSelectedGIFs()" title="分析选中的GIF图片属性">
+                                🎞️ 分析GIF
+                            </button>
                         </div>
                     </div>
 
@@ -1319,9 +1356,14 @@
             const fileName = path.split('/').pop() || '图片';
             const displayName = fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName;
             
+            // 检查是否为GIF
+            const isGif = path.toLowerCase().endsWith('.gif');
+            const gifIndicator = isGif ? '<span class="sortable-gif-indicator">🎞️</span>' : '';
+            
             div.innerHTML = `
                 <span class="order-number">${order}.</span>
                 <img src="${path}" alt="选中图片" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><circle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/><path d=%22M21 15l-5-5L5 21%22/></svg>'">
+                ${gifIndicator}
                 <span class="filename" title="${fileName}">${displayName}</span>
             `;
             
@@ -1457,6 +1499,98 @@
             
             showToast('✅ 内容已保存，将在视频生成时使用', 'success');
             console.log('保存的编辑内容:', { editedTitle, editedSummary, editedTags });
+        }
+        
+        // GIF处理相关函数
+        async function analyzeSelectedGIFs() {
+            const gifImages = selectedImages.filter(path => path.toLowerCase().endsWith('.gif'));
+            
+            if (gifImages.length === 0) {
+                showToast('没有选中的GIF图片', 'info');
+                return;
+            }
+            
+            try {
+                const analyses = [];
+                for (const gifPath of gifImages) {
+                    const response = await fetch(`/api/gif/analyze-gif?gif_path=${encodeURIComponent(gifPath)}`);
+                    const result = await response.json();
+                    if (result.success) {
+                        analyses.push({
+                            path: gifPath,
+                            ...result
+                        });
+                    }
+                }
+                
+                // 显示分析结果
+                showGIFAnalysis(analyses);
+                
+            } catch (error) {
+                console.error('GIF分析失败:', error);
+                showToast('GIF分析失败: ' + error.message, 'error');
+            }
+        }
+        
+        function showGIFAnalysis(analyses) {
+            let content = '<h3>🎞️ GIF分析结果</h3>';
+            
+            analyses.forEach(analysis => {
+                const props = analysis.properties;
+                const compat = analysis.analysis;
+                
+                content += `
+                    <div style="margin: 15px 0; padding: 10px; border: 1px solid #eee; border-radius: 5px;">
+                        <strong>${analysis.path.split('/').pop()}</strong><br>
+                        帧数: ${props.frame_count || '未知'}<br>
+                        时长: ${(props.duration ? props.duration/1000 : 0).toFixed(2)}秒<br>
+                        尺寸: ${props.size ? `${props.size[0]}×${props.size[1]}` : '未知'}<br>
+                        兼容性: ${compat.is_valid ? '✅ 良好' : '⚠️ 存在问题'}
+                        ${compat.issues ? `<br>问题: ${compat.issues.join(', ')}` : ''}
+                    </div>
+                `;
+            });
+            
+            showToast(content, 'info', 5000);
+        }
+        
+        async function processSelectedGIFs(durationPerFrame = 2.5) {
+            const gifImages = selectedImages.filter(path => path.toLowerCase().endsWith('.gif'));
+            
+            if (gifImages.length === 0) {
+                showToast('没有选中的GIF图片需要处理', 'info');
+                return [];
+            }
+            
+            try {
+                // 批量处理GIF
+                const formData = new FormData();
+                gifImages.forEach(path => formData.append('gif_paths', path));
+                formData.append('target_duration', durationPerFrame.toString());
+                
+                const response = await fetch('/api/gif/batch-process-gifs', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const successfulVideos = result.results
+                        .filter(r => r.status === 'success')
+                        .map(r => r.video_path);
+                    
+                    showToast(`✅ 成功处理 ${successfulVideos.length}/${gifImages.length} 个GIF`, 'success');
+                    return successfulVideos;
+                } else {
+                    throw new Error(result.detail || '处理失败');
+                }
+                
+            } catch (error) {
+                console.error('GIF处理失败:', error);
+                showToast('GIF处理失败: ' + error.message, 'error');
+                return [];
+            }
         }
         
         function copyAiContent(elementId) {
@@ -1639,6 +1773,7 @@
                     <img src="${img.local_path}" alt="图片 ${index + 1}">
                     <div class="checkbox"></div>
                     <div class="image-order-number">${index + 1}</div>
+                    ${img.local_path.toLowerCase().endsWith('.gif') ? '<div class="gif-badge">🎞️ GIF</div>' : ''}
                     <div class="image-effects">
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'enhance', event)">增强</button>
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'sharpen', event)">锐化</button>
@@ -1785,6 +1920,21 @@
             if (selectedImages.length === 0) {
                 alert('请至少选择一张图片');
                 return;
+            }
+            
+            // 检查是否有GIF需要特殊处理
+            const gifImages = selectedImages.filter(path => path.toLowerCase().endsWith('.gif'));
+            
+            if (gifImages.length > 0) {
+                showToast(`检测到 ${gifImages.length} 个GIF图片，正在预处理...`, 'info');
+                
+                // 处理GIF为视频片段
+                const gifVideos = await processSelectedGIFs(2.5); // 默认2.5秒
+                if (gifVideos.length > 0) {
+                    showToast(`✅ 已处理 ${gifVideos.length} 个GIF为视频片段`, 'success');
+                    // 这里可以将处理后的视频路径合并到selectedImages中
+                    // 或者单独处理它们
+                }
             }
 
             try {
