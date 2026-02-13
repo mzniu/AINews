@@ -238,7 +238,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                         anim_type=_anim
                     )
 
-                clip = VideoClip(make_frame_func, duration=CLIP_DURATION).with_fps(FPS)
+                clip = VideoClip(make_frame_func, duration=CLIP_DURATION).set_fps(FPS)
                 clips.append(clip)
 
                 # 同时保存一张静态预览帧（用于前端显示）
@@ -275,12 +275,12 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             if audio_file.exists():
                 audio = AudioFileClip(str(audio_file))
                 speed = 1.1
-                audio = audio.time_transform(lambda t: t * speed).with_duration(audio.duration / speed)
+                audio = audio.time_transform(lambda t: t * speed).set_duration(audio.duration / speed)
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclipped(0, video_duration)
-                final_clip = final_clip.with_audio(audio)
+                audio = audio.subclip(0, video_duration)
+                final_clip = final_clip.set_audio(audio)
                 logger.info("背景音乐已添加")
 
         # 输出
@@ -453,7 +453,7 @@ async def create_user_video(
                     )
                     return _apply_video_effect(frame, t, _eff, canvas_w, canvas_h, _cd, seed=_sd)
 
-                clip = VideoClip(make_frame_func, duration=clip_duration).with_fps(FPS)
+                clip = VideoClip(make_frame_func, duration=clip_duration).set_fps(FPS)
                 clips.append(clip)
 
                 # 保存预览帧（带特效）
@@ -490,12 +490,12 @@ async def create_user_video(
             if audio_file.exists():
                 audio = AudioFileClip(str(audio_file))
                 speed = 1.1
-                audio = audio.time_transform(lambda t: t * speed).with_duration(audio.duration / speed)
+                audio = audio.time_transform(lambda t: t * speed).set_duration(audio.duration / speed)
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclipped(0, video_duration)
-                final_clip = final_clip.with_audio(audio)
+                audio = audio.subclip(0, video_duration)
+                final_clip = final_clip.set_audio(audio)
                 logger.info("用户视频背景音乐已添加")
 
         video_dir = Path("data/videos")
