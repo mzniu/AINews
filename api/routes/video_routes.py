@@ -212,47 +212,91 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                     else:
                         logger.info(f"   ✅ GIF文件存在")
                         
-                        # 使用GIF处理器提取帧并转换为视频
+                        # 提取GIF帧用于动画处理
                         from services.gif_processor import gif_processor
+                        gif_frames = gif_processor.extract_gif_frames(actual_gif_path)
                         
-                        # 生成临时视频文件路径
-                        temp_video_path = output_dir / f"gif_temp_{idx}.mp4"
-                        logger.info(f"   临时视频路径: {temp_video_path}")
-                        
-                        # 转换GIF为视频片段
-                        logger.info(f"   开始转换GIF为视频...")
-                        success = gif_processor.convert_gif_to_video(
-                            gif_path=actual_gif_path,  # 使用修复后的路径
-                            output_path=str(temp_video_path),
-                            target_duration=CLIP_DURATION
-                        )
-                        
-                        if success and temp_video_path.exists():
-                            # 验证生成的视频
-                            from moviepy.editor import VideoFileClip
-                            try:
-                                gif_clip = VideoFileClip(str(temp_video_path))
-                                logger.info(f"   ✅ 视频加载成功")
-                                logger.info(f"   视频时长: {gif_clip.duration:.2f}秒")
-                                logger.info(f"   视频FPS: {gif_clip.fps}")
-                                logger.info(f"   视频尺寸: {gif_clip.size}")
+                        if gif_frames and len(gif_frames) > 0:
+                            logger.info(f"   🎬 提取到 {len(gif_frames)} 帧GIF动画")
+                            
+                            # 将第一帧作为基础图片进行处理
+                            first_frame = Image.fromarray(gif_frames[0])
+                            if first_frame.mode != 'RGBA':
+                                first_frame = first_frame.convert('RGBA')
+                            
+                            # 缩放GIF帧
+                            target_w = img_width
+                            ratio = target_w / first_frame.width
+                            target_h = int(first_frame.height * ratio)
+                            max_h = int(img_height * 0.6)
+                            if target_h > max_h:
+                                target_h = max_h
+                                ratio = target_h / first_frame.height
+                                target_w = int(first_frame.width * ratio)
+                            
+                            first_frame_resized = first_frame.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                            
+                            paste_x = (img_width - target_w) // 2
+                            # 图片在标题和摘要之间居中
+                            available = summary_start_y - 40 - (title_start_y + title_height + 30)
+                            final_paste_y = title_start_y + title_height + 30 + (available - target_h) // 2
+                            final_paste_y = max(title_start_y + title_height + 30, final_paste_y)
+                            
+                            logger.info(f"   片段 {idx}: 生成 {CLIP_DURATION:.1f}s GIF动画, 尺寸 {target_w}x{target_h}")
+                            
+                            # 使用GIF帧创建动画片段
+                            anim = anim_queue.pop(0)
+                            logger.info(f"   片段 {idx} 动画类型: {anim}")
+                            
+                            # 创建GIF动画make_frame函数
+                            def make_gif_frame_func(t, _bg=bg_template, _frames=gif_frames,
+                                                   _px=paste_x, _py=final_paste_y,
+                                                   _tw=target_w, _th=target_h,
+                                                   _ti=title_info, _si=summary_info,
+                                                   _anim=anim, _dur=CLIP_DURATION):
+                                # 计算当前应该显示哪一帧
+                                total_frames = len(_frames)
+                                current_frame_index = int((t / _dur) * total_frames) % total_frames
+                                current_frame = Image.fromarray(_frames[current_frame_index])
                                 
-                                clips.append(gif_clip)
-                                logger.info(f"   🎬 GIF动画片段 {idx} 添加成功")
+                                # 缩放到目标尺寸
+                                resized_frame = current_frame.resize((_tw, _th), Image.Resampling.LANCZOS)
+                                if resized_frame.mode != 'RGBA':
+                                    resized_frame = resized_frame.convert('RGBA')
                                 
-                                # 保存预览帧（取中间帧）
-                                preview_time = min(CLIP_DURATION * 0.5, gif_clip.duration - 0.1)
-                                preview_frame = gif_clip.get_frame(preview_time)
-                                preview_path = output_dir / f"preview_{idx:02d}.png"
-                                Image.fromarray(preview_frame).save(preview_path, quality=95)
-                                logger.info(f"   🖼️ 预览帧保存成功: {preview_path}")
-                                
-                                # 注意：不要在这里关闭gif_clip，需要在视频合成完成后统一关闭
-                                continue  # 跳过下面的静态图片处理
-                            except Exception as clip_error:
-                                logger.error(f"   ❌ 视频加载失败: {clip_error}")
+                                return _render_frame_animated(
+                                    _bg, resized_frame, _px, _py, _tw, _th, img_width, img_height,
+                                    _ti, _si, t,
+                                    entrance_duration=ENTRANCE_DUR,
+                                    hold_with_text_start=HOLD_NO_TEXT,
+                                    anim_type=_anim
+                                )
+                            
+                            clip = VideoClip(make_gif_frame_func, duration=CLIP_DURATION).set_fps(FPS)
+                            clips.append(clip)
+                            logger.info(f"   🎬 GIF动画片段 {idx} 添加成功")
+                            
+                            # 保存预览帧（取中间帧）
+                            mid_frame_index = len(gif_frames) // 2
+                            mid_frame = Image.fromarray(gif_frames[mid_frame_index])
+                            mid_frame_resized = mid_frame.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                            if mid_frame_resized.mode != 'RGBA':
+                                mid_frame_resized = mid_frame_resized.convert('RGBA')
+                            
+                            preview = _render_frame_animated(
+                                bg_template, mid_frame_resized, paste_x, final_paste_y,
+                                target_w, target_h, img_width, img_height,
+                                title_info, summary_info, CLIP_DURATION,
+                                entrance_duration=ENTRANCE_DUR, hold_with_text_start=HOLD_NO_TEXT,
+                                anim_type=anim
+                            )
+                            preview_path = output_dir / f"preview_{idx:02d}.png"
+                            Image.fromarray(preview).save(preview_path, quality=95)
+                            logger.info(f"   🖼️ 预览帧保存成功: {preview_path}")
+                            
+                            continue  # 跳过下面的静态图片处理
                         else:
-                            logger.warning(f"   ⚠️ GIF转换失败，回退到静态图片处理: {img_path}")
+                            logger.warning(f"   ⚠️ GIF帧提取失败，回退到静态图片处理: {img_path}")
                         # 继续使用静态图片处理逻辑
                 
                 # 原有的静态图片处理逻辑
@@ -519,47 +563,80 @@ async def create_user_video(
                     else:
                         logger.info(f"   ✅ GIF文件存在")
                         
-                        # 使用GIF处理器提取帧并转换为视频
+                        # 提取GIF帧用于动画处理
                         from services.gif_processor import gif_processor
+                        gif_frames = gif_processor.extract_gif_frames(actual_gif_path)
                         
-                        # 生成临时视频文件路径
-                        temp_video_path = output_dir / f"gif_temp_{idx}.mp4"
-                        logger.info(f"   临时视频路径: {temp_video_path}")
-                        
-                        # 转换GIF为视频片段
-                        logger.info(f"   开始转换GIF为视频...")
-                        success = gif_processor.convert_gif_to_video(
-                            gif_path=actual_gif_path,  # 使用修复后的路径
-                            output_path=str(temp_video_path),
-                            target_duration=clip_duration
-                        )
-                        
-                        if success and temp_video_path.exists():
-                            # 验证生成的视频
-                            from moviepy.editor import VideoFileClip
-                            try:
-                                gif_clip = VideoFileClip(str(temp_video_path))
-                                logger.info(f"   ✅ 视频加载成功")
-                                logger.info(f"   视频时长: {gif_clip.duration:.2f}秒")
-                                logger.info(f"   视频FPS: {gif_clip.fps}")
-                                logger.info(f"   视频尺寸: {gif_clip.size}")
+                        if gif_frames and len(gif_frames) > 0:
+                            logger.info(f"   🎬 提取到 {len(gif_frames)} 帧GIF动画")
+                            
+                            # 将第一帧作为基础图片进行处理
+                            first_frame = Image.fromarray(gif_frames[0])
+                            if first_frame.mode != 'RGBA':
+                                first_frame = first_frame.convert('RGBA')
+                            
+                            # 图片原始大小居中放置（不缩放）
+                            target_w, target_h = first_frame.width, first_frame.height
+                            paste_x = (canvas_w - target_w) // 2
+                            paste_y = (canvas_h - target_h) // 2
+                            
+                            anim = anim_queue.pop(0)
+                            logger.info(f"用户视频片段 {idx}: 动画={anim}, GIF帧数={len(gif_frames)}, 尺寸={target_w}x{target_h}")
+                            
+                            _effect = effect
+                            _clip_dur = clip_duration
+                            _seed = idx
+                            
+                            # 创建GIF动画make_frame函数
+                            def make_gif_frame_func(t, _bg=bg_template, _frames=gif_frames,
+                                                   _px=paste_x, _py=paste_y,
+                                                   _tw=target_w, _th=target_h,
+                                                   _ti=title_info, _si=summary_info,
+                                                   _anim=anim, _eff=_effect, _sd=_seed,
+                                                   _cd=_clip_dur, _dur=clip_duration):
+                                # 计算当前应该显示哪一帧
+                                total_frames = len(_frames)
+                                current_frame_index = int((t / _dur) * total_frames) % total_frames
+                                current_frame = Image.fromarray(_frames[current_frame_index])
                                 
-                                clips.append(gif_clip)
-                                logger.info(f"   🎬 GIF动画片段 {idx} 添加成功")
+                                # 保持原始尺寸
+                                if current_frame.mode != 'RGBA':
+                                    current_frame = current_frame.convert('RGBA')
                                 
-                                # 保存预览帧（取中间帧）
-                                preview_time = min(clip_duration * 0.5, gif_clip.duration - 0.1)
-                                preview_frame = gif_clip.get_frame(preview_time)
-                                preview_path = output_dir / f"preview_{idx:02d}.png"
-                                Image.fromarray(preview_frame).save(preview_path, quality=95)
-                                logger.info(f"   🖼️ 预览帧保存成功: {preview_path}")
-                                
-                                # 注意：不要在这里关闭gif_clip，需要在视频合成完成后统一关闭
-                                continue  # 跳过下面的静态图片处理
-                            except Exception as clip_error:
-                                logger.error(f"   ❌ 视频加载失败: {clip_error}")
+                                frame = _render_frame_animated(
+                                    _bg, current_frame, _px, _py, _tw, _th, canvas_w, canvas_h,
+                                    _ti, _si, t,
+                                    entrance_duration=ENTRANCE_DUR,
+                                    hold_with_text_start=ENTRANCE_DUR,
+                                    anim_type=_anim
+                                )
+                                return _apply_video_effect(frame, t, _eff, canvas_w, canvas_h, _cd, seed=_sd)
+                            
+                            clip = VideoClip(make_gif_frame_func, duration=clip_duration).set_fps(FPS)
+                            clips.append(clip)
+                            logger.info(f"   🎬 GIF动画片段 {idx} 添加成功")
+                            
+                            # 保存预览帧（取中间帧）
+                            mid_frame_index = len(gif_frames) // 2
+                            mid_frame = Image.fromarray(gif_frames[mid_frame_index])
+                            if mid_frame.mode != 'RGBA':
+                                mid_frame = mid_frame.convert('RGBA')
+                            
+                            preview_raw = _render_frame_animated(
+                                bg_template, mid_frame, paste_x, paste_y,
+                                target_w, target_h, canvas_w, canvas_h,
+                                title_info, summary_info, clip_duration,
+                                entrance_duration=ENTRANCE_DUR, hold_with_text_start=ENTRANCE_DUR,
+                                anim_type=anim
+                            )
+                            preview = _apply_video_effect(preview_raw, clip_duration * 0.5, effect, canvas_w, canvas_h, clip_duration, seed=idx)
+                            preview_path = output_dir / f"preview_{idx:02d}.png"
+                            Image.fromarray(preview).save(preview_path, quality=95)
+                            logger.info(f"   🖼️ 预览帧保存成功: {preview_path}")
+                            
+                            continue  # 跳过下面的静态图片处理
                         else:
-                            logger.warning(f"   ⚠️ GIF转换失败，回退到静态图片处理: {img_path}")
+                            logger.warning(f"   ⚠️ GIF帧提取失败，回退到静态图片处理: {img_path}")
                         # 继续使用静态图片处理逻辑
                 
                 # 原有的静态图片处理逻辑
