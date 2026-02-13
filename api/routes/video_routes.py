@@ -383,8 +383,16 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             audio_file = Path(audio_path)
             if audio_file.exists():
                 audio = AudioFileClip(str(audio_file))
+                original_duration = audio.duration
+                logger.info(f"🎵 加载音频文件: {audio_path}")
+                logger.info(f"   原始时长: {original_duration:.2f}秒")
+                
                 speed = 1.1
                 audio = audio.fl_time(lambda t: t / speed).set_duration(audio.duration / speed)
+                new_duration = audio.duration
+                logger.info(f"   🚀 应用{speed}倍速")
+                logger.info(f"   加速后时长: {new_duration:.2f}秒")
+                logger.info(f"   时间压缩: {(original_duration - new_duration) / original_duration * 100:.1f}%")
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
@@ -707,8 +715,16 @@ async def create_user_video(
             audio_file = Path(_audio_path)
             if audio_file.exists():
                 audio = AudioFileClip(str(audio_file))
+                original_duration = audio.duration
+                logger.info(f"🎵 加载音频文件: {audio_path}")
+                logger.info(f"   原始时长: {original_duration:.2f}秒")
+                
                 speed = 1.1
                 audio = audio.fl_time(lambda t: t / speed).set_duration(audio.duration / speed)
+                new_duration = audio.duration
+                logger.info(f"   🚀 应用{speed}倍速")
+                logger.info(f"   加速后时长: {new_duration:.2f}秒")
+                logger.info(f"   时间压缩: {(original_duration - new_duration) / original_duration * 100:.1f}%")
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
