@@ -191,6 +191,44 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
 
         for idx, img_path in enumerate(request.images, 1):
             try:
+                # 检查是否为GIF文件
+                is_gif = img_path.lower().endswith('.gif')
+                
+                if is_gif:
+                    # 处理GIF动画
+                    logger.info(f"处理GIF动画: {img_path}")
+                    
+                    # 使用GIF处理器提取帧并转换为视频
+                    from services.gif_processor import gif_processor
+                    
+                    # 生成临时视频文件路径
+                    temp_video_path = output_dir / f"gif_temp_{idx}.mp4"
+                    
+                    # 转换GIF为视频片段
+                    success = gif_processor.convert_gif_to_video(
+                        gif_path=img_path,
+                        output_path=str(temp_video_path),
+                        target_duration=CLIP_DURATION
+                    )
+                    
+                    if success and temp_video_path.exists():
+                        # 加载转换后的视频片段
+                        gif_clip = VideoFileClip(str(temp_video_path))
+                        clips.append(gif_clip)
+                        logger.info(f"GIF动画片段 {idx} 添加成功: {temp_video_path}")
+                        
+                        # 保存预览帧（取中间帧）
+                        preview_time = min(CLIP_DURATION * 0.5, gif_clip.duration - 0.1)
+                        preview_frame = gif_clip.get_frame(preview_time)
+                        preview_path = output_dir / f"preview_{idx:02d}.png"
+                        Image.fromarray(preview_frame).save(preview_path, quality=95)
+                        
+                        continue  # 跳过下面的静态图片处理
+                    else:
+                        logger.warning(f"GIF转换失败，回退到静态图片处理: {img_path}")
+                        # 继续使用静态图片处理逻辑
+                
+                # 原有的静态图片处理逻辑
                 user_img_path = Path(img_path.lstrip('/'))
                 if not user_img_path.exists():
                     logger.warning(f"图片不存在，跳过: {img_path}")
@@ -422,6 +460,44 @@ async def create_user_video(
 
         for idx, (img_path, orig_w, orig_h) in enumerate(valid_images, 1):
             try:
+                # 检查是否为GIF文件
+                is_gif = img_path.lower().endswith('.gif')
+                
+                if is_gif:
+                    # 处理GIF动画
+                    logger.info(f"处理GIF动画: {img_path}")
+                    
+                    # 使用GIF处理器提取帧并转换为视频
+                    from services.gif_processor import gif_processor
+                    
+                    # 生成临时视频文件路径
+                    temp_video_path = output_dir / f"gif_temp_{idx}.mp4"
+                    
+                    # 转换GIF为视频片段
+                    success = gif_processor.convert_gif_to_video(
+                        gif_path=img_path,
+                        output_path=str(temp_video_path),
+                        target_duration=clip_duration
+                    )
+                    
+                    if success and temp_video_path.exists():
+                        # 加载转换后的视频片段
+                        gif_clip = VideoFileClip(str(temp_video_path))
+                        clips.append(gif_clip)
+                        logger.info(f"GIF动画片段 {idx} 添加成功: {temp_video_path}")
+                        
+                        # 保存预览帧（取中间帧）
+                        preview_time = min(clip_duration * 0.5, gif_clip.duration - 0.1)
+                        preview_frame = gif_clip.get_frame(preview_time)
+                        preview_path = output_dir / f"preview_{idx:02d}.png"
+                        Image.fromarray(preview_frame).save(preview_path, quality=95)
+                        
+                        continue  # 跳过下面的静态图片处理
+                    else:
+                        logger.warning(f"GIF转换失败，回退到静态图片处理: {img_path}")
+                        # 继续使用静态图片处理逻辑
+                
+                # 原有的静态图片处理逻辑
                 user_img = Image.open(Path(img_path.lstrip('/')))
                 if user_img.mode != 'RGBA':
                     user_img = user_img.convert('RGBA')
