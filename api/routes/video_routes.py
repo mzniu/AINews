@@ -275,7 +275,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             if audio_file.exists():
                 audio = AudioFileClip(str(audio_file))
                 speed = 1.1
-                audio = audio.time_transform(lambda t: t * speed).set_duration(audio.duration / speed)
+                audio = audio.fl_time(lambda t: t / speed).set_duration(audio.duration / speed)
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
@@ -490,7 +490,7 @@ async def create_user_video(
             if audio_file.exists():
                 audio = AudioFileClip(str(audio_file))
                 speed = 1.1
-                audio = audio.time_transform(lambda t: t * speed).set_duration(audio.duration / speed)
+                audio = audio.fl_time(lambda t: t / speed).set_duration(audio.duration / speed)
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
