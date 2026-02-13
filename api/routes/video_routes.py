@@ -119,7 +119,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少选择一张图片"})
 
-        from moviepy import ImageClip, concatenate_videoclips, AudioFileClip, VideoClip
+        from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, VideoClip
 
         FPS = 24
         ENTRANCE_DUR = 0.6     # 小图弹落动画时长
@@ -277,7 +277,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 speed = 1.1
                 audio = audio.time_transform(lambda t: t * speed).with_duration(audio.duration / speed)
                 if audio.duration < video_duration:
-                    from moviepy import concatenate_audioclips
+                    from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
                 audio = audio.subclipped(0, video_duration)
                 final_clip = final_clip.with_audio(audio)
@@ -353,7 +353,7 @@ async def create_user_video(
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少上传一张图片"})
 
-        from moviepy import concatenate_videoclips, AudioFileClip, VideoClip
+        from moviepy.editor import concatenate_videoclips, AudioFileClip, VideoClip
 
         FPS = 24
         ENTRANCE_DUR = 0.7       # 入场动画时长
@@ -492,7 +492,7 @@ async def create_user_video(
                 speed = 1.1
                 audio = audio.time_transform(lambda t: t * speed).with_duration(audio.duration / speed)
                 if audio.duration < video_duration:
-                    from moviepy import concatenate_audioclips
+                    from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
                 audio = audio.subclipped(0, video_duration)
                 final_clip = final_clip.with_audio(audio)
