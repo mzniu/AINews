@@ -301,7 +301,7 @@
             position: fixed;
             right: 20px;
             top: 100px;
-            width: 220px;
+            width: 280px;  /* 从220px增大到280px */
             background: white;
             border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
@@ -348,7 +348,7 @@
         }
         
         .sortable-list {
-            max-height: 300px;
+            max-height: 350px;  /* 从300px增大到350px */
             overflow-y: auto;
             padding: 10px 0;
         }
@@ -386,21 +386,22 @@
         }
         
         .sortable-item img {
-            width: 45px;
-            height: 45px;
+            width: 55px;  /* 从45px增大到55px */
+            height: 55px; /* 从45px增大到55px */
             object-fit: cover;
-            margin-right: 12px;
+            margin-right: 15px;  /* 增加右边距 */
             border-radius: 6px;
             border: 1px solid #ddd;
         }
         
         .filename {
-            font-size: 12px;
+            font-size: 13px;  /* 稍微增大字体 */
             color: #666;
             flex: 1;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            max-width: 150px;  /* 增加最大宽度 */
         }
         
         .panel-footer {
