@@ -416,6 +416,13 @@
             50% { transform: translateY(-3px); }
         }
         
+        /* GIF图片特殊样式 - 去除边框和圆角 */
+        .sortable-item img[src*='.gif'],
+        .sortable-item img[src*='data:image/gif'] {
+            border-radius: 0 !important;
+            border: none !important;
+        }
+        
         .panel-footer {
             padding: 12px 15px;
             border-top: 1px solid #eee;
@@ -484,6 +491,13 @@
             height: 180px;  /* 增加图片高度 */
             object-fit: cover;
             display: block;
+        }
+        
+        /* 主选择区域的GIF图片特殊样式 */
+        .selectable-image img[src*='.gif'],
+        .selectable-image img[src*='data:image/gif'] {
+            border-radius: 0 !important;
+            border: none !important;
         }
 
         .selectable-image .checkbox {
