@@ -251,7 +251,15 @@ class CrawlerService:
         images_dir = save_dir / "images"
         images_dir.mkdir(parents=True, exist_ok=True)
         
-        downloaded_images = [CrawlerService.download_image(img['url'], images_dir, i, page_url=url) for i, img in enumerate(images, 1)]
+        logger.info(f"开始下载 {len(images)} 张图片...")
+        downloaded_images = []
+        for i, img in enumerate(images, 1):
+            logger.info(f"正在下载图片 {i}/{len(images)}: {img['url'][:50]}...")
+            result = CrawlerService.download_image(img['url'], images_dir, i, page_url=url)
+            downloaded_images.append(result)
+            if not result['success']:
+                logger.warning(f"图片下载失败 {i}: {result.get('error', 'Unknown error')}")
+        logger.info(f"图片下载完成: 成功 {len([img for img in downloaded_images if img['success']])}/{len(images)} 张")
         
         content_file = save_dir / "content.txt"
         with open(content_file, 'w', encoding='utf-8') as f:

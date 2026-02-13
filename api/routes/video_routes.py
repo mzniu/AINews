@@ -387,7 +387,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 logger.info(f"🎵 加载音频文件: {audio_path}")
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
-                speed = 1.1
+                speed = 1.2
                 audio = audio.fl_time(lambda t: t / speed).set_duration(audio.duration / speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
@@ -719,7 +719,7 @@ async def create_user_video(
                 logger.info(f"🎵 加载音频文件: {audio_path}")
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
-                speed = 1.1
+                speed = 1.2
                 audio = audio.fl_time(lambda t: t / speed).set_duration(audio.duration / speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
