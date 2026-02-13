@@ -498,6 +498,30 @@
             color: white;
             font-weight: bold;
         }
+        
+        /* 图片序号标记 */
+        .image-order-number {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: #667eea;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+            display: none; /* 默认隐藏 */
+        }
+        
+        .selectable-image.selected .image-order-number {
+            display: flex; /* 选中时显示 */
+        }
 
         .image-effects {
             display: flex;
@@ -1357,6 +1381,8 @@
                 updateSelectedImagesFromSort();
                 // 更新序号显示
                 updateOrderNumbers();
+                // 更新主图片区域序号
+                updateMainImageNumbers();
             }
             
             return false;
@@ -1383,6 +1409,27 @@
                 const numberSpan = item.querySelector('.order-number');
                 if (numberSpan) {
                     numberSpan.textContent = `${index + 1}.`;
+                }
+            });
+            
+            // 同时更新主图片区域的序号
+            updateMainImageNumbers();
+        }
+        
+        function updateMainImageNumbers() {
+            // 获取所有选中的图片元素
+            const selectedImagesElements = document.querySelectorAll('.selectable-image.selected');
+            
+            // 根据selectedImages数组的顺序更新序号
+            selectedImagesElements.forEach((imgElement, index) => {
+                const orderNumber = imgElement.querySelector('.image-order-number');
+                if (orderNumber) {
+                    // 找到该图片在selectedImages数组中的位置
+                    const imagePath = imgElement.dataset.path;
+                    const arrayIndex = selectedImages.indexOf(imagePath);
+                    if (arrayIndex !== -1) {
+                        orderNumber.textContent = arrayIndex + 1;
+                    }
                 }
             });
         }
@@ -1577,6 +1624,7 @@
                 imgDiv.innerHTML = `
                     <img src="${img.local_path}" alt="图片 ${index + 1}">
                     <div class="checkbox"></div>
+                    <div class="image-order-number">${index + 1}</div>
                     <div class="image-effects">
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'enhance', event)">增强</button>
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'sharpen', event)">锐化</button>
@@ -1614,6 +1662,8 @@
             
             // 更新排序面板
             initSortPanel();
+            // 更新主图片区域序号
+            setTimeout(updateMainImageNumbers, 100);
         }
 
         async function processImage(imagePath, effect, event) {
