@@ -1461,11 +1461,25 @@
         
         function copyAiContent(elementId) {
             const el = document.getElementById(elementId);
-            if (!el || !el.textContent.trim()) {
+            if (!el) {
+                showToast('未找到要复制的元素', 'error');
+                return;
+            }
+            
+            // 根据元素类型获取内容
+            let text = '';
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                text = el.value.trim();
+            } else {
+                text = el.textContent.trim();
+            }
+            
+            if (!text) {
                 showToast('没有可复制的内容', 'info');
                 return;
             }
-            navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+            
+            navigator.clipboard.writeText(text).then(() => {
                 showToast('已复制到剪贴板', 'success', 2000);
             }).catch(() => {
                 // fallback for older browsers
