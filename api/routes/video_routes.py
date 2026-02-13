@@ -247,7 +247,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                                 Image.fromarray(preview_frame).save(preview_path, quality=95)
                                 logger.info(f"   🖼️ 预览帧保存成功: {preview_path}")
                                 
-                                gif_clip.close()  # 及时关闭避免内存问题
+                                # 注意：不要在这里关闭gif_clip，需要在视频合成完成后统一关闭
                                 continue  # 跳过下面的静态图片处理
                             except Exception as clip_error:
                                 logger.error(f"   ❌ 视频加载失败: {clip_error}")
@@ -363,6 +363,17 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         final_clip.close()
         if audio:
             audio.close()
+        
+        # 关闭所有视频片段以释放资源
+        for clip in clips:
+            if hasattr(clip, 'close'):
+                try:
+                    clip.close()
+                    logger.debug(f"已关闭视频片段: {type(clip).__name__}")
+                except Exception as e:
+                    logger.warning(f"关闭视频片段时出错: {e}")
+        
+        logger.info("所有资源已清理完成")
 
         rel = str(video_path.relative_to(Path("."))).replace("\\", "/")
         size_mb = video_path.stat().st_size / (1024 * 1024)
@@ -543,7 +554,7 @@ async def create_user_video(
                                 Image.fromarray(preview_frame).save(preview_path, quality=95)
                                 logger.info(f"   🖼️ 预览帧保存成功: {preview_path}")
                                 
-                                gif_clip.close()  # 及时关闭避免内存问题
+                                # 注意：不要在这里关闭gif_clip，需要在视频合成完成后统一关闭
                                 continue  # 跳过下面的静态图片处理
                             except Exception as clip_error:
                                 logger.error(f"   ❌ 视频加载失败: {clip_error}")
@@ -642,6 +653,17 @@ async def create_user_video(
         final_clip.close()
         if audio:
             audio.close()
+        
+        # 关闭所有视频片段以释放资源
+        for clip in clips:
+            if hasattr(clip, 'close'):
+                try:
+                    clip.close()
+                    logger.debug(f"已关闭视频片段: {type(clip).__name__}")
+                except Exception as e:
+                    logger.warning(f"关闭视频片段时出错: {e}")
+        
+        logger.info("所有资源已清理完成")
 
         rel = str(video_path.relative_to(Path("."))).replace("\\", "/")
         size_mb = video_path.stat().st_size / (1024 * 1024)
