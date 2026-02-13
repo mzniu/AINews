@@ -152,13 +152,34 @@ class CrawlerService:
     
     @staticmethod
     def download_image(image_url: str, save_dir: Path, index: int, page_url: str = '') -> Dict:
-        """下载图片（带Referer防盗链绕过）"""
+        """下载图片（增强GIF支持）"""
         try:
             # 跳过 data URI
             if image_url.startswith('data:'):
+                # 特殊处理GIF data URI
+                if image_url.startswith('data:image/gif'):
+                    return CrawlerService._handle_gif_data_uri(image_url, save_dir, index)
                 return {'url': image_url[:50], 'success': False, 'error': 'data URI, skipped'}
             
-            ext = Path(urlparse(image_url).path).suffix or '.jpg'
+            # 发送HEAD请求获取真实内容类型
+            try:
+                head_response = requests.head(image_url, timeout=10, allow_redirects=True)
+                content_type = head_response.headers.get('content-type', '').lower()
+                
+                # 根据Content-Type确定扩展名
+                if 'gif' in content_type:
+                    ext = '.gif'
+                elif 'png' in content_type:
+                    ext = '.png'
+                elif 'jpeg' in content_type or 'jpg' in content_type:
+                    ext = '.jpg'
+                else:
+                    # 回退到URL路径提取
+                    ext = Path(urlparse(image_url).path).suffix or '.jpg'
+            except:
+                # HEAD请求失败时回退到默认逻辑
+                ext = Path(urlparse(image_url).path).suffix or '.jpg'
+            
             filename = f"image_{index:03d}{ext}"
             filepath = save_dir / filename
             
@@ -180,10 +201,46 @@ class CrawlerService:
             with open(filepath, 'wb') as f:
                 f.write(response.content)
             
+            # 验证文件是否为有效的图片
+            try:
+                from PIL import Image
+                with Image.open(filepath) as img:
+                    img.verify()
+            except Exception:
+                filepath.unlink()  # 删除无效文件
+                return {'url': image_url, 'success': False, 'error': 'Invalid image file'}
+            
             relative_path = str(filepath.relative_to(Path("."))).replace("\\", "/")
-            return {'url': image_url, 'local_path': f"/{relative_path}", 'success': True}
+            return {'url': image_url, 'local_path': f"/{relative_path}", 'success': True, 'format': ext[1:].upper()}
         except Exception as e:
             return {'url': image_url, 'success': False, 'error': str(e)}
+    
+    @staticmethod
+    def _handle_gif_data_uri(data_uri: str, save_dir: Path, index: int) -> Dict:
+        """处理GIF格式的data URI"""
+        try:
+            # 解码base64数据
+            import base64
+            import re
+            
+            # 提取base64数据部分
+            match = re.search(r'data:image/gif;base64,(.*)', data_uri)
+            if not match:
+                return {'url': data_uri[:50], 'success': False, 'error': 'Invalid GIF data URI format'}
+            
+            base64_data = match.group(1)
+            gif_data = base64.b64decode(base64_data)
+            
+            # 保存GIF文件
+            filename = f"image_{index:03d}.gif"
+            filepath = save_dir / filename
+            filepath.write_bytes(gif_data)
+            
+            relative_path = str(filepath.relative_to(Path("."))).replace("\\", "/")
+            return {'url': data_uri[:50] + '...', 'local_path': f"/{relative_path}", 'success': True, 'format': 'GIF'}
+            
+        except Exception as e:
+            return {'url': data_uri[:50], 'success': False, 'error': f'Failed to decode GIF data URI: {str(e)}'}
     
     @staticmethod
     def save_results(url: str, title: str, content: str, images: List) -> Dict:
