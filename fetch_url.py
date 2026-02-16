@@ -10,6 +10,7 @@ from datetime import datetime
 import json
 import hashlib
 import requests
+import time
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 from loguru import logger
@@ -165,30 +166,59 @@ def extract_content(html: str, base_url: str) -> dict:
 
 
 def download_image(image_url: str, save_dir: Path, index: int) -> str:
-    """下载单张图片"""
-    try:
-        # 生成文件名
-        parsed = urlparse(image_url)
-        ext = Path(parsed.path).suffix or '.jpg'
-        filename = f"image_{index:03d}{ext}"
-        filepath = save_dir / filename
-        
-        # 下载图片
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        response = requests.get(image_url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        # 保存图片
-        with open(filepath, 'wb') as f:
-            f.write(response.content)
-        
-        logger.success(f"下载图片: {filename}")
-        return str(filepath)
-    except Exception as e:
-        logger.warning(f"下载图片失败 {image_url}: {e}")
-        return ""
+    """下载单张图片（带重试机制）"""
+    max_retries = 3
+    retry_delay = 3  # 3秒间隔
+    
+    for attempt in range(max_retries):
+        try:
+            # 生成文件名
+            parsed = urlparse(image_url)
+            ext = Path(parsed.path).suffix or '.jpg'
+            filename = f"image_{index:03d}{ext}"
+            filepath = save_dir / filename
+            
+            # 下载图片
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            response = requests.get(image_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            # 保存图片
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+            
+            logger.success(f"下载图片: {filename}")
+            return str(filepath)
+            
+        except Exception as e:
+            # 检查是否为网络连接相关的错误
+            error_msg = str(e).lower()
+            is_connection_error = (
+                'connectionreseterror' in error_msg or
+                'connection aborted' in error_msg or
+                'connection broken' in error_msg or
+                'timeout' in error_msg or
+                'connect timeout' in error_msg or
+                'read timeout' in error_msg
+            )
+            
+            if is_connection_error and attempt < max_retries - 1:
+                logger.warning(f"图片下载失败 {index}: {e}, 第{attempt + 1}次重试中...")
+                import time
+                time.sleep(retry_delay)
+                continue
+            else:
+                # 最后一次尝试失败或其他错误
+                if attempt == max_retries - 1:
+                    logger.warning(f"图片下载失败 {index}: {e}, 已重试{max_retries}次，跳过该图片")
+                else:
+                    logger.warning(f"下载图片失败 {image_url}: {e}")
+                return ""
+    
+    # 理论上不会到达这里
+    return ""
 
 
 def save_results(url: str, title: str, content: str, images: list, output_dir: Path):

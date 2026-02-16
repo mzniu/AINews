@@ -19,7 +19,13 @@ async def fetch_url(request: FetchRequest):
     try:
         html, title = await CrawlerService.get_page_content(str(request.url))
         content_data = CrawlerService.extract_content(html, str(request.url))
-        metadata = CrawlerService.save_results(str(request.url), title, content_data['content'], content_data['images'])
+        metadata = CrawlerService.save_results(
+            str(request.url), 
+            title, 
+            content_data['content'], 
+            content_data['images'],
+            content_data.get('videos', [])  # 传递视频数据
+        )
         
         return FetchResponse(
             success=True,

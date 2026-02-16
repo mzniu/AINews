@@ -193,38 +193,66 @@ def extract_content(html: str, base_url: str) -> dict:
 
 
 def download_image(image_url: str, save_dir: Path, index: int, page_url: str = '') -> dict:
-    """下载图片（带Referer防盗链绕过）"""
-    try:
-        # 跳过 data URI
-        if image_url.startswith('data:'):
-            return {'url': image_url[:50], 'success': False, 'error': 'data URI, skipped'}
-        
-        ext = Path(urlparse(image_url).path).suffix or '.jpg'
-        filename = f"image_{index:03d}{ext}"
-        filepath = save_dir / filename
-        
-        # 构造完整请求头，带 Referer 绕过防盗链
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        }
-        if page_url:
-            headers['Referer'] = page_url
-            # 设置 Origin 为源站域名
-            parsed = urlparse(page_url)
-            headers['Origin'] = f"{parsed.scheme}://{parsed.netloc}"
-        
-        response = requests.get(image_url, headers=headers, timeout=15)
-        response.raise_for_status()
-        
-        with open(filepath, 'wb') as f:
-            f.write(response.content)
-        
-        relative_path = str(filepath.relative_to(Path("."))).replace("\\", "/")
-        return {'url': image_url, 'local_path': f"/{relative_path}", 'success': True}
-    except Exception as e:
-        return {'url': image_url, 'success': False, 'error': str(e)}
+    """下载图片（带Referer防盗链绕过，带重试机制）"""
+    max_retries = 3
+    retry_delay = 3  # 3秒间隔
+    
+    for attempt in range(max_retries):
+        try:
+            # 跳过 data URI
+            if image_url.startswith('data:'):
+                return {'url': image_url[:50], 'success': False, 'error': 'data URI, skipped'}
+            
+            ext = Path(urlparse(image_url).path).suffix or '.jpg'
+            filename = f"image_{index:03d}{ext}"
+            filepath = save_dir / filename
+            
+            # 构造完整请求头，带 Referer 绕过防盗链
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            }
+            if page_url:
+                headers['Referer'] = page_url
+                # 设置 Origin 为源站域名
+                parsed = urlparse(page_url)
+                headers['Origin'] = f"{parsed.scheme}://{parsed.netloc}"
+            
+            response = requests.get(image_url, headers=headers, timeout=15)
+            response.raise_for_status()
+            
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+            
+            relative_path = str(filepath.relative_to(Path("."))).replace("\\", "/")
+            return {'url': image_url, 'local_path': f"/{relative_path}", 'success': True}
+            
+        except Exception as e:
+            # 检查是否为网络连接相关的错误
+            error_msg = str(e).lower()
+            is_connection_error = (
+                'connectionreseterror' in error_msg or
+                'connection aborted' in error_msg or
+                'connection broken' in error_msg or
+                'timeout' in error_msg or
+                'connect timeout' in error_msg or
+                'read timeout' in error_msg
+            )
+            
+            if is_connection_error and attempt < max_retries - 1:
+                logger.warning(f"图片下载失败 {index}: {e}, 第{attempt + 1}次重试中...")
+                import time
+                time.sleep(retry_delay)
+                continue
+            else:
+                # 最后一次尝试失败或其他错误
+                if attempt == max_retries - 1:
+                    logger.warning(f"图片下载失败 {index}: {e}, 已重试{max_retries}次，跳过该图片")
+                return {'url': image_url, 'success': False, 'error': str(e)}
+    
+    # 理论上不会到达这里
+    return {'url': image_url, 'success': False, 'error': 'Unknown error'}
 
 
 def save_results(url: str, title: str, content: str, images: list) -> dict:

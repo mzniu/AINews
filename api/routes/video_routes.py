@@ -5,6 +5,7 @@ from typing import List
 from pathlib import Path
 from datetime import datetime
 from loguru import logger
+import os
 from PIL import Image, ImageDraw
 from ..schemas.request_models import (
     CreateVideoRequest, CreateAnimatedVideoRequest, CreateUserVideoRequest
@@ -14,8 +15,128 @@ from utils.video_utils import (
     _load_fonts, _wrap_text
 )
 from services.video_service import VideoService
+from services.video_embedding_service import video_embedding_service
+import cv2
+import numpy as np
 
 router = APIRouter(prefix="/api", tags=["视频"])
+
+@router.get("/list-videos")
+async def list_videos():
+    """列出所有已生成的视频文件"""
+    try:
+        video_dir = Path("data/videos")
+        if not video_dir.exists():
+            return JSONResponse(status_code=200, content={"success": True, "videos": []})
+        
+        videos = []
+        for video_file in video_dir.glob("*.mp4"):
+            if video_file.is_file() and video_file.stat().st_size > 0:  # 只包含非空文件
+                stat = video_file.stat()
+                
+                # 生成封面图片路径
+                thumbnail_path = video_file.with_suffix('.jpg')
+                thumbnail_exists = thumbnail_path.exists()
+                
+                videos.append({
+                    "filename": video_file.name,
+                    "local_path": f"/data/videos/{video_file.name}",
+                    "thumbnail_path": f"/data/videos/{thumbnail_path.name}" if thumbnail_exists else None,
+                    "size_bytes": stat.st_size,
+                    "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                    "created_time": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "success": True,
+                    "has_thumbnail": thumbnail_exists
+                })
+        
+        # 按创建时间倒序排列
+        videos.sort(key=lambda x: x["created_time"], reverse=True)
+        
+        logger.info(f"扫描到 {len(videos)} 个视频文件")
+        return JSONResponse(status_code=200, content={"success": True, "videos": videos})
+        
+    except Exception as e:
+        logger.error(f"扫描视频文件失败: {e}")
+        return JSONResponse(status_code=500, content={"success": False, "message": str(e)})
+
+@router.get("/extract-thumbnail/{video_filename}")
+async def extract_video_thumbnail(video_filename: str):
+    """为指定视频文件提取封面图片"""
+    try:
+        from moviepy.editor import VideoFileClip
+        import cv2
+        
+        video_path = Path("data/videos") / video_filename
+        if not video_path.exists():
+            return JSONResponse(status_code=404, content={"success": False, "message": "视频文件不存在"})
+        
+        # 生成缩略图文件名
+        thumbnail_filename = video_filename.replace('.mp4', '.jpg')
+        thumbnail_path = Path("data/videos") / thumbnail_filename
+        
+        # 如果缩略图已存在，直接返回
+        if thumbnail_path.exists():
+            return JSONResponse(status_code=200, content={
+                "success": True, 
+                "thumbnail_path": f"/data/videos/{thumbnail_filename}",
+                "message": "缩略图已存在"
+            })
+        
+        # 提取视频第一帧作为封面
+        try:
+            # 方法1: 使用moviepy
+            clip = VideoFileClip(str(video_path))
+            frame = clip.get_frame(0)  # 获取第0秒的帧
+            clip.close()
+            
+            # 转换为PIL图像并保存
+            from PIL import Image
+            import numpy as np
+            pil_image = Image.fromarray(frame)
+            
+            # 调整尺寸并保持质量
+            pil_image = pil_image.resize((320, 180), Image.Resampling.LANCZOS)
+            pil_image.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
+            
+            logger.info(f"成功提取视频封面: {thumbnail_filename}")
+            return JSONResponse(status_code=200, content={
+                "success": True, 
+                "thumbnail_path": f"/data/videos/{thumbnail_filename}",
+                "message": "缩略图提取成功"
+            })
+            
+        except Exception as e:
+            logger.warning(f"MoviePy提取失败，尝试OpenCV: {e}")
+            # 方法2: 使用OpenCV作为备选方案
+            try:
+                cap = cv2.VideoCapture(str(video_path))
+                ret, frame = cap.read()
+                if ret:
+                    # 转换颜色空间 BGR to RGB
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    pil_image = Image.fromarray(frame_rgb)
+                    pil_image = pil_image.resize((320, 180), Image.Resampling.LANCZOS)
+                    pil_image.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
+                    logger.info(f"使用OpenCV成功提取视频封面: {thumbnail_filename}")
+                    return JSONResponse(status_code=200, content={
+                        "success": True, 
+                        "thumbnail_path": f"/data/videos/{thumbnail_filename}",
+                        "message": "缩略图提取成功"
+                    })
+                cap.release()
+            except Exception as e2:
+                logger.error(f"OpenCV提取也失败: {e2}")
+                
+        # 如果都失败，返回默认封面
+        return JSONResponse(status_code=200, content={
+            "success": True, 
+            "thumbnail_path": None,
+            "message": "使用默认封面"
+        })
+        
+    except Exception as e:
+        logger.error(f"提取视频缩略图失败: {e}")
+        return JSONResponse(status_code=500, content={"success": False, "message": str(e)})
 
 @router.post("/upload-images")
 async def upload_images(files: List[UploadFile] = File(...)):
@@ -191,8 +312,79 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
 
         for idx, img_path in enumerate(request.images, 1):
             try:
-                # 检查是否为GIF文件
+                # 检查文件类型
+                is_video = img_path.lower().endswith(('.mp4', '.webm', '.mov'))
                 is_gif = img_path.lower().endswith('.gif')
+                
+                if is_video:
+                    # 处理视频文件 - 画中画效果
+                    logger.info(f"🎬 处理视频文件 (画中画): {img_path}")
+                    logger.info(f"   视频路径: {img_path}")
+                    logger.info(f"   目标时长: {CLIP_DURATION}秒")
+                    
+                    # 修复路径问题
+                    actual_video_path = img_path.lstrip('/')
+                    logger.info(f"   实际视频路径: {actual_video_path}")
+                    
+                    # 检查文件是否存在
+                    if not Path(actual_video_path).exists():
+                        logger.error(f"   ❌ 视频文件不存在: {actual_video_path}")
+                        logger.warning(f"   ⚠️ 跳过视频文件: {img_path}")
+                        continue
+                    
+                    logger.info(f"   ✅ 视频文件存在")
+                    
+                    # 创建画中画效果
+                    pip_result = video_embedding_service.create_pip_video_effect(
+                        [actual_video_path], bg_template, title_info, summary_info, CLIP_DURATION
+                    )
+                    
+                    if pip_result.get('success') and pip_result.get('segments'):
+                        segment = pip_result['segments'][0]
+                        logger.info(f"   🎨 画中画效果创建成功: {len(segment['frames'])} 帧")
+                        
+                        # 使用画中画帧创建视频片段
+                        def make_pip_frame(t, frames=segment['frames'], duration=CLIP_DURATION):
+                            frame_index = int((t / duration) * len(frames))
+                            frame_index = min(frame_index, len(frames) - 1)
+                            return np.array(frames[frame_index])
+                        
+                        clip = VideoClip(make_pip_frame, duration=CLIP_DURATION).set_fps(FPS)
+                        clips.append(clip)
+                        
+                        # 保存预览帧（使用第一帧）
+                        if segment['frames']:
+                            preview = np.array(segment['frames'][0])
+                            preview_path = output_dir / f"preview_{idx:02d}.png"
+                            Image.fromarray(preview).save(preview_path, quality=95)
+                            logger.info(f"   🖼️ 预览帧保存成功: {preview_path}")
+                        
+                        continue  # 跳过下面的静态图片处理
+                    else:
+                        logger.warning(f"   ⚠️ 画中画效果创建失败，使用视频缩略图代替: {img_path}")
+                        # 回退到使用视频第一帧作为静态图片
+                        try:
+                            cap = cv2.VideoCapture(actual_video_path)
+                            ret, frame = cap.read()
+                            cap.release()
+                            
+                            if ret:
+                                # 转换为PIL图像
+                                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                                user_img = Image.fromarray(frame_rgb)
+                                if user_img.mode != 'RGBA':
+                                    user_img = user_img.convert('RGBA')
+                                
+                                # 继续使用静态图片处理逻辑
+                                logger.info(f"   🔄 回退到静态图片处理")
+                                # 注意：这里不使用continue，而是让代码继续执行到下面的静态图片处理部分
+                                # 因为user_img已经设置好了
+                            else:
+                                logger.error(f"   ❌ 无法读取视频帧，跳过文件: {img_path}")
+                                continue
+                        except Exception as e:
+                            logger.error(f"   ❌ 视频回退处理失败: {e}")
+                            continue
                 
                 if is_gif:
                     # 处理GIF动画
@@ -387,8 +579,8 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 logger.info(f"🎵 加载音频文件: {audio_path}")
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
-                speed = 1.2
-                audio = audio.fl_time(lambda t: t / speed).set_duration(audio.duration / speed)
+                speed = 1.1
+                audio = audio.fl_time(lambda t: t * speed).set_duration(audio.duration / speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
                 logger.info(f"   加速后时长: {new_duration:.2f}秒")
@@ -426,16 +618,16 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                     logger.warning(f"关闭视频片段时出错: {e}")
         
         logger.info("所有资源已清理完成")
-
+        
         rel = str(video_path.relative_to(Path("."))).replace("\\", "/")
         size_mb = video_path.stat().st_size / (1024 * 1024)
         logger.success(f"动画视频生成成功: {video_path} ({size_mb:.2f}MB)")
-
+                
         # 预览帧列表
         previews = []
         for f in sorted(output_dir.glob("preview_*.png")):
-            previews.append(f"/{str(f.relative_to(Path('.'))).replace(chr(92), '/')}")
-
+            previews.append("/" + str(f.relative_to(Path("."))).replace(chr(92), "/"))
+                
         return {
             "success": True,
             "message": f"动画视频生成成功，共 {len(clips)} 个片段",
@@ -445,7 +637,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             "file_size_mb": round(size_mb, 2),
             "output_dir": str(output_dir.relative_to(Path("."))).replace("\\", "/")
         }
-
+            
     except Exception as e:
         logger.error(f"动画视频生成失败: {e}")
         import traceback
@@ -719,8 +911,8 @@ async def create_user_video(
                 logger.info(f"🎵 加载音频文件: {audio_path}")
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
-                speed = 1.2
-                audio = audio.fl_time(lambda t: t / speed).set_duration(audio.duration / speed)
+                speed = 1.1
+                audio = audio.fl_time(lambda t: t * speed).set_duration(audio.duration / speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
                 logger.info(f"   加速后时长: {new_duration:.2f}秒")

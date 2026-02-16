@@ -493,6 +493,43 @@
             display: block;
         }
         
+        /* 视频缩略图样式 */
+        .selectable-video {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 180px;
+        }
+        
+        .selectable-video .video-preview {
+            font-size: 48px;
+            color: white;
+        }
+        
+        .selectable-video .video-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .selectable-video.selected {
+            box-shadow: 0 0 0 3px #667eea;
+            transform: scale(1.02);
+        }
+        
         /* 主选择区域的GIF图片特殊样式 */
         .selectable-image img[src*='.gif'],
         .selectable-image img[src*='data:image/gif'] {
@@ -1148,6 +1185,11 @@
                     </div>
                 </div>
 
+                <h3 class="collapsible-header collapsed" style="margin-top: 30px;" onclick="toggleCollapse(this)">🎬 视频列表 <span class="toggle-icon">▼</span></h3>
+                <div class="collapsible-body hidden" id="videosSection">
+                    <div class="videos-grid" id="videosGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;"></div>
+                </div>
+                
                 <h3 class="collapsible-header collapsed" style="margin-top: 30px;" onclick="toggleCollapse(this)">🖼️ 图片列表 <span class="toggle-icon">▼</span></h3>
                 <div class="collapsible-body hidden">
                     <div class="images-grid" id="imagesGrid"></div>
@@ -1180,16 +1222,23 @@
                     </div>
                     
                     <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 13px; color: #856404;">
-                        💡 提示：选择图片后点击"生成AI标题和摘要"，然后点击"生成视频关键帧"，将为每张选中的图片生成一帧
+                        💡 提示：选择图片后点击"生成AI标题和摘要"，然后点击"生成视频"，将直接使用当前编辑的内容生成视频
                     </div>
 
                     <div class="ai-summary" id="aiSummary" style="display: none;">
                         <h4>🤖 AI生成内容</h4>
                         <div style="margin-bottom: 15px;">
-                            <strong style="color: #667eea;">标题：</strong>
+                            <strong style="color: #667eea;">主标题：</strong>
                             <div class="ai-field-row">
-                                <input type="text" id="editableAiTitle" class="ai-edit-input" placeholder="AI生成的标题将显示在这里..." style="font-size: 1.2em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
-                                <button class="copy-btn" onclick="copyAiContent('editableAiTitle')" title="复制标题">📋</button>
+                                <input type="text" id="editableMainTitle" class="ai-edit-input" placeholder="主标题将显示在这里..." style="font-size: 1.2em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableMainTitle')" title="复制主标题">📋</button>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">副标题：</strong>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableSubTitle" class="ai-edit-input" placeholder="副标题将显示在这里..." style="font-size: 1em; font-weight: normal; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; color: #666;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableSubTitle')" title="复制副标题">📋</button>
                             </div>
                         </div>
                         <div>
@@ -1209,8 +1258,8 @@
                         <div style="margin-top: 10px; color: #666; font-size: 12px;" id="aiMeta"></div>
                         
                         <div class="action-buttons" style="margin-top: 20px;">
-                            <button class="btn" onclick="generateVideoImage()">
-                                🎨 生成视频关键帧
+                            <button class="btn" onclick="generateVideoDirectly()">
+                                🎬 生成视频
                             </button>
                             <button class="secondary-btn" onclick="saveEditedContent()" title="保存修改后的内容用于视频生成">
                                 💾 保存修改
@@ -1222,7 +1271,7 @@
                     </div>
 
                     <div class="ai-summary" id="generatedImage" style="display: none; margin-top: 20px;">
-                        <h4>🎨 生成的视频关键帧</h4>
+                        <h4>🎨 生成的视频</h4>
                         <div id="framesInfo" style="margin: 10px 0; color: #666; font-size: 14px;"></div>
                         <div id="framesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
                         </div>                        <button id="createVideoBtn" onclick="createVideo()" 
@@ -1329,7 +1378,8 @@
         }
 
         // 全局变量存储编辑后的内容
-        let editedTitle = '';
+        let editedMainTitle = '';
+        let editedSubTitle = '';
         let editedSummary = '';
         let editedTags = '';
         
@@ -1367,18 +1417,31 @@
             div.dataset.path = path;
             
             // 提取文件名
-            const fileName = path.split('/').pop() || '图片';
+            const fileName = path.split('/').pop() || '媒体文件';
             const displayName = fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName;
             
-            // 检查是否为GIF
+            // 检查文件类型
             const isGif = path.toLowerCase().endsWith('.gif');
-            const gifIndicator = isGif ? '<span class="sortable-gif-indicator">🎞️</span>' : '';
+            const isVideo = path.toLowerCase().endsWith('.mp4') || path.toLowerCase().endsWith('.webm') || path.toLowerCase().endsWith('.mov');
+            
+            let indicator = '';
+            let fileType = 'image';
+            
+            if (isGif) {
+                indicator = '<span class="sortable-gif-indicator">🎞️</span>';
+                fileType = 'gif';
+            } else if (isVideo) {
+                indicator = '<span class="sortable-gif-indicator">🎥</span>';
+                fileType = 'video';
+            }
             
             div.innerHTML = `
                 <span class="order-number">${order}.</span>
-                <img src="${path}" alt="选中图片" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><circle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/><path d=%22M21 15l-5-5L5 21%22/></svg>'">
-                ${gifIndicator}
-                <span class="filename" title="${fileName}">${displayName}</span>
+                <img src="${isVideo ? 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2255%22 height=%2255%22 viewBox=%220 0 24 24%22 fill=%22%23667eea%22><path d=%22M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z%22/></svg>' : path}" 
+                     alt="选中媒体" 
+                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><circle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/><path d=%22M21 15l-5-5L5 21%22/></svg>'">
+                ${indicator}
+                <span class="filename" title="${fileName} (${fileType})">${displayName}</span>
             `;
             
             return div;
@@ -1502,17 +1565,18 @@
         
         function saveEditedContent() {
             // 保存用户编辑的内容
-            editedTitle = document.getElementById('editableAiTitle').value.trim();
+            editedMainTitle = document.getElementById('editableMainTitle').value.trim();
+            editedSubTitle = document.getElementById('editableSubTitle').value.trim();
             editedSummary = document.getElementById('editableAiSummary').value.trim();
             editedTags = document.getElementById('editableAiTags').value.trim();
             
-            if (!editedTitle || !editedSummary) {
-                showToast('请填写标题和摘要后再保存', 'error');
+            if (!editedMainTitle || !editedSummary) {
+                showToast('请填写主标题和摘要后再保存', 'error');
                 return;
             }
             
             showToast('✅ 内容已保存，将在视频生成时使用', 'success');
-            console.log('保存的编辑内容:', { editedTitle, editedSummary, editedTags });
+            console.log('保存的编辑内容:', { editedMainTitle, editedSubTitle, editedSummary, editedTags });
         }
         
         // GIF处理相关函数
@@ -1653,6 +1717,157 @@
             document.getElementById('urlInput').value = url;
         }
 
+        // 页面加载完成后自动扫描视频文件
+        window.addEventListener('DOMContentLoaded', async function() {
+            await scanVideos();
+        });
+
+        async function scanVideos() {
+            try {
+                const response = await fetch('/api/list-videos');
+                const data = await response.json();
+                
+                if (data.success && data.videos && data.videos.length > 0) {
+                    displayVideos(data.videos);
+                }
+            } catch (error) {
+                console.error('扫描视频文件失败:', error);
+            }
+        }
+
+        function displayVideos(videos) {
+            const videosSection = document.getElementById('videosSection');
+            const videosGrid = document.getElementById('videosGrid');
+            
+            if (!videosSection || !videosGrid) return;
+            
+            // 显示视频区域
+            videosSection.style.display = 'block';
+            videosGrid.innerHTML = '';
+            
+            videos.forEach(async (video, index) => {
+                const videoCard = document.createElement('div');
+                videoCard.className = 'video-card';
+                videoCard.style.cssText = `
+                    position: relative;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    transition: transform 0.2s;
+                    background: white;
+                `;
+                
+                // 构建初始HTML
+                let videoHtml = `
+                    <div style="position: relative; cursor: pointer;" onclick="openVideoModal('${video.local_path}')">
+                `;
+                
+                // 根据是否有缩略图显示不同内容
+                if (video.has_thumbnail && video.thumbnail_path) {
+                    videoHtml += `
+                        <img src="${video.thumbnail_path}" 
+                             alt="视频封面" 
+                             style="width: 100%; height: 150px; object-fit: cover; display: block;"
+                             onerror="this.parentElement.innerHTML='<div style=\'width:100%;height:150px;background:linear-gradient(45deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;\'><span style=\'color:white;font-size:48px;\'>🎬</span></div>'">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 50%; font-size: 16px;">▶️</div>
+                    `;
+                } else {
+                    // 默认渐变背景
+                    videoHtml += `
+                        <div style="width: 100%; height: 150px; background: linear-gradient(45deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center;">
+                            <span style="color: white; font-size: 48px;">🎬</span>
+                        </div>
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 50%; font-size: 16px;">▶️</div>
+                    `;
+                }
+                
+                videoHtml += `</div>`;
+                
+                // 信息部分
+                videoHtml += `
+                    <div style="padding: 10px;">
+                        <div style="font-size: 13px; color: #666; margin-bottom: 4px; font-weight: 500;">${video.filename}</div>
+                        <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
+                            <span>${video.size_mb ? video.size_mb.toFixed(1) + 'MB' : '未知大小'}</span>
+                            <span>${new Date(video.created_time).toLocaleDateString('zh-CN')}</span>
+                        </div>
+                    </div>
+                    <div style="padding: 6px 10px; font-size: 12px; text-align: center; background: #d4edda; color: #155724; border-top: 1px solid #c3e6cb; display: flex; justify-content: space-between; align-items: center;">
+                        <span>✓ 已生成</span>
+                        <button onclick="event.stopPropagation(); openVideoModal('${video.local_path}')" 
+                                style="background: #667eea; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">
+                            👁️ 查看
+                        </button>
+                    </div>
+                `;
+                
+                videoCard.innerHTML = videoHtml;
+                videosGrid.appendChild(videoCard);
+                
+                // 如果没有缩略图，尝试生成一个
+                if (!video.has_thumbnail) {
+                    try {
+                        const response = await fetch(`/api/extract-thumbnail/${encodeURIComponent(video.filename)}`);
+                        const result = await response.json();
+                        if (result.success && result.thumbnail_path) {
+                            // 更新卡片显示真实缩略图
+                            const imgContainer = videoCard.querySelector('[onclick^="openVideoModal"]');
+                            if (imgContainer) {
+                                imgContainer.innerHTML = `
+                                    <img src="${result.thumbnail_path}" 
+                                         alt="视频封面" 
+                                         style="width: 100%; height: 150px; object-fit: cover; display: block;"
+                                         onerror="this.outerHTML='<div style=\\'width:100%;height:150px;background:linear-gradient(45deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;\\'><span style=\\'color:white;font-size:48px;\\'>🎬</span></div>'">
+                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 50%; font-size: 16px;">▶️</div>
+                                `;
+                            }
+                        }
+                    } catch (error) {
+                        console.log('缩略图生成失败:', error);
+                    }
+                }
+            });
+            
+            console.log(`✅ 已显示 ${videos.length} 个视频文件`);
+        }
+
+        // 视频播放模态框
+        function openVideoModal(videoPath) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.9);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                backdrop-filter: blur(5px);
+            `;
+            
+            modal.innerHTML = `
+                <div style="position: relative; max-width: 90%; max-height: 90%;">
+                    <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: -40px; right: 0; background: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;">×</button>
+                    <video src="${videoPath}" controls autoplay style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);"></video>
+                    <div style="text-align: center; margin-top: 15px; color: white; font-size: 14px;">
+                        <a href="${videoPath}" download style="color: #667eea; text-decoration: none;">📥 下载视频</a>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 点击背景关闭
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
         async function fetchUrl() {
             const urlInput = document.getElementById('urlInput');
             const url = urlInput.value.trim();
@@ -1754,6 +1969,55 @@
 
                 imagesGrid.appendChild(imageCard);
             });
+            
+            // 显示视频（如果有的话）
+            const videosSection = document.getElementById('videosSection');
+            const videosGrid = document.getElementById('videosGrid');
+            
+            if (data.videos && data.videos.length > 0 && videosSection && videosGrid) {
+                videosSection.style.display = 'block';
+                videosGrid.innerHTML = '';
+                
+                data.videos.forEach((video, index) => {
+                    const videoCard = document.createElement('div');
+                    videoCard.className = 'video-card';
+                    videoCard.style.cssText = `
+                        position: relative;
+                        border-radius: 8px;
+                        overflow: hidden;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                        transition: transform 0.2s;
+                    `;
+                    
+                    if (video.success) {
+                        videoCard.innerHTML = `
+                            <div style="position: relative; cursor: pointer;" onclick="openVideoModal('${video.local_path}')">
+                                <video src="${video.local_path}" muted style="width: 100%; height: 150px; object-fit: cover; display: block;"></video>
+                                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 50%; font-size: 16px;">▶️</div>
+                            </div>
+                            <div style="padding: 10px;">
+                                <div style="font-size: 13px; color: #666; margin-bottom: 4px;">${video.filename}</div>
+                                <div style="font-size: 12px; color: #888;">${video.size_mb ? video.size_mb.toFixed(1) + 'MB' : '未知大小'}</div>
+                            </div>
+                            <div class="status success" style="padding: 6px 10px; font-size: 12px;">✓ 已下载</div>
+                        `;
+                    } else {
+                        videoCard.innerHTML = `
+                            <div style="width: 100%; height: 150px; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
+                                <span style="color: #999;">下载失败</span>
+                            </div>
+                            <div style="padding: 10px;">
+                                <div style="font-size: 12px; color: #888;">${video.error || '下载失败'}</div>
+                            </div>
+                            <div class="status error" style="padding: 6px 10px; font-size: 12px;">✗ 失败</div>
+                        `;
+                    }
+                    
+                    videosGrid.appendChild(videoCard);
+                });
+            } else if (videosSection) {
+                videosSection.style.display = 'none';
+            }
 
             // 显示编辑区域
             setupEditSection(data);
@@ -1772,16 +2036,18 @@
                 })
                 .catch(err => console.error('加载内容失败:', err));
 
-            // 创建可选择的图片
+            // 创建可选择的图片和视频
             const imageSelector = document.getElementById('imageSelector');
             imageSelector.innerHTML = '';
 
+            // 处理图片
             const successImages = data.images.filter(img => img.success);
             successImages.forEach((img, index) => {
                 const imgDiv = document.createElement('div');
                 imgDiv.className = 'selectable-image';
                 imgDiv.dataset.index = index;
                 imgDiv.dataset.path = img.local_path;
+                imgDiv.dataset.type = 'image';
                 
                 imgDiv.innerHTML = `
                     <img src="${img.local_path}" alt="图片 ${index + 1}">
@@ -1797,36 +2063,82 @@
 
                 imgDiv.onclick = (e) => {
                     if (!e.target.classList.contains('effect-btn')) {
-                        toggleImageSelection(imgDiv);
+                        toggleMediaSelection(imgDiv);
                     }
                 };
 
                 imageSelector.appendChild(imgDiv);
             });
 
+            // 处理视频（如果有的话）
+            if (data.videos && data.videos.length > 0) {
+                const successVideos = data.videos.filter(video => video.success);
+                successVideos.forEach((video, index) => {
+                    const videoIndex = successImages.length + index;
+                    const videoDiv = document.createElement('div');
+                    videoDiv.className = 'selectable-video';
+                    videoDiv.dataset.index = videoIndex;
+                    videoDiv.dataset.path = video.local_path;
+                    videoDiv.dataset.type = 'video';
+                    videoDiv.dataset.size = video.size_mb || 0;
+                    
+                    // 从文件名提取简洁名称
+                    const fileName = video.filename || video.local_path.split('/').pop() || '视频';
+                    const displayName = fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName;
+                    
+                    videoDiv.innerHTML = `
+                        ${video.thumbnail_path ? 
+                            `<img src="${video.thumbnail_path}" alt="视频缩略图" style="width: 100%; height: 100%; object-fit: cover; display: block;">` :
+                            `<div class="video-preview">🎬</div>`
+                        }
+                        <div class="video-info">
+                            <div>${displayName}</div>
+                            <div>${video.size_mb ? video.size_mb.toFixed(1) + 'MB' : '未知大小'}</div>
+                        </div>
+                        <div class="checkbox"></div>
+                        <div class="image-order-number">${videoIndex + 1}</div>
+                        <div class="gif-badge">🎥 视频</div>
+                    `;
+
+                    videoDiv.onclick = (e) => {
+                        toggleMediaSelection(videoDiv);
+                    };
+
+                    imageSelector.appendChild(videoDiv);
+                });
+            }
+
             // 显示编辑区域
             document.getElementById('editSection').classList.add('active');
             document.getElementById('aiSummary').style.display = 'none';
         }
 
-        function toggleImageSelection(imgDiv) {
-            const index = parseInt(imgDiv.dataset.index);
-            const path = imgDiv.dataset.path;
+        function toggleMediaSelection(mediaDiv) {
+            const index = parseInt(mediaDiv.dataset.index);
+            const path = mediaDiv.dataset.path;
+            const type = mediaDiv.dataset.type;
 
-            if (imgDiv.classList.contains('selected')) {
-                imgDiv.classList.remove('selected');
+            if (mediaDiv.classList.contains('selected')) {
+                mediaDiv.classList.remove('selected');
                 selectedImages = selectedImages.filter(i => i !== path);
+                console.log(`取消选择${type}:`, path);
             } else {
-                imgDiv.classList.add('selected');
+                mediaDiv.classList.add('selected');
                 selectedImages.push(path);
+                console.log(`选择${type}:`, path);
             }
 
-            console.log('已选择图片:', selectedImages.length);
+            console.log('当前已选择媒体:', selectedImages.length);
             
             // 更新排序面板
             initSortPanel();
             // 更新主图片区域序号
             setTimeout(updateMainImageNumbers, 100);
+        }
+
+        function toggleImageSelection(imgDiv) {
+            // 保持向后兼容
+            toggleMediaSelection(imgDiv);
         }
 
         async function processImage(imagePath, effect, event) {
@@ -1869,12 +2181,14 @@
             const summaryDiv = document.getElementById('aiSummary');
             if (summaryDiv) summaryDiv.style.display = 'block';
             
-            const aiTitleEl = document.getElementById('editableAiTitle');
+            const aiMainTitleEl = document.getElementById('editableMainTitle');
+            const aiSubTitleEl = document.getElementById('editableSubTitle');
             const aiSummaryEl = document.getElementById('editableAiSummary');
             const aiTagsEl = document.getElementById('editableAiTags');
             const aiMetaEl = document.getElementById('aiMeta');
             
-            if (aiTitleEl) aiTitleEl.value = '正在生成标题...';
+            if (aiMainTitleEl) aiMainTitleEl.value = '正在生成主标题...';
+            if (aiSubTitleEl) aiSubTitleEl.value = '正在生成副标题...';
             if (aiSummaryEl) aiSummaryEl.value = '正在生成摘要...';
             if (aiTagsEl) aiTagsEl.value = '';
             if (aiMetaEl) aiMetaEl.textContent = '';
@@ -1901,9 +2215,9 @@
                     // 显示主副标题到可编辑输入框
                     const mainT = data.main_title || data.title.split('|')[0];
                     const subT = data.sub_title || (data.title.includes('|') ? data.title.split('|')[1] : '');
-                    const combinedTitle = subT ? `${mainT}|${subT}` : mainT;
                     
-                    document.getElementById('editableAiTitle').value = combinedTitle;
+                    document.getElementById('editableMainTitle').value = mainT;
+                    document.getElementById('editableSubTitle').value = subT;
                     document.getElementById('editableAiSummary').value = data.summary;
                     document.getElementById('editableAiTags').value = data.tags || '';
                     document.getElementById('aiMeta').textContent = 
@@ -1912,16 +2226,343 @@
                     // 自动保存初始内容
                     saveEditedContent();
                 } else {
-                    if (aiTitleEl) aiTitleEl.value = '';
+                    if (aiMainTitleEl) aiMainTitleEl.value = '';
+                    if (aiSubTitleEl) aiSubTitleEl.value = '';
                     if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + data.message;
                     if (aiTagsEl) aiTagsEl.value = '';
                     if (aiMetaEl) aiMetaEl.textContent = '';
                 }
             } catch (error) {
-                if (aiTitleEl) aiTitleEl.value = '';
+                if (aiMainTitleEl) aiMainTitleEl.value = '';
+                if (aiSubTitleEl) aiSubTitleEl.value = '';
                 if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + error.message;
                 if (aiTagsEl) aiTagsEl.value = '';
                 if (aiMetaEl) aiMetaEl.textContent = '';
+            }
+        }
+
+        async function generateVideoDirectly() {
+            // 检查必要条件
+            const mainTitle = document.getElementById('editableMainTitle')?.value.trim();
+            const subTitle = document.getElementById('editableSubTitle')?.value.trim();
+            const editedSummary = document.getElementById('editableAiSummary')?.value.trim();
+            
+            if (!mainTitle || !editedSummary) {
+                showToast('请先生成AI标题和摘要，或手动填写内容', 'error');
+                return;
+            }
+            
+            // 组合标题
+            const editedTitle = subTitle ? `${mainTitle}|${subTitle}` : mainTitle;
+            
+            if (selectedImages.length === 0) {
+                showToast('请至少选择一张图片', 'error');
+                return;
+            }
+            
+            // 检查是否有GIF或视频需要特殊处理
+            const gifImages = selectedImages.filter(path => path.toLowerCase().endsWith('.gif'));
+            const videoFiles = selectedImages.filter(path => 
+                path.toLowerCase().endsWith('.mp4') || 
+                path.toLowerCase().endsWith('.webm') || 
+                path.toLowerCase().endsWith('.mov')
+            );
+            
+            // 不再过滤视频文件，现在支持视频嵌入
+            const mediaFiles = selectedImages;
+            
+            if (mediaFiles.length === 0) {
+                showToast('请至少选择一个媒体文件（图片或视频）', 'error');
+                return;
+            }
+            
+            if (gifImages.length > 0 || videoFiles.length > 0) {
+                let message = '';
+                if (gifImages.length > 0) {
+                    message += `检测到 ${gifImages.length} 个GIF图片`;
+                }
+                if (videoFiles.length > 0) {
+                    message += `${message ? ' 和 ' : '检测到 '}${videoFiles.length} 个视频文件`;
+                }
+                message += '，正在处理...';
+                showToast(message, 'info');
+                
+                // 处理GIF
+                if (gifImages.length > 0) {
+                    const gifVideos = await processSelectedGIFs(2.7); // 2.7秒每帧
+                    if (gifVideos.length > 0) {
+                        showToast(`✅ 已处理 ${gifVideos.length} 个GIF为视频片段`, 'success');
+                    }
+                }
+                
+                // 视频文件现在可以直接使用
+                if (videoFiles.length > 0) {
+                    showToast(`🎬 ${videoFiles.length} 个视频文件将作为画中画效果嵌入`, 'success');
+                }
+            }
+            
+            showToast('🚀 正在生成视频，请稍候...', 'info');
+            
+            // 显示进度条
+            const progressContainer = document.createElement('div');
+            progressContainer.id = 'videoProgress';
+            progressContainer.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                z-index: 10000;
+                text-align: center;
+                min-width: 300px;
+            `;
+            
+            progressContainer.innerHTML = `
+                <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #667eea;">🎬 正在生成视频</div>
+                <div style="font-size: 14px; color: #666; margin-bottom: 20px;">请耐心等待，这可能需要几十秒...</div>
+                <div style="width: 100%; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
+                    <div id="progressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 4px; transition: width 0.3s ease;"></div>
+                </div>
+                <div id="progressText" style="font-size: 12px; color: #888; margin-top: 10px;">准备中...</div>
+                <button id="cancelVideoBtn" style="margin-top: 15px; padding: 8px 16px; background: #ff6b6b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">取消</button>
+            `;
+            
+            document.body.appendChild(progressContainer);
+            
+            // 模拟进度更新
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress = Math.min(progress + Math.random() * 15, 90);
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                if (progressBar) progressBar.style.width = `${progress}%`;
+                if (progressText) {
+                    if (progress < 30) {
+                        progressText.textContent = '正在处理图片...';
+                    } else if (progress < 60) {
+                        progressText.textContent = '正在合成视频...';
+                    } else if (progress < 90) {
+                        progressText.textContent = '正在添加音频...';
+                    } else {
+                        progressText.textContent = '即将完成...';
+                    }
+                }
+            }, 800);
+            
+            // 取消按钮事件
+            document.getElementById('cancelVideoBtn').onclick = () => {
+                clearInterval(progressInterval);
+                document.body.removeChild(progressContainer);
+                showToast('视频生成已取消', 'info');
+            };
+            
+            try {
+                // 直接调用创建带动画视频的API
+                const response = await fetch('/api/create-animated-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: getCombinedTitle(),
+                        subtitle: editedSubTitle,
+                        summary: editedSummary,
+                        images: mediaFiles,  // 使用所有媒体文件（包括视频）
+                        audio_path: 'static/music/background.mp3'
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('API响应数据:', data);
+                console.log('视频路径:', data.video_path);
+                
+                if (data.success) {
+                    // 隐藏进度条
+                    clearInterval(progressInterval);
+                    const progressBarFinal = document.getElementById('progressBar');
+                    if (progressBarFinal) progressBarFinal.style.width = '100%';
+                    const progressTextFinal = document.getElementById('progressText');
+                    if (progressTextFinal) progressTextFinal.textContent = '完成!';
+                    
+                    setTimeout(() => {
+                        if (document.getElementById('videoProgress')) {
+                            document.body.removeChild(document.getElementById('videoProgress'));
+                        }
+                    }, 1000);
+                    
+                    // 显示视频结果
+                    const videoResultEl = document.getElementById('videoResult');
+                    const videoInfoEl = document.getElementById('videoInfo');
+                    const generatedVideoEl = document.getElementById('generatedVideo');
+                    const downloadBtnEl = document.getElementById('downloadVideoBtn');
+                    const generatedImageEl = document.getElementById('generatedImage'); // 获取父容器
+                    
+                    console.log('DOM元素检查:');
+                    console.log('- videoResultEl:', videoResultEl);
+                    console.log('- videoInfoEl:', videoInfoEl);
+                    console.log('- generatedVideoEl:', generatedVideoEl);
+                    console.log('- downloadBtnEl:', downloadBtnEl);
+                    console.log('- generatedImageEl:', generatedImageEl);
+                    
+                    // 首先显示父容器
+                    if (generatedImageEl) {
+                        generatedImageEl.style.display = 'block';
+                        console.log('✅ 父容器 generatedImage 已显示');
+                    }
+                    
+                    if (videoResultEl) {
+                        videoResultEl.style.display = 'block';
+                        console.log('视频结果区域已显示');
+                        
+                        // 强制刷新样式
+                        videoResultEl.style.visibility = 'visible';
+                        videoResultEl.style.opacity = '1';
+                        videoResultEl.style.height = 'auto';
+                        
+                        // 添加明显的视觉标记
+                        videoResultEl.style.border = '3px solid #667eea';
+                        videoResultEl.style.boxShadow = '0 0 20px rgba(102, 126, 234, 0.5)';
+                        videoResultEl.style.zIndex = '9999';
+                        videoResultEl.style.position = 'relative';
+                        
+                        // 检查容器尺寸
+                        console.log('视频容器尺寸:', {
+                            offsetWidth: videoResultEl.offsetWidth,
+                            offsetHeight: videoResultEl.offsetHeight,
+                            clientWidth: videoResultEl.clientWidth,
+                            clientHeight: videoResultEl.clientHeight
+                        });
+                        
+                        // 检查父元素
+                        let parent = videoResultEl.parentElement;
+                        let level = 0;
+                        while (parent && level < 5) {
+                            console.log(`父元素${level}:`, parent.tagName, parent.style.display, parent.style.visibility);
+                            parent = parent.parentElement;
+                            level++;
+                        }
+                        
+                        // 滚动到结果区域
+                        videoResultEl.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    
+                    if (videoInfoEl) {
+                        videoInfoEl.innerHTML = `
+                            <span>🎬 时长: ${data.duration.toFixed(1)}秒</span>
+                            <span>📦 大小: ${data.file_size_mb}MB</span>
+                            <span>🖼️ 媒体: ${mediaFiles.length}个文件</span>
+                            ${videoFiles.length > 0 ? `<span style="color: #4CAF50;">✅ 包含${videoFiles.length}个视频画中画</span>` : ''}
+                        `;
+                        console.log('视频信息已更新');
+                    }
+                    
+                    if (generatedVideoEl) {
+                        console.log('设置视频源:', data.video_path);
+                        generatedVideoEl.src = data.video_path;
+                        generatedVideoEl.load();
+                        
+                        // 强制设置视频元素样式
+                        generatedVideoEl.style.display = 'block';
+                        generatedVideoEl.style.visibility = 'visible';
+                        generatedVideoEl.style.opacity = '1';
+                        
+                        // 添加视觉标记
+                        generatedVideoEl.style.border = '2px dashed #764ba2';
+                        
+                        // 添加额外的调试信息
+                        console.log('视频元素完整信息:', {
+                            tagName: generatedVideoEl.tagName,
+                            id: generatedVideoEl.id,
+                            className: generatedVideoEl.className,
+                            src: generatedVideoEl.src,
+                            currentSrc: generatedVideoEl.currentSrc,
+                            readyState: generatedVideoEl.readyState,
+                            networkState: generatedVideoEl.networkState,
+                            videoWidth: generatedVideoEl.videoWidth,
+                            videoHeight: generatedVideoEl.videoHeight
+                        });
+                        
+                        console.log('视频元素样式:', {
+                            display: generatedVideoEl.style.display,
+                            visibility: generatedVideoEl.style.visibility,
+                            opacity: generatedVideoEl.style.opacity,
+                            width: generatedVideoEl.style.width,
+                            maxWidth: generatedVideoEl.style.maxWidth
+                        });
+                        
+                        // 添加事件监听器来调试
+                        generatedVideoEl.addEventListener('loadeddata', function() {
+                            console.log('✅ 视频数据加载完成');
+                            console.log('视频元素状态:', generatedVideoEl.readyState);
+                        });
+                        
+                        generatedVideoEl.addEventListener('canplay', function() {
+                            console.log('✅ 视频可以播放');
+                        });
+                        
+                        generatedVideoEl.addEventListener('error', function(e) {
+                            console.error('❌ 视频加载错误:', e);
+                            console.error('视频元素错误信息:', generatedVideoEl.error);
+                            if (generatedVideoEl.error) {
+                                console.error('错误代码:', generatedVideoEl.error.code);
+                                console.error('错误信息:', generatedVideoEl.error.message);
+                            }
+                        });
+                        
+                        // 测试是否能播放
+                        setTimeout(() => {
+                            if (generatedVideoEl.readyState >= 2) {
+                                console.log('✅ 视频准备就绪，可以播放');
+                                // 尝试播放测试
+                                try {
+                                    generatedVideoEl.play().then(() => {
+                                        console.log('✅ 视频开始播放');
+                                        setTimeout(() => {
+                                            generatedVideoEl.pause();
+                                            console.log('⏹️ 视频暂停测试');
+                                        }, 1000);
+                                    }).catch(e => {
+                                        console.log('ℹ️ 自动播放被阻止（正常）:', e);
+                                    });
+                                } catch(e) {
+                                    console.log('ℹ️ 播放测试异常:', e);
+                                }
+                            } else {
+                                console.warn('⚠️ 视频还未准备好播放，当前状态:', generatedVideoEl.readyState);
+                            }
+                        }, 2000);
+                    }
+                    
+                    if (downloadBtnEl) {
+                        downloadBtnEl.href = data.video_path;
+                        downloadBtnEl.download = `video_${new Date().getTime()}.mp4`;
+                    }
+                    
+                    // 滚动到结果区域
+                    if (videoResultEl) {
+                        videoResultEl.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    
+                    showToast(`🎉 视频生成成功！时长 ${data.duration.toFixed(1)}秒`, 'success', 5000);
+                } else {
+                    // 隐藏进度条
+                    clearInterval(progressInterval);
+                    if (document.getElementById('videoProgress')) {
+                        document.body.removeChild(document.getElementById('videoProgress'));
+                    }
+                    
+                    showToast('视频生成失败: ' + data.message, 'error');
+                }
+            } catch (error) {
+                // 隐藏进度条
+                clearInterval(progressInterval);
+                if (document.getElementById('videoProgress')) {
+                    document.body.removeChild(document.getElementById('videoProgress'));
+                }
+                
+                console.error('视频生成错误:', error);
+                showToast('视频生成失败: ' + error.message, 'error');
             }
         }
 
@@ -1958,7 +2599,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        title: editedTitle || generatedTitle,
+                        title: getCombinedTitle(),
+                        subtitle: editedSubTitle || '',
                         summary: editedSummary || generatedSummary,
                         images: selectedImages
                     })
@@ -2067,6 +2709,12 @@
                     showToast('视频生成失败: ' + data.message, 'error');
                 }
             } catch (error) {
+                // 隐藏进度条
+                clearInterval(progressInterval);
+                if (document.getElementById('videoProgress')) {
+                    document.body.removeChild(document.getElementById('videoProgress'));
+                }
+                
                 console.error('视频生成错误:', error);
                 showToast('视频生成失败: ' + error.message, 'error');
             } finally {
@@ -2113,10 +2761,12 @@
                 if (summaryDiv) summaryDiv.style.display = 'block';
                 
                 // 使用新的可编辑输入框ID（避免变量名冲突）
-                const oneClickTitleEl = document.getElementById('editableAiTitle');
+                const oneClickMainTitleEl = document.getElementById('editableMainTitle');
+                const oneClickSubTitleEl = document.getElementById('editableSubTitle');
                 const oneClickSummaryEl = document.getElementById('editableAiSummary');
                 
-                if (oneClickTitleEl) oneClickTitleEl.value = '正在生成标题...';
+                if (oneClickMainTitleEl) oneClickMainTitleEl.value = '正在生成主标题...';
+                if (oneClickSubTitleEl) oneClickSubTitleEl.value = '正在生成副标题...';
                 if (oneClickSummaryEl) oneClickSummaryEl.value = '正在生成摘要...';
 
                 const summaryResp = await fetch('/api/generate-summary', {
@@ -2144,12 +2794,14 @@
                 const combinedTitle2 = subT2 ? `${mainT2}|${subT2}` : mainT2;
                 
                 // 填充到可编辑输入框（添加安全检查）
-                const aiTitleEl = document.getElementById('editableAiTitle');
+                const aiMainTitleEl = document.getElementById('editableMainTitle');
+                const aiSubTitleEl = document.getElementById('editableSubTitle');
                 const aiSummaryEl = document.getElementById('editableAiSummary');
                 const aiTagsEl = document.getElementById('editableAiTags');
                 const aiMetaEl = document.getElementById('aiMeta');
                 
-                if (aiTitleEl) aiTitleEl.value = combinedTitle2;
+                if (aiMainTitleEl) aiMainTitleEl.value = mainT2;
+                if (aiSubTitleEl) aiSubTitleEl.value = subT2;
                 if (aiSummaryEl) aiSummaryEl.value = summaryData.summary;
                 if (aiTagsEl) aiTagsEl.value = summaryData.tags || '';
                 if (aiMetaEl) aiMetaEl.textContent =
@@ -2167,7 +2819,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        title: editedTitle || generatedTitle,
+                        title: combinedTitle2 || generatedTitle,
                         summary: editedSummary || generatedSummary,
                         images: selectedImages,
                         audio_path: 'static/music/background.mp3'
@@ -2882,6 +3534,123 @@
                 resetBtn.addEventListener('click', resetImageOrder);
             }
         }
+        
+        function getCombinedTitle() {
+            // 获取组合后的标题（主标题 + 副标题）
+            const mainTitle = document.getElementById('editableMainTitle')?.value.trim() || '';
+            const subTitle = document.getElementById('editableSubTitle')?.value.trim() || '';
+            
+            if (subTitle) {
+                return `${mainTitle}|${subTitle}`;
+            }
+            return mainTitle;
+        }
+        
+        // ==================== 视频查看功能 ====================
+        
+        function openVideoModal(videoPath) {
+            console.log('打开视频模态框:', videoPath);
+            
+            const overlay = document.getElementById('videoModalOverlay');
+            const videoPlayer = document.getElementById('videoPlayer');
+            const videoInfo = document.getElementById('videoInfo');
+            
+            if (!overlay || !videoPlayer || !videoInfo) {
+                console.error('视频模态框元素缺失');
+                return;
+            }
+            
+            // 设置视频源
+            videoPlayer.src = videoPath;
+            videoPlayer.load();
+            
+            // 显示基本信息
+            const filename = videoPath.split('/').pop();
+            videoInfo.innerHTML = `
+                <strong>文件:</strong> ${filename}<br>
+                <strong>状态:</strong> 加载中...
+            `;
+            
+            // 视频加载事件
+            videoPlayer.onloadedmetadata = function() {
+                const duration = videoPlayer.duration;
+                const minutes = Math.floor(duration / 60);
+                const seconds = Math.floor(duration % 60);
+                videoInfo.innerHTML = `
+                    <strong>文件:</strong> ${filename}<br>
+                    <strong>时长:</strong> ${minutes}:${seconds.toString().padStart(2, '0')}<br>
+                    <strong>分辨率:</strong> ${videoPlayer.videoWidth}×${videoPlayer.videoHeight}
+                `;
+            };
+            
+            videoPlayer.onerror = function(e) {
+                videoInfo.innerHTML = `
+                    <strong>文件:</strong> ${filename}<br>
+                    <strong style="color: #e74c3c;">错误:</strong> 视频加载失败
+                `;
+                console.error('视频加载错误:', e);
+            };
+            
+            // 显示模态框
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeVideoModal() {
+            const overlay = document.getElementById('videoModalOverlay');
+            const videoPlayer = document.getElementById('videoPlayer');
+            
+            if (overlay) {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+            
+            if (videoPlayer) {
+                videoPlayer.pause();
+                videoPlayer.currentTime = 0;
+            }
+        }
+        
+        function downloadCurrentVideo() {
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (videoPlayer && videoPlayer.src) {
+                const link = document.createElement('a');
+                link.href = videoPlayer.src;
+                link.download = 'video_' + new Date().getTime() + '.mp4';
+                link.click();
+            }
+        }
+        
+        // 点击模态框外部关闭
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'videoModalOverlay') {
+                closeVideoModal();
+            }
+        });
     </script>
 </body>
 </html>
+
+<!-- 视频查看模态框 -->
+<div class="image-modal-overlay" id="videoModalOverlay" onclick="if(event.target===this)closeVideoModal()" style="display: none;">
+    <div class="image-modal">
+        <div class="image-modal-header">
+            <h3 id="videoModalTitle">🎬 视频预览</h3>
+            <div class="modal-toolbar">
+                <button class="modal-btn-zoom" onclick="downloadCurrentVideo()" title="下载视频">📥 下载</button>
+                <span style="color:#555;">|</span>
+                <button class="modal-btn-close" onclick="closeVideoModal()">✕</button>
+            </div>
+        </div>
+        <div class="image-modal-body" id="videoModalBody" style="background: #000;">
+            <video id="videoPlayer" controls style="width: 100%; height: 100%; object-fit: contain;" preload="metadata">
+                您的浏览器不支持视频播放。
+            </video>
+        </div>
+        <div class="image-modal-footer">
+            <div class="image-info" id="videoInfo">
+                加载中...
+            </div>
+        </div>
+    </div>
+</div>
