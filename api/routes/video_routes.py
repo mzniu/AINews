@@ -420,11 +420,12 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                             target_w = img_width
                             ratio = target_w / first_frame.width
                             target_h = int(first_frame.height * ratio)
-                            max_h = int(img_height * 0.6)
-                            if target_h > max_h:
-                                target_h = max_h
-                                ratio = target_h / first_frame.height
-                                target_w = int(first_frame.width * ratio)
+                            # 取消60%高度限制，允许图片延伸到背景底部
+                            # max_h = int(img_height * 0.6)
+                            # if target_h > max_h:
+                            #     target_h = max_h
+                            #     ratio = target_h / first_frame.height
+                            #     target_w = int(first_frame.width * ratio)
                             
                             first_frame_resized = first_frame.resize((target_w, target_h), Image.Resampling.LANCZOS)
                             
@@ -505,11 +506,12 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 target_w = img_width
                 ratio = target_w / user_img.width
                 target_h = int(user_img.height * ratio)
-                max_h = int(img_height * 0.6)
-                if target_h > max_h:
-                    target_h = max_h
-                    ratio = target_h / user_img.height
-                    target_w = int(user_img.width * ratio)
+                # 取消60%高度限制，允许图片延伸到背景底部
+                # max_h = int(img_height * 0.6)
+                # if target_h > max_h:
+                #     target_h = max_h
+                #     ratio = target_h / user_img.height
+                #     target_w = int(user_img.width * ratio)
 
                 user_img_resized = user_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 

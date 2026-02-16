@@ -83,13 +83,14 @@ class VideoService:
                         # 缩放用户图片（宽度占背景100%，保持宽高比）
                         ratio = target_width / user_img.width
                         target_height = int(user_img.height * ratio)
-                        
-                        # 限制最大高度
-                        max_height = int(img_height * 0.6)
-                        if target_height > max_height:
-                            target_height = max_height
-                            ratio = target_height / user_img.height
-                            target_width = int(user_img.width * ratio)
+                                            
+                        # 取消60%高度限制，允许图片延伸到背景底部
+                        # 之前的限制代码已移除
+                        # max_height = int(img_height * 0.6)
+                        # if target_height > max_height:
+                        #     target_height = max_height
+                        #     ratio = target_height / user_img.height
+                        #     target_width = int(user_img.width * ratio)
                         
                         user_img_resized = user_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
                     

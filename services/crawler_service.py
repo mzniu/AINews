@@ -142,15 +142,15 @@ class CrawlerService:
             logger.info(f"36kr网站提取完成: 共 {len(images)} 张图片")
             
         elif is_wechat:
-            # 微信公众号：提取rich_pages wxw-img类的图片
-            logger.info("检测到微信公众号网站，提取rich_pages wxw-img类的图片")
+            # 微信公众号：提取多种类型的图片
+            logger.info("检测到微信公众号网站，提取文章内容中的图片")
             
-            # 提取rich_pages wxw-img类图片
+            # 方案1: 标准的 rich_pages wxw-img 类图片
             wechat_img_elements = soup.find_all('img', class_='rich_pages wxw-img')
-            logger.info(f"找到 {len(wechat_img_elements)} 个rich_pages wxw-img图片")
+            logger.info(f"找到 {len(wechat_img_elements)} 个标准rich_pages wxw-img图片")
             
             for img in wechat_img_elements:
-                src = img.get('data-src') or img.get('src')  # 微信通常使用data-src
+                src = img.get('data-src') or img.get('src')
                 if src and not src.startswith('data:'):
                     # 处理微信图片URL
                     if src.startswith('//'):
@@ -163,9 +163,56 @@ class CrawlerService:
                         'alt': img.get('alt', ''),
                         'class': 'rich_pages wxw-img',
                         'data_type': img.get('data-type', ''),
-                        'data_ratio': img.get('data-ratio', '')
+                        'data_ratio': img.get('data-ratio', ''),
+                        'extraction_method': 'standard_class'
                     })
             
+            # 方案2: 基于微信域名特征的图片识别
+            all_images = soup.find_all('img')
+            wechat_domain_count = 0
+            
+            for img in all_images:
+                # 跳过已经处理过的图片
+                if img in wechat_img_elements:
+                    continue
+                
+                data_src = img.get('data-src', '')
+                src = img.get('src', '')
+                img_alt = img.get('alt', '')
+                img_classes = img.get('class', [])
+                
+                # 识别微信图片的多种特征
+                is_wechat_image = (
+                    # 微信图片域名特征
+                    'mmbiz.qpic.cn' in data_src or 'mmbiz.qpic.cn' in src or
+                    'sz_mmbiz' in data_src or 'sz_mmbiz' in src or
+                    # 微信特有的data属性
+                    img.get('data-type') or img.get('data-ratio') or img.get('data-w') or
+                    # 微信图片通常有alt描述
+                    (img_alt and len(img_alt.strip()) > 0 and 'data:' not in src)
+                )
+                
+                if is_wechat_image:
+                    final_src = data_src or src
+                    if final_src and not final_src.startswith('data:'):
+                        # 处理URL
+                        if final_src.startswith('//'):
+                            final_src = 'https:' + final_src
+                        elif final_src.startswith('/'):
+                            final_src = urljoin(base_url, final_src)
+                        
+                        images.append({
+                            'url': final_src,
+                            'alt': img_alt,
+                            'class': ' '.join(img_classes) if img_classes else 'no-class',
+                            'data_type': img.get('data-type', ''),
+                            'data_ratio': img.get('data-ratio', ''),
+                            'data_w': img.get('data-w', ''),
+                            'extraction_method': 'domain_feature'
+                        })
+                        wechat_domain_count += 1
+            
+            logger.info(f"通过域名特征识别: {wechat_domain_count} 张图片")
             logger.info(f"微信公众号提取完成: 共 {len(images)} 张图片")
             
         elif is_toutiao:
