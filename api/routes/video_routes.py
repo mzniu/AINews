@@ -240,7 +240,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少选择一张图片"})
 
-        from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, VideoClip
+        from moviepy import ImageClip, concatenate_videoclips, AudioFileClip, VideoClip
 
         FPS = 24
         ENTRANCE_DUR = 0.6     # 小图弹落动画时长
@@ -465,7 +465,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                                     anim_type=_anim
                                 )
                             
-                            clip = VideoClip(make_gif_frame_func, duration=CLIP_DURATION).set_fps(FPS)
+                            clip = VideoClip(make_gif_frame_func, duration=CLIP_DURATION).with_fps(FPS)
                             clips.append(clip)
                             logger.info(f"   🎬 GIF动画片段 {idx} 添加成功")
                             
@@ -541,7 +541,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                         anim_type=_anim
                     )
 
-                clip = VideoClip(make_frame_func, duration=CLIP_DURATION).set_fps(FPS)
+                clip = VideoClip(make_frame_func, duration=CLIP_DURATION).with_fps(FPS)
                 clips.append(clip)
 
                 # 同时保存一张静态预览帧（用于前端显示）
@@ -582,7 +582,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
                 speed = 1.1
-                audio = audio.fl_time(lambda t: t * speed).set_duration(audio.duration / speed)
+                audio = audio.with_speed_scaled(speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
                 logger.info(f"   加速后时长: {new_duration:.2f}秒")
@@ -590,8 +590,8 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclip(0, video_duration)
-                final_clip = final_clip.set_audio(audio)
+                audio = audio.subclipped(0, video_duration)
+                final_clip = final_clip.with_audio(audio)
                 logger.info("背景音乐已添加")
 
         # 输出
@@ -914,7 +914,7 @@ async def create_user_video(
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
                 speed = 1.1
-                audio = audio.fl_time(lambda t: t * speed).set_duration(audio.duration / speed)
+                audio = audio.with_speed_scaled(speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
                 logger.info(f"   加速后时长: {new_duration:.2f}秒")
@@ -922,8 +922,8 @@ async def create_user_video(
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclip(0, video_duration)
-                final_clip = final_clip.set_audio(audio)
+                audio = audio.subclipped(0, video_duration)
+                final_clip = final_clip.with_audio(audio)
                 logger.info("用户视频背景音乐已添加")
 
         video_dir = Path("data/videos")

@@ -1,0 +1,36 @@
+{
+  "url": "https://venturebeat.com/orchestration/new-agent-framework-matches-human-engineered-ai-systems-and-adds-zero",
+  "title": "New agent framework matches human-engineered AI systems — and adds zero inference cost to deploy",
+  "author": "未知作者",
+  "publish_date": "2025-09-02T14:30",
+  "content": "Featured\nNew agent framework matches human-engineered AI systems — and adds zero inference cost to deploy\nBen Dickson\nFebruary 18, 2026\nImage credit: VentureBeat with ChatGPT\nAgents built on top of today's models often break with simple changes — a new library, a workflow modification — and require a human engineer to fix it. That's one of the most persistent challenges in deploying AI for the enterprise: creating agents that can adapt to dynamic environments without constant hand-holding. While today's models are powerful, they are largely static.\nTo address this, researchers at the University of California, Santa Barbara have developed\nGroup-Evolving Agents\n(GEA), a new framework that enables groups of AI agents to evolve together, sharing experiences and reusing their innovations to autonomously improve over time.\nIn experiments on complex coding and software engineering tasks, GEA substantially outperformed existing self-improving frameworks. Perhaps most notably for enterprise decision-makers, the system autonomously evolved agents that matched or exceeded the performance of frameworks painstakingly designed by human experts.\nThe limitations of 'lone wolf' evolution\nMost existing\nagentic AI systems\nrely on fixed architectures designed by engineers. These systems often struggle to move beyond the capability boundaries imposed by their initial designs.\nTo solve this, researchers have long sought to create self-evolving agents that can autonomously modify their own code and structure to overcome their initial limits. This capability is essential for handling open-ended environments where the agent must continuously explore new solutions.\nHowever, current approaches to self-evolution have a major structural flaw. As the researchers note in their paper, most systems are inspired by biological evolution and are designed around \"individual-centric\" processes. These methods typically use a tree-structured approach: a single \"parent\" agent is selected to produce offspring, creating distinct evolutionary branches that remain strictly isolated from one another.\nClassic self-evolving agent structure (source: arXiv)\nThis isolation creates a silo effect. An agent in one branch cannot access the data, tools, or workflows discovered by an agent in a parallel branch. If a specific lineage fails to be selected for the next generation, any valuable discovery made by that agent, such as a novel debugging tool or a more efficient testing workflow, dies out with it.\nIn their paper, the researchers question the necessity of adhering to this biological metaphor. \"AI agents are not biological individuals,\" they argue. \"Why should their evolution remain constrained by biological paradigms?\"\nThe collective intelligence of Group-Evolving Agents\nGEA shifts the paradigm by treating a group of agents, rather than an individual, as the fundamental unit of evolution.\nThe process begins by selecting a group of parent agents from an existing archive. To ensure a healthy mix o...",
+  "images": [
+    {
+      "url": "https://venturebeat.com/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fjdtwqhzvc2n1%2F2Izl318JbInekR2BSYLBaq%2F4eddc806d26f5ee7d3567dece9c185ce%2FSelf-evolving_agents.jpg%3Fw%3D1000%26q%3D100&w=3840&q=85",
+      "alt": "Self-evolving agents",
+      "title": ""
+    },
+    {
+      "url": "https://venturebeat.com/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fjdtwqhzvc2n1%2F2Z2T4QYUaYW8n1R0EDi0iE%2Fc579d552dc988177ba9c24c8d54a933c%2Fself-evolving_agent.png%3Fw%3D1000%26q%3D100&w=3840&q=75",
+      "alt": "self-evolving agent",
+      "title": ""
+    },
+    {
+      "url": "https://venturebeat.com/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fjdtwqhzvc2n1%2F2tIG3c0VWKDCRFzEsvSquf%2F963a44a822b9b09edab60051a431deae%2Fgroup-evolving_agent.png%3Fw%3D1000%26q%3D100&w=3840&q=75",
+      "alt": "group-evolving agent",
+      "title": ""
+    },
+    {
+      "url": "https://venturebeat.com/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fjdtwqhzvc2n1%2F5PgBJwsh7RogyskydUJuL2%2F8d2c646572843b0de01f5438587f50d0%2FGEA.png%3Fw%3D1000%26q%3D100&w=3840&q=75",
+      "alt": "GEA",
+      "title": ""
+    },
+    {
+      "url": "https://venturebeat.com/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fjdtwqhzvc2n1%2FA8DMupI3PSyt9cUlG3YN5%2Fcdc7d5c581072ae51636b54fd2d07d97%2FGEA_vs_DGM.png%3Fw%3D1000%26q%3D100&w=3840&q=75",
+      "alt": "GEA vs DGM",
+      "title": ""
+    }
+  ],
+  "tags": [],
+  "summary": "A new group-evolving agent framework from UC Santa Barbara matches human-engineered AI systems on SWE-bench — and adds zero inference cost to deploy. Here's how it works."
+}

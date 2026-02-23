@@ -556,16 +556,21 @@ class CrawlerService:
         if videos:
             videos_dir.mkdir(parents=True, exist_ok=True)
         
-        # 下载图片
-        logger.info(f"开始下载 {len(images)} 张图片...")
+        # 下载图片（只有当图片数组不为空时才下载）
         downloaded_images = []
-        for i, img in enumerate(images, 1):
-            logger.info(f"正在下载图片 {i}/{len(images)}: {img['url'][:50]}...")
-            result = CrawlerService.download_image(img['url'], images_dir, i, page_url=url)
-            downloaded_images.append(result)
-            if not result['success']:
-                logger.warning(f"图片下载失败 {i}: {result.get('error', 'Unknown error')}")
-        logger.info(f"图片下载完成: 成功 {len([img for img in downloaded_images if img['success']])}/{len(images)} 张")
+        if images:  # 只有当有图片需要下载时才执行
+            logger.info(f"开始下载 {len(images)} 张图片...")
+            for i, img in enumerate(images, 1):
+                logger.info(f"正在下载图片 {i}/{len(images)}: {img['url'][:50]}...")
+                result = CrawlerService.download_image(img['url'], images_dir, i, page_url=url)
+                downloaded_images.append(result)
+                if not result['success']:
+                    logger.warning(f"图片下载失败 {i}: {result.get('error', 'Unknown error')}")
+            logger.info(f"图片下载完成: 成功 {len([img for img in downloaded_images if img['success']])}/{len(images)} 张")
+        else:
+            logger.info("没有图片需要下载")
+            # 如果没有图片需要下载，但仍需要构建正确的元数据结构
+            downloaded_images = []
         
         # 下载视频（如果有的话）
         downloaded_videos = []

@@ -602,6 +602,21 @@
             animation: pulse 2s infinite;
         }
         
+        /* 本地上传标识 */
+        .local-upload-badge {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: #4CAF50;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
@@ -1123,6 +1138,7 @@
             <div class="nav-menu">
                 <a href="/" class="nav-link active">🏠 主页</a>
                 <a href="/video-maker" class="nav-link">📹 视频制作</a>
+                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
             </div>
         </div>
     </nav>
@@ -1152,6 +1168,7 @@
                     <a href="#" class="example-link" onclick="fillExample('https://www.36kr.com/p/2492318105786505')">36氪文章</a>
                     <a href="#" class="example-link" onclick="fillExample('https://www.cnblogs.com/')">博客园</a>
                     <a href="#" class="example-link" onclick="fillExample('https://www.infoq.cn/article/latest')">InfoQ</a>
+                    <a href="#" class="example-link" onclick="fillExample('https://venturebeat.com/orchestration/new-agent-framework-matches-human-engineered-ai-systems-and-adds-zero')">VentureBeat AI文章</a>
                 </div>
             </div>
 
@@ -1207,6 +1224,23 @@
                     </div>
 
                     <h4 style="margin-top: 20px;">🖼️ 选择图片（点击图片选择/取消选择）</h4>
+                    
+                    <!-- 上传本地图片区域 -->
+                    <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <div>
+                                <button class="btn" onclick="document.getElementById('localImageInput').click()" style="margin: 0;">
+                                    📤 上传本地图片
+                                </button>
+                                <input type="file" id="localImageInput" accept="image/*" multiple style="display: none;" onchange="handleLocalImageUpload(event)">
+                            </div>
+                            <div style="font-size: 14px; color: #666;">
+                                支持 JPG、PNG、GIF 等格式，可多选
+                            </div>
+                        </div>
+                        <div id="uploadStatus" style="margin-top: 10px; font-size: 13px; color: #666; min-height: 20px;"></div>
+                    </div>
+                    
                     <div class="image-selector" id="imageSelector"></div>
 
                     <div class="action-buttons">
@@ -1885,6 +1919,13 @@
                 return;
             }
 
+            // 检查是否为VentureBeat URL，使用专门的API端点
+            let apiUrl = '/api/fetch-url';
+            if (url.includes('venturebeat.com')) {
+                apiUrl = '/api/fetch-venturebeat';
+                console.log('检测到VentureBeat URL，使用专门的API端点');
+            }
+
             // 显示加载状态
             document.getElementById('loading').classList.add('active');
             document.getElementById('result').classList.remove('active');
@@ -1892,7 +1933,7 @@
             document.getElementById('fetchBtn').disabled = true;
 
             try {
-                const response = await fetch('/api/fetch-url', {
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2139,6 +2180,130 @@
         function toggleImageSelection(imgDiv) {
             // 保持向后兼容
             toggleMediaSelection(imgDiv);
+        }
+
+        // 处理本地图片上传
+        async function handleLocalImageUpload(event) {
+            const files = event.target.files;
+            const uploadStatus = document.getElementById('uploadStatus');
+            
+            if (files.length === 0) return;
+            
+            uploadStatus.innerHTML = `正在上传 ${files.length} 个文件...`;
+            
+            try {
+                const uploadedPaths = [];
+                
+                // 逐个处理文件
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    
+                    // 验证文件类型
+                    if (!file.type.startsWith('image/')) {
+                        showToast(`文件 ${file.name} 不是有效的图片格式`, 'error');
+                        continue;
+                    }
+                    
+                    // 验证文件大小（限制为10MB）
+                    if (file.size > 10 * 1024 * 1024) {
+                        showToast(`文件 ${file.name} 太大（超过10MB）`, 'error');
+                        continue;
+                    }
+                    
+                    // 创建FormData
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    
+                    try {
+                        const response = await fetch('/upload-local-image', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            uploadedPaths.push(result.image_path);
+                            showToast(`✅ ${file.name} 上传成功`, 'success', 2000);
+                        } else {
+                            showToast(`❌ ${file.name} 上传失败: ${result.message}`, 'error');
+                        }
+                    } catch (error) {
+                        showToast(`❌ ${file.name} 上传出错: ${error.message}`, 'error');
+                    }
+                }
+                
+                // 将上传的图片添加到选择区域
+                if (uploadedPaths.length > 0) {
+                    addUploadedImagesToSelector(uploadedPaths);
+                    uploadStatus.innerHTML = `✅ 成功上传 ${uploadedPaths.length} 个文件`;
+                    
+                    // 3秒后清除状态
+                    setTimeout(() => {
+                        uploadStatus.innerHTML = '';
+                    }, 3000);
+                } else {
+                    uploadStatus.innerHTML = '❌ 没有文件成功上传';
+                }
+                
+            } catch (error) {
+                console.error('上传过程中发生错误:', error);
+                showToast('上传过程中发生错误: ' + error.message, 'error');
+                uploadStatus.innerHTML = '❌ 上传失败';
+            }
+            
+            // 清空input以便下次选择相同文件
+            event.target.value = '';
+        }
+
+        // 将上传的图片添加到选择器
+        function addUploadedImagesToSelector(imagePaths) {
+            const imageSelector = document.getElementById('imageSelector');
+            
+            imagePaths.forEach((imagePath, index) => {
+                // 检查是否已存在
+                const existingImage = Array.from(imageSelector.querySelectorAll('.selectable-image'))
+                    .find(img => img.dataset.path === imagePath);
+                
+                if (existingImage) {
+                    return; // 已存在，跳过
+                }
+                
+                // 创建新的图片元素
+                const imgDiv = document.createElement('div');
+                imgDiv.className = 'selectable-image';
+                imgDiv.dataset.path = imagePath;
+                imgDiv.dataset.type = 'image';
+                imgDiv.dataset.source = 'local'; // 标记为本地上传
+                
+                // 生成唯一的索引（基于现有图片数量）
+                const existingImages = imageSelector.querySelectorAll('.selectable-image').length;
+                imgDiv.dataset.index = existingImages + index;
+                
+                imgDiv.innerHTML = `
+                    <img src="${imagePath}" alt="本地上传图片 ${existingImages + index + 1}" 
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
+                    <div class="checkbox"></div>
+                    <div class="image-order-number">${existingImages + index + 1}</div>
+                    <div class="local-upload-badge">📱 本地上传</div>
+                    <div class="image-effects">
+                        <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'enhance', event)">增强</button>
+                        <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'sharpen', event)">锐化</button>
+                        <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'grayscale', event)">黑白</button>
+                        <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'blur', event)">模糊</button>
+                    </div>
+                `;
+                
+                // 添加点击事件
+                imgDiv.onclick = (e) => {
+                    // 阻止效果按钮的事件冒泡
+                    if (e.target.classList.contains('effect-btn')) return;
+                    toggleMediaSelection(imgDiv);
+                };
+                
+                // 添加到选择器
+                imageSelector.appendChild(imgDiv);
+            });
         }
 
         async function processImage(imagePath, effect, event) {

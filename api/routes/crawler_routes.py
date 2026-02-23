@@ -13,6 +13,76 @@ from openai import OpenAI
 
 router = APIRouter(prefix="/api", tags=["爬虫"])
 
+@router.post("/fetch-venturebeat", response_model=FetchResponse)
+async def fetch_venturebeat(request: FetchRequest):
+    """专门抓取VentureBeat文章内容"""
+    try:
+        # 检查是否为VentureBeat URL
+        from urllib.parse import urlparse
+        parsed_url = urlparse(str(request.url))
+        if 'venturebeat.com' not in parsed_url.netloc:
+            raise HTTPException(status_code=400, detail="该接口仅支持VentureBeat网站")
+        
+        logger.info(f"开始抓取VentureBeat文章: {request.url}")
+        
+        # 使用异步VentureBeat爬虫
+        from services.async_article_crawler import crawl_venturebeat_article_async, AsyncArticleData
+        
+        article_data = await crawl_venturebeat_article_async(str(request.url))
+        
+        if not article_data:
+            raise HTTPException(status_code=500, detail="抓取文章失败")
+        
+        # 下载图片
+        from services.async_article_crawler import AsyncVentureBeatCrawler
+        crawler = AsyncVentureBeatCrawler()
+        downloaded_images = await crawler.download_images(article_data)
+        article_data.downloaded_images = downloaded_images
+        
+        # 构造返回数据格式与现有接口一致
+        from datetime import datetime
+        metadata = {
+            "url": article_data.url,
+            "title": article_data.title,
+            "author": article_data.author,
+            "publish_time": article_data.publish_date,
+            "content": article_data.content,
+            "content_length": len(article_data.content),
+            "content_preview": article_data.content[:500] + ("..." if len(article_data.content) > 500 else ""),
+            "images": [{"url": img['url'], "success": True} for img in article_data.images],  # 图片已经下载成功
+            "images_count": len(article_data.images),
+            "videos": [],  # VentureBeat文章通常没有视频
+            "videos_count": 0,
+            "tags": article_data.tags,
+            "crawl_time": datetime.now().isoformat(),
+            "source": "VentureBeat",
+            "summary": article_data.summary
+        }
+        
+        # 保存结果到文件系统（不重复下载图片，因为我们已经在异步爬虫中下载过了）
+        from services.crawler_service import CrawlerService
+        saved_metadata = CrawlerService.save_results(
+            str(request.url),
+            article_data.title,
+            article_data.content,
+            [],  # 传递空数组避免重复下载
+            []
+        )
+        
+        logger.success(f"VentureBeat文章抓取成功: {article_data.title}")
+        
+        return FetchResponse(
+            success=True,
+            message="VentureBeat文章抓取成功",
+            data=saved_metadata
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"抓取VentureBeat文章失败: {e}")
+        raise HTTPException(status_code=500, detail=f"抓取失败: {str(e)}")
+
 @router.post("/fetch-url", response_model=FetchResponse)
 async def fetch_url(request: FetchRequest):
     """抓取指定URL的内容"""

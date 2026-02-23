@@ -54,18 +54,52 @@ def merge_regions(regions):
 def get_lama_model():
     """获取LaMa去水印模型实例"""
     try:
+        import torch
         from simple_lama_inpainting import SimpleLama
-        model = SimpleLama(device='cpu')
-        logger.info("LaMa模型加载成功")
+        
+        # 智能选择设备
+        if torch.cuda.is_available():
+            device = 'cuda'
+            device_info = "GPU加速模式"
+        else:
+            device = 'cpu'
+            device_info = "CPU模式"
+            # 如果是CPU模式，设置环境变量确保不使用CUDA
+            import os
+            os.environ['CUDA_VISIBLE_DEVICES'] = ''
+        
+        logger.info(f"检测到设备: {device_info} (CUDA可用: {torch.cuda.is_available()})")
+        
+        # 创建模型实例
+        model = SimpleLama(device=device)
+        
+        # 如果模型有to()方法，确保在正确设备上
+        if hasattr(model, 'to'):
+            model = model.to(device)
+            
+        logger.info(f"LaMa模型加载成功 ({device_info})")
         return model
-    except ImportError:
-        logger.warning("LaMa模型未安装，使用模拟实现")
+        
+    except ImportError as e:
+        logger.warning(f"LaMa模型未安装: {e}，使用模拟实现")
         class MockLamaModel:
             def __call__(self, image, mask):
                 # 模拟去水印效果：简单地模糊被遮盖区域
+                from PIL import ImageFilter
                 result = image.copy()
+                # 创建一个遮罩来标识需要修复的区域
+                mask_rgba = mask.convert('RGBA')
+                # 应用轻微模糊来模拟修复效果
+                blurred = result.filter(ImageFilter.GaussianBlur(radius=2))
                 # 这里应该实现真正的去水印逻辑
                 return result
+        return MockLamaModel()
+    except Exception as e:
+        logger.error(f"LaMa模型加载失败: {e}")
+        # 返回模拟模型作为后备
+        class MockLamaModel:
+            def __call__(self, image, mask):
+                return image.copy()
         return MockLamaModel()
 
 @router.post("/detect-watermark")

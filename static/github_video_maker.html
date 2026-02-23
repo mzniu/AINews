@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub项目视频生成器</title>
+    <style>
+        /* 导航栏样式 */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 0 20px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+        }
+        
+        .nav-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .nav-brand:hover {
+            color: #764ba2;
+        }
+        
+        .nav-menu {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .nav-link {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .nav-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        :root {
+            --primary-color: #24292e;
+            --secondary-color: #0366d6;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-bg: #f6f8fa;
+            --border-color: #e1e4e8;
+            --text-primary: #24292e;
+            --text-secondary: #586069;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background-color: var(--light-bg);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding-top: 80px; /* 为固定导航栏留出空间 */
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        /* 步骤容器 */
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .step-panel {
+            opacity: 0.7;
+            border-left: 4px solid #ddd;
+            transition: all 0.3s ease;
+        }
+        
+        .step-panel.active {
+            opacity: 1;
+            border-left: 4px solid var(--secondary-color);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .step-panel.completed {
+            opacity: 0.9;
+            background: #f0f8ff;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            gap: 20px;
+        }
+
+        .step {
+            padding: 10px 20px;
+            background: var(--light-bg);
+            border-radius: 20px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0256bb;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--light-bg);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--light-bg);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--secondary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .image-item {
+            position: relative;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .image-item.selected {
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.2);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-info {
+            padding: 10px;
+            background: white;
+        }
+
+        .image-info small {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+        
+        .image-info.screenshot-source {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 500;
+        }
+        
+        .image-info.screenshot-source small {
+            color: white;
+        }
+
+        .checkbox-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 24px;
+            height: 24px;
+            background: var(--secondary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .image-item.selected .checkbox-overlay {
+            opacity: 1;
+        }
+
+        .checkbox-overlay::after {
+            content: "✓";
+            color: white;
+            font-weight: bold;
+        }
+
+        .content-preview {
+            background: var(--light-bg);
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .preview-field {
+            margin-bottom: 15px;
+        }
+
+        .preview-field label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--text-primary);
+        }
+
+        .preview-field .value {
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            min-height: 24px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid var(--light-bg);
+            border-top: 4px solid var(--secondary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .notification.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .notification.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .notification.warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .video-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .video-info h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .video-info p {
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+        
+        .video-info strong {
+            color: #34495e;
+        }
+
+        /* 视频预览样式 */
+        .video-preview-container {
+            margin: 25px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .video-preview-container h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        .video-preview-area {
+            width: 100%;
+            height: 300px;
+            background: #000;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .preview-placeholder {
+            text-align: center;
+            color: #6c757d;
+        }
+        
+        .preview-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .preview-placeholder p {
+            margin: 10px 0;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .preview-placeholder small {
+            color: #adb5bd;
+            font-size: 14px;
+        }
+        
+        .video-preview-area video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .video-controls-hint {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .flex-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .image-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+            
+            .step-indicator {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .flex-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">🎬 AINews</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">🏠 主页</a>
+                <a href="/video-maker" class="nav-link">📹 视频制作</a>
+                <a href="/github-video-maker" class="nav-link active">🐙 GitHub项目</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h1>🚀 GitHub项目视频生成器</h1>
+                    <p>从GitHub项目自动生成精彩的介绍视频</p>
+                </div>
+                <div>
+                    <a href="/" class="btn btn-outline" style="text-decoration: none; padding: 8px 16px; border-radius: 4px;">🏠 返回主页</a>
+                </div>
+            </div>
+            
+            <div class="step-indicator">
+                <div class="step active" id="step1">1. 输入项目链接</div>
+                <div class="step" id="step2">2. 选择图片</div>
+                <div class="step" id="step3">3. 编辑内容</div>
+                <div class="step" id="step4">4. 生成视频</div>
+            </div>
+        </div>
+
+        <!-- 所有步骤容器 -->
+        <div class="steps-container">
+            <!-- 步骤1: 输入项目链接 -->
+            <div id="step1-panel" class="card step-panel active">
+                <h2>🔗 第一步：输入GitHub项目链接</h2>
+            <div class="form-group">
+                <label for="github-url">GitHub项目URL</label>
+                <input type="url" id="github-url" class="form-control" 
+                       placeholder="https://github.com/用户名/项目名" required>
+            </div>
+            
+            <div class="flex-row">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="include-screenshots" checked>
+                        包含项目主页截图
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="include-audio" checked>
+                        添加背景音乐
+                    </label>
+                    <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
+                        需要 static/music/background.mp3 文件
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label for="max-images">最大图片数量</label>
+                    <input type="number" id="max-images" class="form-control" 
+                           value="20" min="1" max="50">
+                </div>
+            </div>
+            
+            <button id="process-btn" class="btn btn-primary">开始处理项目</button>
+            
+            <div class="progress-bar hidden" id="processing-progress">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            
+            <div class="loading" id="processing-loading">
+                <div class="spinner"></div>
+                <p>正在处理项目，请稍候...</p>
+                <small id="processing-status"></small>
+            </div>
+        </div>
+
+        <!-- 步骤2: 选择图片 -->
+        <div id="step2-panel" class="card step-panel">
+            <h2>🖼️ 第二步：选择项目图片</h2>
+            <p>从以下图片中选择用于视频制作的图片（包含README图片和项目主页截图）：</p>
+            
+            <div class="notification warning" id="image-selection-warning">
+                请选择至少3张图片以获得最佳效果
+            </div>
+            
+            <div class="image-grid" id="image-grid">
+                <!-- 图片将在这里动态加载 -->
+            </div>
+            
+            <div class="flex-row">
+                <button id="select-all-btn" class="btn btn-outline">全选</button>
+                <button id="select-none-btn" class="btn btn-outline">清空选择</button>
+                <button id="confirm-images-btn" class="btn btn-primary">确认选择</button>
+            </div>
+        </div>
+
+        <!-- 步骤3: 编辑内容 -->
+        <div id="step3-panel" class="card step-panel">
+            <h2>📝 第三步：编辑视频内容</h2>
+            
+            <div class="content-preview">
+                <div class="preview-field">
+                    <label>视频标题</label>
+                    <div class="value" id="generated-title" contenteditable="true">
+                        正在生成...
+                    </div>
+                </div>
+                
+                <div class="preview-field">
+                    <label>副标题</label>
+                    <div class="value" id="generated-subtitle" contenteditable="true">
+                        <!-- 将由AI生成 -->
+                    </div>
+                </div>
+                
+                <div class="preview-field">
+                    <label>视频摘要</label>
+                    <div class="value" id="generated-summary" contenteditable="true">
+                        <!-- 将由AI生成 -->
+                    </div>
+                </div>
+                
+                <div class="preview-field">
+                    <label>标签</label>
+                    <div class="value" id="generated-tags">
+                        <!-- 将由AI生成 -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-row">
+                <button id="regenerate-btn" class="btn btn-outline">重新生成</button>
+                <button id="confirm-content-btn" class="btn btn-success">确认并生成视频</button>
+            </div>
+        </div>
+
+        <!-- 步骤4: 生成视频 -->
+        <div id="step4-panel" class="card step-panel">
+            <h2>🎬 第四步：生成视频</h2>
+            
+            <div class="loading" id="video-generation-loading">
+                <div class="spinner"></div>
+                <p>正在生成您的视频，请稍候...</p>
+            </div>
+            
+            <div id="video-result" class="hidden">
+                <div class="notification success">
+                    视频生成成功！
+                </div>
+                
+                <!-- 视频预览窗口 -->
+                <div class="video-preview-container">
+                    <h3>📺 视频预览</h3>
+                    <div id="video-preview-area" class="video-preview-area">
+                        <div class="preview-placeholder">
+                            <div class="preview-icon">🎬</div>
+                            <p>视频生成后将在此预览</p>
+                            <small>支持MP4格式播放</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="video-player">
+                    <!-- 视频播放器将在这里显示 -->
+                </div>
+                <div class="flex-row">
+                    <button id="download-btn" class="btn btn-primary">下载视频</button>
+                    <button id="new-project-btn" class="btn btn-outline">处理新项目</button>
+                </div>
+            </div>
+        </div>
+                
+        <!-- 通知区域 -->
+        <div id="notifications"></div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentProjectId = null;
+        let selectedImages = [];
+        let generatedContent = null;
+
+        // DOM元素引用
+        const stepPanels = {
+            1: document.getElementById('step1-panel'),
+            2: document.getElementById('step2-panel'),
+            3: document.getElementById('step3-panel'),
+            4: document.getElementById('step4-panel')
+        };
+
+        const stepIndicators = {
+            1: document.getElementById('step1'),
+            2: document.getElementById('step2'),
+            3: document.getElementById('step3'),
+            4: document.getElementById('step4')
+        };
+
+        // API基础URL
+        const API_BASE = '/api/github';
+
+        // 通知函数
+        function showNotification(message, type = 'info') {
+            const notificationArea = document.getElementById('notifications');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = message;
+            notification.style.display = 'block';
+            
+            notificationArea.appendChild(notification);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // 更新步骤状态
+        function updateStep(currentStep) {
+            // 更新步骤指示器
+            Object.keys(stepIndicators).forEach(stepNum => {
+                if (parseInt(stepNum) <= currentStep) {
+                    stepIndicators[stepNum].classList.add('active');
+                } else {
+                    stepIndicators[stepNum].classList.remove('active');
+                }
+            });
+
+            // 更新步骤面板状态
+            Object.keys(stepPanels).forEach(stepNum => {
+                const panel = stepPanels[stepNum];
+                if (parseInt(stepNum) < currentStep) {
+                    panel.classList.add('completed');
+                    panel.classList.remove('active');
+                } else if (parseInt(stepNum) === currentStep) {
+                    panel.classList.add('active');
+                    panel.classList.remove('completed');
+                } else {
+                    panel.classList.remove('active', 'completed');
+                }
+            });
+        }
+
+        // 处理项目按钮点击事件
+        document.getElementById('process-btn').addEventListener('click', async () => {
+            const githubUrl = document.getElementById('github-url').value.trim();
+            const includeScreenshots = document.getElementById('include-screenshots').checked;
+            const includeAudio = document.getElementById('include-audio').checked;
+            const maxImages = parseInt(document.getElementById('max-images').value);
+
+            if (!githubUrl) {
+                showNotification('请输入GitHub项目链接', 'error');
+                return;
+            }
+
+            try {
+                // 显示加载状态
+                document.getElementById('processing-loading').style.display = 'block';
+                document.getElementById('process-btn').disabled = true;
+
+                // 发送处理请求
+                const response = await fetch(`${API_BASE}/process-project`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        github_url: githubUrl,
+                        include_screenshots: includeScreenshots,
+                        include_audio: includeAudio,  // 添加音频选项
+                        max_images: maxImages
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentProjectId = result.project_id;
+                    showNotification(`项目处理成功: ${result.project_id}`, 'success');
+                    updateStep(2);
+                    loadProjectImages();
+                } else {
+                    showNotification(`处理失败: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`请求失败: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('processing-loading').style.display = 'none';
+                document.getElementById('process-btn').disabled = false;
+            }
+        });
+
+        // 加载项目图片
+        async function loadProjectImages() {
+            if (!currentProjectId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/projects/${currentProjectId}/images`);
+                const imageData = await response.json();
+
+                const imageGrid = document.getElementById('image-grid');
+                imageGrid.innerHTML = '';
+
+                imageData.available_images.forEach(image => {
+                    const imageItem = document.createElement('div');
+                    imageItem.className = 'image-item';
+                    imageItem.dataset.imageId = image.id;
+                    
+                    // 根据图片来源设置不同的样式和提示
+                    const sourceText = image.source === 'readme' ? 'README图片' : 
+                                     image.source === 'screenshot' ? '主页截图' : '项目图片';
+                    const sourceClass = image.source === 'screenshot' ? 'screenshot-source' : '';
+                    
+                    imageItem.innerHTML = `
+                        <img src="${API_BASE}/projects/${currentProjectId}/images/${image.id}" 
+                             alt="${image.alt_text || '项目图片'}">
+                        <div class="image-info ${sourceClass}">
+                            <small>${sourceText}</small>
+                        </div>
+                        <div class="checkbox-overlay"></div>
+                    `;
+
+                    imageItem.addEventListener('click', () => {
+                        imageItem.classList.toggle('selected');
+                        updateSelectedImages();
+                    });
+
+                    imageGrid.appendChild(imageItem);
+                });
+
+            } catch (error) {
+                showNotification(`加载图片失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 更新选中的图片
+        function updateSelectedImages() {
+            const selectedItems = document.querySelectorAll('.image-item.selected');
+            selectedImages = Array.from(selectedItems).map(item => item.dataset.imageId);
+            
+            // 更新警告提示
+            const warning = document.getElementById('image-selection-warning');
+            if (selectedImages.length < 3) {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        }
+
+        // 确认图片选择
+        document.getElementById('confirm-images-btn').addEventListener('click', async () => {
+            if (selectedImages.length === 0) {
+                showNotification('请至少选择一张图片', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/projects/${currentProjectId}/select-images`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(selectedImages)
+                });
+
+                if (response.ok) {
+                    showNotification('图片选择已保存', 'success');
+                    updateStep(3);
+                    generateContent();
+                } else {
+                    throw new Error('保存图片选择失败');
+                }
+            } catch (error) {
+                showNotification(`操作失败: ${error.message}`, 'error');
+            }
+        });
+
+        // 生成内容
+        async function generateContent() {
+            try {
+                const response = await fetch(`${API_BASE}/generate-content`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        selected_images: selectedImages
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    generatedContent = result.video_metadata;
+                    updateContentPreview();
+                    showNotification('内容重新生成成功！', 'success');
+                } else {
+                    throw new Error(result.message || '内容生成失败');
+                }
+            } catch (error) {
+                showNotification(`生成内容失败: ${error.message}`, 'error');
+                console.error('重新生成内容失败:', error);
+            }
+        }
+
+        // 更新内容预览
+        function updateContentPreview() {
+            console.log('更新内容预览:', generatedContent);
+            if (!generatedContent) return;
+
+            document.getElementById('generated-title').textContent = generatedContent.title;
+            document.getElementById('generated-subtitle').textContent = generatedContent.subtitle || '';
+            document.getElementById('generated-summary').textContent = generatedContent.summary;
+            
+            const tagsContainer = document.getElementById('generated-tags');
+            tagsContainer.innerHTML = generatedContent.tags.map(tag => 
+                `<span style="background: #0366d6; color: white; padding: 4px 8px; border-radius: 12px; margin: 2px; font-size: 12px;">${tag}</span>`
+            ).join(' ');
+        }
+
+        // 重新生成内容
+        // 注意：这个监听器会在页面初始化时绑定
+        if (document.getElementById('regenerate-btn')) {
+            document.getElementById('regenerate-btn').addEventListener('click', async () => {
+                console.log('重新生成按钮被点击');
+                await generateContent();
+            });
+        }
+
+        // 确认内容并生成视频
+        document.getElementById('confirm-content-btn').addEventListener('click', async () => {
+            updateStep(4);
+            await generateActualVideo();
+        });
+
+        // 实际的视频生成函数
+        async function generateActualVideo() {
+            const loading = document.getElementById('video-generation-loading');
+            const result = document.getElementById('video-result');
+            
+            loading.style.display = 'block';
+            result.classList.add('hidden');
+            
+            try {
+                // 获取编辑后的内容
+                const title = document.getElementById('generated-title').textContent.trim();
+                const subtitle = document.getElementById('generated-subtitle').textContent.trim();
+                const summary = document.getElementById('generated-summary').textContent.trim();
+                
+                // 构造请求数据
+                const requestData = {
+                    project_id: currentProjectId,
+                    selected_images: selectedImages,
+                    custom_title: title || undefined,
+                    custom_summary: summary || undefined,
+                    include_audio: document.getElementById('include-audio').checked  // 传递音频选项
+                };
+                
+                console.log('发送视频生成请求:', requestData);
+                
+                // 调用视频生成API
+                const response = await fetch(`${API_BASE}/generate-video`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                console.log('视频生成响应:', data);
+                
+                if (data.success) {
+                    loading.style.display = 'none';
+                    result.classList.remove('hidden');
+                    showNotification('视频生成成功！', 'success');
+                    
+                    // 显示视频信息和预览
+                    const videoPlayer = document.getElementById('video-player');
+                    const videoPreviewArea = document.getElementById('video-preview-area');
+                    
+                    // 显示视频信息
+                    videoPlayer.innerHTML = `
+                        <div class="video-info">
+                            <h3>生成的视频信息</h3>
+                            <p><strong>标题:</strong> ${data.video_metadata.title}</p>
+                            <p><strong>摘要:</strong> ${data.video_metadata.summary.substring(0, 100)}...</p>
+                            <p><strong>标签:</strong> ${data.video_metadata.tags.join(', ')}</p>
+                            <p><strong>项目ID:</strong> ${data.project_id}</p>
+                            <button onclick="downloadGeneratedVideo('${data.project_id}')" class="btn btn-primary">
+                                下载视频
+                            </button>
+                        </div>
+                    `;
+                    
+                    // 显示视频预览
+                    showVideoPreview(data.project_id);
+                } else {
+                    throw new Error(data.message || '视频生成失败');
+                }
+                
+            } catch (error) {
+                console.error('视频生成错误:', error);
+                loading.style.display = 'none';
+                showNotification(`视频生成失败: ${error.message}`, 'error');
+                // 回到上一步
+                updateStep(3);
+            }
+        }
+
+        // 显示视频预览
+        function showVideoPreview(projectId) {
+            const previewArea = document.getElementById('video-preview-area');
+            
+            // 清空预览区域
+            previewArea.innerHTML = `
+                <div class="preview-placeholder">
+                    <div class="spinner"></div>
+                    <p>正在加载视频预览...</p>
+                </div>
+            `;
+            
+            // 创建视频元素
+            const videoElement = document.createElement('video');
+            videoElement.controls = true;
+            videoElement.autoplay = false;
+            videoElement.preload = 'metadata';
+            videoElement.style.display = 'none';
+            
+            // 设置视频源
+            const videoUrl = `${API_BASE}/projects/${projectId}/video`;
+            videoElement.src = videoUrl;
+            
+            // 视频加载成功后显示
+            videoElement.addEventListener('loadeddata', () => {
+                previewArea.innerHTML = '';
+                videoElement.style.display = 'block';
+                previewArea.appendChild(videoElement);
+                
+                // 添加播放控制提示
+                const controlsHint = document.createElement('div');
+                controlsHint.className = 'video-controls-hint';
+                controlsHint.innerHTML = '点击播放按钮开始观看';
+                previewArea.appendChild(controlsHint);
+            });
+            
+            // 视频加载失败处理
+            videoElement.addEventListener('error', (e) => {
+                console.error('视频加载失败:', e);
+                previewArea.innerHTML = `
+                    <div class="preview-placeholder">
+                        <div class="preview-icon">❌</div>
+                        <p>视频加载失败</p>
+                        <small>请尝试重新生成或下载视频</small>
+                        <button onclick="retryVideoPreview('${projectId}')" class="btn btn-outline" style="margin-top: 10px;">
+                            重试加载
+                        </button>
+                    </div>
+                `;
+            });
+        }
+        
+        // 重试视频预览
+        function retryVideoPreview(projectId) {
+            showVideoPreview(projectId);
+        }
+        function downloadGeneratedVideo(projectId) {
+            const videoUrl = `${API_BASE}/projects/${projectId}/video`;
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = videoUrl;
+            link.download = `github_project_${projectId}.mp4`;
+            link.style.display = 'none';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showNotification('开始下载视频...', 'info');
+        }
+
+        // 下载视频
+        document.getElementById('download-btn').addEventListener('click', () => {
+            if (currentProjectId) {
+                downloadGeneratedVideo(currentProjectId);
+            } else {
+                showNotification('暂无视频可下载', 'warning');
+            }
+        });
+
+        // 处理新项目
+        document.getElementById('new-project-btn').addEventListener('click', () => {
+            // 重置所有状态
+            currentProjectId = null;
+            selectedImages = [];
+            generatedContent = null;
+            
+            // 清空表单
+            document.getElementById('github-url').value = '';
+            document.getElementById('image-grid').innerHTML = '';
+            
+            // 回到第一步
+            updateStep(1);
+        });
+
+        // 全选/取消全选功能
+        document.getElementById('select-all-btn').addEventListener('click', () => {
+            document.querySelectorAll('.image-item').forEach(item => {
+                item.classList.add('selected');
+            });
+            updateSelectedImages();
+        });
+
+        document.getElementById('select-none-btn').addEventListener('click', () => {
+            document.querySelectorAll('.image-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            updateSelectedImages();
+        });
+
+        // 初始化
+        updateStep(1);
+    </script>
+</body>
+</html>

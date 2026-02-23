@@ -1,0 +1,24 @@
+{
+  "url": "https://venturebeat.com/orchestration/new-agent-framework-matches-human-engineered-ai-systems-and-adds-zero",
+  "title_found": true,
+  "author_found": false,
+  "date_found": true,
+  "content_found": true,
+  "images_found": 3,
+  "tags_found": 0,
+  "images": [
+    {
+      "url": "https://venturebeat.com/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fjdtwqhzvc2n1%2F2Izl318JbInekR2BSYLBaq%2F4eddc806d26f5ee7d3567dece9c185ce%2FSelf-evolving_agents.jpg%3Fw%3D1000%26q%3D100&w=3840&q=85",
+      "alt": "Self-evolving agents"
+    },
+    {
+      "url": "https://venturebeat.com/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fjdtwqhzvc2n1%2F2Z2T4QYUaYW8n1R0EDi0iE%2Fc579d552dc988177ba9c24c8d54a933c%2Fself-evolving_agent.png%3Fw%3D1000%26q%3D100&w=3840&q=75",
+      "alt": "self-evolving agent"
+    },
+    {
+      "url": "https://venturebeat.com/_next/image?url=https%3A%2F%2Fimages.ctfassets.net%2Fjdtwqhzvc2n1%2F2tIG3c0VWKDCRFzEsvSquf%2F963a44a822b9b09edab60051a431deae%2Fgroup-evolving_agent.png%3Fw%3D1000%26q%3D100&w=3840&q=75",
+      "alt": "group-evolving agent"
+    }
+  ],
+  "tags": []
+}

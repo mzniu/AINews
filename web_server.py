@@ -23,6 +23,7 @@ from api.routes.crawler_routes import router as crawler_router
 from api.routes.video_routes import router as video_router
 from api.routes.watermark_routes import router as watermark_router
 from api.routes.gif_routes import router as gif_router
+from api.routes.github_routes import router as github_router
 
 # 加载环境变量
 load_dotenv()
@@ -53,11 +54,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/data", StaticFiles(directory="data"), name="data")
 
 # 注册路由
-app.include_router(main_router)
+print("正在注册路由...")
 app.include_router(crawler_router)
 app.include_router(video_router)
 app.include_router(watermark_router)
 app.include_router(gif_router)
+app.include_router(github_router)
+# main_routes放在最后，避免被其他路由覆盖，并添加API前缀
+print(f"main_router: {main_router}")
+app.include_router(main_router)
+print("路由注册完成")
 
 if __name__ == "__main__":
     import uvicorn
