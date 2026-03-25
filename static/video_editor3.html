@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AINews - 视频文字编辑器</title>
+    <link rel="stylesheet" href="css/video_editor3.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 导航栏 -->
+        <nav class="navbar">
+            <div class="nav-brand">AINews 视频编辑器</div>
+            <div class="nav-links">
+                <a href="index.html">首页</a>
+                <a href="video_maker.html">视频制作</a>
+                <a href="video_editor3.html" class="active">文字编辑</a>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <div class="editor-container">
+                <!-- 左侧面板：视频上传和文字设置 -->
+                <div class="control-panel">
+                    <div class="panel-section">
+                        <h3>📁 视频上传</h3>
+                        <div class="upload-area" id="videoUploadArea">
+                            <input type="file" id="videoInput" accept="video/*" style="display: none;">
+                            <div class="upload-placeholder" id="uploadPlaceholder">
+                                <div class="upload-icon">🎬</div>
+                                <p>点击上传视频文件</p>
+                                <p class="hint">支持 MP4, MOV, AVI 格式</p>
+                            </div>
+                            <div class="video-info" id="videoInfo" style="display: none;">
+                                <div class="video-thumbnail" id="videoThumbnail"></div>
+                                <div class="video-details">
+                                    <span id="videoName"></span>
+                                    <span id="videoDuration"></span>
+                                    <span id="videoSize"></span>
+                                </div>
+                                <button class="btn btn-danger" id="removeVideo">移除</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h3>🔤 文字设置</h3>
+                        <div class="form-group">
+                            <label>文字内容</label>
+                            <textarea id="textContent" placeholder="请输入要添加的文字内容..."></textarea>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>字体大小</label>
+                                <select id="fontSize">
+                                    <option value="24">小 (24px)</option>
+                                    <option value="36" selected>中 (36px)</option>
+                                    <option value="48">大 (48px)</option>
+                                    <option value="60">超大 (60px)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>字体颜色</label>
+                                <input type="color" id="fontColor" value="#FFFFFF">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>位置</label>
+                                <select id="textPosition">
+                                    <option value="top">顶部</option>
+                                    <option value="center" selected>居中</option>
+                                    <option value="bottom">底部</option>
+                                    <option value="custom">自定义坐标</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>对齐方式</label>
+                                <select id="textAlign">
+                                    <option value="left">左对齐</option>
+                                    <option value="center" selected>居中</option>
+                                    <option value="right">右对齐</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="customPosition" style="display: none;">
+                            <label>自定义位置 (X, Y)</label>
+                            <div class="form-row">
+                                <input type="number" id="positionX" placeholder="X坐标" min="0">
+                                <input type="number" id="positionY" placeholder="Y坐标" min="0">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>背景效果</label>
+                            <select id="backgroundEffect">
+                                <option value="none">无背景</option>
+                                <option value="solid" selected>纯色背景</option>
+                                <option value="gradient">渐变背景</option>
+                                <option value="outline">描边效果</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>动画效果</label>
+                            <select id="animationEffect">
+                                <option value="none">无动画</option>
+                                <option value="fade_in" selected>淡入</option>
+                                <option value="slide_up">上滑</option>
+                                <option value="slide_down">下滑</option>
+                                <option value="typewriter">打字机</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>显示时长</label>
+                            <input type="range" id="displayDuration" min="1" max="30" value="5">
+                            <span id="durationValue">5秒</span>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <button class="btn btn-primary btn-large" id="generateBtn" disabled>
+                            🎬 生成视频
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 右侧预览区 -->
+                <div class="preview-panel">
+                    <h3>👁️ 视频预览</h3>
+                    <div class="video-preview-container">
+                        <video id="videoPreview" controls style="display: none;"></video>
+                        <div class="preview-placeholder" id="previewPlaceholder">
+                            <div class="placeholder-icon">🎥</div>
+                            <p>请先上传视频文件</p>
+                        </div>
+                        <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+                    </div>
+                    
+                    <div class="preview-controls">
+                        <button class="btn btn-secondary" id="playPreview">▶️ 播放预览</button>
+                        <button class="btn btn-secondary" id="pausePreview">⏸️ 暂停</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 结果展示区 -->
+            <div class="result-section" id="resultSection" style="display: none;">
+                <h3>✅ 生成完成</h3>
+                <div class="result-content">
+                    <video id="resultVideo" controls></video>
+                    <div class="result-info">
+                        <span>时长: <span id="resultDuration"></span></span>
+                        <span>大小: <span id="resultSize"></span></span>
+                        <div class="result-actions">
+                            <a class="btn btn-success" id="downloadBtn">📥 下载视频</a>
+                            <button class="btn btn-secondary" id="newEditBtn">➕ 新建编辑</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/video_editor3.js"></script>
+</body>
+</html>

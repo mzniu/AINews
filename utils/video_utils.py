@@ -61,17 +61,23 @@ def _wrap_text(text, font, max_width, draw_obj):
 def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y,
                           target_width, target_height, img_width, img_height,
                           title_info, summary_info, t, entrance_duration=0.6,
-                          hold_with_text_start=0.8, anim_type='zoom_in'):
+                          hold_with_text_start=0.8, anim_type='zoom_in',
+                          zoom_effect=False, zoom_start_scale=1.0, 
+                          zoom_end_scale=1.15, clip_duration=None):
     """
     渲染动画的某一帧（时间 t 秒）。
     anim_type: 'zoom_in'(动感放大), 'zoom_out'(动感缩小), 'unfold'(展开),
               'scroll_up'(向上滚动), 'slide_left'(左滑入), 'slide_right'(右滑入),
               'fade_in'(淡入), 'drop_bounce'(垂落弹跳)
+    zoom_effect: 是否启用持续放大效果
+    zoom_start_scale: 起始缩放比例
+    zoom_end_scale: 结束缩放比例
+    clip_duration: 片段总时长（用于计算放大进度）
     返回 numpy array (H, W, 3) uint8
     """
     bg = bg_template.copy().convert('RGB')
 
-    # --- 阶段1: 小图入场动画 ---
+    # --- 阶段 1: 小图入场动画 ---
     if t < entrance_duration:
         progress = t / entrance_duration
         # 缓出曲线
@@ -139,7 +145,7 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
             _safe_paste(bg, user_img_resized, cur_x, final_paste_y)
 
         elif anim_type == 'fade_in':
-            # 淡入：透明度从0到1
+            # 淡入：透明度从 0 到 1
             alpha = ease
             temp = bg.copy()
             _safe_paste(temp, user_img_resized, paste_x, final_paste_y)
@@ -154,11 +160,38 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
             _safe_paste(bg, user_img_resized, paste_x, cur_y)
 
     else:
-        # 小图已落定
-        if user_img_resized.mode == 'RGBA':
-            bg.paste(user_img_resized, (paste_x, final_paste_y), user_img_resized)
+        # 小图已落定，应用持续放大效果（如果启用）
+        if zoom_effect and clip_duration and clip_duration > entrance_duration:
+            # 计算放大阶段的进度（从 entrance_duration 到 clip_duration）
+            zoom_progress = (t - entrance_duration) / (clip_duration - entrance_duration)
+            zoom_progress = max(0.0, min(1.0, zoom_progress))  # 限制在 [0, 1]
+            
+            # 使用缓动曲线让放大更自然（先快后慢）
+            zoom_ease = 1 - (1 - zoom_progress) ** 2
+            
+            # 计算当前缩放比例
+            current_scale = zoom_start_scale + (zoom_end_scale - zoom_start_scale) * zoom_ease
+            
+            # 计算缩放后的尺寸
+            scaled_w = int(target_width * current_scale)
+            scaled_h = int(target_height * current_scale)
+            
+            if scaled_w > 0 and scaled_h > 0:
+                # 缩放图片
+                scaled_img = user_img_resized.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
+                
+                # 计算新的粘贴位置（保持中心点不变）
+                new_x = paste_x + (target_width - scaled_w) // 2
+                new_y = final_paste_y + (target_height - scaled_h) // 2
+                
+                # 安全粘贴
+                _safe_paste(bg, scaled_img, new_x, new_y)
         else:
-            bg.paste(user_img_resized, (paste_x, final_paste_y))
+            # 没有放大效果，直接粘贴原图
+            if user_img_resized.mode == 'RGBA':
+                bg.paste(user_img_resized, (paste_x, final_paste_y), user_img_resized)
+            else:
+                bg.paste(user_img_resized, (paste_x, final_paste_y))
 
     # --- 标题和摘要始终显示 ---
     if title_info and summary_info:

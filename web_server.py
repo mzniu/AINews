@@ -24,6 +24,8 @@ from api.routes.video_routes import router as video_router
 from api.routes.watermark_routes import router as watermark_router
 from api.routes.gif_routes import router as gif_router
 from api.routes.github_routes import router as github_router
+from api.routes.video_text_routes import router as video_text_router  # 新增视频文字路由
+from api.routes.manual_content_routes import router as manual_content_router  # 新增手动内容路由
 
 # 加载环境变量
 load_dotenv()
@@ -60,7 +62,9 @@ app.include_router(video_router)
 app.include_router(watermark_router)
 app.include_router(gif_router)
 app.include_router(github_router)
-# main_routes放在最后，避免被其他路由覆盖，并添加API前缀
+app.include_router(video_text_router)  # 注册视频文字路由
+app.include_router(manual_content_router)  # 注册手动内容路由
+# main_routes 放在最后，避免被其他路由覆盖，并添加 API 前缀
 print(f"main_router: {main_router}")
 app.include_router(main_router)
 print("路由注册完成")

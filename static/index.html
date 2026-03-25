@@ -404,6 +404,50 @@
             max-width: 150px;  /* 增加最大宽度 */
         }
         
+        /* 图片显示时间配置样式 */
+        .duration-config {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 10px;
+        }
+        
+        .image-duration-input {
+            width: 60px;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .image-duration-input:hover {
+            border-color: #667eea;
+        }
+        
+        .image-duration-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+        
+        .duration-label {
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+        }
+        
+        .duration-auto-badge {
+            background: #e8f5e9;
+            color: #2e7d32;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        
         /* 排序面板中的GIF标识 */
         .sortable-gif-indicator {
             font-size: 16px;
@@ -416,11 +460,76 @@
             50% { transform: translateY(-3px); }
         }
         
-        /* GIF图片特殊样式 - 去除边框和圆角 */
+        /* GIF 图片特殊样式 - 去除边框和圆角 */
         .sortable-item img[src*='.gif'],
         .sortable-item img[src*='data:image/gif'] {
             border-radius: 0 !important;
             border: none !important;
+        }
+                
+        /* 模式切换按钮样式 */
+        .mode-switch {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+                
+        .switch-label {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+                
+        .switch-label input[type="checkbox"] {
+            display: none;
+        }
+                
+        .switch-text {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #e1e5e9;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            min-width: 200px;
+            justify-content: space-between;
+        }
+                
+        .switch-text::before {
+            content: '';
+            position: absolute;
+            left: 4px;
+            width: calc(50% - 4px);
+            height: calc(100% - 8px);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 0;
+        }
+                
+        .switch-label input:checked ~ .switch-text::before {
+            transform: translateX(100%);
+        }
+                
+        .mode-auto,
+        .mode-manual {
+            position: relative;
+            z-index: 1;
+            transition: color 0.3s;
+        }
+                
+        .switch-label input:checked ~ .switch-text .mode-manual {
+            color: white;
+        }
+                
+        .switch-label input:not(:checked) ~ .switch-text .mode-auto {
+            color: white;
         }
         
         .panel-footer {
@@ -1129,6 +1238,8 @@
             font-size: 13px;
         }
     </style>
+    <!-- 引用截图功能扩展 -->
+    <script src="/static/js/screenshot_extension.js"></script>
 </head>
 <body>
     <!-- 导航栏 -->
@@ -1150,15 +1261,44 @@
         </div>
 
         <div class="card">
+            <!-- 模式切换按钮 -->
+            <div class="mode-switch">
+                <label class="switch-label">
+                    <input type="checkbox" id="fetchModeToggle" onchange="toggleFetchMode()">
+                    <span class="switch-text">
+                        <span class="mode-auto">🤖 自动抓取</span>
+                        <span class="mode-manual">📝 手动粘贴</span>
+                    </span>
+                </label>
+            </div>
+                    
             <div class="input-group">
                 <input 
                     type="url" 
                     id="urlInput" 
-                    placeholder="请输入网页URL，例如：https://www.36kr.com/p/123456" 
+                    placeholder="请输入网页 URL，例如：https://www.36kr.com/p/123456" 
                     required
                 >
                 <button class="btn" id="fetchBtn" onclick="fetchUrl()">
                     开始抓取
+                </button>
+            </div>
+        
+            <!-- 手动粘贴模式的输入框 -->
+            <div id="manualInputSection" style="display: none; margin-top: 20px;">
+                <div class="form-group">
+                    <label for="manualContent">文章内容</label>
+                    <textarea 
+                        id="manualContent" 
+                        placeholder="请粘贴文章的 HTML 源码或纯文本内容..."
+                        style="width: 100%; min-height: 200px; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical;"
+                    ></textarea>
+                    <span class="hint" style="display: block; margin-top: 8px; color: #666; font-size: 12px;">
+                        💡 支持 HTML 源码或直接粘贴文字内容，系统会自动识别和处理
+                    </span>
+                </div>
+                <button class="btn" onclick="processManualContent()" style="margin-top: 10px;">
+                    🚀 处理内容
                 </button>
             </div>
 
@@ -1217,6 +1357,7 @@
                     
                     <h4>📝 选择和编辑文章内容</h4>
         let currentData = null;
+        // selectedImages 改为对象数组：[{path, duration, type}]
         let selectedImages = [];
 
                     <div class="content-editor">
@@ -1295,11 +1436,15 @@
                             <button class="btn" onclick="generateVideoDirectly()">
                                 🎬 生成视频
                             </button>
+                            <select id="bgmSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; cursor: pointer; min-width: 200px;">
+                                <option value="static/music/background.mp3">🎵 默认 BGM</option>
+                                <!-- 其他 BGM 选项将动态加载 -->
+                            </select>
                             <button class="secondary-btn" onclick="saveEditedContent()" title="保存修改后的内容用于视频生成">
                                 💾 保存修改
                             </button>
-                            <button class="secondary-btn" onclick="analyzeSelectedGIFs()" title="分析选中的GIF图片属性">
-                                🎞️ 分析GIF
+                            <button class="secondary-btn" onclick="analyzeSelectedGIFs()" title="分析选中的 GIF 图片属性">
+                                🎞️ 分析 GIF
                             </button>
                         </div>
                     </div>
@@ -1333,6 +1478,9 @@
                 <h4>🖼️ 已选图片排序</h4>
                 <button id="closeSortPanel" class="close-btn">×</button>
             </div>
+            <div style="padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; font-size: 12px; color: #666;">
+                💡 提示：可拖动排序，可修改每张图片显示时长（默认 2 秒）
+            </div>
             <div id="sortableList" class="sortable-list">
                 <!-- 动态生成的排序项 -->
             </div>
@@ -1352,15 +1500,22 @@
                     <button class="modal-btn-zoom" onclick="zoomImage(0.2)" title="放大">➕ 放大</button>
                     <button class="modal-btn-zoom" onclick="resetZoom()" title="适应">🔄 适应</button>
                     <button class="modal-btn-zoom" onclick="toggleFullscreen()" title="切换全屏" id="fullscreenBtn">🔲 全屏</button>
+                                    
+                    <!-- 编辑模式分隔线和按钮 -->
+                    <span style="color:#555; margin: 0 8px;">|</span>
+                    <button class="modal-btn-draw" id="editModeBtn" onclick="toggleEditMode()" title="进入编辑模式">✏️ 编辑图片</button>
+                                    
+                    <!-- 编辑工具栏（默认隐藏） -->
+                    <div id="editTools" style="display: none; align-items: center; gap: 6px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #ddd;">
+                        <button class="modal-btn-draw" id="drawModeBtn" onclick="toggleDrawMode()" title="框选水印区域">✏️ 框选水印</button>
+                        <button class="modal-btn-action" id="removeWatermarkBtn" onclick="removeWatermark()" disabled title="去除水印">🧹 去除水印</button>
+                        <span style="color:#555;">|</span>
+                        <button class="modal-btn-zoom" onclick="rotateImage(90)" title="顺时针旋转 90°">🔄 旋转</button>
+                        <button class="modal-btn-zoom" onclick="flipImage('horizontal')" title="水平翻转">↔️ 翻转</button>
+                        <button class="modal-btn-action" id="saveEditBtn" onclick="saveImageEdit()" disabled title="保存编辑" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">💾 保存修改</button>
+                    </div>
+                                    
                     <span style="color:#555;">|</span>
-                    <button class="modal-btn-draw" id="drawModeBtn" onclick="toggleDrawMode()" title="框选水印区域">✏️ 框选水印</button>
-                    <button class="modal-btn-zoom" id="autoDetectBtn" onclick="autoDetectWatermark()" title="AI自动检测水印区域">🔍 自动检测</button>
-                    <button class="modal-btn-action" id="autoRemoveBtn" onclick="autoDetectAndRemove()" title="自动检测水印并一键去除" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">🚀 一键去水印</button>
-                    <button class="modal-btn-zoom" id="undoRegionBtn" onclick="undoLastRegion()" title="撤销上一个框选" style="display:none;">↩️ 撤销</button>
-                    <button class="modal-btn-zoom" id="clearRegionsBtn" onclick="clearRegions()" title="清除所有框选" style="display:none;">🗑️ 清除</button>
-                    <button class="modal-btn-action" id="removeWatermarkBtn" onclick="removeWatermark()" disabled title="去除水印">🧹 去除水印</button>
-                    <span style="color:#555;">|</span>
-                    <button class="modal-btn-action" id="useCleanedBtn" onclick="useCleanedImage()" style="display:none;" title="使用去水印后的图片">✅ 使用此图</button>
                     <button class="modal-btn-close" onclick="closeImageModal()">✕</button>
                 </div>
             </div>
@@ -1435,8 +1590,8 @@
             const container = document.getElementById('sortableList');
             container.innerHTML = '';
             
-            selectedImages.forEach((path, index) => {
-                const item = createSortableItem(path, index + 1);
+            selectedImages.forEach((imgObj, index) => {
+                const item = createSortableItem(imgObj, index + 1);
                 container.appendChild(item);
             });
             
@@ -1444,19 +1599,19 @@
             initDragAndDrop();
         }
         
-        function createSortableItem(path, order) {
+        function createSortableItem(imgObj, order) {
             const div = document.createElement('div');
             div.className = 'sortable-item';
             div.draggable = true;
-            div.dataset.path = path;
+            div.dataset.path = imgObj.path;
             
             // 提取文件名
-            const fileName = path.split('/').pop() || '媒体文件';
+            const fileName = imgObj.path.split('/').pop() || '媒体文件';
             const displayName = fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName;
             
             // 检查文件类型
-            const isGif = path.toLowerCase().endsWith('.gif');
-            const isVideo = path.toLowerCase().endsWith('.mp4') || path.toLowerCase().endsWith('.webm') || path.toLowerCase().endsWith('.mov');
+            const isGif = imgObj.path.toLowerCase().endsWith('.gif');
+            const isVideo = imgObj.path.toLowerCase().endsWith('.mp4') || imgObj.path.toLowerCase().endsWith('.webm') || imgObj.path.toLowerCase().endsWith('.mov');
             
             let indicator = '';
             let fileType = 'image';
@@ -1469,13 +1624,36 @@
                 fileType = 'video';
             }
             
+            // 构建时间配置 HTML
+            let durationHtml = '';
+            if (isVideo) {
+                // 视频使用原始时长
+                durationHtml = `<span class="duration-auto-badge">⏱️ 自动</span>`;
+            } else {
+                // 图片和 GIF 可以配置时长
+                durationHtml = `
+                    <div class="duration-config">
+                        <input type="number" 
+                               class="image-duration-input" 
+                               value="${imgObj.duration || 2.0}" 
+                               min="1" 
+                               max="30" 
+                               step="0.5"
+                               data-path="${imgObj.path}"
+                               onchange="updateImageDuration('${imgObj.path}', this.value)">
+                        <span class="duration-label">秒</span>
+                    </div>
+                `;
+            }
+            
             div.innerHTML = `
                 <span class="order-number">${order}.</span>
-                <img src="${isVideo ? 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2255%22 height=%2255%22 viewBox=%220 0 24 24%22 fill=%22%23667eea%22><path d=%22M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z%22/></svg>' : path}" 
+                <img src="${isVideo ? 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2255%22 height=%2255%22 viewBox=%220 0 24 24%22 fill=%22%23667eea%22><path d=%22M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z%22/></svg>' : imgObj.path}" 
                      alt="选中媒体" 
                      onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><circle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/><path d=%22M21 15l-5-5L5 21%22/></svg>'">
                 ${indicator}
                 <span class="filename" title="${fileName} (${fileType})">${displayName}</span>
+                ${durationHtml}
             `;
             
             return div;
@@ -1551,9 +1729,32 @@
         
         function updateSelectedImagesFromSort() {
             const items = document.querySelectorAll('.sortable-item');
-            const newOrder = Array.from(items).map(item => item.dataset.path);
-            selectedImages = newOrder;
+            // 保持对象结构，只更新路径顺序
+            const newPathOrder = Array.from(items).map(item => item.dataset.path);
+            
+            // 根据新的路径顺序重新排列 selectedImages 数组
+            const newSelectedImages = [];
+            newPathOrder.forEach(path => {
+                const imgObj = selectedImages.find(img => img.path === path);
+                if (imgObj) {
+                    newSelectedImages.push(imgObj);
+                }
+            });
+            
+            selectedImages = newSelectedImages;
             console.log('排序已更新:', selectedImages);
+        }
+        
+        /**
+         * 更新图片显示时长
+         */
+        function updateImageDuration(path, value) {
+            const duration = parseFloat(value);
+            const imgObj = selectedImages.find(img => img.path === path);
+            if (imgObj) {
+                imgObj.duration = duration;
+                console.log(`更新图片时长：${path} -> ${duration}秒`);
+            }
         }
         
         function updateOrderNumbers() {
@@ -1613,19 +1814,21 @@
             console.log('保存的编辑内容:', { editedMainTitle, editedSubTitle, editedSummary, editedTags });
         }
         
-        // GIF处理相关函数
+        // GIF 处理相关函数
         async function analyzeSelectedGIFs() {
-            const gifImages = selectedImages.filter(path => path.toLowerCase().endsWith('.gif'));
-            
+            const gifImages = selectedImages.filter(imgObj => 
+                imgObj.path.toLowerCase().endsWith('.gif')
+            );
+                    
             if (gifImages.length === 0) {
-                showToast('没有选中的GIF图片', 'info');
+                showToast('没有选中的 GIF 图片', 'info');
                 return;
             }
-            
+                    
             try {
                 const analyses = [];
-                for (const gifPath of gifImages) {
-                    const response = await fetch(`/api/gif/analyze-gif?gif_path=${encodeURIComponent(gifPath)}`);
+                for (const imgObj of gifImages) {
+                    const response = await fetch(`/api/gif/analyze-gif?gif_path=${encodeURIComponent(imgObj.path)}`);
                     const result = await response.json();
                     if (result.success) {
                         analyses.push({
@@ -1667,17 +1870,19 @@
         }
         
         async function processSelectedGIFs(durationPerFrame = 2.5) {
-            const gifImages = selectedImages.filter(path => path.toLowerCase().endsWith('.gif'));
-            
+            const gifImages = selectedImages.filter(imgObj => 
+                imgObj.path.toLowerCase().endsWith('.gif')
+            );
+                    
             if (gifImages.length === 0) {
-                showToast('没有选中的GIF图片需要处理', 'info');
+                showToast('没有选中的 GIF 图片需要处理', 'info');
                 return [];
             }
-            
+                    
             try {
-                // 批量处理GIF
+                // 批量处理 GIF
                 const formData = new FormData();
-                gifImages.forEach(path => formData.append('gif_paths', path));
+                gifImages.forEach(imgObj => formData.append('gif_paths', imgObj.path));
                 formData.append('target_duration', durationPerFrame.toString());
                 
                 const response = await fetch('/api/gif/batch-process-gifs', {
@@ -1902,6 +2107,73 @@
             });
         }
 
+        // 模式切换功能
+        function toggleFetchMode() {
+            const checkbox = document.getElementById('fetchModeToggle');
+            const manualSection = document.getElementById('manualInputSection');
+            const urlInput = document.getElementById('urlInput');
+            
+            if (checkbox.checked) {
+                // 手动粘贴模式
+                manualSection.style.display = 'block';
+                urlInput.disabled = true;
+                urlInput.placeholder = '已切换到手动模式，请在下方粘贴内容...';
+            } else {
+                // 自动抓取模式
+                manualSection.style.display = 'none';
+                urlInput.disabled = false;
+                urlInput.placeholder = '请输入网页 URL，例如：https://www.36kr.com/p/123456';
+            }
+        }
+        
+        // 处理手动粘贴的内容
+        async function processManualContent() {
+            const content = document.getElementById('manualContent').value.trim();
+            
+            if (!content) {
+                alert('请先粘贴文章内容！');
+                return;
+            }
+            
+            // 显示加载状态
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('result').classList.remove('active');
+            
+            try {
+                // 调用后端 API 处理手动内容
+                const response = await fetch('/api/process-manual-content', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        url: '' // 可以提供原始 URL
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResult(result);
+                } else {
+                    throw new Error(result.message || '处理失败');
+                }
+                
+            } catch (error) {
+                console.error('处理失败:', error);
+                document.getElementById('error').textContent = `❌ 处理失败：${error.message}`;
+                document.getElementById('error').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
         async function fetchUrl() {
             const urlInput = document.getElementById('urlInput');
             const url = urlInput.value.trim();
@@ -1977,39 +2249,43 @@
             const downloadContentEl = document.getElementById('downloadContent');
             const downloadMetadataEl = document.getElementById('downloadMetadata');
             
-            if (resultTitleEl) resultTitleEl.textContent = data.title;
-            if (crawlTimeEl) crawlTimeEl.textContent = new Date(data.crawl_time).toLocaleString('zh-CN');
-            if (contentLengthEl) contentLengthEl.textContent = data.content_length.toLocaleString();
-            if (imagesCountEl) imagesCountEl.textContent = data.images_count;
-            if (contentPreviewEl) contentPreviewEl.textContent = data.content_preview;
-            if (downloadContentEl) downloadContentEl.href = data.content_file;
-            if (downloadMetadataEl) downloadMetadataEl.href = data.metadata_file;
+            if (resultTitleEl) resultTitleEl.textContent = data.title || '未命名文章';
+            if (crawlTimeEl) crawlTimeEl.textContent = data.timestamp ? new Date(data.timestamp).toLocaleString('zh-CN') : new Date().toLocaleString('zh-CN');
+            if (contentLengthEl) contentLengthEl.textContent = (data.content ? data.content.length : 0).toLocaleString();
+            if (imagesCountEl) imagesCountEl.textContent = (data.images ? data.images.length : 0);
+            if (contentPreviewEl) contentPreviewEl.textContent = data.content ? data.content.substring(0, 500) + (data.content.length > 500 ? '...' : '') : '';
+            // 手动模式不提供下载文件链接
+            if (downloadContentEl) downloadContentEl.style.display = 'none';
+            if (downloadMetadataEl) downloadMetadataEl.style.display = 'none';
 
             // 显示图片
             const imagesGrid = document.getElementById('imagesGrid');
             imagesGrid.innerHTML = '';
 
-            data.images.forEach((img, index) => {
-                const imageCard = document.createElement('div');
-                imageCard.className = 'image-card';
+            if (data.images && data.images.length > 0) {
+                data.images.forEach((img, index) => {
+                    const imageCard = document.createElement('div');
+                    imageCard.className = 'image-card';
 
-                if (img.success) {
+                    // 手动模式下，图片只有 url，没有 local_path
+                    const imgSrc = img.local_path || img.url || '';
+                    const isDownloaded = !!img.local_path;
+                    
                     imageCard.innerHTML = `
-                        <img src="${img.local_path}" alt="${img.alt || '图片 ' + (index + 1)}" 
-                             style="cursor:pointer;"
-                             onclick="openImageModal(this.src, this)"
-                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
-                        <div class="status success">✓ 已下载</div>
+                        <img src="${imgSrc}" alt="${img.alt || '图片 ' + (index + 1)}" 
+                             style="cursor:pointer;" 
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'"
+                             onclick="openImageModal(this.src, this)">
+                        <div class="status ${isDownloaded ? 'success' : 'info'}" style="background: ${isDownloaded ? 'rgba(76, 175, 80, 0.9)' : 'rgba(33, 150, 243, 0.9)'}">
+                            ${isDownloaded ? '✓ 已下载' : '🔗 URL'}
+                        </div>
                     `;
-                } else {
-                    imageCard.innerHTML = `
-                        <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect fill='%23f5f5f5' width='200' height='200'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%23999'>下载失败</text></svg>">
-                        <div class="status error">✗ 失败</div>
-                    `;
-                }
 
-                imagesGrid.appendChild(imageCard);
-            });
+                    imagesGrid.appendChild(imageCard);
+                });
+            } else {
+                imagesGrid.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">未找到图片</p>';
+            }
             
             // 显示视频（如果有的话）
             const videosSection = document.getElementById('videosSection');
@@ -2030,31 +2306,25 @@
                         transition: transform 0.2s;
                     `;
                     
-                    if (video.success) {
+                    const videoSrc = video.local_path || video.url || '';
+                    const isDownloaded = !!video.local_path;
+                    
+                    if (videoSrc) {
                         videoCard.innerHTML = `
-                            <div style="position: relative; cursor: pointer;" onclick="openVideoModal('${video.local_path}')">
-                                <video src="${video.local_path}" muted style="width: 100%; height: 150px; object-fit: cover; display: block;"></video>
+                            <div style="position: relative; cursor: pointer;" onclick="${isDownloaded ? `openVideoModal('${videoSrc}')` : 'window.open(\'' + videoSrc + '\', \'_blank\')'}">
+                                ${isDownloaded ? `<video src="${videoSrc}" muted style="width: 100%; height: 150px; object-fit: cover; display: block;"></video>` : `<div style="width: 100%; height: 150px; background: linear-gradient(45deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center;"><span style="color: white; font-size: 48px;">🎬</span></div>`}
                                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 50%; font-size: 16px;">▶️</div>
                             </div>
                             <div style="padding: 10px;">
-                                <div style="font-size: 13px; color: #666; margin-bottom: 4px;">${video.filename}</div>
-                                <div style="font-size: 12px; color: #888;">${video.size_mb ? video.size_mb.toFixed(1) + 'MB' : '未知大小'}</div>
+                                <div style="font-size: 13px; color: #666; margin-bottom: 4px; font-weight: 500;">视频 ${index + 1}</div>
+                                <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
+                                    <span>${video.type || 'external'}</span>
+                                    <span>${isDownloaded ? '✓ 已下载' : '🔗 外部链接'}</span>
+                                </div>
                             </div>
-                            <div class="status success" style="padding: 6px 10px; font-size: 12px;">✓ 已下载</div>
                         `;
-                    } else {
-                        videoCard.innerHTML = `
-                            <div style="width: 100%; height: 150px; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
-                                <span style="color: #999;">下载失败</span>
-                            </div>
-                            <div style="padding: 10px;">
-                                <div style="font-size: 12px; color: #888;">${video.error || '下载失败'}</div>
-                            </div>
-                            <div class="status error" style="padding: 6px 10px; font-size: 12px;">✗ 失败</div>
-                        `;
+                        videosGrid.appendChild(videoCard);
                     }
-                    
-                    videosGrid.appendChild(videoCard);
                 });
             } else if (videosSection) {
                 videosSection.style.display = 'none';
@@ -2065,7 +2335,83 @@
         }
 
         function setupEditSection(data) {
-            // 加载完整内容到编辑器
+            // 检查是否为手动模式（没有 content_file 字段）
+            if (!data.content_file) {
+                // 手动模式：直接设置内容
+                document.getElementById('contentEditor').value = data.content || '';
+                
+                // 手动模式：显示提取到的图片列表（只读模式）
+                const imageSelector = document.getElementById('imageSelector');
+                imageSelector.innerHTML = '';
+                
+                if (data.images && data.images.length > 0) {
+                    // 创建图片列表展示区
+                    const listContainer = document.createElement('div');
+                    listContainer.style.cssText = `
+                        padding: 20px;
+                        max-height: 400px;
+                        overflow-y: auto;
+                    `;
+                    
+                    listContainer.innerHTML = `
+                        <h3 style="margin-bottom: 15px; color: #333;">📸 已提取 ${data.images.length} 张图片</h3>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                            💡 以下是从文章中提取的图片，您可以点击查看原图或下载。
+                        </p>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px;">
+                    `;
+                    
+                    data.images.forEach((img, index) => {
+                        const imgCard = document.createElement('div');
+                        imgCard.style.cssText = `
+                            border: 2px solid #e0e0e0;
+                            border-radius: 8px;
+                            overflow: hidden;
+                            transition: transform 0.2s;
+                            cursor: pointer;
+                        `;
+                        imgCard.onmouseover = () => imgCard.style.transform = 'scale(1.05)';
+                        imgCard.onmouseout = () => imgCard.style.transform = 'scale(1)';
+                        
+                        const imgSrc = img.url || '';
+                        const imgAlt = img.alt || `图片 ${index + 1}`;
+                        
+                        imgCard.innerHTML = `
+                            <div style="position: relative;" onclick="openImageModal('${imgSrc}', null)">
+                                <img src="${imgSrc}" alt="${imgAlt}" 
+                                     style="width: 100%; height: 150px; object-fit: cover; display: block;"
+                                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'"
+                                     crossorigin="anonymous">
+                                <div style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">
+                                    👁️ 查看/去水印
+                                </div>
+                            </div>
+                            <div style="padding: 8px;">
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    ${imgAlt}
+                                </div>
+                                <a href="${imgSrc}" target="_blank" download style="display: block; text-align: center; background: #667eea; color: white; padding: 5px; border-radius: 4px; text-decoration: none; font-size: 12px;">
+                                    📥 下载原图
+                                </a>
+                            </div>
+                        `;
+                        
+                        listContainer.querySelector('[style*="grid"]').appendChild(imgCard);
+                    });
+                    
+                    listContainer.innerHTML += '</div>';
+                    imageSelector.appendChild(listContainer);
+                } else {
+                    imageSelector.innerHTML = `
+                        <p style="color: #999; text-align: center; padding: 40px;">
+                            📄 未从内容中提取到图片
+                        </p>
+                    `;
+                }
+                return;
+            }
+            
+            // 自动模式：原有逻辑
             fetch(data.content_file)
                 .then(response => response.text())
                 .then(content => {
@@ -2098,7 +2444,7 @@
                     <div class="image-effects">
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'enhance', event)">增强</button>
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'sharpen', event)">锐化</button>
-                        <button class="effect-btn" onclick="openImageModal(this.closest('.selectable-image').dataset.path, this.closest('.selectable-image').querySelector('img')); event.stopPropagation();">🔍 查看/去水印</button>
+                        <button class="effect-btn" onclick="openEditorForImage(this.closest('.selectable-image').dataset.path, this.closest('.selectable-image').querySelector('img')); event.stopPropagation();">🛠️ 编辑/去水印</button>
                     </div>
                 `;
 
@@ -2160,12 +2506,19 @@
             const type = mediaDiv.dataset.type;
 
             if (mediaDiv.classList.contains('selected')) {
+                // 取消选择
                 mediaDiv.classList.remove('selected');
-                selectedImages = selectedImages.filter(i => i !== path);
+                selectedImages = selectedImages.filter(img => img.path !== path);
                 console.log(`取消选择${type}:`, path);
             } else {
+                // 选择 - 添加为对象
                 mediaDiv.classList.add('selected');
-                selectedImages.push(path);
+                const isVideo = type === 'video';
+                selectedImages.push({
+                    path: path,
+                    duration: isVideo ? null : 2.0, // 视频使用原始时长，图片默认 2 秒
+                    type: type
+                });
                 console.log(`选择${type}:`, path);
             }
 
@@ -2285,6 +2638,20 @@
                          onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
                     <div class="checkbox"></div>
                     <div class="image-order-number">${existingImages + index + 1}</div>
+                    
+                    <!-- 编辑按钮 -->
+                    <button class="image-edit-btn" onclick="editUploadedImage(event, '${imagePath}')" 
+                            title="编辑此图片（去水印、裁剪等）"
+                            style="position: absolute; top: 5px; right: 35px; width: 32px; height: 32px; 
+                                   background: rgba(102, 126, 234, 0.9); border: none; border-radius: 50%; 
+                                   color: white; font-size: 16px; cursor: pointer; display: flex; 
+                                   align-items: center; justify-content: center; opacity: 0; 
+                                   transition: opacity 0.2s, transform 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.2);"
+                            onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)'" 
+                            onmouseout="this.style.opacity='0'; this.style.transform='scale(1)'">
+                        🛠️
+                    </button>
+                    
                     <div class="local-upload-badge">📱 本地上传</div>
                     <div class="image-effects">
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'enhance', event)">增强</button>
@@ -2296,8 +2663,8 @@
                 
                 // 添加点击事件
                 imgDiv.onclick = (e) => {
-                    // 阻止效果按钮的事件冒泡
-                    if (e.target.classList.contains('effect-btn')) return;
+                    // 阻止效果按钮和编辑按钮的事件冒泡
+                    if (e.target.classList.contains('effect-btn') || e.target.classList.contains('image-edit-btn')) return;
                     toggleMediaSelection(imgDiv);
                 };
                 
@@ -2324,14 +2691,102 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    alert(`图片处理成功！\n效果: ${effect}\n保存位置: ${data.processed_path}`);
-                    // 可以选择更新预览
+                    showToast(`✅ 图片处理成功！效果：${effect}`, 'success');
+                    // 更新显示的图片
+                    const imgDiv = document.querySelector(`.selectable-image[data-path="${imagePath}"]`);
+                    if (imgDiv) {
+                        imgDiv.querySelector('img').src = data.processed_path + '?t=' + Date.now();
+                    }
                 } else {
-                    alert('图片处理失败: ' + data.message);
+                    showToast('❌ 图片处理失败：' + data.message, 'error');
                 }
             } catch (error) {
-                alert('图片处理失败: ' + error.message);
+                showToast('❌ 图片处理失败：' + error.message, 'error');
             }
+        }
+                
+        /**
+         * 编辑已上传的图片
+         */
+        function editUploadedImage(event, imagePath) {
+            event.stopPropagation();
+            console.log('🔧 开始编辑图片...');
+            console.log('   - 传入的 imagePath:', imagePath);
+                    
+            // 先打开图片查看器
+            openImageModal(imagePath, null);
+                    
+            console.log('   - 模态框已打开，currentPath:', modalState.currentPath);
+                    
+            // 立即进入编辑模式（不再使用 setTimeout）
+            console.log('⏰ 准备进入编辑模式...');
+            enterEditMode(imagePath);
+        }
+                
+        /**
+         * 为指定图片打开编辑器（用于"编辑/去水印"按钮）
+         */
+        function openEditorForImage(imagePath, sourceEl) {
+            event?.stopPropagation();
+            console.log('\n=== 打开编辑器 ===');
+            console.log('   - 图片路径:', imagePath);
+                    
+            // 打开图片查看器
+            openImageModal(imagePath, sourceEl);
+                    
+            console.log('   - 模态框已打开，currentPath:', modalState.currentPath);
+                    
+            // 立即进入编辑模式
+            console.log('⏰ 准备进入编辑模式...');
+            enterEditMode(imagePath);
+        }
+                
+        /**
+         * 进入编辑模式
+         */
+        function enterEditMode(imagePath) {
+            const overlay = document.getElementById('imageModalOverlay');
+            const modalTitle = document.getElementById('modalTitle');
+            const editTools = document.getElementById('editTools');
+            const saveEditBtn = document.getElementById('saveEditBtn');
+                    
+            if (!overlay || !modalTitle) {
+                console.error('❌ 模态框元素不存在');
+                return;
+            }
+                    
+            // 修改标题
+            modalTitle.textContent = '🛠️ 图片编辑器';
+                    
+            // 显示编辑工具栏
+            if (editTools) {
+                editTools.style.display = 'flex';
+            }
+                    
+            // 重置保存按钮状态
+            if (saveEditBtn) {
+                saveEditBtn.disabled = true;
+                saveEditBtn.textContent = '💾 保存修改';
+            }
+                    
+            // 关键修复：确保有正确的编辑路径
+            // 优先级：传入的 imagePath > modalState.currentPath
+            let editingPath = imagePath;
+            if (!editingPath && modalState.currentPath) {
+                editingPath = modalState.currentPath;
+                console.log('   ℹ️ 使用 modalState.currentPath:', editingPath);
+            }
+                    
+            window.currentEditingImagePath = editingPath;
+            window.editModified = false; // 标记是否进行了修改
+                    
+            console.log('✅ 进入编辑模式成功！');
+            console.log('   - 传入的 imagePath:', imagePath);
+            console.log('   - modalState.currentPath:', modalState.currentPath);
+            console.log('   - 最终使用的 editingPath:', editingPath);
+            console.log('   - window.currentEditingImagePath:', window.currentEditingImagePath);
+                            
+            showToast('💡 提示：点击"框选水印"工具，框选水印区域后点击"去除水印"', 'info', 5000);
         }
 
         async function generateSummary() {
@@ -2366,7 +2821,8 @@
                     },
                     body: JSON.stringify({
                         content: content,
-                        images: selectedImages,
+                        // 只传递图片路径字符串数组，不需要时长信息
+                        images: selectedImages.map(imgObj => imgObj.path),
                         title: currentData.title
                     })
                 });
@@ -2425,12 +2881,14 @@
                 return;
             }
             
-            // 检查是否有GIF或视频需要特殊处理
-            const gifImages = selectedImages.filter(path => path.toLowerCase().endsWith('.gif'));
-            const videoFiles = selectedImages.filter(path => 
-                path.toLowerCase().endsWith('.mp4') || 
-                path.toLowerCase().endsWith('.webm') || 
-                path.toLowerCase().endsWith('.mov')
+            // 检查是否有 GIF 或视频需要特殊处理
+            const gifImages = selectedImages.filter(imgObj => 
+                imgObj.path.toLowerCase().endsWith('.gif')
+            );
+            const videoFiles = selectedImages.filter(imgObj => 
+                imgObj.path.toLowerCase().endsWith('.mp4') || 
+                imgObj.path.toLowerCase().endsWith('.webm') || 
+                imgObj.path.toLowerCase().endsWith('.mov')
             );
             
             // 不再过滤视频文件，现在支持视频嵌入
@@ -2525,7 +2983,17 @@
             };
             
             try {
-                // 直接调用创建带动画视频的API
+                // 准备图片数据（包含时长信息）
+                const imagesWithDuration = selectedImages.map(imgObj => ({
+                    path: imgObj.path,
+                    duration: imgObj.duration // 视频为 null，图片为秒数
+                }));
+                
+                // 获取用户选择的 BGM
+                const bgmSelect = document.getElementById('bgmSelect');
+                const selectedBGM = bgmSelect ? bgmSelect.value : 'static/music/background.mp3';
+                            
+                // 直接调用创建带动画视频的 API
                 const response = await fetch('/api/create-animated-video', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2533,8 +3001,8 @@
                         title: getCombinedTitle(),
                         subtitle: editedSubTitle,
                         summary: editedSummary,
-                        images: mediaFiles,  // 使用所有媒体文件（包括视频）
-                        audio_path: 'static/music/background.mp3'
+                        images: imagesWithDuration,  // 使用包含时长的图片数据
+                        audio_path: selectedBGM  // 使用用户选择的 BGM
                     })
                 });
                 
@@ -2742,8 +3210,10 @@
                 return;
             }
             
-            // 检查是否有GIF需要特殊处理
-            const gifImages = selectedImages.filter(path => path.toLowerCase().endsWith('.gif'));
+            // 检查是否有 GIF 需要特殊处理
+            const gifImages = selectedImages.filter(imgObj => 
+                imgObj.path.toLowerCase().endsWith('.gif')
+            );
             
             if (gifImages.length > 0) {
                 showToast(`检测到 ${gifImages.length} 个GIF图片，正在预处理...`, 'info');
@@ -2841,13 +3311,17 @@
             btn.textContent = '🎬 正在合成视频...';
             
             try {
+                // 获取用户选择的 BGM
+                const bgmSelect = document.getElementById('bgmSelect');
+                const selectedBGM = bgmSelect ? bgmSelect.value : 'static/music/background.mp3';
+                
                 const response = await fetch('/api/create-video', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         frames_dir: window.generatedFramesDir,
                         duration_per_frame: 2.5,
-                        audio_path: 'static/music/background.mp3'  // 背景音乐
+                        audio_path: selectedBGM  // 使用用户选择的 BGM
                     })
                 });
                 
@@ -3121,15 +3595,48 @@
             img.style.transform = 'scale(1)';
             
             overlay.classList.add('active');
-            document.getElementById('drawModeBtn').classList.remove('active');
-            document.getElementById('drawModeBtn').textContent = '✏️ 框选水印';
-            document.getElementById('removeWatermarkBtn').disabled = true;
-            document.getElementById('useCleanedBtn').style.display = 'none';
-            document.getElementById('undoRegionBtn').style.display = 'none';
-            document.getElementById('clearRegionsBtn').style.display = 'none';
-            document.getElementById('regionsCount').innerHTML = '';
-            document.getElementById('zoomLevel').textContent = '100%';
-            document.getElementById('modalTitle').textContent = '🔍 图片查看器';
+            
+            // 安全地设置按钮状态（检查元素是否存在）
+            const drawModeBtn = document.getElementById('drawModeBtn');
+            if (drawModeBtn) {
+                drawModeBtn.classList.remove('active');
+                drawModeBtn.textContent = '✏️ 框选水印';
+            }
+            
+            const removeWatermarkBtn = document.getElementById('removeWatermarkBtn');
+            if (removeWatermarkBtn) {
+                removeWatermarkBtn.disabled = true;
+            }
+            
+            const useCleanedBtn = document.getElementById('useCleanedBtn');
+            if (useCleanedBtn) {
+                useCleanedBtn.style.display = 'none';
+            }
+            
+            const undoRegionBtn = document.getElementById('undoRegionBtn');
+            if (undoRegionBtn) {
+                undoRegionBtn.style.display = 'none';
+            }
+            
+            const clearRegionsBtn = document.getElementById('clearRegionsBtn');
+            if (clearRegionsBtn) {
+                clearRegionsBtn.style.display = 'none';
+            }
+            
+            const regionsCount = document.getElementById('regionsCount');
+            if (regionsCount) {
+                regionsCount.innerHTML = '';
+            }
+            
+            const zoomLevel = document.getElementById('zoomLevel');
+            if (zoomLevel) {
+                zoomLevel.textContent = '100%';
+            }
+            
+            const modalTitle = document.getElementById('modalTitle');
+            if (modalTitle) {
+                modalTitle.textContent = '🔍 图片查看器';
+            }
 
             img.onload = function() {
                 modalState.imgNaturalW = img.naturalWidth;
@@ -3137,6 +3644,19 @@
                 document.getElementById('modalImageInfo').textContent = 
                     `${img.naturalWidth} × ${img.naturalHeight} px`;
                 updateCanvasSize();
+                
+                // 检查是否为外部 URL 图片
+                const isExternalUrl = imgSrc.startsWith('http');
+                const usageTip = isExternalUrl 
+                    ? '💡 提示：外部图片可能因跨域限制无法处理，建议下载后本地上传'
+                    : '💡 操作说明：用鼠标框选水印区域，然后点击“去除水印”按钮';
+                
+                document.getElementById('modalTitle').innerHTML = `
+                    🔍 图片查看器 
+                    <span style="font-size: 12px; color: #888; margin-left: 10px; font-weight: normal;">
+                        ${usageTip}
+                    </span>
+                `;
                 
                 // 默认进入框选模式
                 if (!modalState.drawMode) {
@@ -3155,6 +3675,55 @@
             toggleRegionPanel(false);
             modalState.isFullscreen = true;  // 重置为全屏模式
             updateFullscreenButton();
+            
+            // 退出编辑模式
+            exitEditMode();
+        }
+        
+        /**
+         * 切换编辑模式
+         */
+        function toggleEditMode() {
+            const editTools = document.getElementById('editTools');
+            const editModeBtn = document.getElementById('editModeBtn');
+            const isEditing = editTools.style.display === 'flex';
+            
+            if (!isEditing) {
+                // 进入编辑模式
+                editTools.style.display = 'flex';
+                editModeBtn.textContent = '✅ 编辑中';
+                editModeBtn.classList.add('active');
+                showToast('💡 提示：使用“框选水印”工具框选水印区域，然后点击“去除水印”', 'info', 5000);
+            } else {
+                // 退出编辑模式
+                editTools.style.display = 'none';
+                editModeBtn.textContent = '✏️ 编辑图片';
+                editModeBtn.classList.remove('active');
+            }
+        }
+        
+        /**
+         * 退出编辑模式
+         */
+        function exitEditMode() {
+            const editTools = document.getElementById('editTools');
+            const editModeBtn = document.getElementById('editModeBtn');
+            const modalTitle = document.getElementById('modalTitle');
+            
+            if (editTools) {
+                editTools.style.display = 'none';
+            }
+            if (editModeBtn) {
+                editModeBtn.textContent = '✏️ 编辑图片';
+                editModeBtn.classList.remove('active');
+            }
+            if (modalTitle) {
+                modalTitle.textContent = '🔍 图片查看器';
+            }
+            
+            // 清除编辑状态
+            window.currentEditingImagePath = null;
+            window.editModified = false;
         }
 
         function toggleFullscreen() {
@@ -3325,20 +3894,38 @@
 
         function updateRegionUI() {
             const count = modalState.regions.length;
-            // 更新底部徽章（点击可切换面板）
-            document.getElementById('regionsCount').innerHTML = count > 0 
-                ? `<span class="region-badge" style="cursor:pointer;" onclick="toggleRegionPanel()" title="查看区域列表">${count} 个区域 ▸</span>` : '';
-            document.getElementById('removeWatermarkBtn').disabled = count === 0;
-            document.getElementById('undoRegionBtn').style.display = count > 0 ? 'inline-block' : 'none';
-            document.getElementById('clearRegionsBtn').style.display = count > 0 ? 'inline-block' : 'none';
-            
+                    
+            // 安全地更新 UI 元素（检查元素是否存在）
+            const regionsCount = document.getElementById('regionsCount');
+            if (regionsCount) {
+                regionsCount.innerHTML = count > 0 
+                    ? `<span class="region-badge" style="cursor:pointer;" onclick="toggleRegionPanel()" title="查看区域列表">${count} 个区域 ▸</span>` : '';
+            }
+                    
+            const removeWatermarkBtn = document.getElementById('removeWatermarkBtn');
+            if (removeWatermarkBtn) {
+                removeWatermarkBtn.disabled = count === 0;
+            }
+                    
+            const undoRegionBtn = document.getElementById('undoRegionBtn');
+            if (undoRegionBtn) {
+                undoRegionBtn.style.display = count > 0 ? 'inline-block' : 'none';
+            }
+                    
+            const clearRegionsBtn = document.getElementById('clearRegionsBtn');
+            if (clearRegionsBtn) {
+                clearRegionsBtn.style.display = count > 0 ? 'inline-block' : 'none';
+            }
+                    
             // 更新区域列表面板内容
             const listBody = document.getElementById('regionListBody');
             const listFooter = document.getElementById('regionListFooter');
             const panel = document.getElementById('regionListPanel');
-            
+                    
+            if (!listBody || !listFooter || !panel) return;
+                    
             if (count === 0) {
-                listBody.innerHTML = '<div class="region-list-empty">暂无检测区域<br><small style="color:#555;">使用"自动检测"或"框选水印"添加</small></div>';
+                listBody.innerHTML = '<div class="region-list-empty">暂无检测区域<br><small style="color:#555;">使用“自动检测”或“框选水印”添加</small></div>';
                 listFooter.style.display = 'none';
                 panel.classList.remove('active');
             } else {
@@ -3351,7 +3938,7 @@
                         <span class="region-item-num">${idx + 1}</span>
                         <div class="region-item-info">
                             <div class="region-item-size">${r.width} × ${r.height} px</div>
-                            <div class="region-item-pos">位置: (${r.x}, ${r.y})</div>
+                            <div class="region-item-pos">位置：(${r.x}, ${r.y})</div>
                         </div>
                         <button class="region-item-del" onclick="event.stopPropagation(); removeRegion(${idx})" title="删除此区域">✕</button>
                     </div>`;
@@ -3603,12 +4190,21 @@
         }
 
         async function removeWatermark() {
+            console.log('\n=== 开始去水印 ===');
+            console.log('当前编辑路径:', window.currentEditingImagePath);
+            console.log('当前 editModified:', window.editModified);
+            
             if (modalState.regions.length === 0) {
-                alert('请先框选水印区域');
+                showToast('请先框选水印区域', 'info');
                 return;
             }
             
             const btn = document.getElementById('removeWatermarkBtn');
+            if (!btn) {
+                showToast('去除水印按钮不存在', 'error');
+                return;
+            }
+            
             btn.disabled = true;
             btn.textContent = '🧹 处理中...';
             
@@ -3629,23 +4225,65 @@
                     modalState.cleanedPath = data.cleaned_path;
                     modalState.skipAutoDetect = true;  // 去水印后的图不再自动检测
                     document.getElementById('modalImage').src = data.cleaned_path + '?t=' + Date.now();
-                    document.getElementById('modalTitle').textContent = '✅ 去水印完成 - 点击"使用此图"替换原图';
-                    document.getElementById('useCleanedBtn').style.display = 'inline-block';
+                    
+                    // 安全地更新 UI（检查元素是否存在）
+                    const modalTitle = document.getElementById('modalTitle');
+                    if (modalTitle) {
+                        // 如果在编辑模式下，保持编辑器标题
+                        if (window.currentEditingImagePath) {
+                            modalTitle.textContent = '🛠️ 图片编辑器 - 去水印完成';
+                        } else {
+                            modalTitle.textContent = '✅ 去水印完成 - 点击"使用此图"替换原图';
+                        }
+                    }
+                    
+                    const useCleanedBtn = document.getElementById('useCleanedBtn');
+                    if (useCleanedBtn) {
+                        // 在编辑模式下不显示"使用此图"按钮，因为有"保存修改"按钮
+                        if (!window.currentEditingImagePath) {
+                            useCleanedBtn.style.display = 'inline-block';
+                        }
+                    }
                     
                     // 清除框选
                     modalState.regions = [];
                     clearCanvas();
                     updateRegionUI();
-                    
-                    showToast('水印去除成功！可点击「使用此图」替换', 'success');
+                                        
+                    showToast('水印去除成功！', 'success');
+                                        
+                    console.log('检查编辑模式：', {
+                        currentEditingImagePath: window.currentEditingImagePath,
+                        hasSaveBtn: !!document.getElementById('saveEditBtn'),
+                        editModified: window.editModified
+                    });
+                                        
+                    // 如果是在编辑模式下，标记为已修改并启用保存按钮
+                    if (window.currentEditingImagePath) {
+                        window.editModified = true;
+                        const saveEditBtn = document.getElementById('saveEditBtn');
+                        if (saveEditBtn) {
+                            saveEditBtn.disabled = false;
+                            console.log('✅ 保存修改按钮已启用');
+                            showToast('💡 点击“保存修改”应用更改', 'info', 3000);
+                        } else {
+                            console.warn('⚠️ 保存修改按钮不存在');
+                        }
+                    } else {
+                        console.log('ℹ️ 非编辑模式，显示使用此图按钮');
+                        showToast('可点击「使用此图」替换', 'info', 3000);
+                    }
                 } else {
                     showToast('去水印失败: ' + data.message, 'error');
                 }
             } catch (error) {
-                showToast('去水印失败: ' + error.message, 'error');
+                showToast('去水印失败：' + error.message, 'error');
             } finally {
-                btn.disabled = modalState.regions.length === 0;
-                btn.textContent = '🧹 去除水印';
+                // 安全地恢复按钮状态
+                if (btn) {
+                    btn.disabled = modalState.regions.length === 0;
+                    btn.textContent = '🧹 去除水印';
+                }
             }
         }
 
@@ -3658,32 +4296,141 @@
             // 更新原图预览为去水印后的图片
             modalState.sourceElement.src = newPath;
             
-            // 更新data-path（用于后续选中生成关键帧）
-            const parent = modalState.sourceElement.closest('.selectable-image');
-            if (parent) {
-                parent.dataset.path = newPath;
-                // 如果该图片已被选中，也更新selectedImages
-                const idx = selectedImages.indexOf(oldPath);
-                if (idx >= 0) {
-                    selectedImages[idx] = newPath;
+            // 如果在编辑模式下，询问是否替换
+            if (window.currentEditingImagePath) {
+                const confirmReplace = confirm('是否保存编辑后的图片并替换原图？\n\n点击“确定”替换原图，点击“取消”保留两个版本。');
+                if (confirmReplace) {
+                    replaceEditedImage(oldPath, newPath);
                 }
             }
             
-            // 同步更新image-card中的图片（顶部预览区域）
-            document.querySelectorAll('.image-card img').forEach(img => {
-                if (img.src.endsWith(oldPath) || img.getAttribute('src') === oldPath) {
-                    img.src = newPath;
-                }
-            });
-            
             closeImageModal();
-            showToast('已替换为去水印后的图片', 'success');
+            showToast('✅ 已使用去水印后的图片', 'success');
         }
         
+        /**
+         * 替换编辑后的图片
+         */
+        async function replaceEditedImage(originalPath, newPath) {
+            try {
+                console.log('\n=== 替换图片 ===');
+                console.log('原路径:', originalPath);
+                console.log('新路径:', newPath);
+                
+                // 去除路径前的 '/' 和时间戳参数
+                const cleanOriginal = originalPath.replace(/^\//, '').split('?')[0];
+                const cleanNew = newPath.replace(/^\//, '').split('?')[0];
+                
+                console.log('清理后的原路径:', cleanOriginal);
+                console.log('清理后的新路径:', cleanNew);
+                
+                const response = await fetch('/api/replace-edited-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        original_path: cleanOriginal,
+                        new_path: cleanNew
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('API 响应:', result);
+                
+                if (result.success) {
+                    // 更新选择区域的图片
+                    const imgDiv = document.querySelector(`.selectable-image[data-path="${originalPath}"]`);
+                    if (imgDiv) {
+                        imgDiv.querySelector('img').src = result.final_path + '?t=' + Date.now();
+                        imgDiv.dataset.path = result.final_path;
+                    }
+                    
+                    // 如果在 selectedImages 数组中，也更新
+                    const idx = selectedImages.findIndex(img => img.path === originalPath);
+                    if (idx !== -1) {
+                        selectedImages[idx].path = result.final_path;
+                    }
+                    
+                    console.log('✅ 图片已替换:', result.final_path);
+                    showToast('✅ 编辑已保存，图片已替换', 'success');
+                } else {
+                    showToast('❌ 替换图片失败：' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('替换图片异常:', error);
+                showToast('❌ 替换图片失败：' + error.message, 'error');
+            }
+        }
+        
+        /**
+         * 保存图片编辑
+         */
+        async function saveImageEdit() {
+            if (!window.editModified) {
+                closeImageModal();
+                return;
+            }
+            
+            const btn = document.getElementById('saveEditBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ 保存中...';
+            
+            try {
+                console.log('\n=== 保存编辑 ===');
+                console.log('编辑路径:', window.currentEditingImagePath);
+                console.log('当前显示路径:', modalState.currentPath);
+                console.log('去水印后路径:', modalState.cleanedPath);
+                
+                // 获取当前显示的图像路径（从 img 元素的 src）
+                const modalImage = document.getElementById('modalImage');
+                let currentImagePath = modalImage.src;
+                
+                console.log('modalImage.src:', currentImagePath);
+                
+                // 去除域名部分（如果是完整 URL）
+                if (currentImagePath.startsWith('http')) {
+                    try {
+                        const url = new URL(currentImagePath);
+                        currentImagePath = url.pathname;  // 只保留路径部分
+                    } catch (e) {
+                        console.warn('URL 解析失败，使用原路径');
+                    }
+                }
+                
+                // 去除时间戳参数和前导 '/'
+                currentImagePath = currentImagePath.split('?')[0].replace(/^\//, '');
+                
+                console.log('清理后的当前路径:', currentImagePath);
+                
+                // 如果是去水印后的图片，需要替换原图
+                if (currentImagePath !== window.currentEditingImagePath.replace(/^\//, '') && modalState.cleanedPath) {
+                    console.log('检测到图片已修改，准备替换...');
+                    const confirmReplace = confirm('是否保存编辑后的图片并替换原图？\n\n点击“确定”替换原图，点击“取消”保留两个版本。');
+                    
+                    if (confirmReplace) {
+                        await replaceEditedImage(window.currentEditingImagePath, currentImagePath);
+                    }
+                }
+                
+                // 关闭编辑器
+                closeImageModal();
+                
+                showToast('✅ 编辑已保存', 'success');
+                
+            } catch (error) {
+                console.error('保存编辑异常:', error);
+                showToast('❌ 保存失败：' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💾 保存修改';
+            }
+        }
+                
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
             // 初始化事件监听器
             initializeEventListeners();
+            // 加载 BGM 列表
+            loadBGMList();
         });
         
         function initializeEventListeners() {
@@ -3698,6 +4445,65 @@
             if (resetBtn) {
                 resetBtn.addEventListener('click', resetImageOrder);
             }
+        }
+        
+        /**
+         * 动态加载 BGM 列表
+         */
+        async function loadBGMList() {
+            try {
+                // 读取 static/music 目录下的所有 mp3 文件
+                const response = await fetch('/api/list-music-files');
+                const data = await response.json();
+                
+                if (data.success && Array.isArray(data.files)) {
+                    const bgmSelect = document.getElementById('bgmSelect');
+                    
+                    // 保留第一个默认选项，清空其他选项
+                    while (bgmSelect.options.length > 1) {
+                        bgmSelect.remove(1);
+                    }
+                    
+                    // 添加所有音乐文件到下拉框
+                    data.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file.path;
+                        option.textContent = file.name || file.path.split('/').pop();
+                        bgmSelect.appendChild(option);
+                    });
+                    
+                    console.log(`已加载 ${data.files.length} 个 BGM 文件`);
+                }
+            } catch (error) {
+                console.error('加载 BGM 列表失败:', error);
+                // 如果 API 调用失败，使用硬编码的备用列表
+                loadFallbackBGMList();
+            }
+        }
+        
+        /**
+         * 备用 BGM 列表（当 API 不可用时）
+         */
+        function loadFallbackBGMList() {
+            const bgmSelect = document.getElementById('bgmSelect');
+            const fallbackFiles = [
+                { path: 'static/music/background.mp3', name: '🎵 默认背景音乐' },
+                { path: 'static/music/background3.mp3', name: '🎵 背景音乐 3' },
+                { path: 'static/music/background4.mp3', name: '🎵 背景音乐 4' }
+            ];
+            
+            // 保留第一个默认选项
+            while (bgmSelect.options.length > 1) {
+                bgmSelect.remove(1);
+            }
+            
+            // 添加备用列表
+            fallbackFiles.forEach(file => {
+                const option = document.createElement('option');
+                option.value = file.path;
+                option.textContent = file.name;
+                bgmSelect.appendChild(option);
+            });
         }
         
         function getCombinedTitle() {

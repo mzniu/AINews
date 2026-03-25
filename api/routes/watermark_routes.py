@@ -240,7 +240,83 @@ async def remove_watermark(request: RemoveWatermarkRequest):
             "regions_count": len(request.regions)
         }
     except Exception as e:
-        logger.error(f"水印去除失败: {e}")
+        logger.error(f"水印去除失败：{e}")
         import traceback
         traceback.print_exc()
-        return {"success": False, "message": f"水印去除失败: {str(e)}"}
+        return {"success": False, "message": f"水印去除失败：{str(e)}"}
+
+@router.post("/replace-edited-image")
+async def replace_edited_image(request: dict):
+    """替换编辑后的图片（删除原图，将处理后的图片重命名保存）"""
+    try:
+        import shutil
+        from pathlib import Path
+        
+        original_path = request.get('original_path', '').lstrip('/')
+        new_path = request.get('new_path', '').lstrip('/')
+        
+        original_file = Path(original_path)
+        new_file = Path(new_path)
+        
+        # 验证文件是否存在
+        if not original_file.exists():
+            logger.error(f"原文件不存在：{original_path}")
+            return {"success": False, "message": "原文件不存在"}
+        
+        if not new_file.exists():
+            logger.error(f"新文件不存在：{new_path}")
+            return {"success": False, "message": "新文件不存在"}
+        
+        # 生成新文件名（带时间戳，避免冲突）
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        stem = original_file.stem
+        suffix = original_file.suffix
+        final_name = f"{stem}_edited_{timestamp}{suffix}"
+        final_path = original_file.parent / final_name
+        
+        logger.info(f"准备替换图片：{original_path} -> {final_path}")
+        
+        # 方案 A：直接移动新文件到原位置（覆盖原文件）
+        # 优点：文件名不变，引用不会失效
+        # 缺点：丢失原始备份
+        try:
+            # 备份原文件（加.bak 后缀）
+            backup_path = original_file.with_suffix(original_file.suffix + '.bak')
+            shutil.copy2(str(original_file), str(backup_path))
+            logger.info(f"已备份原文件：{backup_path}")
+            
+            # 复制新文件到原位置
+            shutil.copy2(str(new_file), str(original_file))
+            logger.info(f"已复制新文件到：{original_file}")
+            
+            # 删除备份
+            backup_path.unlink()
+            logger.info(f"已删除备份：{backup_path}")
+            
+            # 删除临时文件
+            new_file.unlink()
+            logger.info(f"已删除临时文件：{new_file}")
+            
+            result_path = str(original_file).replace("\\", "/")
+            
+        except Exception as e:
+            logger.error(f"文件操作失败：{e}")
+            # 如果出错，回退到方案 B：保留两个文件
+            shutil.move(str(new_file), str(final_path))
+            original_file.unlink()
+            result_path = str(final_path).replace("\\", "/")
+            logger.info(f"使用备用方案，新文件路径：{result_path}")
+        
+        logger.success(f"图片替换成功：{result_path}")
+        
+        return {
+            "success": True,
+            "message": "图片替换成功",
+            "final_path": result_path
+        }
+        
+    except Exception as e:
+        logger.error(f"替换图片失败：{e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"替换图片失败：{str(e)}"}

@@ -240,15 +240,17 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少选择一张图片"})
 
-        from moviepy import ImageClip, concatenate_videoclips, AudioFileClip, VideoClip
+        from moviepy.video.VideoClip import ImageClip, VideoClip
+        from moviepy.video.compositing.concatenate import concatenate_videoclips
+        from moviepy.audio.io.AudioFileClip import AudioFileClip
 
         FPS = 24
-        ENTRANCE_DUR = 0.6     # 小图弹落动画时长
+        ENTRANCE_DUR = 0.4     # 小图弹落动画时长
         HOLD_NO_TEXT = 0.8     # 弹落后无文字停顿
         TEXT_FADE_IN = 0.4     # 文字渐入时长
-        HOLD_WITH_TEXT = 1.5   # 文字显示后静持时长
-
-        CLIP_DURATION = HOLD_NO_TEXT + TEXT_FADE_IN + HOLD_WITH_TEXT  # 每段约2.7秒
+        HOLD_WITH_TEXT = 1.4     # 文字显示后静持时长
+        
+        DEFAULT_CLIP_DURATION = HOLD_NO_TEXT + TEXT_FADE_IN + HOLD_WITH_TEXT  # 默认每段约 2.7 秒
 
         # 加载背景和字体
         bg_path = Path("static/imgs/bg.png")
@@ -303,14 +305,39 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         import random
         all_anim_types = ['zoom_in', 'zoom_out', 'unfold', 'scroll_up',
                           'slide_left', 'slide_right', 'fade_in', 'drop_bounce']
-        num_images = len(request.images)
+        
+        # 处理图片数据：支持字符串或对象两种格式
+        processed_images = []
+        for img_item in request.images:
+            if isinstance(img_item, str):
+                # 向后兼容：字符串格式
+                processed_images.append({
+                    'path': img_item, 
+                    'duration': None,
+                    'has_zoom': True,  # 默认启用放大效果
+                    'zoom_start_scale': 1.0,
+                    'zoom_end_scale': 1.25
+                })
+            else:
+                # 对象格式：包含 path 和 duration，以及放大参数
+                processed_images.append({
+                    'path': img_item.path,
+                    'duration': img_item.duration,
+                    'has_zoom': getattr(img_item, 'has_zoom', True),
+                    'zoom_start_scale': getattr(img_item, 'zoom_start_scale', 1.0),
+                    'zoom_end_scale': getattr(img_item, 'zoom_end_scale', 1.15)
+                })
+        
+        num_images = len(processed_images)
         random.shuffle(all_anim_types)
         # 循环分配：图片数 > 动画种类时重复但尽量错开
         anim_queue = []
         for i in range(num_images):
             anim_queue.append(all_anim_types[i % len(all_anim_types)])
 
-        for idx, img_path in enumerate(request.images, 1):
+        for idx, img_data in enumerate(processed_images, 1):
+            img_path = img_data['path']
+            img_duration = img_data['duration']  # 可能为 null（视频）或秒数（图片）
             try:
                 # 检查文件类型
                 is_video = img_path.lower().endswith(('.mp4', '.webm', '.mov'))
@@ -319,8 +346,11 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 if is_video:
                     # 处理视频文件 - 画中画效果
                     logger.info(f"🎬 处理视频文件 (画中画): {img_path}")
-                    logger.info(f"   视频路径: {img_path}")
-                    logger.info(f"   目标时长: {CLIP_DURATION}秒")
+                    logger.info(f"   视频路径：{img_path}")
+                                    
+                    # 使用用户配置的时长，如果没有则使用默认值
+                    clip_duration = img_duration if img_duration is not None else DEFAULT_CLIP_DURATION
+                    logger.info(f"   目标时长：{clip_duration}秒")
                     
                     # 修复路径问题
                     actual_video_path = img_path.lstrip('/')
@@ -336,20 +366,20 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                     
                     # 创建画中画效果
                     pip_result = video_embedding_service.create_pip_video_effect(
-                        [actual_video_path], bg_template, title_info, summary_info, CLIP_DURATION
+                        [actual_video_path], bg_template, title_info, summary_info, clip_duration
                     )
-                    
+                                        
                     if pip_result.get('success') and pip_result.get('segments'):
                         segment = pip_result['segments'][0]
-                        logger.info(f"   🎨 画中画效果创建成功: {len(segment['frames'])} 帧")
-                        
+                        logger.info(f"   🎨 画中画效果创建成功：{len(segment['frames'])} 帧")
+                                            
                         # 使用画中画帧创建视频片段
-                        def make_pip_frame(t, frames=segment['frames'], duration=CLIP_DURATION):
+                        def make_pip_frame(t, frames=segment['frames'], duration=clip_duration):
                             frame_index = int((t / duration) * len(frames))
                             frame_index = min(frame_index, len(frames) - 1)
                             return np.array(frames[frame_index])
-                        
-                        clip = VideoClip(make_pip_frame, duration=CLIP_DURATION).set_fps(FPS)
+                                            
+                        clip = VideoClip(make_pip_frame, duration=clip_duration).set_fps(FPS)
                         clips.append(clip)
                         
                         # 保存预览帧（使用第一帧）
@@ -387,10 +417,13 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                             continue
                 
                 if is_gif:
-                    # 处理GIF动画
-                    logger.info(f"🔄 处理GIF动画: {img_path}")
-                    logger.info(f"   GIF路径: {img_path}")
-                    logger.info(f"   目标时长: {CLIP_DURATION}秒")
+                    # 处理 GIF 动画
+                    logger.info(f"🔄 处理 GIF 动画：{img_path}")
+                    logger.info(f"   GIF 路径：{img_path}")
+                    
+                    # 使用用户配置的时长，如果没有则使用默认值
+                    clip_duration = img_duration if img_duration is not None else DEFAULT_CLIP_DURATION
+                    logger.info(f"   目标时长：{clip_duration}秒")
                     
                     # 修复路径问题 - 去掉开头的斜杠
                     actual_gif_path = img_path.lstrip('/')
@@ -435,7 +468,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                             final_paste_y = title_start_y + title_height + 30 + (available - target_h) // 2
                             final_paste_y = max(title_start_y + title_height + 30, final_paste_y)
                             
-                            logger.info(f"   片段 {idx}: 生成 {CLIP_DURATION:.1f}s GIF动画, 尺寸 {target_w}x{target_h}")
+                            logger.info(f"   片段 {idx}: 生成 {clip_duration:.1f}s GIF 动画，尺寸 {target_w}x{target_h}")
                             
                             # 使用GIF帧创建动画片段
                             anim = anim_queue.pop(0)
@@ -446,7 +479,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                                                    _px=paste_x, _py=final_paste_y,
                                                    _tw=target_w, _th=target_h,
                                                    _ti=title_info, _si=summary_info,
-                                                   _anim=anim, _dur=CLIP_DURATION):
+                                                   _anim=anim, _dur=clip_duration):
                                 # 计算当前应该显示哪一帧
                                 total_frames = len(_frames)
                                 current_frame_index = int((t / _dur) * total_frames) % total_frames
@@ -465,7 +498,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                                     anim_type=_anim
                                 )
                             
-                            clip = VideoClip(make_gif_frame_func, duration=CLIP_DURATION).with_fps(FPS)
+                            clip = VideoClip(make_gif_frame_func, duration=clip_duration).set_fps(FPS)
                             clips.append(clip)
                             logger.info(f"   🎬 GIF动画片段 {idx} 添加成功")
                             
@@ -479,7 +512,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                             preview = _render_frame_animated(
                                 bg_template, mid_frame_resized, paste_x, final_paste_y,
                                 target_w, target_h, img_width, img_height,
-                                title_info, summary_info, CLIP_DURATION,
+                                title_info, summary_info, clip_duration,
                                 entrance_duration=ENTRANCE_DUR, hold_with_text_start=HOLD_NO_TEXT,
                                 anim_type=anim
                             )
@@ -503,7 +536,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                     user_img = user_img.convert('RGBA')
 
                 # 缩放
-                target_w = img_width
+                target_w = img_width - 40
                 ratio = target_w / user_img.width
                 target_h = int(user_img.height * ratio)
                 # 取消60%高度限制，允许图片延伸到背景底部
@@ -521,36 +554,56 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 final_paste_y = title_start_y + title_height + 30 + (available - target_h) // 2
                 final_paste_y = max(title_start_y + title_height + 30, final_paste_y)
 
-                logger.info(f"片段 {idx}: 生成 {CLIP_DURATION:.1f}s 动画, 图片 {target_w}x{target_h}")
-
+                # 使用用户配置的时长，如果没有则使用默认值
+                clip_duration = img_duration if img_duration is not None else DEFAULT_CLIP_DURATION
+                                
+                logger.info(f"片段 {idx}: 生成 {clip_duration:.1f}s 动画，图片 {target_w}x{target_h}")
+                
                 # 每张图使用不同的动画（打乱后循环分配）
                 anim = anim_queue.pop(0)
-                logger.info(f"片段 {idx} 动画类型: {anim}")
-
+                logger.info(f"片段 {idx} 动画类型：{anim}")
+                
+                # 检查是否需要放大效果（从 frame_info 中读取）
+                has_zoom = img_data.get('has_zoom', False)
+                zoom_start = img_data.get('zoom_start_scale', 1.0)
+                zoom_end = img_data.get('zoom_end_scale', 1.15)
+                
+                if has_zoom:
+                    logger.info(f"片段 {idx} 启用放大效果：{zoom_start} -> {zoom_end}")
+                
                 # 使用 make_frame 创建动画片段
                 def make_frame_func(t, _bg=bg_template, _img=user_img_resized,
                                     _px=paste_x, _py=final_paste_y,
                                     _tw=target_w, _th=target_h,
                                     _ti=title_info, _si=summary_info,
-                                    _anim=anim):
+                                    _anim=anim, _zoom=has_zoom,
+                                    _zs=zoom_start, _ze=zoom_end):
                     return _render_frame_animated(
                         _bg, _img, _px, _py, _tw, _th, img_width, img_height,
                         _ti, _si, t,
                         entrance_duration=ENTRANCE_DUR,
                         hold_with_text_start=HOLD_NO_TEXT,
-                        anim_type=_anim
+                        anim_type=_anim,
+                        zoom_effect=_zoom,
+                        zoom_start_scale=_zs,
+                        zoom_end_scale=_ze,
+                        clip_duration=clip_duration
                     )
-
-                clip = VideoClip(make_frame_func, duration=CLIP_DURATION).with_fps(FPS)
+                
+                clip = VideoClip(make_frame_func, duration=clip_duration).set_fps(FPS)
                 clips.append(clip)
-
+                
                 # 同时保存一张静态预览帧（用于前端显示）
                 preview = _render_frame_animated(
                     bg_template, user_img_resized, paste_x, final_paste_y,
                     target_w, target_h, img_width, img_height,
-                    title_info, summary_info, CLIP_DURATION,
+                    title_info, summary_info, clip_duration,
                     entrance_duration=ENTRANCE_DUR, hold_with_text_start=HOLD_NO_TEXT,
-                    anim_type=anim
+                    anim_type=anim,
+                    zoom_effect=has_zoom,
+                    zoom_start_scale=zoom_start,
+                    zoom_end_scale=zoom_end,
+                    clip_duration=clip_duration
                 )
                 preview_path = output_dir / f"preview_{idx:02d}.png"
                 Image.fromarray(preview).save(preview_path, quality=95)
@@ -582,7 +635,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
                 speed = 1.1
-                audio = audio.with_speed_scaled(speed)
+                audio = audio.fl_time(lambda t: t * speed).set_duration(audio.duration / speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
                 logger.info(f"   加速后时长: {new_duration:.2f}秒")
@@ -590,8 +643,8 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclipped(0, video_duration)
-                final_clip = final_clip.with_audio(audio)
+                audio = audio.subclip(0, video_duration)
+                final_clip = final_clip.set_audio(audio)
                 logger.info("背景音乐已添加")
 
         # 输出
@@ -914,7 +967,7 @@ async def create_user_video(
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
                 speed = 1.1
-                audio = audio.with_speed_scaled(speed)
+                audio = audio.fl_time(lambda t: t * speed).set_duration(audio.duration / speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
                 logger.info(f"   加速后时长: {new_duration:.2f}秒")
@@ -922,8 +975,8 @@ async def create_user_video(
                 if audio.duration < video_duration:
                     from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclipped(0, video_duration)
-                final_clip = final_clip.with_audio(audio)
+                audio = audio.subclip(0, video_duration)
+                final_clip = final_clip.set_audio(audio)
                 logger.info("用户视频背景音乐已添加")
 
         video_dir = Path("data/videos")

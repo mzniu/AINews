@@ -125,7 +125,7 @@ async def generate_summary(request: GenerateSummaryRequest):
    - 直击用户关心的实际问题
    - 保持专业性和可信度
 2. 副标题：10-20字，补充主标题的信息，提供更多细节或悬念，不使用任何emoji表情
-3. 摘要：50-70字，简洁有力，适合短视频口播解说，节奏感强
+3. 摘要：50-70字，简洁有力，适合短视频口播解说，节奏感强，以“小牛说：”开头，用客观、理性、中立的语气，避免使用任何情绪化语言或个人 opinions，但是带着一些幽默感，专业的 tone。，不使用任何emoji表情,结尾给出吸引人评论的观点。
 4. 标签：10个相关标签，每个标签以#开头，用空格分隔
 
 原标题：{request.title}
@@ -144,7 +144,8 @@ async def generate_summary(request: GenerateSummaryRequest):
         response = client.chat.completions.create(
             model="deepseek-chat",
             messages=[
-                {"role": "system", "content": "你是顶级自媒体爆款标题大师，精通短视频内容运营。你的标题总能引发强烈的点击冲动，既有信息量又有情绪张力。你擅长用最凝练的文字传递最大的信息密度和情绪冲击。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"},
+                {"role": "system", "content": "你是顶级自媒体爆款文案大师，精通短视频内容运营。你的标题总能引发强烈的点击冲动，既有信息量又有情绪张力。你擅长用最凝练的文字传递最大的信息密度和情绪冲击。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
+                +"我是小牛，一个专业的AI技术专家，对AI行业有深度的见解，请你帮我根据我的情况生成标题、副标题、摘要和标签。"},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.85,

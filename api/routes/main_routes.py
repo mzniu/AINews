@@ -20,6 +20,12 @@ async def video_maker_page():
     with open(os.path.join("static", "video_maker.html"), "r", encoding="utf-8") as f:
         return f.read()
 
+@router.get("/video-editor3", response_class=HTMLResponse)
+async def video_editor3_page():
+    """视频文字编辑器页面"""
+    with open(os.path.join("static", "video_editor3.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
 @router.get("/github-video-maker", response_class=HTMLResponse)
 async def github_video_maker_page():
     """GitHub项目视频制作页面"""
@@ -30,6 +36,33 @@ async def github_video_maker_page():
 async def health():
     """健康检查"""
     return {"status": "ok", "message": "服务运行正常"}
+
+@router.get("/api/list-music-files")
+async def list_music_files():
+    """列出 static/music 目录下的所有 MP3 文件"""
+    try:
+        music_dir = Path("static/music")
+        if not music_dir.exists():
+            return {"success": False, "message": "音乐目录不存在", "files": []}
+        
+        # 获取所有 mp3 文件
+        mp3_files = list(music_dir.glob("*.mp3"))
+        
+        files_info = []
+        for mp3_file in sorted(mp3_files):
+            files_info.append({
+                "path": str(mp3_file).replace("\\", "/"),  # 统一使用正斜杠
+                "name": mp3_file.stem.replace('_', ' ').title()  # 美化文件名
+            })
+        
+        return {
+            "success": True,
+            "count": len(files_info),
+            "files": files_info
+        }
+    except Exception as e:
+        logger.error(f"列出音乐文件失败：{e}")
+        return {"success": False, "message": str(e), "files": []}
 
 @router.post("/upload-local-image")
 async def upload_local_image(image: UploadFile = File(...)):

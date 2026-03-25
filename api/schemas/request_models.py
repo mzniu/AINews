@@ -1,10 +1,10 @@
-"""API请求数据模型"""
+"""API 请求数据模型"""
 from pydantic import BaseModel, HttpUrl
-from typing import List, Optional
+from typing import List, Optional, Union
 
 
 class FetchRequest(BaseModel):
-    """抓取URL请求"""
+    """抓取 URL 请求"""
     url: HttpUrl
 
 
@@ -13,6 +13,15 @@ class FetchResponse(BaseModel):
     success: bool
     message: str
     data: Optional[dict] = None
+
+
+class ImageWithDuration(BaseModel):
+    """带时长的图片信息"""
+    path: str
+    duration: Optional[float] = None  # null 表示使用视频原始时长
+    has_zoom: bool = True  # 是否启用放大效果
+    zoom_start_scale: float = 1.0  # 起始缩放比例
+    zoom_end_scale: float = 1.15   # 结束缩放比例
 
 
 class GenerateSummaryRequest(BaseModel):
@@ -38,7 +47,7 @@ class ProcessImageRequest(BaseModel):
 class CreateVideoRequest(BaseModel):
     """创建视频请求"""
     frames_dir: str
-    duration_per_frame: float = 2.5
+    duration_per_frame: float = 3.5
     audio_path: str = ""
 
 
@@ -57,7 +66,8 @@ class CreateAnimatedVideoRequest(BaseModel):
     """创建带动画视频请求"""
     title: str
     summary: str
-    images: List[str] = []
+    # 支持两种格式：字符串数组（向后兼容）或带时长的对象数组
+    images: List[Union[str, ImageWithDuration]] = []
     audio_path: str = ""
 
 

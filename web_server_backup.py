@@ -344,7 +344,9 @@ async def create_user_video(
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少上传一张图片"})
 
-        from moviepy import concatenate_videoclips, AudioFileClip, VideoClip
+        from moviepy.video.compositing.concatenate import concatenate_videoclips
+        from moviepy.audio.io.AudioFileClip import AudioFileClip
+        from moviepy.video.VideoClip import VideoClip
 
         FPS = 24
         ENTRANCE_DUR = 0.7       # 入场动画时长
@@ -444,7 +446,7 @@ async def create_user_video(
                     )
                     return _apply_video_effect(frame, t, _eff, canvas_w, canvas_h, _cd, seed=_sd)
 
-                clip = VideoClip(make_frame_func, duration=clip_duration).with_fps(FPS)
+                clip = VideoClip(make_frame_func, duration=clip_duration).set_fps(FPS)
                 clips.append(clip)
 
                 # 保存预览帧（带特效）
@@ -483,10 +485,10 @@ async def create_user_video(
                 speed = 1.1
                 audio = audio.time_transform(lambda t: t * speed).with_duration(audio.duration / speed)
                 if audio.duration < video_duration:
-                    from moviepy import concatenate_audioclips
+                    from moviepy.video.compositing.concatenate import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclipped(0, video_duration)
-                final_clip = final_clip.with_audio(audio)
+                audio = audio.subclip(0, video_duration)
+                final_clip = final_clip.set_audio(audio)
                 logger.info("用户视频背景音乐已添加")
 
         video_dir = Path("data/videos")
@@ -557,13 +559,14 @@ async def generate_summary(request: GenerateSummaryRequest):
         prompt = f"""请为以下文章生成适合短视频的主标题、副标题、摘要和标签，要求：
 1. 主标题：8-15字，一句话点明核心看点，简短有力，不使用任何emoji表情
    - 突出文章的核心价值和亮点
+   - 突出话题的争议性、热度
    - 使用具体的数据、成果或创新点
    - 避免过度夸张的对比（如"碾压GPT-4"）
    - 用疑问/反问/感叹激发好奇心
    - 直击用户关心的实际问题
    - 保持专业性和可信度
-2. 副标题：10-20字，补充主标题的信息，提供更多细节或悬念，不使用任何emoji表情
-3. 摘要：50-70字，简洁有力，适合短视频口播解说，节奏感强
+2. 副标题：10-18字，补充主标题的信息，提供更多细节或悬念，不使用任何emoji表情
+3. 摘要：40-50字，简洁有力，适合短视频口播解说，节奏感强
 4. 标签：10个相关标签，每个标签以#开头，用空格分隔
 
 原标题：{request.title}
@@ -575,7 +578,7 @@ async def generate_summary(request: GenerateSummaryRequest):
 {{
   "main_title": "主标题（8-15字，不含emoji）",
   "sub_title": "副标题（10-20字，不含emoji）",
-  "summary": "生成的摘要（50-70字）",
+  "summary": "生成的摘要（40-50字）",
   "tags": "#AI #人工智能 #科技 ... (10个标签)"
 }}"""
 
@@ -976,13 +979,17 @@ async def create_video(request: CreateVideoRequest):
         if audio:
             # 如果音频比视频短，循环音乐
             if audio.duration < video_duration:
-                from moviepy import concatenate_audioclips
-                n_loops = int(video_duration / audio.duration) + 1
-                audio = concatenate_audioclips([audio] * n_loops)
+                # MoviePy 2.x 音频循环处理
+                import math
+                n_loops = math.ceil(video_duration / audio.duration)
+                # 使用列表乘法创建循环音频
+                audio_clips = [audio] * n_loops
+                from moviepy.audio.AudioClip import CompositeAudioClip
+                audio = CompositeAudioClip(audio_clips)
                 logger.info(f"音乐循环 {n_loops} 次")
             # 截取与视频等长的音频 (MoviePy 2.x 使用 subclipped)
-            audio = audio.subclipped(0, video_duration)
-            final_clip = final_clip.with_audio(audio)
+            audio = audio.subclip(0, video_duration)
+            final_clip = final_clip.set_audio(audio)
             logger.info("背景音乐已添加")
         
         # 保存视频
@@ -1538,7 +1545,7 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                         anim_type=_anim
                     )
 
-                clip = VideoClip(make_frame_func, duration=CLIP_DURATION).with_fps(FPS)
+                clip = VideoClip(make_frame_func, duration=CLIP_DURATION).set_fps(FPS)
                 clips.append(clip)
 
                 # 同时保存一张静态预览帧（用于前端显示）
@@ -1577,10 +1584,10 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 speed = 1.1
                 audio = audio.time_transform(lambda t: t * speed).with_duration(audio.duration / speed)
                 if audio.duration < video_duration:
-                    from moviepy import concatenate_audioclips
+                    from moviepy.video.compositing.concatenate import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclipped(0, video_duration)
-                final_clip = final_clip.with_audio(audio)
+                audio = audio.subclip(0, video_duration)
+                final_clip = final_clip.set_audio(audio)
                 logger.info("背景音乐已添加")
 
         # 输出
