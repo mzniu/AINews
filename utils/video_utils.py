@@ -63,7 +63,8 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                           title_info, summary_info, t, entrance_duration=0.6,
                           hold_with_text_start=0.8, anim_type='zoom_in',
                           zoom_effect=False, zoom_start_scale=1.0, 
-                          zoom_end_scale=1.15, clip_duration=None):
+                          zoom_end_scale=1.15, clip_duration=None,
+                          summary_scroll=False, summary_segments=None):
     """
     渲染动画的某一帧（时间 t 秒）。
     anim_type: 'zoom_in'(动感放大), 'zoom_out'(动感缩小), 'unfold'(展开),
@@ -73,6 +74,8 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
     zoom_start_scale: 起始缩放比例
     zoom_end_scale: 结束缩放比例
     clip_duration: 片段总时长（用于计算放大进度）
+    summary_scroll: 是否启用摘要滚动显示
+    summary_segments: 摘要分段信息 [(text1, y1), (text2, y2), (text3, y3)]
     返回 numpy array (H, W, 3) uint8
     """
     bg = bg_template.copy().convert('RGB')
@@ -210,11 +213,110 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                 bg, sub_lines, st_font, sub_y, img_width, margin, text_width,
                 text_color=(255, 255, 0), glow_color=(180, 140, 30), line_spacing=14
             )
-        # 摘要
-        bg, _ = _draw_text_overlay(
-            bg, summary_lines, summary_font, summary_y, img_width, margin, text_width,
-            text_color=(255, 255, 255), line_spacing=12
-        )
+        
+        # 摘要滚动显示逻辑
+        if summary_scroll and summary_segments and len(summary_segments) == 3:
+            # 使用分段滚动（旧逻辑）
+            scroll_start_time = entrance_duration + hold_with_text_start  # 约 1.4s
+            segment_duration = 0.8  # 每段间隔 0.8 秒
+            
+            for i, (segment_text, seg_y) in enumerate(summary_segments):
+                # 计算该段的显示进度
+                seg_start_time = scroll_start_time + i * segment_duration
+                seg_progress = (t - seg_start_time) / segment_duration
+                
+                if t >= seg_start_time:
+                    # 使用缓入曲线（从慢到快）
+                    ease = seg_progress ** 2 if seg_progress < 1.0 else 1.0
+                    
+                    # 计算透明度（从 0 到 1）
+                    alpha = min(1.0, ease)
+                    
+                    # 计算滑动偏移（从下方 50px 滑入）
+                    slide_offset = int(50 * (1 - alpha))
+                    current_y = seg_y + slide_offset
+                    
+                    # 绘制这段摘要
+                    temp_bg, _ = _draw_text_overlay(
+                        bg, [segment_text], summary_font, current_y, 
+                        img_width, margin, text_width,
+                        text_color=(255, 255, 255), line_spacing=12
+                    )
+                    
+                    # 应用透明度
+                    if alpha < 1.0:
+                        overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
+                        temp_bg_rgba = temp_bg.convert('RGBA')
+                        for x in range(bg.width):
+                            for y in range(bg.height):
+                                orig_pixel = bg.getpixel((x, y))
+                                new_pixel = temp_bg_rgba.getpixel((x, y))
+                                # 混合颜色
+                                r = int(orig_pixel[0] * (1 - alpha) + new_pixel[0] * alpha)
+                                g = int(orig_pixel[1] * (1 - alpha) + new_pixel[1] * alpha)
+                                b = int(orig_pixel[2] * (1 - alpha) + new_pixel[2] * alpha)
+                                overlay.putpixel((x, y), (r, g, b, 255))
+                        bg = overlay.convert('RGB')
+                    else:
+                        bg = temp_bg
+        elif summary_scroll and summary_info:
+            # 新逻辑：摘要整体滚动显示（不分段）
+            scroll_start_time = entrance_duration + hold_with_text_start  # 约 1.4s
+            scroll_duration = 1.2  # 整体滚动时间 1.2 秒
+            
+            # 计算滚动进度
+            scroll_progress = (t - scroll_start_time) / scroll_duration
+            scroll_progress = max(0.0, min(1.0, scroll_progress))  # 限制在 [0, 1]
+            
+            # 使用缓出曲线（从快到慢）
+            ease = 1 - (1 - scroll_progress) ** 3
+            
+            # 计算透明度
+            alpha = min(1.0, scroll_progress * 1.5)  # 更快达到不透明
+            
+            # 计算滑动偏移（从下方 80px 滑入）
+            slide_offset = int(80 * (1 - ease))
+            
+            # 获取摘要信息
+            summary_font_obj, summary_lines, summary_base_y = summary_info
+            
+            # 当前 Y 坐标（带动画）
+            current_y = summary_base_y - slide_offset
+            
+            # 如果还在滚动中，应用透明度混合
+            if scroll_progress < 1.0:
+                # 绘制滚动中的摘要
+                temp_bg, _ = _draw_text_overlay(
+                    bg, summary_lines, summary_font_obj, current_y,
+                    img_width, margin, text_width,
+                    text_color=(255, 255, 255), line_spacing=12
+                )
+                
+                # 应用透明度
+                overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
+                temp_bg_rgba = temp_bg.convert('RGBA')
+                for x in range(bg.width):
+                    for y in range(bg.height):
+                        orig_pixel = bg.getpixel((x, y))
+                        new_pixel = temp_bg_rgba.getpixel((x, y))
+                        r = int(orig_pixel[0] * (1 - alpha) + new_pixel[0] * alpha)
+                        g = int(orig_pixel[1] * (1 - alpha) + new_pixel[1] * alpha)
+                        b = int(orig_pixel[2] * (1 - alpha) + new_pixel[2] * alpha)
+                        overlay.putpixel((x, y), (r, g, b, 255))
+                bg = overlay.convert('RGB')
+            else:
+                # 滚动完成，直接绘制完整摘要
+                bg, _ = _draw_text_overlay(
+                    bg, summary_lines, summary_font_obj, summary_base_y,
+                    img_width, margin, text_width,
+                    text_color=(255, 255, 255), line_spacing=12
+                )
+        else:
+            # 原始逻辑：一次性显示所有摘要
+            bg, _ = _draw_text_overlay(
+                bg, summary_lines, summary_font, summary_y, img_width, margin, text_width,
+                text_color=(255, 255, 255), line_spacing=12
+            )
 
     return np.array(bg)
 

@@ -270,8 +270,8 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         temp_draw = ImageDraw.Draw(bg_template.copy())
         main_title_lines = _wrap_text(main_title_text, title_font, text_width, temp_draw)
         sub_title_lines = _wrap_text(sub_title_text, subtitle_font, text_width, temp_draw) if sub_title_text else []
-        summary_lines = _wrap_text(request.summary, summary_font, text_width, temp_draw)
-
+        
+        # 计算标题高度
         main_title_height = sum(
             temp_draw.textbbox((0, 0), l, font=title_font)[3] -
             temp_draw.textbbox((0, 0), l, font=title_font)[1] + 18
@@ -283,17 +283,28 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             for l in sub_title_lines
         ) if sub_title_lines else 0
         title_height = main_title_height + (sub_title_height + 12 if sub_title_height else 0)
+        
+        # 标题起始位置（距离顶部 10%）
+        title_start_y = int(img_height * 0.1)
+        
+        # 构建 title_info
+        title_info = (title_font, subtitle_font, main_title_lines, sub_title_lines,
+                      title_start_y, main_title_height, margin, text_width)
+                
+        # 摘要：自动换行处理
+        summary_lines = _wrap_text(request.summary, summary_font, text_width, temp_draw)
+        
+        # 计算摘要高度
         summary_height = sum(
             temp_draw.textbbox((0, 0), l, font=summary_font)[3] -
             temp_draw.textbbox((0, 0), l, font=summary_font)[1] + 12
             for l in summary_lines
         )
-
-        title_start_y = int(img_height * 0.1)
+        
+        # 摘要起始位置（距离底部 10%）
         summary_start_y = int(img_height * 0.9) - summary_height
-
-        title_info = (title_font, subtitle_font, main_title_lines, sub_title_lines,
-                      title_start_y, main_title_height, margin, text_width)
+        
+        # 构建 summary_info
         summary_info = (summary_font, summary_lines, summary_start_y)
 
         clips = []
@@ -571,13 +582,18 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 if has_zoom:
                     logger.info(f"片段 {idx} 启用放大效果：{zoom_start} -> {zoom_end}")
                 
+                # 只有第一个片段启用摘要滚动效果
+                enable_summary_scroll = (idx == 1)
+                logger.info(f"片段 {idx} 摘要滚动：{'开启' if enable_summary_scroll else '关闭'}")
+                
                 # 使用 make_frame 创建动画片段
                 def make_frame_func(t, _bg=bg_template, _img=user_img_resized,
                                     _px=paste_x, _py=final_paste_y,
                                     _tw=target_w, _th=target_h,
                                     _ti=title_info, _si=summary_info,
                                     _anim=anim, _zoom=has_zoom,
-                                    _zs=zoom_start, _ze=zoom_end):
+                                    _zs=zoom_start, _ze=zoom_end,
+                                    _scroll=enable_summary_scroll):
                     return _render_frame_animated(
                         _bg, _img, _px, _py, _tw, _th, img_width, img_height,
                         _ti, _si, t,
@@ -587,7 +603,9 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                         zoom_effect=_zoom,
                         zoom_start_scale=_zs,
                         zoom_end_scale=_ze,
-                        clip_duration=clip_duration
+                        clip_duration=clip_duration,
+                        summary_scroll=_scroll,
+                        summary_segments=None  # 不再使用分段
                     )
                 
                 clip = VideoClip(make_frame_func, duration=clip_duration).set_fps(FPS)
@@ -603,7 +621,9 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                     zoom_effect=has_zoom,
                     zoom_start_scale=zoom_start,
                     zoom_end_scale=zoom_end,
-                    clip_duration=clip_duration
+                    clip_duration=clip_duration,
+                    summary_scroll=enable_summary_scroll,
+                    summary_segments=None  # 不再使用分段
                 )
                 preview_path = output_dir / f"preview_{idx:02d}.png"
                 Image.fromarray(preview).save(preview_path, quality=95)

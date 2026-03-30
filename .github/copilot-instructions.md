@@ -1,11 +1,15 @@
 # AI资讯视频生成器 - Copilot Instructions
 
+> **权威项目说明（结构、API、端口、目录以代码为准）**：[INSTRUCTION.md](../INSTRUCTION.md)  
+> 本文档为 Copilot 补充约定；若与仓库现状或 `INSTRUCTION.md` 冲突，**以 [INSTRUCTION.md](../INSTRUCTION.md) 与源码为准**。
+
 ## 项目概述
 自动化AI资讯聚合系统：爬取多个AI资讯网站 → DeepSeek API智能总结 → 自动生成3-5分钟短视频
 
 **核心工作流**: 爬虫 → 内容处理 → 视频生成
 
 ## 项目结构
+以下为历史示意；**实际目录与路由表见 [INSTRUCTION.md](../INSTRUCTION.md)**。
 ```
 src/
 ├── crawlers/        # 网站爬虫（Scrapy/BeautifulSoup）
@@ -81,10 +85,12 @@ alembic upgrade head
 
 ## 关键文件
 
+- **[INSTRUCTION.md](../INSTRUCTION.md)** - 仓库级结构与 API 一览（优先阅读）
+- `web_server.py` - FastAPI 入口与路由注册
 - `src/crawlers/base.py` - 爬虫基类，所有爬虫继承此类
-- `src/processors/deepseek.py` - DeepSeek API封装
-- `src/generators/composer.py` - 视频合成核心逻辑
-- `config/sources.yaml` - 爬虫网站配置
+- `src/processors/deepseek.py` - DeepSeek API封装（若存在；否则见 `api/routes` 与 `services`）
+- `src/generators/composer.py` - 视频合成核心逻辑（若存在；否则见 `utils/video_utils.py`、`services/video_service.py`）
+- `config/sources.yaml` - 爬虫网站配置（若存在）
 - `docs/` - 完整设计文档（架构、爬虫、API、视频生成等）
 
 ## 调试技巧
@@ -101,7 +107,7 @@ alembic upgrade head
 ⚠️ **视频存储**: 单个视频约50-100MB，注意磁盘空间  
 ⚠️ **并发控制**: 视频生成使用多进程时注意内存占用
 
-📚 **详细文档**: 查看 `docs/` 目录获取完整设计和实施计划
+📚 **详细文档**: 先看 [INSTRUCTION.md](../INSTRUCTION.md)，再查 `docs/` 目录中的设计与实施计划
 
 ## 开发规范
 - 遵循PEP8代码风格
