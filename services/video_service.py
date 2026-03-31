@@ -6,14 +6,23 @@ import json as _json
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from loguru import logger
+from utils.title_units import truncate_han_equiv, MAIN_LINE_MAX_UNITS, SUBTITLE_MAX_UNITS
+from utils.video_utils import _wrap_text, _break_summary_by_punctuation
 
 
 class VideoService:
     """视频处理服务类"""
     
     @staticmethod
-    def create_video_frames(title: str, summary: str, images: List[str]) -> Dict:
-        """生成视频关键帧"""
+    def create_video_frames(
+        title: str,
+        summary: str,
+        images: List[str],
+        main_line1: str = "",
+        main_line2: str = "",
+        subtitle: str = "",
+    ) -> Dict:
+        """生成视频关键帧。若提供 main_line1/main_line2/subtitle，则用换行拼接标题区（与动画视频语义一致）。"""
         try:
             if not images:
                 return {"success": False, "message": "请至少选择一张图片"}
@@ -30,11 +39,11 @@ class VideoService:
             # 加载字体（保持与原始版本一致）
             try:
                 title_font = ImageFont.truetype("msyhbd.ttc", 66)       # 微软雅黑粗体，更大
-                summary_font = ImageFont.truetype("msyh.ttc", 48)       # 微软雅黑常规
+                summary_font = ImageFont.truetype("msyh.ttc", 40)       # 微软雅黑常规（与动画成片摘要一致）
             except:
                 try:
                     title_font = ImageFont.truetype("simhei.ttf", 66)   # 备选：黑体
-                    summary_font = ImageFont.truetype("simhei.ttf", 48)
+                    summary_font = ImageFont.truetype("simhei.ttf", 40)
                 except:
                     title_font = ImageFont.load_default()
                     summary_font = ImageFont.load_default()
@@ -44,7 +53,15 @@ class VideoService:
             output_dir.mkdir(parents=True, exist_ok=True)
             
             generated_frames = []
-            
+
+            m1 = truncate_han_equiv((main_line1 or "").strip(), MAIN_LINE_MAX_UNITS)
+            m2 = truncate_han_equiv((main_line2 or "").strip(), MAIN_LINE_MAX_UNITS)
+            sub = truncate_han_equiv((subtitle or "").strip(), SUBTITLE_MAX_UNITS)
+            if m1 or m2 or sub:
+                title_for_layout = "\n".join([x for x in [m1, m2, sub] if x])
+            else:
+                title_for_layout = title or ""
+
             # 为每张选中的图片生成一帧
             for idx, img_path in enumerate(images, 1):
                 try:
@@ -60,13 +77,18 @@ class VideoService:
                     
                     # 先计算所有元素的高度，以便垂直居中
                     # 计算标题高度
-                    title_lines = VideoService._wrap_text(title, title_font, text_width, draw)
+                    title_lines = _wrap_text(title_for_layout, title_font, text_width, draw)
                     title_height = sum([draw.textbbox((0, 0), line, font=title_font)[3] - 
                                        draw.textbbox((0, 0), line, font=title_font)[1] + 18 
                                        for line in title_lines])
                     
                     # 计算摘要高度
-                    summary_lines = VideoService._wrap_text(summary, summary_font, text_width, draw)
+                    summary_lines = _wrap_text(
+                        _break_summary_by_punctuation(summary),
+                        summary_font,
+                        text_width,
+                        draw,
+                    )
                     summary_height = sum([draw.textbbox((0, 0), line, font=summary_font)[3] - 
                                          draw.textbbox((0, 0), line, font=summary_font)[1] + 12 
                                          for line in summary_lines])
@@ -203,8 +225,7 @@ class VideoService:
                     # 绘制摘要文字
                     for line in summary_lines:
                         bbox = draw.textbbox((0, 0), line, font=summary_font)
-                        line_width = bbox[2] - bbox[0]
-                        x = margin + (text_width - line_width) // 2
+                        x = margin
                         
                         # 阴影
                         draw.text((x + 2, current_y + 2), line, font=summary_font, fill=(0, 0, 0))
@@ -234,7 +255,7 @@ class VideoService:
                 "message": f"成功生成 {len(generated_frames)} 个关键帧",
                 "frames": generated_frames,
                 "total": len(generated_frames),
-                "title": title,
+                "title": title_for_layout,
                 "summary": summary,
                 "output_dir": str(output_dir.relative_to(Path("."))).replace("\\", "/")
             }
@@ -273,11 +294,11 @@ class VideoService:
             # 加载字体
             try:
                 title_font = ImageFont.truetype("msyhbd.ttc", 66)
-                summary_font = ImageFont.truetype("msyh.ttc", 48)
+                summary_font = ImageFont.truetype("msyh.ttc", 40)
             except:
                 try:
                     title_font = ImageFont.truetype("simhei.ttf", 66)
-                    summary_font = ImageFont.truetype("simhei.ttf", 48)
+                    summary_font = ImageFont.truetype("simhei.ttf", 40)
                 except:
                     title_font = ImageFont.load_default()
                     summary_font = ImageFont.load_default()
@@ -300,12 +321,17 @@ class VideoService:
                     text_width = img_width - 2 * margin
                         
                     # 计算文字高度（与原始方法相同）
-                    title_lines = VideoService._wrap_text(title, title_font, text_width, draw)
+                    title_lines = _wrap_text(title, title_font, text_width, draw)
                     title_height = sum([draw.textbbox((0, 0), line, font=title_font)[3] - 
                                        draw.textbbox((0, 0), line, font=title_font)[1] + 18 
                                        for line in title_lines])
                         
-                    summary_lines = VideoService._wrap_text(summary, summary_font, text_width, draw)
+                    summary_lines = _wrap_text(
+                        _break_summary_by_punctuation(summary),
+                        summary_font,
+                        text_width,
+                        draw,
+                    )
                     summary_height = sum([draw.textbbox((0, 0), line, font=summary_font)[3] - 
                                          draw.textbbox((0, 0), line, font=summary_font)[1] + 12 
                                          for line in summary_lines])

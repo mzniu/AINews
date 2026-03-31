@@ -12,14 +12,53 @@ from ..schemas.request_models import (
 )
 from utils.video_utils import (
     _render_frame_animated, _apply_video_effect, _safe_paste, _draw_text_overlay,
-    _load_fonts, _wrap_text
+    _load_fonts, _wrap_text, _break_summary_by_punctuation, _subtitle_block_height,
+    MAIN_SUBTITLE_GAP_PX,
 )
+from utils.title_units import truncate_han_equiv, MAIN_LINE_MAX_UNITS, SUBTITLE_MAX_UNITS
 from services.video_service import VideoService
 from services.video_embedding_service import video_embedding_service
 import cv2
 import numpy as np
 
 router = APIRouter(prefix="/api", tags=["视频"])
+
+
+def _resolve_animated_title_lines(
+    request: CreateAnimatedVideoRequest,
+    temp_draw,
+    title_font,
+    subtitle_font,
+    text_width: int,
+):
+    """
+    新格式：main_line1 / main_line2 / subtitle — 主标题两行白字单行绘制；副标题黄底黑字圆角单行。
+    长度：主标题每行 12～14 汉字当量（英文数字计 0.5），服务端截断至 14；副标题≤16 当量。
+    旧格式：仅 title，为「主文|副标题」，主文可自动换行。
+    返回 (main_title_lines, sub_title_lines)。
+    """
+    m1 = truncate_han_equiv((request.main_line1 or "").strip(), MAIN_LINE_MAX_UNITS)
+    m2 = truncate_han_equiv((request.main_line2 or "").strip(), MAIN_LINE_MAX_UNITS)
+    sub = truncate_han_equiv((request.subtitle or "").strip(), SUBTITLE_MAX_UNITS)
+    legacy = (request.title or "").strip()
+
+    if m1 or m2 or sub:
+        main_title_lines = [x for x in [m1, m2] if x]
+        sub_title_lines = [sub] if sub else []
+        return main_title_lines, sub_title_lines
+
+    if legacy:
+        parts = legacy.split("|", 1)
+        main_t = parts[0].strip()
+        sub_t = parts[1].strip() if len(parts) > 1 else ""
+        main_title_lines = _wrap_text(main_t, title_font, text_width, temp_draw)
+        sub_title_lines = (
+            _wrap_text(sub_t, subtitle_font, text_width, temp_draw) if sub_t else []
+        )
+        return main_title_lines, sub_title_lines
+
+    return ["未命名标题"], []
+
 
 @router.get("/list-videos")
 async def list_videos():
@@ -261,15 +300,11 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         margin = int(img_width * 0.08)
         text_width = img_width - 2 * margin
 
-        # 解析主副标题（用 | 分隔）
-        title_parts = request.title.split('|', 1)
-        main_title_text = title_parts[0].strip()
-        sub_title_text = title_parts[1].strip() if len(title_parts) > 1 else ''
-
-        # 预计算标题和摘要
+        # 预计算标题和摘要（新：主标题两行 + 副标题单行；旧：title 为 主|副）
         temp_draw = ImageDraw.Draw(bg_template.copy())
-        main_title_lines = _wrap_text(main_title_text, title_font, text_width, temp_draw)
-        sub_title_lines = _wrap_text(sub_title_text, subtitle_font, text_width, temp_draw) if sub_title_text else []
+        main_title_lines, sub_title_lines = _resolve_animated_title_lines(
+            request, temp_draw, title_font, subtitle_font, text_width
+        )
         
         # 计算标题高度
         main_title_height = sum(
@@ -277,12 +312,14 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
             temp_draw.textbbox((0, 0), l, font=title_font)[1] + 18
             for l in main_title_lines
         )
-        sub_title_height = sum(
-            temp_draw.textbbox((0, 0), l, font=subtitle_font)[3] -
-            temp_draw.textbbox((0, 0), l, font=subtitle_font)[1] + 14
-            for l in sub_title_lines
-        ) if sub_title_lines else 0
-        title_height = main_title_height + (sub_title_height + 12 if sub_title_height else 0)
+        sub_title_height = (
+            _subtitle_block_height(sub_title_lines, subtitle_font, temp_draw)
+            if sub_title_lines
+            else 0
+        )
+        title_height = main_title_height + (
+            sub_title_height + MAIN_SUBTITLE_GAP_PX if sub_title_height else 0
+        )
         
         # 标题起始位置（距离顶部 10%）
         title_start_y = int(img_height * 0.1)
@@ -291,8 +328,13 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         title_info = (title_font, subtitle_font, main_title_lines, sub_title_lines,
                       title_start_y, main_title_height, margin, text_width)
                 
-        # 摘要：自动换行处理
-        summary_lines = _wrap_text(request.summary, summary_font, text_width, temp_draw)
+        # 摘要：先按句末标点分行，再按宽度自动换行；字体较小（_load_fonts）
+        summary_lines = _wrap_text(
+            _break_summary_by_punctuation(request.summary),
+            summary_font,
+            text_width,
+            temp_draw,
+        )
         
         # 计算摘要高度
         summary_height = sum(

@@ -242,18 +242,19 @@
         
         function saveEditedContent() {
             // 保存用户编辑的内容
-            editedMainTitle = document.getElementById('editableMainTitle').value.trim();
+            editedMainLine1 = document.getElementById('editableMainLine1').value.trim();
+            editedMainLine2 = document.getElementById('editableMainLine2').value.trim();
             editedSubTitle = document.getElementById('editableSubTitle').value.trim();
             editedSummary = document.getElementById('editableAiSummary').value.trim();
             editedTags = document.getElementById('editableAiTags').value.trim();
             
-            if (!editedMainTitle || !editedSummary) {
-                showToast('请填写主标题和摘要后再保存', 'error');
+            if (!editedMainLine1 || !editedSummary) {
+                showToast('请填写主标题第一行和摘要后再保存', 'error');
                 return;
             }
             
             showToast('✅ 内容已保存，将在视频生成时使用', 'success');
-            console.log('保存的编辑内容:', { editedMainTitle, editedSubTitle, editedSummary, editedTags });
+            console.log('保存的编辑内容:', { editedMainLine1, editedMainLine2, editedSubTitle, editedSummary, editedTags });
         }
         
         // GIF 处理相关函数
@@ -1243,14 +1244,16 @@
             const summaryDiv = document.getElementById('aiSummary');
             if (summaryDiv) summaryDiv.style.display = 'block';
             
-            const aiMainTitleEl = document.getElementById('editableMainTitle');
+            const aiMainLine1El = document.getElementById('editableMainLine1');
+            const aiMainLine2El = document.getElementById('editableMainLine2');
             const aiSubTitleEl = document.getElementById('editableSubTitle');
             const aiSummaryEl = document.getElementById('editableAiSummary');
             const aiTagsEl = document.getElementById('editableAiTags');
             const aiMetaEl = document.getElementById('aiMeta');
             
-            if (aiMainTitleEl) aiMainTitleEl.value = '正在生成主标题...';
-            if (aiSubTitleEl) aiSubTitleEl.value = '正在生成副标题...';
+            if (aiMainLine1El) aiMainLine1El.value = '正在生成…';
+            if (aiMainLine2El) aiMainLine2El.value = '正在生成…';
+            if (aiSubTitleEl) aiSubTitleEl.value = '正在生成…';
             if (aiSummaryEl) aiSummaryEl.value = '正在生成摘要...';
             if (aiTagsEl) aiTagsEl.value = '';
             if (aiMetaEl) aiMetaEl.textContent = '';
@@ -1275,28 +1278,31 @@
                     generatedTitle = data.title;
                     generatedSummary = data.summary;
                     
-                    // 显示主副标题到可编辑输入框
-                    const mainT = data.main_title || data.title.split('|')[0];
-                    const subT = data.sub_title || (data.title.includes('|') ? data.title.split('|')[1] : '');
+                    const line1 = data.main_line1 != null ? data.main_line1 : (data.main_title || (data.title || '').split('|')[0] || '');
+                    const line2 = data.main_line2 != null ? data.main_line2 : '';
+                    const subT = data.sub_title != null ? data.sub_title : '';
                     
-                    document.getElementById('editableMainTitle').value = mainT;
+                    document.getElementById('editableMainLine1').value = line1;
+                    document.getElementById('editableMainLine2').value = line2;
                     document.getElementById('editableSubTitle').value = subT;
                     document.getElementById('editableAiSummary').value = data.summary;
                     document.getElementById('editableAiTags').value = data.tags || '';
                     document.getElementById('aiMeta').textContent = 
-                        `主标题: ${mainT.length}字 | 副标题: ${subT.length}字 | 摘要: ${data.summary.length}字 | 模型: ${data.model} | tokens: ${data.tokens_used}`;
+                        `主L1:${line1.length}字 L2:${line2.length}字 副:${subT.length}字 | 摘要:${data.summary.length}字 | ${data.model} | tokens:${data.tokens_used}`;
                     
                     // 自动保存初始内容
                     saveEditedContent();
                 } else {
-                    if (aiMainTitleEl) aiMainTitleEl.value = '';
+                    if (aiMainLine1El) aiMainLine1El.value = '';
+                    if (aiMainLine2El) aiMainLine2El.value = '';
                     if (aiSubTitleEl) aiSubTitleEl.value = '';
                     if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + data.message;
                     if (aiTagsEl) aiTagsEl.value = '';
                     if (aiMetaEl) aiMetaEl.textContent = '';
                 }
             } catch (error) {
-                if (aiMainTitleEl) aiMainTitleEl.value = '';
+                if (aiMainLine1El) aiMainLine1El.value = '';
+                if (aiMainLine2El) aiMainLine2El.value = '';
                 if (aiSubTitleEl) aiSubTitleEl.value = '';
                 if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + error.message;
                 if (aiTagsEl) aiTagsEl.value = '';
@@ -1306,17 +1312,17 @@
 
         async function generateVideoDirectly() {
             // 检查必要条件
-            const mainTitle = document.getElementById('editableMainTitle')?.value.trim();
+            const mainLine1 = document.getElementById('editableMainLine1')?.value.trim();
+            const mainLine2 = document.getElementById('editableMainLine2')?.value.trim();
             const subTitle = document.getElementById('editableSubTitle')?.value.trim();
             const editedSummary = document.getElementById('editableAiSummary')?.value.trim();
             
-            if (!mainTitle || !editedSummary) {
-                showToast('请先生成AI标题和摘要，或手动填写内容', 'error');
+            if (!mainLine1 || !editedSummary) {
+                showToast('请先生成AI标题和摘要，或手动填写主标题第一行与摘要', 'error');
                 return;
             }
             
-            // 组合标题
-            const editedTitle = subTitle ? `${mainTitle}|${subTitle}` : mainTitle;
+            const editedTitle = [mainLine1, mainLine2, subTitle].filter(Boolean).join('|');
             
             if (selectedImages.length === 0) {
                 showToast('请至少选择一张图片', 'error');
@@ -1440,8 +1446,10 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        title: getCombinedTitle(),
-                        subtitle: editedSubTitle,
+                        title: '',
+                        main_line1: mainLine1,
+                        main_line2: mainLine2 || '',
+                        subtitle: subTitle || '',
                         summary: editedSummary,
                         images: imagesWithDuration,  // 使用包含时长的图片数据
                         audio_path: selectedBGM  // 使用用户选择的 BGM
@@ -1670,14 +1678,19 @@
             }
 
             try {
+                const ml1 = document.getElementById('editableMainLine1')?.value.trim() || '';
+                const ml2 = document.getElementById('editableMainLine2')?.value.trim() || '';
+                const st = document.getElementById('editableSubTitle')?.value.trim() || '';
                 const response = await fetch('/api/generate-image', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        title: getCombinedTitle(),
-                        subtitle: editedSubTitle || '',
+                        title: '',
+                        main_line1: ml1,
+                        main_line2: ml2,
+                        subtitle: st,
                         summary: editedSummary || generatedSummary,
                         images: selectedImages
                     })
@@ -1836,12 +1849,14 @@
                 if (summaryDiv) summaryDiv.style.display = 'block';
                 
                 // 使用新的可编辑输入框ID（避免变量名冲突）
-                const oneClickMainTitleEl = document.getElementById('editableMainTitle');
+                const oneClickL1 = document.getElementById('editableMainLine1');
+                const oneClickL2 = document.getElementById('editableMainLine2');
                 const oneClickSubTitleEl = document.getElementById('editableSubTitle');
                 const oneClickSummaryEl = document.getElementById('editableAiSummary');
                 
-                if (oneClickMainTitleEl) oneClickMainTitleEl.value = '正在生成主标题...';
-                if (oneClickSubTitleEl) oneClickSubTitleEl.value = '正在生成副标题...';
+                if (oneClickL1) oneClickL1.value = '正在生成…';
+                if (oneClickL2) oneClickL2.value = '正在生成…';
+                if (oneClickSubTitleEl) oneClickSubTitleEl.value = '正在生成…';
                 if (oneClickSummaryEl) oneClickSummaryEl.value = '正在生成摘要...';
 
                 const summaryResp = await fetch('/api/generate-summary', {
@@ -1864,23 +1879,25 @@
 
                 generatedTitle = summaryData.title;
                 generatedSummary = summaryData.summary;
-                const mainT2 = summaryData.main_title || summaryData.title.split('|')[0];
-                const subT2 = summaryData.sub_title || (summaryData.title.includes('|') ? summaryData.title.split('|')[1] : '');
-                const combinedTitle2 = subT2 ? `${mainT2}|${subT2}` : mainT2;
+                const l1 = summaryData.main_line1 != null ? summaryData.main_line1 : (summaryData.main_title || (summaryData.title || '').split('|')[0] || '');
+                const l2 = summaryData.main_line2 != null ? summaryData.main_line2 : '';
+                const subT2 = summaryData.sub_title != null ? summaryData.sub_title : '';
                 
                 // 填充到可编辑输入框（添加安全检查）
-                const aiMainTitleEl = document.getElementById('editableMainTitle');
+                const aiMainLine1El = document.getElementById('editableMainLine1');
+                const aiMainLine2El = document.getElementById('editableMainLine2');
                 const aiSubTitleEl = document.getElementById('editableSubTitle');
                 const aiSummaryEl = document.getElementById('editableAiSummary');
                 const aiTagsEl = document.getElementById('editableAiTags');
                 const aiMetaEl = document.getElementById('aiMeta');
                 
-                if (aiMainTitleEl) aiMainTitleEl.value = mainT2;
+                if (aiMainLine1El) aiMainLine1El.value = l1;
+                if (aiMainLine2El) aiMainLine2El.value = l2;
                 if (aiSubTitleEl) aiSubTitleEl.value = subT2;
                 if (aiSummaryEl) aiSummaryEl.value = summaryData.summary;
                 if (aiTagsEl) aiTagsEl.value = summaryData.tags || '';
                 if (aiMetaEl) aiMetaEl.textContent =
-                    `主标题: ${mainT2.length}字 | 副标题: ${subT2.length}字 | 摘要: ${summaryData.summary.length}字 | 模型: ${summaryData.model} | tokens: ${summaryData.tokens_used}`;
+                    `L1:${l1.length} L2:${l2.length} 副:${subT2.length} | 摘要:${summaryData.summary.length}字 | ${summaryData.model} | tokens:${summaryData.tokens_used}`;
                 
                 // 自动保存内容
                 saveEditedContent();
@@ -1894,7 +1911,10 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        title: combinedTitle2 || generatedTitle,
+                        title: '',
+                        main_line1: l1,
+                        main_line2: l2 || '',
+                        subtitle: subT2 || '',
                         summary: editedSummary || generatedSummary,
                         images: selectedImages,
                         audio_path: 'static/music/background.mp3'

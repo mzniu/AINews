@@ -6,18 +6,21 @@ from typing import Tuple, List
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
+# 主标题文字块底边与副标题黄条之间的间距（在原 12px 基础上 +5px）
+MAIN_SUBTITLE_GAP_PX = 17
+
 
 def _load_fonts():
-    """加载字体，返回 (title_font, subtitle_font, summary_font)"""
+    """加载字体，返回 (title_font, subtitle_font, summary_font)；摘要略小"""
     try:
         return (ImageFont.truetype("msyhbd.ttc", 66),
                 ImageFont.truetype("msyhbd.ttc", 58),
-                ImageFont.truetype("msyh.ttc", 48))
+                ImageFont.truetype("msyh.ttc", 40))
     except:
         try:
             return (ImageFont.truetype("simhei.ttf", 66),
                     ImageFont.truetype("simhei.ttf", 58),
-                    ImageFont.truetype("simhei.ttf", 48))
+                    ImageFont.truetype("simhei.ttf", 40))
         except:
             df = ImageFont.load_default()
             return df, df, df
@@ -56,6 +59,18 @@ def _wrap_text(text, font, max_width, draw_obj):
     if current_line:
         lines.append(current_line)
     return lines
+
+
+def _break_summary_by_punctuation(text: str) -> str:
+    """仅在句末标点后插入换行（再经 _wrap_text 按宽度折行）。句末：。！？及英文 . ! ?（避免小数点）。"""
+    if not text:
+        return ""
+    s = text.strip()
+    s = re.sub(r"([。！？])\s*", r"\1\n", s)
+    # 英文句末：. ! ? 不在数字后
+    s = re.sub(r"(?<![0-9])([.!?])(?=\s|$|\n)", r"\1\n", s)
+    s = re.sub(r"\n{2,}", "\n", s)
+    return s.strip()
 
 
 def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y,
@@ -206,12 +221,12 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
             bg, main_lines, t_font, title_y, img_width, margin, text_width,
             text_color=(255, 255, 255), glow_color=(102, 126, 234), line_spacing=18
         )
-        # 副标题：黄色，紧跟主标题下方
+        # 副标题：黄底黑字，紧跟主标题下方
         if sub_lines:
-            sub_y = title_y + main_h + 12
-            bg, _ = _draw_text_overlay(
+            sub_y = title_y + main_h + MAIN_SUBTITLE_GAP_PX
+            bg, _ = _draw_subtitle_yellow_bar(
                 bg, sub_lines, st_font, sub_y, img_width, margin, text_width,
-                text_color=(255, 255, 0), glow_color=(180, 140, 30), line_spacing=14
+                line_spacing=14,
             )
         
         # 摘要滚动显示逻辑
@@ -238,9 +253,9 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                     
                     # 绘制这段摘要
                     temp_bg, _ = _draw_text_overlay(
-                        bg, [segment_text], summary_font, current_y, 
+                        bg, [segment_text], summary_font, current_y,
                         img_width, margin, text_width,
-                        text_color=(255, 255, 255), line_spacing=12
+                        text_color=(255, 255, 255), line_spacing=12, align="left",
                     )
                     
                     # 应用透明度
@@ -260,62 +275,27 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                     else:
                         bg = temp_bg
         elif summary_scroll and summary_info:
-            # 新逻辑：摘要整体滚动显示（不分段）
-            scroll_start_time = entrance_duration + hold_with_text_start  # 约 1.4s
-            scroll_duration = 1.2  # 整体滚动时间 1.2 秒
-            
-            # 计算滚动进度
-            scroll_progress = (t - scroll_start_time) / scroll_duration
-            scroll_progress = max(0.0, min(1.0, scroll_progress))  # 限制在 [0, 1]
-            
-            # 使用缓出曲线（从快到慢）
+            # 首张图片段内：摘要自下而上滚入，在 clip_duration 内完成；左对齐
+            scroll_duration = (
+                clip_duration if clip_duration and clip_duration > 0 else 1.2
+            )
+            scroll_progress = min(1.0, max(0.0, t / scroll_duration))
             ease = 1 - (1 - scroll_progress) ** 3
-            
-            # 计算透明度
-            alpha = min(1.0, scroll_progress * 1.5)  # 更快达到不透明
-            
-            # 计算滑动偏移（从下方 80px 滑入）
-            slide_offset = int(80 * (1 - ease))
-            
-            # 获取摘要信息
+            slide_max = 100
+            slide_offset = int(slide_max * (1 - ease))
             summary_font_obj, summary_lines, summary_base_y = summary_info
-            
-            # 当前 Y 坐标（带动画）
-            current_y = summary_base_y - slide_offset
-            
-            # 如果还在滚动中，应用透明度混合
-            if scroll_progress < 1.0:
-                # 绘制滚动中的摘要
-                temp_bg, _ = _draw_text_overlay(
-                    bg, summary_lines, summary_font_obj, current_y,
-                    img_width, margin, text_width,
-                    text_color=(255, 255, 255), line_spacing=12
-                )
-                
-                # 应用透明度
-                overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
-                temp_bg_rgba = temp_bg.convert('RGBA')
-                for x in range(bg.width):
-                    for y in range(bg.height):
-                        orig_pixel = bg.getpixel((x, y))
-                        new_pixel = temp_bg_rgba.getpixel((x, y))
-                        r = int(orig_pixel[0] * (1 - alpha) + new_pixel[0] * alpha)
-                        g = int(orig_pixel[1] * (1 - alpha) + new_pixel[1] * alpha)
-                        b = int(orig_pixel[2] * (1 - alpha) + new_pixel[2] * alpha)
-                        overlay.putpixel((x, y), (r, g, b, 255))
-                bg = overlay.convert('RGB')
-            else:
-                # 滚动完成，直接绘制完整摘要
-                bg, _ = _draw_text_overlay(
-                    bg, summary_lines, summary_font_obj, summary_base_y,
-                    img_width, margin, text_width,
-                    text_color=(255, 255, 255), line_spacing=12
-                )
+            # 自下方移入：起始 y 更大，结束时落在 summary_base_y
+            current_y = summary_base_y + slide_offset
+            bg, _ = _draw_text_overlay(
+                bg, summary_lines, summary_font_obj, current_y,
+                img_width, margin, text_width,
+                text_color=(255, 255, 255), line_spacing=12, align="left",
+            )
         else:
-            # 原始逻辑：一次性显示所有摘要
+            # 后续片段等：摘要静止、左对齐
             bg, _ = _draw_text_overlay(
                 bg, summary_lines, summary_font, summary_y, img_width, margin, text_width,
-                text_color=(255, 255, 255), line_spacing=12
+                text_color=(255, 255, 255), line_spacing=12, align="left",
             )
 
     return np.array(bg)
@@ -455,8 +435,10 @@ def _safe_paste(bg, img, x, y):
 
 
 def _draw_text_overlay(bg, lines, font, start_y, img_width, margin, text_width,
-                      text_color=(255, 255, 255), glow_color=None, line_spacing=12):
-    """在图片上绘制带半透明背景的文字块，返回 (result_image, block_height)"""
+                      text_color=(255, 255, 255), glow_color=None, line_spacing=12,
+                      align="center"):
+    """在图片上绘制带半透明背景的文字块，返回 (result_image, block_height)。
+    align: 'center' | 'left'（摘要建议 left）"""
     draw = ImageDraw.Draw(bg)
     total_h = sum(
         draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] + line_spacing
@@ -478,7 +460,10 @@ def _draw_text_overlay(bg, lines, font, start_y, img_width, margin, text_width,
     for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
         lw = bbox[2] - bbox[0]
-        x = margin + (text_width - lw) // 2
+        if align == "left":
+            x = margin
+        else:
+            x = margin + (text_width - lw) // 2
         if glow_color:
             # 外层柔光（r=3）
             for dx in range(-3, 4):
@@ -495,16 +480,60 @@ def _draw_text_overlay(bg, lines, font, start_y, img_width, margin, text_width,
         draw.text((x, cy), line, font=font, fill=text_color)
         cy += bbox[3] - bbox[1] + line_spacing
 
-    # 标题装饰：底部渐变高亮线
-    if glow_color:
-        accent_y = bg_y + bg_h - 4
-        for i in range(3):
-            alpha = 180 - i * 50
-            for px in range(margin, img_width - margin):
-                progress = (px - margin) / max(1, (img_width - 2 * margin))
-                r = int(255 * (1 - progress) + glow_color[0] * progress)
-                g = int(200 * (1 - progress) + glow_color[1] * progress)
-                b = int(60 * (1 - progress) + glow_color[2] * progress)
-                draw.point((px, accent_y + i), fill=(r, g, b, alpha))
-
     return result, total_h
+
+
+def _draw_subtitle_yellow_bar(
+    bg,
+    lines,
+    font,
+    start_y,
+    img_width,
+    margin,
+    text_width,
+    line_spacing=14,
+    pad_x=18,
+    pad_y=16,
+    radius=12,
+    bg_color=(255, 235, 59),
+    text_color=(0, 0, 0),
+):
+    """副标题：黄色圆角背景、黑色文字垂直水平居中。"""
+    if not lines:
+        return bg, 0
+    draw = ImageDraw.Draw(bg)
+    cy = start_y
+    total_block = 0
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        lw = bbox[2] - bbox[0]
+        lh = bbox[3] - bbox[1]
+        x = margin + (text_width - lw) // 2
+        x0, y0 = x - pad_x, cy - pad_y
+        x1, y1 = x + lw + pad_x, cy + lh + pad_y
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=radius, fill=bg_color)
+        cx = (x0 + x1) // 2
+        cyy = (y0 + y1) // 2
+        draw.text((cx, cyy), line, font=font, fill=text_color, anchor="mm")
+        row_h = y1 - y0
+        total_block += row_h + line_spacing
+        cy = y1 + line_spacing
+    return bg, total_block - line_spacing
+
+
+def _subtitle_block_height(
+    lines,
+    font,
+    draw_obj,
+    pad_y=16,
+    line_spacing=14,
+):
+    """与 _draw_subtitle_yellow_bar 一致的高度估算（用于布局预计算）。"""
+    if not lines:
+        return 0
+    total = 0
+    for line in lines:
+        tb = draw_obj.textbbox((0, 0), line, font=font)
+        lh = tb[3] - tb[1]
+        total += lh + 2 * pad_y + line_spacing
+    return max(0, total - line_spacing)

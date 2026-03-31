@@ -33,9 +33,12 @@ class GenerateSummaryRequest(BaseModel):
 
 class GenerateImageRequest(BaseModel):
     """生成视频关键帧请求"""
-    title: str
     summary: str
     images: List[str] = []
+    title: str = ""
+    main_line1: str = ""
+    main_line2: str = ""
+    subtitle: str = ""
 
 
 class ProcessImageRequest(BaseModel):
@@ -64,11 +67,14 @@ class DetectWatermarkRequest(BaseModel):
 
 class CreateAnimatedVideoRequest(BaseModel):
     """创建带动画视频请求"""
-    title: str
     summary: str
     # 支持两种格式：字符串数组（向后兼容）或带时长的对象数组
     images: List[Union[str, ImageWithDuration]] = []
     audio_path: str = ""
+    title: str = ""  # 向后兼容：旧版 main|副标题，整段主标题会参与自动换行
+    main_line1: str = ""  # 主标题第一行，12～14 汉字当量，单行绘制
+    main_line2: str = ""  # 主标题第二行，12～14 汉字当量，单行绘制
+    subtitle: str = ""  # 副标题，14～16 汉字当量，单行
 
 
 class CreateUserVideoRequest(BaseModel):

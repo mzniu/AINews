@@ -165,16 +165,26 @@
                     <div class="ai-summary" id="aiSummary" style="display: none;">
                         <h4>🤖 AI生成内容</h4>
                         <div style="margin-bottom: 15px;">
-                            <strong style="color: #667eea;">主标题：</strong>
+                            <strong style="color: #667eea;">主标题第一行</strong>
+                            <span style="font-size: 12px; color: #888;">（12～14汉字当量，英文数字计0.5）</span>
                             <div class="ai-field-row">
-                                <input type="text" id="editableMainTitle" class="ai-edit-input" placeholder="主标题将显示在这里..." style="font-size: 1.2em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
-                                <button class="copy-btn" onclick="copyAiContent('editableMainTitle')" title="复制主标题">📋</button>
+                                <input type="text" id="editableMainLine1" class="ai-edit-input" placeholder="第一行主标题" maxlength="28" style="font-size: 1.2em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableMainLine1')" title="复制">📋</button>
                             </div>
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <strong style="color: #667eea;">副标题：</strong>
+                            <strong style="color: #667eea;">主标题第二行</strong>
+                            <span style="font-size: 12px; color: #888;">（12～14汉字当量，可空）</span>
                             <div class="ai-field-row">
-                                <input type="text" id="editableSubTitle" class="ai-edit-input" placeholder="副标题将显示在这里..." style="font-size: 1em; font-weight: normal; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%; color: #666;" />
+                                <input type="text" id="editableMainLine2" class="ai-edit-input" placeholder="第二行主标题（可空）" maxlength="28" style="font-size: 1.15em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableMainLine2')" title="复制">📋</button>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">副标题</strong>
+                            <span style="font-size: 12px; color: #888;">（14～16汉字当量；成片圆角黄底黑字）</span>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableSubTitle" class="ai-edit-input" placeholder="副标题单行" maxlength="32" style="font-size: 1em; font-weight: normal; margin: 10px 0; padding: 12px; border: 2px solid #e6c200; border-radius: 12px; width: 100%; background: #FFEB3D; color: #000000;" />
                                 <button class="copy-btn" onclick="copyAiContent('editableSubTitle')" title="复制副标题">📋</button>
                             </div>
                         </div>

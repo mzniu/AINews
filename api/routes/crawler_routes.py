@@ -116,17 +116,12 @@ async def generate_summary(request: GenerateSummaryRequest):
         
         client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
         
-        prompt = f"""请为以下文章生成适合短视频的主标题、副标题、摘要和标签，要求：
-1. 主标题：8-15字，一句话点明核心看点，简短有力，不使用任何emoji表情
-   - 突出文章的核心价值和亮点
-   - 使用具体的数据、成果或创新点
-   - 避免过度夸张的对比（如"碾压GPT-4"）
-   - 用疑问/反问/感叹激发好奇心
-   - 直击用户关心的实际问题
-   - 保持专业性和可信度
-2. 副标题：10-20字，补充主标题的信息，提供更多细节或悬念，不使用任何emoji表情
-3. 摘要：50-70字，简洁有力，适合短视频口播解说，节奏感强，以“小牛说：”开头，用客观、理性、中立的语气，避免使用任何情绪化语言或个人 opinions，但是带着一些幽默感，专业的 tone。，不使用任何emoji表情,结尾给出吸引人评论的观点。
-4. 标签：10个相关标签，每个标签以#开头，用空格分隔
+        prompt = f"""请为以下文章生成适合短视频的标题与摘要、标签，要求：
+1. 主标题第一行：长度控制在「12～14个汉字当量」。计法：每个汉字计1；每个英文字母或数字计0.5。点明核心看点，不使用任何emoji表情
+2. 主标题第二行：同样「12～14汉字当量」（英文数字计0.5），与第一行搭配；不需要时可填空字符串 ""
+3. 副标题：单独一行，「14～16个汉字当量」（英文数字计0.5），补充或制造悬念，不使用任何emoji表情
+4. 摘要：50-70字，简洁有力，适合短视频口播解说，节奏感强，以“小牛说：”开头，用客观、理性、中立的语气，避免使用任何情绪化语言或个人 opinions，但是带着一些幽默感，专业的 tone。，不使用任何emoji表情,结尾给出吸引人评论的观点。
+5. 标签：10个相关标签，每个标签以#开头，用空格分隔
 
 原标题：{request.title}
 
@@ -135,8 +130,9 @@ async def generate_summary(request: GenerateSummaryRequest):
 
 请按以下JSON格式返回：
 {{
-  "main_title": "主标题（8-15字，不含emoji）",
-  "sub_title": "副标题（10-20字，不含emoji）",
+  "main_line1": "主标题第一行（12～14汉字当量，英文数字算0.5，不含emoji）",
+  "main_line2": "主标题第二行（同上，可空字符串）",
+  "sub_title": "副标题（14～16汉字当量，不含emoji）",
   "summary": "生成的摘要（50-70字）",
   "tags": "#AI #人工智能 #科技 ... (10个标签)"
 }}"""
@@ -156,17 +152,27 @@ async def generate_summary(request: GenerateSummaryRequest):
         result_text = response.choices[0].message.content.strip()
         result = json.loads(result_text)
         
+        from utils.title_units import truncate_han_equiv, MAIN_LINE_MAX_UNITS, SUBTITLE_MAX_UNITS
+
         tags = result.get('tags', '')
-        main_title = result.get('main_title', result.get('title', ''))
-        sub_title = result.get('sub_title', '')
-        # 组合标题供前端显示，用 | 分隔主副标题
-        combined_title = f"{main_title}|{sub_title}" if sub_title else main_title
-        logger.success(f"标题生成成功 - 主标题: {main_title}, 副标题: {sub_title}, 摘要: {len(result['summary'])}字")
-        
+        main_line1 = (result.get('main_line1') or result.get('main_title') or result.get('title', '')) or ''
+        main_line2 = (result.get('main_line2') or '') or ''
+        sub_title = (result.get('sub_title') or '') or ''
+        main_line1 = truncate_han_equiv(main_line1.strip(), MAIN_LINE_MAX_UNITS)
+        main_line2 = truncate_han_equiv(main_line2.strip(), MAIN_LINE_MAX_UNITS)
+        sub_title = truncate_han_equiv(sub_title.strip(), SUBTITLE_MAX_UNITS)
+        # 兼容旧字段：main_title 为第一行，title 仍给前端作 legacy 拼接
+        combined_title = "|".join([x for x in [main_line1, main_line2, sub_title] if x])
+        logger.success(
+            f"标题生成成功 - L1:{main_line1}, L2:{main_line2}, 副:{sub_title}, 摘要:{len(result['summary'])}字"
+        )
+
         return {
             "success": True,
             "title": combined_title,
-            "main_title": main_title,
+            "main_line1": main_line1,
+            "main_line2": main_line2,
+            "main_title": main_line1,
             "sub_title": sub_title,
             "summary": result['summary'],
             "tags": tags,
@@ -183,9 +189,12 @@ async def generate_image(request: GenerateImageRequest):
     try:
         from ...services.video_service import VideoService
         result = VideoService.create_video_frames(
-            request.title, 
-            request.summary, 
-            request.images
+            request.title,
+            request.summary,
+            request.images,
+            main_line1=request.main_line1 or "",
+            main_line2=request.main_line2 or "",
+            subtitle=request.subtitle or "",
         )
         return result
     except Exception as e:

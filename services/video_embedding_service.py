@@ -212,7 +212,11 @@ class VideoEmbeddingService:
             img_width, img_height = bg.size
             
             # 使用与图片处理相同的文字叠加函数
-            from utils.video_utils import _draw_text_overlay
+            from utils.video_utils import (
+                _draw_text_overlay,
+                _draw_subtitle_yellow_bar,
+                MAIN_SUBTITLE_GAP_PX,
+            )
             
             # 绘制主标题：白色 + 蓝色光晕（与图片处理一致）
             bg, _ = _draw_text_overlay(
@@ -220,18 +224,18 @@ class VideoEmbeddingService:
                 text_color=(255, 255, 255), glow_color=(102, 126, 234), line_spacing=18
             )
             
-            # 绘制副标题：黄色（与图片处理一致）
+            # 绘制副标题：黄底黑字（与动画成片一致）
             if sub_lines:
-                sub_y = title_y + main_h + 12
-                bg, _ = _draw_text_overlay(
+                sub_y = title_y + main_h + MAIN_SUBTITLE_GAP_PX
+                bg, _ = _draw_subtitle_yellow_bar(
                     bg, sub_lines, st_font, sub_y, img_width, margin, text_width,
-                    text_color=(255, 255, 0), glow_color=(180, 140, 30), line_spacing=14
+                    line_spacing=14,
                 )
             
             # 绘制摘要：白色（与图片处理一致）
             bg, _ = _draw_text_overlay(
                 bg, summary_lines, summary_font, summary_y, img_width, margin, text_width,
-                text_color=(255, 255, 255), line_spacing=12
+                text_color=(255, 255, 255), line_spacing=12, align="left",
             )
             
             return bg

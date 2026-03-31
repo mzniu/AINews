@@ -79,15 +79,13 @@
             });
         }
         
-        function getCombinedTitle() {
-            // 获取组合后的标题（主标题 + 副标题）
-            const mainTitle = document.getElementById('editableMainTitle')?.value.trim() || '';
-            const subTitle = document.getElementById('editableSubTitle')?.value.trim() || '';
-            
-            if (subTitle) {
-                return `${mainTitle}|${subTitle}`;
-            }
-            return mainTitle;
+        /** 主标题两行 + 副标题（供调试或扩展使用） */
+        function getAnimatedTitlePayload() {
+            return {
+                main_line1: document.getElementById('editableMainLine1')?.value.trim() || '',
+                main_line2: document.getElementById('editableMainLine2')?.value.trim() || '',
+                subtitle: document.getElementById('editableSubTitle')?.value.trim() || ''
+            };
         }
         
         // ==================== 视频查看功能 ====================

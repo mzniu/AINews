@@ -2,7 +2,8 @@
         let selectedImages = [];
         let generatedTitle = '';
         let generatedSummary = '';
-        let editedMainTitle = '';
+        let editedMainLine1 = '';
+        let editedMainLine2 = '';
         let editedSubTitle = '';
         let editedSummary = '';
         let editedTags = '';
