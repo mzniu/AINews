@@ -220,8 +220,17 @@ async def get_project_image(project_id: str, image_id: str):
         if not image_path or not image_path.exists():
             raise HTTPException(status_code=404, detail="图片不存在")
         
-        # 确定媒体类型
-        media_type = "image/jpeg" if image_path.suffix.lower() in ['.jpg', '.jpeg'] else "image/png"
+        # 确定媒体类型，避免 GIF / WebP 预览被浏览器按 PNG 解释导致动图不可见
+        suffix = image_path.suffix.lower()
+        media_type_map = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.svg': 'image/svg+xml',
+        }
+        media_type = media_type_map.get(suffix, 'application/octet-stream')
         
         return FileResponse(
             image_path,

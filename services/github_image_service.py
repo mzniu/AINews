@@ -146,7 +146,23 @@ class ImageDownloader:
 
 class ImageProcessor:
     """图片处理器"""
-    
+
+    @staticmethod
+    def is_animation_preserved_image(image_path: Path) -> bool:
+        """Return True for raster animations that must keep multi-frame data."""
+        try:
+            suffix = image_path.suffix.lower()
+            if suffix == '.gif':
+                return True
+            if suffix != '.webp':
+                return False
+            with Image.open(image_path) as img:
+                frame_count = int(getattr(img, 'n_frames', 1) or 1)
+                return bool(getattr(img, 'is_animated', False)) and frame_count > 1
+        except Exception as e:
+            logger.debug(f"Failed to detect preserved animation image {image_path}: {e}")
+            return False
+
     @staticmethod
     def resize_image(image_path: Path, max_width: int = 1920, max_height: int = 1080) -> Optional[Path]:
         """
@@ -154,6 +170,10 @@ class ImageProcessor:
         返回: 处理后的图片路径
         """
         try:
+            if ImageProcessor.is_animation_preserved_image(image_path):
+                logger.info(f"Preserve animated raster for video rendering: {image_path.name}")
+                return image_path
+
             # 对于SVG文件，先转换为PNG再调整尺寸
             if image_path.suffix.lower() == '.svg':
                 try:
@@ -200,6 +220,10 @@ class ImageProcessor:
         转换图片格式
         """
         try:
+            if ImageProcessor.is_animation_preserved_image(image_path):
+                logger.info(f"Skip format conversion for animated raster: {image_path.name}")
+                return image_path
+
             # SVG文件特殊处理：转换为PNG
             if image_path.suffix.lower() == '.svg':
                 try:
@@ -289,6 +313,12 @@ class ImageManager:
     def _process_image(self, image_path: Path) -> Optional[Path]:
         """处理单张图片"""
         try:
+            if self.processor.is_animation_preserved_image(image_path):
+                logger.info(
+                    f"Preserve GIF/animated WebP source for duration-based rendering: {image_path.name}"
+                )
+                return image_path
+
             # 调整尺寸
             resized_path = self.processor.resize_image(image_path, 1920, 1080)
             if not resized_path:
