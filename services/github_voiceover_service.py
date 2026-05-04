@@ -18,12 +18,29 @@ from loguru import logger
 # pydub 不在此处导入：避免 uvicorn 子进程与终端 pip 使用不同 Python 时误报「未安装」。
 # IndexTTS 使用其项目内置 Python 子进程运行，避免将 torch/checkpoints 绑定到 AINews 当前解释器。
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_LOCAL_INDEXTTS_PROJECT_DIR = _PROJECT_ROOT / "data" / "indextts_runtime" / "tts-2"
 _DEFAULT_INDEXTTS_PROJECT_DIR = Path(
     os.getenv(
         "INDEXTTS_PROJECT_DIR",
-        r"D:\BaiduNetdiskDownload\MetaHuman-2\MetaHuman4_V2\MetaHuman4_V2\tts-2",
+        str(_LOCAL_INDEXTTS_PROJECT_DIR),
     )
 )
+
+
+def _resolve_indextts_project_dir() -> Path:
+    project_dir = Path(os.getenv("INDEXTTS_PROJECT_DIR", str(_DEFAULT_INDEXTTS_PROJECT_DIR))).expanduser()
+    if not project_dir.is_absolute():
+        project_dir = _PROJECT_ROOT / project_dir
+    project_dir = project_dir.resolve()
+    if project_dir.is_dir():
+        return project_dir
+    raise FileNotFoundError(
+        "IndexTTS 本地运行时不存在: "
+        f"{project_dir}。请先执行: "
+        "python scripts/bootstrap_indextts_runtime.py "
+        "--source \"D:\\BaiduNetdiskDownload\\MetaHuman-2\\MetaHuman4_V2\\MetaHuman4_V2\\tts-2\""
+    )
 
 
 # 字幕断点标点（优先级从高到低分档，同档内从窗口尾部向前找）
@@ -566,7 +583,7 @@ def _ffprobe_video_size(path: Path) -> Tuple[int, int]:
     return (_ffprobe_video_width(path), _ffprobe_video_height(path))
 
 
-def _resolve_voice_clone_audio(voice_clone_audio_path: Optional[str]) -> Path:
+def _resolve_voice_clone_audio(voice_clone_audio_path: Optional[str], *, project_dir: Path) -> Path:
     candidates: List[Path] = []
     if voice_clone_audio_path:
         candidates.append(Path(voice_clone_audio_path.strip().lstrip("/")))
@@ -575,8 +592,8 @@ def _resolve_voice_clone_audio(voice_clone_audio_path: Optional[str]) -> Path:
         candidates.append(Path(env_prompt))
     candidates.extend(
         [
-            _DEFAULT_INDEXTTS_PROJECT_DIR / "tests" / "sample_prompt.wav",
-            _DEFAULT_INDEXTTS_PROJECT_DIR / "examples" / "voice_01.wav",
+            project_dir / "tests" / "sample_prompt.wav",
+            project_dir / "examples" / "voice_01.wav",
         ]
     )
     for candidate in candidates:
@@ -617,14 +634,14 @@ def _synthesize_indextts_segments_blocking(
     voice_clone_audio_path: Optional[str] = None,
 ) -> List[Path]:
     work_dir = Path(work_dir).resolve()
-    project_dir = Path(os.getenv("INDEXTTS_PROJECT_DIR", str(_DEFAULT_INDEXTTS_PROJECT_DIR))).resolve()
+    project_dir = _resolve_indextts_project_dir()
     python_exe = project_dir / "py312" / "python.exe"
     if not python_exe.is_file():
         raise FileNotFoundError(f"IndexTTS 内置 Python 不存在: {python_exe}")
     if not (project_dir / "checkpoints" / "config.yaml").is_file():
         raise FileNotFoundError(f"IndexTTS checkpoints/config.yaml 不存在: {project_dir}")
 
-    prompt_audio = _resolve_voice_clone_audio(voice_clone_audio_path)
+    prompt_audio = _resolve_voice_clone_audio(voice_clone_audio_path, project_dir=project_dir)
     segments_json = (work_dir / "indextts_segments.json").resolve()
     wav_dir = (work_dir / "indextts_wav").resolve()
     wav_dir.mkdir(parents=True, exist_ok=True)

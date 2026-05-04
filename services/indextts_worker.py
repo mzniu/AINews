@@ -107,7 +107,7 @@ def main() -> int:
     os.chdir(project_dir)
     sys.path.insert(0, str(project_dir))
 
-    with segments_json.open("r", encoding="utf-8") as f:
+    with segments_json.open("r", encoding="utf-8-sig") as f:
         segments = json.load(f)
     if not isinstance(segments, list):
         raise ValueError("segments json must be a list")
