@@ -126,25 +126,75 @@
                         <textarea id="contentEditor" placeholder="文章内容将显示在这里，您可以编辑..."></textarea>
                     </div>
 
-                    <h4 style="margin-top: 20px;">🖼️ 选择图片（点击图片选择/取消选择）</h4>
+                    <h4 style="margin-top: 20px;">🖼️ 选择图片或视频（点击选择/取消选择）</h4>
                     
-                    <!-- 上传本地图片区域 -->
+                    <!-- 上传本地图片/视频区域 -->
                     <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;">
                         <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                             <div>
                                 <button class="btn" onclick="document.getElementById('localImageInput').click()" style="margin: 0;">
-                                    📤 上传本地图片
+                                    📤 上传本地图片/视频
                                 </button>
-                                <input type="file" id="localImageInput" accept="image/*" multiple style="display: none;" onchange="handleLocalImageUpload(event)">
+                                <input type="file" id="localImageInput" accept="image/*,video/*" multiple style="display: none;" onchange="handleLocalImageUpload(event)">
                             </div>
                             <div style="font-size: 14px; color: #666;">
-                                支持 JPG、PNG、GIF 等格式，可多选
+                                图片：JPG、PNG、GIF 等（单文件≤10MB）；视频：MP4、WebM、MOV 等（单文件≤200MB）；可多选
                             </div>
                         </div>
                         <div id="uploadStatus" style="margin-top: 10px; font-size: 13px; color: #666; min-height: 20px;"></div>
                     </div>
+
+                    <div style="margin: 15px 0; padding: 15px; background: #f5f3ff; border-radius: 8px; border: 1px solid #c4b5fd;">
+                        <div style="font-weight: 600; color: #5b21b6; margin-bottom: 8px;">🎨 AI 封面图（Seedance / 火山文生图）</div>
+                        <p style="font-size: 12px; color: #64748b; margin: 0 0 10px;">根据上方正文与标题生成横版封面；需服务端配置 <code>SEEDANCE_API_KEY</code> 或 <code>ARK_API_KEY</code>，可选 <code>SEEDANCE_IMAGE_API_URL</code>、<code>SEEDANCE_IMAGE_MODEL</code>。</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start;">
+                            <textarea id="coverGenExtraHint" placeholder="可选：补充画面风格/色调（如：偏蓝、扁平插画、留白多）" style="flex: 1; min-width: 200px; min-height: 56px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px;"></textarea>
+                            <button type="button" class="btn" onclick="generateCoverFromPageContent()" id="coverGenBtn" style="margin: 0; align-self: center;">生成封面并加入选区</button>
+                        </div>
+                        <div id="coverGenStatus" style="margin-top: 10px; font-size: 13px; color: #666; min-height: 20px;"></div>
+                    </div>
+
+                    <div style="margin: 15px 0; padding: 15px; background: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd;">
+                        <div style="font-weight: 600; color: #0369a1; margin-bottom: 8px;">🔍 网页搜图（百度，开发用）</div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <input type="text" id="webImageSearchQuery" placeholder="关键词，例如：人工智能" style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;" />
+                            <button type="button" class="btn" onclick="runWebImageSearch()" id="webImageSearchBtn" style="margin: 0;">搜索图片</button>
+                        </div>
+                        <p style="font-size: 12px; color: #64748b; margin: 8px 0 0;">结果依赖第三方接口，易失效；仅供开发验证，使用图片请注意版权。鼠标悬停缩略图可放大预览。</p>
+                        <div id="webImageSearchStatus" style="margin-top: 8px; font-size: 13px; color: #666; min-height: 20px;"></div>
+                        <div id="webImageSearchGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 12px; max-height: 280px; overflow-y: auto;"></div>
+                    </div>
+
+                    <div style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        <div style="font-weight: 600; color: #334155; margin-bottom: 8px;">🌐 全网补充图片（DeepSeek 搜索词 + 打开相关页面抓图）</div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <input type="text" id="relatedImageQuery" placeholder="可选：留空则由 DeepSeek 根据当前标题和正文生成搜索词" style="flex: 1; min-width: 220px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;" />
+                            <label style="font-size: 13px; color: #475569;">每源搜索页数 <input type="number" id="relatedImageMaxPages" min="1" max="10" value="5" style="width: 64px; padding: 7px 8px; border: 1px solid #ccc; border-radius: 6px;"></label>
+                            <label style="font-size: 13px; color: #475569;">每页图片 <input type="number" id="relatedImageMaxPerPage" min="1" max="12" value="6" style="width: 64px; padding: 7px 8px; border: 1px solid #ccc; border-radius: 6px;"></label>
+                            <button type="button" class="btn" onclick="runRelatedImageCrawl()" id="relatedImageBtn" style="margin: 0;">补充图片</button>
+                        </div>
+                        <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: #475569;">
+                            <label style="cursor: pointer;"><input type="checkbox" class="related-image-source" value="baidu" checked> 百度</label>
+                            <label style="cursor: pointer;"><input type="checkbox" class="related-image-source" value="bing" checked> Bing</label>
+                            <label style="cursor: pointer;"><input type="checkbox" class="related-image-source" value="toutiao" checked> 头条</label>
+                        </div>
+                        <p style="font-size: 12px; color: #64748b; margin: 8px 0 0;">会调用大模型生成搜索词，并按所选搜索源分别翻页搜索；“每源搜索页数”表示每个搜索源各搜索几页。候选图片需手动加入选区，发布前请确认版权。</p>
+                        <div id="relatedImageStatus" style="margin-top: 8px; font-size: 13px; color: #666; min-height: 20px;"></div>
+                        <div id="relatedImagePages" style="display: none; margin-top: 10px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #e2e8f0; max-height: 150px; overflow-y: auto; font-size: 12px; color: #475569;"></div>
+                        <div id="relatedImageGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; margin-top: 12px; max-height: 340px; overflow-y: auto;"></div>
+                    </div>
                     
                     <div class="image-selector" id="imageSelector"></div>
+
+                    <div style="margin: 12px 0; padding: 12px 14px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <strong style="color: #495057;">口播稿字数</strong>
+                        <span style="font-size: 12px; color: #888;">（与「摘要」分开生成，用于配音与字幕；生成 AI 时生效）</span>
+                        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px;">
+                            <label style="font-size: 14px; color: #333;">最少 <input type="number" id="voiceoverMinChars" min="20" max="4000" value="120" style="width: 76px; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 6px;"></label>
+                            <label style="font-size: 14px; color: #333;">最多 <input type="number" id="voiceoverMaxChars" min="20" max="8000" value="400" style="width: 76px; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 6px;"></label>
+                            <span style="font-size: 12px; color: #888;">字（中文按字符计）</span>
+                        </div>
+                    </div>
 
                     <div class="action-buttons">
                         <button class="btn" onclick="generateSummary()">
@@ -166,18 +216,27 @@
                         <h4>🤖 AI生成内容</h4>
                         <div style="margin-bottom: 15px;">
                             <strong style="color: #667eea;">主标题第一行</strong>
-                            <span style="font-size: 12px; color: #888;">（12～14汉字当量，英文数字计0.5）</span>
+                            <span style="font-size: 12px; color: #888;">（14～18汉字当量，英文数字计0.5）</span>
                             <div class="ai-field-row">
-                                <input type="text" id="editableMainLine1" class="ai-edit-input" placeholder="第一行主标题" maxlength="28" style="font-size: 1.2em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
+                                <input type="text" id="editableMainLine1" class="ai-edit-input" placeholder="第一行主标题" maxlength="40" style="font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
                                 <button class="copy-btn" onclick="copyAiContent('editableMainLine1')" title="复制">📋</button>
                             </div>
                         </div>
                         <div style="margin-bottom: 15px;">
                             <strong style="color: #667eea;">主标题第二行</strong>
-                            <span style="font-size: 12px; color: #888;">（12～14汉字当量，可空）</span>
+                            <span style="font-size: 12px; color: #888;">（16～20汉字当量，可空）</span>
                             <div class="ai-field-row">
-                                <input type="text" id="editableMainLine2" class="ai-edit-input" placeholder="第二行主标题（可空）" maxlength="28" style="font-size: 1.15em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
+                                <input type="text" id="editableMainLine2" class="ai-edit-input" placeholder="第二行主标题（可空）" maxlength="44" style="font-size: 1.05em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; width: 100%;" />
                                 <button class="copy-btn" onclick="copyAiContent('editableMainLine2')" title="复制">📋</button>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">主标题字体</strong>
+                            <span style="font-size: 12px; color: #888;">（成片主标题两行使用同一字体）</span>
+                            <div class="ai-field-row" style="margin-top: 8px;">
+                                <select id="titleFontSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; cursor: pointer; width: 100%; max-width: 420px;">
+                                    <option value="msyhbd">微软雅黑 粗体</option>
+                                </select>
                             </div>
                         </div>
                         <div style="margin-bottom: 15px;">
@@ -195,14 +254,30 @@
                                 <button class="copy-btn" onclick="copyAiContent('editableAiSummary')" title="复制摘要">📋</button>
                             </div>
                         </div>
+                        <div style="margin-top: 15px;">
+                            <strong style="color: #667eea;">口播稿：</strong>
+                            <span style="font-size: 12px; color: #888;">（长度由上方「口播稿字数」控制；可粘贴到下方「配音与字幕」）</span>
+                            <div class="ai-field-row">
+                                <textarea id="editableVoiceoverScript" class="ai-edit-input" rows="6" placeholder="生成 AI 后口播稿将显示在这里..." style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; resize: vertical;"></textarea>
+                                <button class="copy-btn" onclick="copyAiContent('editableVoiceoverScript')" title="复制口播稿">📋</button>
+                            </div>
+                        </div>
                         <div>
                             <strong style="color: #667eea;">标签：</strong>
+                            <span style="font-size: 12px; color: #888;">（固定结构：赛道 + 垂直 + 精准 + 热点 + 个人IP + 5个其他标签；同时会从摘要中选出 3～5 个高亮词用于成片）</span>
                             <div class="ai-field-row">
-                                <input type="text" id="editableAiTags" class="ai-edit-input" placeholder="#AI #人工智能 #科技..." style="margin-top: 8px; color: #764ba2; font-size: 14px; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; width: 100%;" />
+                                <input type="text" id="editableAiTags" class="ai-edit-input" placeholder="#人工智能 #AI编程 #DeepSeek #AIAgent #小牛说 #其他标签..." style="margin-top: 8px; color: #764ba2; font-size: 14px; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; width: 100%;" />
                                 <button class="copy-btn" onclick="copyAiContent('editableAiTags')" title="复制标签">📋</button>
                             </div>
                         </div>
                         <div style="margin-top: 10px; color: #666; font-size: 12px;" id="aiMeta"></div>
+                        
+                        <div class="index-video-options" style="margin-top: 16px; padding: 12px 14px; background: #f0f4ff; border-radius: 8px; border: 1px solid #d6e0ff;">
+                            <label style="cursor: pointer; display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #333; line-height: 1.5;">
+                                <input type="checkbox" id="indexShowSummaryOnVideo" checked style="margin-top: 4px; flex-shrink: 0;" />
+                                <span>在成片画面上<strong>显示摘要文字</strong>（关闭则与 GitHub 基底成片类似：仅标题区，摘要留给下方口播与字幕）</span>
+                            </label>
+                        </div>
                         
                         <div class="action-buttons" style="margin-top: 20px;">
                             <button class="btn" onclick="generateVideoDirectly()">
@@ -239,7 +314,79 @@
                                     💾 下载视频
                                 </a>
                             </div>
-                        </div>                    </div>
+                        </div>
+
+                        <div id="indexVoiceoverSection" class="index-voiceover-section" style="display: none; margin-top: 24px; padding: 18px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+                            <h4 style="margin: 0 0 10px 0; color: #334155;">🎙️ 配音与字幕（可选）</h4>
+                            <p style="margin: 0 0 14px 0; font-size: 13px; color: #64748b; line-height: 1.5;">基于上方生成的基底视频，使用 IndexTTS 根据参考音频克隆音色生成口播，可与背景音乐混合，并可选将字幕烧录到画面（与 GitHub 成片第五步一致）。</p>
+                            <div style="margin-bottom: 10px;">
+                                <label for="indexVoiceoverScript" style="font-weight: 600; color: #475569;">口播稿</label>
+                                <textarea id="indexVoiceoverScript" rows="8" placeholder="编辑口播文本，或点击下方「填入口播稿 / 摘要」" style="width: 100%; margin-top: 6px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; resize: vertical;"></textarea>
+                            </div>
+                            <button type="button" class="secondary-btn" onclick="fillIndexVoiceoverFromSummary()" style="margin-bottom: 14px;">填入口播稿 / 摘要</button>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                                <div style="grid-column: span 2;">
+                                    <label for="indexVoiceoverCloneAudio" style="font-size: 13px; color: #475569;">声音克隆参考音频（IndexTTS）</label>
+                                    <input type="file" id="indexVoiceoverCloneAudio" accept="audio/wav,audio/mpeg,audio/flac,audio/ogg,audio/webm,audio/mp4,video/mp4,.wav,.mp3,.flac,.ogg,.webm,.m4a,.mp4" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; background: white;" />
+                                    <input type="hidden" id="indexVoiceoverCloneAudioPath" value="" />
+                                    <small id="indexVoiceoverCloneAudioStatus" style="display: block; margin-top: 4px; color: #64748b;">推荐上传 5～20 秒清晰人声；未上传时使用 IndexTTS 默认参考音频。</small>
+                                </div>
+                                <div style="grid-column: span 2;">
+                                    <label for="indexVoiceoverSubtitleFont" style="font-size: 13px; color: #475569;">烧录字幕字体</label>
+                                    <select id="indexVoiceoverSubtitleFont" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                        <option value="Microsoft YaHei">加载中…</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverSubtitleMarginPct" style="font-size: 13px; color: #475569;">字幕距底边（画面高度 %）</label>
+                                    <input type="number" id="indexVoiceoverSubtitleMarginPct" min="8" max="45" value="11" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" />
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverRate" style="font-size: 13px; color: #475569;">语速</label>
+                                    <select id="indexVoiceoverRate" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                        <option value="+0%">正常</option>
+                                        <option value="+15%">略快</option>
+                                        <option value="+25%" selected>较快（默认）</option>
+                                        <option value="+35%">更快</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverSubtitleSize" style="font-size: 13px; color: #475569;">字幕字号档位</label>
+                                    <input type="number" id="indexVoiceoverSubtitleSize" min="10" max="36" value="16" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" />
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverSubtitleMaxChars" style="font-size: 13px; color: #475569;">每条字幕约字数</label>
+                                    <input type="number" id="indexVoiceoverSubtitleMaxChars" min="8" max="40" value="20" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" />
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; font-size: 13px; color: #475569;">
+                                <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="indexVoiceoverMixBgm" checked /> 与原片 BGM 混合（压低 BGM）</label>
+                                <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="indexVoiceoverBurn" checked /> 烧录字幕到画面</label>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px;">
+                                <div>
+                                    <label for="indexVoiceoverBgmGain" style="font-size: 13px; color: #475569;">背景音乐音量（dB）</label>
+                                    <input type="number" id="indexVoiceoverBgmGain" min="-45" max="6" step="1" value="-22" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" title="越大越响，多为负值" />
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverNarrationGain" style="font-size: 13px; color: #475569;">人声音量（dB）</label>
+                                    <input type="number" id="indexVoiceoverNarrationGain" min="-24" max="24" step="1" value="0" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" title="TTS 混音前增益" />
+                                </div>
+                            </div>
+                            <button type="button" class="btn" onclick="generateIndexVoiceover()" id="indexVoiceoverGenerateBtn">生成配音与字幕视频</button>
+                            <div id="indexVoiceoverLoading" style="display: none; margin-top: 14px; padding: 16px; background: #fff; border-radius: 8px; border: 1px dashed #94a3b8;">
+                                <p style="margin: 0; color: #64748b;">正在使用 IndexTTS 合成语音与字幕，首次加载模型可能需要数分钟…</p>
+                            </div>
+                            <div id="indexVoiceoverResult" style="display: none; margin-top: 16px;">
+                                <p style="color: #16a34a; font-weight: 600; margin-bottom: 10px;">✅ 配音成片已生成</p>
+                                <div id="indexVoiceoverPreviewArea" style="max-width: 100%;"></div>
+                                <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                                    <a id="indexVoiceoverDownloadFinal" href="#" download class="btn" style="display: inline-block; padding: 10px 18px; background: #667eea; color: white; text-decoration: none; border-radius: 6px;">下载成片</a>
+                                    <a id="indexVoiceoverDownloadSrt" href="#" download style="display: none; padding: 10px 18px; border: 1px solid #cbd5e1; border-radius: 6px; color: #475569; text-decoration: none;">下载 SRT</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

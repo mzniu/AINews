@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import os
 
 from src.models.github_models import VideoMetadata, GitHubProject
+from utils.title_units import format_main_title_two_lines
 
 # 加载环境变量
 load_dotenv()
@@ -45,7 +46,7 @@ class ContentAnalyzer:
             tags = self._generate_tags(project_info)
             
             return VideoMetadata(
-                title=title,
+                title=format_main_title_two_lines(title),
                 subtitle=subtitle,
                 summary=summary,
                 tags=tags,
@@ -129,19 +130,19 @@ class ContentAnalyzer:
         try:
             system_prompt = """
             你是一位专业的技术内容创作者，专门为GitHub开源项目制作短视频内容。
-            你的任务是基于项目信息生成吸引人的中文视频标题。
-            
-            内容风格要求：
-            - 突出项目的技术亮点和实用价值
-            - 使用适度的营销语言，但保持真实性
-            - 标题长度控制在25-30个字符
-            - 必须包含项目核心技术和名称
-            - 体现"GitHub飙升榜"的概念
+            你的任务是基于项目信息生成「两行」中文主标题，用于竖屏/横屏视频首屏展示。
+            创作时可综合运用视频号常用标题技法（择其二三即可）：制造悬念；列举数字（如Star数、版本、性能数字）；提出疑问；强调时效（若README确有更新/新规）；引发争议（技术选型中立讨论，不引战）；指向明确（如「后端开发者」「小白友好」）。
+
+            版式硬性要求（必须遵守）：
+            - 输出恰好两行，中间用换行符 \\n 分隔，不要加引号或序号。
+            - 第一行：强话题性、吸睛、能引发好奇或讨论（可用疑问、反差、热词、惊叹），控制在约14个汉字以内；不要写完整项目全名，侧重「钩子」。
+            - 第二行：点出项目名称或核心技术/价值补充，务必包含或明确指向项目名称「与第一行形成完整信息」；约14个汉字以内。
+            - 两行加起来突出技术亮点与实用价值，用语真实不造谣。
             """
             
             user_prompt = f"""
-            基于以下GitHub项目信息，生成一个吸引人的中文视频标题：
-            
+            基于以下GitHub项目信息，生成两行中文主标题（第一行话题钩子，第二行项目名/亮点）：
+
             项目名称: {info['name']}
             描述: {info['description']}
             技术栈: {', '.join(info['tech_stack'])}
@@ -151,13 +152,10 @@ class ContentAnalyzer:
             {info['readme_content']}
 
             要求：
-            1. 标题包含项目名称，突出项目的核心价值和亮点
-            2. 使用有些夸张并吸引眼球的词汇
-            3. 体现技术特色
-            4. 保持简洁有力
-            5. 直接返回标题，不要其他内容
-            6. 突出此项目是Github飙升榜的项目
-            ## 标题中务必包含项目名称：{info['name']}
+            1. 严格输出两行，用换行 \\n 分隔；第一行必须有话题性，第二行须包含或对应项目名称：{info['name']}
+            2. 第一行像短视频爆款标题钩子（可含悬念、数字、疑问、受众指向），第二行落地到具体项目
+            3. 可适度夸张但基于真实 README，不编造 Star 或功能
+            4. 只返回两行标题，不要解释或其它内容
             """
             
             response = self.client.chat.completions.create(
@@ -166,11 +164,13 @@ class ContentAnalyzer:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=50,
+                max_tokens=80,
                 temperature=0.75
             )
             
-            title = response.choices[0].message.content.strip()            
+            title = response.choices[0].message.content.strip()
+            # 统一换行，去掉模型可能加上的引号包裹
+            title = title.replace("\r\n", "\n").strip().strip('"').strip("'")
             return title
             
         except Exception as e:
@@ -187,12 +187,11 @@ class ContentAnalyzer:
             你是一位专业的视频内容策划师，负责为GitHub项目生成吸引人的副标题。
             
             副标题创作原则：
-            - 补充主标题信息，突出不同角度的价值
-            - 重点强调项目的社会影响力和受欢迎程度
-            - 结合Star数展现项目的社区认可度
+            - 主标题可能为两行（第一行偏话题钩子、第二行偏项目名），副标题要从新角度补充，不要重复第一行钩子句
+            - 可补充：数字（Star、性能）、悬念、时效（若确有）、明确受众，与主标题形成层次
+            - 重点强调 Star、解决的痛点或应用场景
             - 长度控制在25-35个字符
-            - 避免与主标题内容重复
-            - 突出项目的实际应用价值和技术优势
+            - 避免与主标题第二行同质化
             """
             
             user_prompt = f"""
@@ -239,20 +238,19 @@ class ContentAnalyzer:
             full_readme = info['readme_content']
             
             system_prompt = """
-            你是一位技术文档专家，擅长将复杂的GitHub项目信息提炼成简洁有力的摘要。
-            
+            你是一位技术文档专家，擅长将复杂的GitHub项目信息写成适合口播/字幕的短摘要。
+
             摘要写作要求：
-            - 长度控制在120-150个字符
-            - 突出项目解决的核心问题
-            - 强调技术优势和创新点
-            - 体现项目的实用价值
-            - 语言通俗易懂，避免过多技术术语
-            - 基于真实的README内容，保持准确性
+            - 长度控制在约120-160个字符（含标点）
+            - 第一句必须是面向观众的「分享式」开场，例如「今天给大家分享一个宝藏项目」「给大家安利一个开源好项目」「给大家推荐一个我最近挖到的宝藏仓库」等同类表达，语气亲切自然；随后紧接项目名与一句核心价值。
+            - 第二句起再展开：核心功能、解决什么问题、技术亮点（基于 README，不编造）；可自然加入具体数字、一句反问或「适合谁用」，增强视频号口播节奏
+            - 语言口语化、通俗易懂，避免堆砌术语
+            - 基于真实 README，保持准确性
             """
             
             user_prompt = f"""
-            基于以下完整的GitHub项目README内容，生成一段中文摘要：
-            
+            基于以下完整的GitHub项目 README，写一段中文摘要（口播稿风格）：
+
             项目名称: {info['name']}
             项目描述: {info['description']}
             技术栈: {', '.join(info['tech_stack'])}
@@ -263,11 +261,9 @@ class ContentAnalyzer:
             {full_readme}
             
             要求：
-            1. 简洁明了介绍项目核心功能
-            2. 突出解决的实际问题
-            3. 说明主要特性和技术优势
-            4. 直接返回摘要，不要其他内容
-            5. 突出项目的核心价值和亮点
+            1. 第一句必须是分享/安利式开场（类似「给大家分享一个宝藏项目」），并自然带出项目名 {info['name']}
+            2. 后面几句说明做什么、解决什么问题、亮点是什么
+            3. 直接返回一段连续摘要，不要小标题或列表
             """
             
             response = self.client.chat.completions.create(
@@ -291,29 +287,33 @@ class ContentAnalyzer:
         """生成相关标签"""
         try:
             system_prompt = """
-            你是一位社交媒体内容专家，擅长为技术项目创建精准的标签体系。
+            你是一位社交媒体内容专家，擅长为技术项目创建精准的短视频标签体系。
             
             标签创建原则：
-            - 包括技术栈标签、功能特性标签、应用领域标签
-            - 使用简洁准确的中文词汇
-            - 避免过于宽泛或重复的标签
-            - 考虑SEO优化和搜索可见性
-            - 标签数量控制在5-8个
-            - 格式：每个标签用逗号分隔
+            - 严格输出 10 个标签，且顺序固定
+            - 第1个：赛道标签，表示宏观领域/行业赛道
+            - 第2个：垂直标签，表示细分方向/应用场景
+            - 第3个：精准标签，表示项目名、产品名、技术名或最核心概念
+            - 第4个：热点标签，表示当前传播热点、技术趋势或高关注话题
+            - 第5个：个人IP标签，固定使用 #小牛说 或与内容强相关的 #小牛说AI
+            - 第6～10个：其他补充标签，用于技术栈、受众、价值点、平台、场景等
+            - 避免重复标签；每个标签都以 # 开头，用空格分隔
             """
             
             user_prompt = f"""
-            为以下GitHub项目生成5-8个相关的中文标签：
+            为以下GitHub项目生成10个中文标签：
             
             项目名称: {info['name']}
+            项目描述: {info['description']}
             技术栈: {', '.join(info['tech_stack'])}
             特点: {', '.join(info['features'])}
+            Star数: {info['stars']}
             
             要求：
-            1. 给出10个标签，包括技术标签、功能标签、领域标签
-            2. 使用简洁的中文词汇
-            3. 用空格分隔各个标签，标签以#开头，如：#python #项目 #开源
-            4. 直接返回标签列表，不要其他内容
+            1. 严格按顺序给出：1个赛道标签 + 1个垂直标签 + 1个精准标签 + 1个热点标签 + 1个个人IP标签 + 5个其他标签。
+            2. 第5个个人IP标签优先固定为 #小牛说。
+            3. 每个标签以 # 开头，用空格分隔，例如：#开源项目 #AI编程 #WorldMonitor #GitHub热门 #小牛说 #Python #监控工具 #开发者工具 #自动化 #效率工具。
+            4. 只返回这一行标签，不要解释，不要编号，不要逗号。
             """
             
             response = self.client.chat.completions.create(
@@ -322,24 +322,56 @@ class ContentAnalyzer:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=60,
+                max_tokens=120,
                 temperature=0.4
             )
             
             tags_text = response.choices[0].message.content.strip()
-            tags = [tag.strip() for tag in tags_text.split(',')]
-            return tags[:8]
+            tags = self._parse_hashtag_line(tags_text)
+            if len(tags) < 10:
+                defaults = self._generate_default_tags(info)
+                for tag in defaults:
+                    if tag not in tags:
+                        tags.append(tag)
+            has_ip_tag = '#小牛说' in tags or '#小牛说AI' in tags
+            if not has_ip_tag:
+                tags.insert(4, '#小牛说')
+            elif len(tags) >= 5 and tags[4] not in ('#小牛说', '#小牛说AI'):
+                ip_tag = '#小牛说' if '#小牛说' in tags else '#小牛说AI'
+                tags = [tag for tag in tags if tag != ip_tag]
+                tags.insert(4, ip_tag)
+            return tags[:10]
             
         except Exception as e:
             logger.error(f"生成标签失败: {e}")
             return self._generate_default_tags(info)
+
+    @staticmethod
+    def _parse_hashtag_line(tags_text: str) -> List[str]:
+        """解析模型返回的标签行，兼容空格、逗号、顿号与换行。"""
+        raw_text = tags_text or ""
+        hashtag_matches = re.findall(r"#[^\s,，、；;。.]+", raw_text)
+        raw = raw_text.replace("，", " ").replace(",", " ").replace("、", " ")
+        parts = hashtag_matches or re.split(r"\s+", raw.strip())
+        tags: List[str] = []
+        seen = set()
+        for part in parts:
+            tag = part.strip().strip("；;。.")
+            if not tag:
+                continue
+            if not tag.startswith("#"):
+                tag = f"#{tag.lstrip('#')}"
+            if tag not in seen:
+                seen.add(tag)
+                tags.append(tag)
+        return tags
     
     def _generate_default_content(self, project: GitHubProject) -> VideoMetadata:
         """生成默认内容（当AI不可用时）"""
         info = self._extract_project_info(project)
         
         return VideoMetadata(
-            title=self._generate_default_title(info),
+            title=format_main_title_two_lines(self._generate_default_title(info)),
             subtitle=self._generate_default_subtitle(info),
             summary=self._generate_default_summary(info),
             tags=self._generate_default_tags(info),
@@ -348,23 +380,27 @@ class ContentAnalyzer:
         )
     
     def _generate_default_title(self, info: Dict) -> str:
-        """生成默认标题（突出Star数）"""
+        """无 API 时的默认两行标题：第一行话题钩子，第二行项目名。"""
         tech_part = f"[{info['language']}]" if info['language'] else ""
-        
-        # 根据Star数调整标题强度
+
         if info['stars'] >= 10000:
-            popularity = "🔥爆款"
+            hook = "星标狂飙的宝藏仓库"
         elif info['stars'] >= 5000:
-            popularity = "⭐热门"
+            hook = "社区都在盯的黑马项目"
         elif info['stars'] >= 1000:
-            popularity = "🌟推荐"
+            hook = "值得收藏的硬核开源"
         elif info['stars'] >= 500:
-            popularity = "✨优质"
+            hook = "最近很香的开源项目"
         else:
-            popularity = "🚀新兴"
-            
-        return f"{popularity}{info['name']}{tech_part}"
-    
+            hook = "挖到的宝藏级开源"
+
+        # 两行：\n 便于后续与 index 一致拆行展示
+        return f"{hook}\n{info['name']}{tech_part}"
+
+    def _generate_default_subtitle(self, info: Dict) -> str:
+        """无 AI 或未配置 API 时的默认副标题（与 _generate_default_subtitle_with_stars 一致）。"""
+        return self._generate_default_subtitle_with_stars(info)
+
     def _format_star_count(self, stars: int) -> str:
         """格式化Star数为友好的描述"""
         if stars >= 10000:
@@ -394,19 +430,39 @@ class ContentAnalyzer:
             return f"{feature_text} | {info['language']}项目"
     
     def _generate_default_summary(self, info: Dict) -> str:
-        """生成默认摘要"""
+        """生成默认摘要（首句分享式开场）"""
         desc = info['description'] or f"这是一个优秀的{info['language']}项目"
         tech_text = f"，使用{', '.join(info['tech_stack'])}技术栈" if info['tech_stack'] else ""
-        return f"{desc}{tech_text}，值得关注和学习。"
+        opener = "今天给大家分享一个宝藏项目"
+        return f"{opener}「{info['name']}」。{desc}{tech_text}，值得关注和学习。"
     
     def _generate_default_tags(self, info: Dict) -> List[str]:
         """生成默认标签"""
-        tags = ['GitHub项目', '开源软件']
-        if info['language']:
-            tags.append(info['language'])
-        if info['tech_stack']:
-            tags.extend(info['tech_stack'][:3])
-        return tags[:6]
+        lane = '#开源项目'
+        vertical = '#开发者工具'
+        precise = f"#{info['name']}" if info.get('name') else '#GitHub项目'
+        hot = '#GitHub热门' if info.get('stars', 0) >= 1000 else '#开源推荐'
+        ip = '#小牛说'
+
+        extras: List[str] = []
+        if info.get('language'):
+            extras.append(f"#{info['language']}")
+        for tech in info.get('tech_stack') or []:
+            extras.append(f"#{tech}")
+        for feature in info.get('features') or []:
+            extras.append(f"#{feature}")
+        extras.extend(['#技术分享', '#效率工具', '#程序员', '#AI工具', '#项目推荐'])
+
+        tags: List[str] = []
+        seen = set()
+        for tag in [lane, vertical, precise, hot, ip, *extras]:
+            tag = tag if tag.startswith('#') else f'#{tag}'
+            if tag not in seen:
+                seen.add(tag)
+                tags.append(tag)
+            if len(tags) == 10:
+                break
+        return tags
 
 
 class ContentStyleManager:

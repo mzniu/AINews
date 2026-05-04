@@ -777,10 +777,12 @@
                 console.log('API 响应:', result);
                 
                 if (result.success) {
-                    // 更新选择区域的图片
-                    const imgDiv = document.querySelector(`.selectable-image[data-path="${originalPath}"]`);
+                    const imgDiv = Array.from(document.querySelectorAll('.selectable-image')).find(
+                        (el) => el.dataset.path === originalPath
+                    );
                     if (imgDiv) {
-                        imgDiv.querySelector('img').src = result.final_path + '?t=' + Date.now();
+                        const thumb = imgDiv.querySelector('img');
+                        if (thumb) thumb.src = result.final_path + '?t=' + Date.now();
                         imgDiv.dataset.path = result.final_path;
                     }
                     

@@ -24,16 +24,16 @@ async def process_gif_for_video(
 ):
     """处理GIF用于视频生成"""
     try:
-        logger.info(f"处理GIF: {gif_path}, 目标时长: {target_duration}秒")
+        logger.info(f"处理 GIF/WebP: {gif_path}, 目标时长: {target_duration}秒")
         
-        # 验证GIF文件
-        if not gif_processor.is_gif_file(gif_path):
-            raise HTTPException(status_code=400, detail="不是有效的GIF文件")
-        
-        # 分析GIF兼容性
-        analysis = gif_processor.analyze_gif_compatibility(gif_path)
-        if not analysis['is_valid']:
-            logger.warning(f"GIF兼容性问题: {analysis['issues']}")
+        if not gif_processor.is_convertible_to_mp4_animation(gif_path):
+            raise HTTPException(status_code=400, detail="仅支持 .gif 或 .webp")
+
+        analysis = {}
+        if gif_processor.is_gif_file(gif_path):
+            analysis = gif_processor.analyze_gif_compatibility(gif_path)
+            if not analysis.get("is_valid"):
+                logger.warning(f"GIF兼容性问题: {analysis.get('issues')}")
         
         # 处理GIF转换
         result_path = gif_processor.process_gif_for_video(
@@ -46,7 +46,7 @@ async def process_gif_for_video(
             return {
                 "success": True,
                 "video_path": result_path,
-                "message": "GIF处理成功",
+                "message": "GIF/WebP 处理成功",
                 "gif_analysis": analysis
             }
         else:
@@ -62,13 +62,27 @@ async def batch_process_gifs(
     target_duration: float = Form(...),
     output_dir: str = Form("data/temp_videos")
 ):
-    """批量处理多个GIF"""
+    """批量处理多个 GIF 或 WebP（转 MP4 片段）"""
     try:
+        logger.info(
+            "POST /api/gif/batch-process-gifs: %d 个 GIF/WebP → MP4, target_duration=%.2fs, output_dir=%s",
+            len(gif_paths),
+            target_duration,
+            output_dir,
+        )
         results = []
         failed_count = 0
         
         for gif_path in gif_paths:
             try:
+                if not gif_processor.is_convertible_to_mp4_animation(gif_path):
+                    results.append({
+                        "original_path": gif_path,
+                        "status": "failed",
+                        "error": "仅支持 .gif 或 .webp",
+                    })
+                    failed_count += 1
+                    continue
                 result = gif_processor.process_gif_for_video(
                     gif_path=gif_path,
                     target_duration=target_duration,

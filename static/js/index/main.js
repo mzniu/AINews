@@ -16,6 +16,314 @@
             }, duration);
         }
 
+        function getTitleFontKey() {
+            const el = document.getElementById('titleFontSelect');
+            return el && el.value ? el.value : 'msyhbd';
+        }
+
+        function getShowSummaryOnVideo() {
+            const el = document.getElementById('indexShowSummaryOnVideo');
+            return el ? el.checked : true;
+        }
+
+        function getVoiceoverLengthParams() {
+            const minEl = document.getElementById('voiceoverMinChars');
+            const maxEl = document.getElementById('voiceoverMaxChars');
+            let min = parseInt(minEl && minEl.value, 10);
+            let max = parseInt(maxEl && maxEl.value, 10);
+            if (!Number.isFinite(min)) min = 120;
+            if (!Number.isFinite(max)) max = 400;
+            min = Math.max(20, Math.min(4000, min));
+            max = Math.max(20, Math.min(8000, max));
+            if (min > max) {
+                const t = min;
+                min = max;
+                max = t;
+            }
+            return { voiceover_min_chars: min, voiceover_max_chars: max };
+        }
+
+        function onIndexBaseVideoReady(videoPath) {
+            if (!videoPath) return;
+            window.__indexBaseVideoPath = videoPath;
+            const sec = document.getElementById('indexVoiceoverSection');
+            if (sec) sec.style.display = 'block';
+            const ta = document.getElementById('indexVoiceoverScript');
+            if (ta && !ta.value.trim()) {
+                const voEl = document.getElementById('editableVoiceoverScript');
+                const sumEl = document.getElementById('editableAiSummary');
+                if (voEl && voEl.value.trim()) ta.value = voEl.value.trim();
+                else if (sumEl && sumEl.value.trim()) ta.value = sumEl.value.trim();
+            }
+        }
+
+        function fillIndexVoiceoverFromSummary() {
+            const ta = document.getElementById('indexVoiceoverScript');
+            const voEl = document.getElementById('editableVoiceoverScript');
+            const sumEl = document.getElementById('editableAiSummary');
+            if (!ta) return;
+            if (voEl && voEl.value.trim()) {
+                ta.value = voEl.value.trim();
+                showToast('已填入口播稿', 'success');
+            } else if (sumEl && sumEl.value.trim()) {
+                ta.value = sumEl.value.trim();
+                showToast('已填入摘要', 'success');
+            } else {
+                showToast('请先在上方生成或填写口播稿/摘要', 'error');
+            }
+        }
+
+        async function ensureIndexVoiceCloneAudioUploaded() {
+            const fileInput = document.getElementById('indexVoiceoverCloneAudio');
+            const pathInput = document.getElementById('indexVoiceoverCloneAudioPath');
+            const status = document.getElementById('indexVoiceoverCloneAudioStatus');
+            const file = fileInput?.files?.[0];
+            if (!file) return pathInput?.value || '';
+            if (pathInput?.dataset.fileName === file.name && pathInput.value) {
+                return pathInput.value;
+            }
+            if (status) status.textContent = '正在上传参考音频…';
+            const formData = new FormData();
+            formData.append('audio', file);
+            const response = await fetch('/api/upload-voice-clone-audio', {
+                method: 'POST',
+                body: formData,
+            });
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (_) {
+                data = {};
+            }
+            if (!response.ok || !data.success) {
+                throw new Error(data.detail || data.message || '参考音频上传失败');
+            }
+            if (pathInput) {
+                pathInput.value = data.path || '';
+                pathInput.dataset.fileName = file.name;
+            }
+            if (status) status.textContent = `已上传：${file.name}`;
+            return data.path || '';
+        }
+
+        async function generateIndexVoiceover() {
+            const script = document.getElementById('indexVoiceoverScript')?.value.trim();
+            if (!script) {
+                showToast('请填写口播稿', 'error');
+                return;
+            }
+            const base = window.__indexBaseVideoPath;
+            if (!base) {
+                showToast('请先生成基底视频', 'error');
+                return;
+            }
+            const loading = document.getElementById('indexVoiceoverLoading');
+            const resBox = document.getElementById('indexVoiceoverResult');
+            const btn = document.getElementById('indexVoiceoverGenerateBtn');
+            if (loading) loading.style.display = 'block';
+            if (resBox) resBox.style.display = 'none';
+            if (btn) btn.disabled = true;
+            try {
+                const voiceCloneAudioPath = await ensureIndexVoiceCloneAudioUploaded();
+                const response = await fetch('/api/render-voiceover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        base_video_path: base,
+                        script,
+                        voice_clone_audio_path: voiceCloneAudioPath,
+                        mix_bgm: document.getElementById('indexVoiceoverMixBgm').checked,
+                        bgm_gain_db: Math.min(
+                            6,
+                            Math.max(
+                                -45,
+                                parseFloat(document.getElementById('indexVoiceoverBgmGain')?.value) || -22
+                            )
+                        ),
+                        narration_gain_db: Math.min(
+                            24,
+                            Math.max(
+                                -24,
+                                parseFloat(document.getElementById('indexVoiceoverNarrationGain')?.value) || 0
+                            )
+                        ),
+                        burn_subtitles: document.getElementById('indexVoiceoverBurn').checked,
+                        tts_rate: document.getElementById('indexVoiceoverRate')?.value || '+25%',
+                        subtitle_fontname:
+                            document.getElementById('indexVoiceoverSubtitleFont')?.value?.trim() ||
+                            'Microsoft YaHei',
+                        subtitle_margin_bottom_percent: Math.min(
+                            45,
+                            Math.max(
+                                8,
+                                parseFloat(
+                                    document.getElementById('indexVoiceoverSubtitleMarginPct')?.value || '11'
+                                ) || 11
+                            )
+                        ),
+                        subtitle_fontsize: Math.min(
+                            36,
+                            Math.max(
+                                10,
+                                parseInt(
+                                    document.getElementById('indexVoiceoverSubtitleSize')?.value || '16',
+                                    10
+                                ) || 16
+                            )
+                        ),
+                        subtitle_max_chars: Math.min(
+                            40,
+                            Math.max(
+                                8,
+                                parseInt(
+                                    document.getElementById('indexVoiceoverSubtitleMaxChars')?.value || '20',
+                                    10
+                                ) || 20
+                            )
+                        ),
+                    }),
+                });
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch (_) {
+                    data = {};
+                }
+                if (!response.ok) {
+                    const detail = data.detail;
+                    const msg =
+                        typeof detail === 'string'
+                            ? detail
+                            : Array.isArray(detail)
+                              ? detail.map((x) => x.msg || JSON.stringify(x)).join('; ')
+                              : data.message || JSON.stringify(data) || response.statusText;
+                    throw new Error(msg);
+                }
+                if (data.success && data.final_video_path) {
+                    if (loading) loading.style.display = 'none';
+                    if (resBox) resBox.style.display = 'block';
+                    const prev = document.getElementById('indexVoiceoverPreviewArea');
+                    if (prev) {
+                        prev.innerHTML = '';
+                        const v = document.createElement('video');
+                        v.controls = true;
+                        v.style.maxWidth = '100%';
+                        v.src = data.final_video_path;
+                        prev.appendChild(v);
+                    }
+                    const dl = document.getElementById('indexVoiceoverDownloadFinal');
+                    if (dl) {
+                        dl.href = data.final_video_path;
+                        dl.download = `ainews_voiceover_${Date.now()}.mp4`;
+                    }
+                    const srtA = document.getElementById('indexVoiceoverDownloadSrt');
+                    if (data.srt_path && srtA) {
+                        srtA.href = data.srt_path;
+                        srtA.download = `ainews_${Date.now()}.srt`;
+                        srtA.style.display = 'inline-block';
+                    } else if (srtA) {
+                        srtA.style.display = 'none';
+                    }
+                    showToast('配音与字幕成片已生成', 'success');
+                } else {
+                    throw new Error(data.message || '生成失败');
+                }
+            } catch (e) {
+                if (loading) loading.style.display = 'none';
+                showToast(`配音生成失败: ${e.message}`, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        function isVideoPath(p) {
+            if (!p || typeof p !== 'string') return false;
+            return /\.(mp4|webm|mov|avi|mkv)$/i.test(p);
+        }
+
+        /** 识别 GIF 路径（忽略 ?query / #hash，大小写不敏感） */
+        function isGifPath(p) {
+            if (!p || typeof p !== 'string') return false;
+            const pathOnly = p.split(/[?#]/)[0];
+            return /\.gif$/i.test(pathOnly);
+        }
+
+        /** WebP（含动画与静态；预转 MP4 时一并处理） */
+        function isWebpPath(p) {
+            if (!p || typeof p !== 'string') return false;
+            const pathOnly = p.split(/[?#]/)[0];
+            return /\.webp$/i.test(pathOnly);
+        }
+
+        /** 需先转 MP4 再参与画中画：GIF 或 WebP（与后端 batch-process 一致） */
+        function needsAnimationPreconvertPath(p) {
+            return isGifPath(p) || isWebpPath(p);
+        }
+
+        /** 与后端返回的 data/... 路径对齐，便于 URL 与比对 */
+        function normalizeServerMediaPath(p) {
+            if (p == null || p === '') return p;
+            let s = String(p).replace(/\\/g, '/');
+            if (s.startsWith('/')) return s;
+            return '/' + s;
+        }
+
+        /**
+         * GIF/WebP 批量转 MP4 成功后，必须把 selectedImages 中的原路径换成 .mp4，
+         * 否则成片仍走服务端多帧动画分支；转 MP4 后走画中画（is_video）。
+         */
+        function applyGifBatchResultsToSelectedImages(results) {
+            if (!Array.isArray(results)) return;
+            for (const r of results) {
+                if (!r || r.status !== 'success' || !r.video_path || !r.original_path) continue;
+                const newPath = normalizeServerMediaPath(r.video_path);
+                const origNorm = normalizeServerMediaPath(r.original_path);
+                const idx = selectedImages.findIndex(
+                    (o) => normalizeServerMediaPath(o.path) === origNorm
+                );
+                if (idx >= 0) {
+                    selectedImages[idx] = {
+                        ...selectedImages[idx],
+                        path: newPath,
+                        type: 'video',
+                    };
+                }
+            }
+        }
+
+        /** 与 GitHub 成片排序面板一致：视频默认 3s，图片默认 2s；时长限制 0.5～30s */
+        function normalizeSelectedClipDurations() {
+            selectedImages.forEach((o) => {
+                const vid = (o.type === 'video') || isVideoPath(o.path);
+                const fallback = vid ? 3 : 2;
+                let d = o.duration;
+                if (d == null || d === '' || isNaN(Number(d))) {
+                    o.duration = fallback;
+                } else {
+                    o.duration = Math.min(30, Math.max(0.5, Number(d)));
+                }
+            });
+        }
+
+        function buildClipPayloadForAnimatedVideo() {
+            normalizeSelectedClipDurations();
+            // 从排序面板输入框同步时长：仅 onchange 时用户改完数字未失焦就生成，仍会带默认约 2s，导致成片片段时长偏短
+            document.querySelectorAll('.image-duration-input').forEach((inp) => {
+                const path = inp.dataset.path;
+                if (!path) return;
+                const imgObj = selectedImages.find((img) => img.path === path);
+                if (!imgObj) return;
+                const raw = parseFloat(inp.value);
+                if (!isNaN(raw)) {
+                    imgObj.duration = Math.min(30, Math.max(0.5, raw));
+                }
+            });
+            return selectedImages.map((imgObj) => ({
+                path: imgObj.path,
+                duration: Number(imgObj.duration),
+            }));
+        }
+
         
         // 排序面板功能
         function initSortPanel() {
@@ -29,6 +337,7 @@
         }
         
         function updateSortPanel() {
+            normalizeSelectedClipDurations();
             const container = document.getElementById('sortableList');
             container.innerHTML = '';
             
@@ -51,9 +360,9 @@
             const fileName = imgObj.path.split('/').pop() || '媒体文件';
             const displayName = fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName;
             
-            // 检查文件类型
-            const isGif = imgObj.path.toLowerCase().endsWith('.gif');
-            const isVideo = imgObj.path.toLowerCase().endsWith('.mp4') || imgObj.path.toLowerCase().endsWith('.webm') || imgObj.path.toLowerCase().endsWith('.mov');
+            const isGif = isGifPath(imgObj.path);
+            const isWebp = isWebpPath(imgObj.path);
+            const isVideo = (imgObj.type === 'video') || isVideoPath(imgObj.path);
             
             let indicator = '';
             let fileType = 'image';
@@ -61,38 +370,46 @@
             if (isGif) {
                 indicator = '<span class="sortable-gif-indicator">🎞️</span>';
                 fileType = 'gif';
+            } else if (isWebp) {
+                indicator = '<span class="sortable-gif-indicator" title="WebP（动画会先转 MP4）">🖼️</span>';
+                fileType = 'webp';
             } else if (isVideo) {
                 indicator = '<span class="sortable-gif-indicator">🎥</span>';
                 fileType = 'video';
             }
             
-            // 构建时间配置 HTML
-            let durationHtml = '';
-            if (isVideo) {
-                // 视频使用原始时长
-                durationHtml = `<span class="duration-auto-badge">⏱️ 自动</span>`;
+            const vid = isVideo;
+            const fallback = vid ? 3 : 2;
+            let durationVal = imgObj.duration;
+            if (durationVal == null || durationVal === '' || isNaN(Number(durationVal))) {
+                durationVal = fallback;
             } else {
-                // 图片和 GIF 可以配置时长
-                durationHtml = `
+                durationVal = Math.min(30, Math.max(0.5, Number(durationVal)));
+            }
+
+            const durationHtml = `
                     <div class="duration-config">
                         <input type="number" 
                                class="image-duration-input" 
-                               value="${imgObj.duration || 2.0}" 
-                               min="1" 
+                               value="${durationVal}" 
+                               min="0.5" 
                                max="30" 
                                step="0.5"
                                data-path="${imgObj.path}"
+                               oninput="updateImageDuration('${imgObj.path}', this.value)"
                                onchange="updateImageDuration('${imgObj.path}', this.value)">
                         <span class="duration-label">秒</span>
                     </div>
                 `;
-            }
+
+            const thumbHtml = isVideo
+                ? `<video src="${imgObj.path}" muted playsinline preload="metadata" class="index-sort-thumb-video"></video>`
+                : `<img src="${imgObj.path}" alt="选中媒体" 
+                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><circle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/><path d=%22M21 15l-5-5L5 21%22/></svg>'">`;
             
             div.innerHTML = `
                 <span class="order-number">${order}.</span>
-                <img src="${isVideo ? 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2255%22 height=%2255%22 viewBox=%220 0 24 24%22 fill=%22%23667eea%22><path d=%22M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z%22/></svg>' : imgObj.path}" 
-                     alt="选中媒体" 
-                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><circle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/><path d=%22M21 15l-5-5L5 21%22/></svg>'">
+                ${thumbHtml}
                 ${indicator}
                 <span class="filename" title="${fileName} (${fileType})">${displayName}</span>
                 ${durationHtml}
@@ -188,15 +505,19 @@
         }
         
         /**
-         * 更新图片显示时长
+         * 更新片段显示时长（与 GitHub 排序面板一致：0.5～30 秒）
          */
         function updateImageDuration(path, value) {
-            const duration = parseFloat(value);
+            const v = parseFloat(value);
             const imgObj = selectedImages.find(img => img.path === path);
-            if (imgObj) {
-                imgObj.duration = duration;
-                console.log(`更新图片时长：${path} -> ${duration}秒`);
-            }
+            if (!imgObj || isNaN(v)) return;
+            const clamped = Math.min(30, Math.max(0.5, v));
+            imgObj.duration = clamped;
+            document.querySelectorAll('.image-duration-input').forEach((inp) => {
+                if (inp.dataset.path === path && String(clamped) !== inp.value) {
+                    inp.value = String(clamped);
+                }
+            });
         }
         
         function updateOrderNumbers() {
@@ -213,16 +534,12 @@
         }
         
         function updateMainImageNumbers() {
-            // 获取所有选中的图片元素
-            const selectedImagesElements = document.querySelectorAll('.selectable-image.selected');
-            
-            // 根据selectedImages数组的顺序更新序号
-            selectedImagesElements.forEach((imgElement, index) => {
-                const orderNumber = imgElement.querySelector('.image-order-number');
+            const selectedEls = document.querySelectorAll('.selectable-image.selected, .selectable-video.selected');
+            selectedEls.forEach((mediaEl) => {
+                const orderNumber = mediaEl.querySelector('.image-order-number');
                 if (orderNumber) {
-                    // 找到该图片在selectedImages数组中的位置
-                    const imagePath = imgElement.dataset.path;
-                    const arrayIndex = selectedImages.indexOf(imagePath);
+                    const p = mediaEl.dataset.path;
+                    const arrayIndex = selectedImages.findIndex((img) => img.path === p);
                     if (arrayIndex !== -1) {
                         orderNumber.textContent = arrayIndex + 1;
                     }
@@ -246,6 +563,8 @@
             editedMainLine2 = document.getElementById('editableMainLine2').value.trim();
             editedSubTitle = document.getElementById('editableSubTitle').value.trim();
             editedSummary = document.getElementById('editableAiSummary').value.trim();
+            const voEl = document.getElementById('editableVoiceoverScript');
+            editedVoiceover = voEl ? voEl.value.trim() : '';
             editedTags = document.getElementById('editableAiTags').value.trim();
             
             if (!editedMainLine1 || !editedSummary) {
@@ -254,15 +573,13 @@
             }
             
             showToast('✅ 内容已保存，将在视频生成时使用', 'success');
-            console.log('保存的编辑内容:', { editedMainLine1, editedMainLine2, editedSubTitle, editedSummary, editedTags });
+            console.log('保存的编辑内容:', { editedMainLine1, editedMainLine2, editedSubTitle, editedSummary, editedVoiceover, editedTags });
         }
         
         // GIF 处理相关函数
         async function analyzeSelectedGIFs() {
-            const gifImages = selectedImages.filter(imgObj => 
-                imgObj.path.toLowerCase().endsWith('.gif')
-            );
-                    
+            const gifImages = selectedImages.filter((imgObj) => isGifPath(imgObj.path));
+
             if (gifImages.length === 0) {
                 showToast('没有选中的 GIF 图片', 'info');
                 return;
@@ -312,20 +629,23 @@
             showToast(content, 'info', 5000);
         }
         
-        async function processSelectedGIFs(durationPerFrame = 2.5) {
-            const gifImages = selectedImages.filter(imgObj => 
-                imgObj.path.toLowerCase().endsWith('.gif')
+        async function processSelectedGIFs(durationPerFrame = 2.5, options = {}) {
+            const { silentIfEmpty = true } = options;
+            const gifImages = selectedImages.filter((imgObj) =>
+                needsAnimationPreconvertPath(imgObj.path)
             );
-                    
+
             if (gifImages.length === 0) {
-                showToast('没有选中的 GIF 图片需要处理', 'info');
+                if (!silentIfEmpty) {
+                    showToast('没有需要预转换的 GIF/WebP', 'info');
+                }
                 return [];
             }
                     
             try {
                 // 批量处理 GIF
                 const formData = new FormData();
-                gifImages.forEach(imgObj => formData.append('gif_paths', imgObj.path));
+                gifImages.forEach((imgObj) => formData.append('gif_paths', imgObj.path));
                 formData.append('target_duration', durationPerFrame.toString());
                 
                 const response = await fetch('/api/gif/batch-process-gifs', {
@@ -336,11 +656,15 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    applyGifBatchResultsToSelectedImages(result.results);
                     const successfulVideos = result.results
                         .filter(r => r.status === 'success')
                         .map(r => r.video_path);
                     
-                    showToast(`✅ 成功处理 ${successfulVideos.length}/${gifImages.length} 个GIF`, 'success');
+                    showToast(
+                        `✅ 成功处理 ${successfulVideos.length}/${gifImages.length} 个 GIF/WebP`,
+                        'success'
+                    );
                     return successfulVideos;
                 } else {
                     throw new Error(result.detail || '处理失败');
@@ -399,9 +723,20 @@
             document.getElementById('urlInput').value = url;
         }
 
-        // 页面加载完成后自动扫描视频文件
-        window.addEventListener('DOMContentLoaded', async function() {
-            await scanVideos();
+        // 视频列表：改为懒加载 —— 仅在用户首次展开「视频列表」折叠区时再请求 /api/list-videos，
+        // 避免每次打开首页都扫描 data/videos/ 下数百个文件。
+        window.addEventListener('DOMContentLoaded', function () {
+            const section = document.getElementById('videosSection');
+            if (!section) return;
+            const header = section.previousElementSibling;
+            if (!header || !header.classList.contains('collapsible-header')) return;
+            let loaded = false;
+            header.addEventListener('click', async () => {
+                if (loaded) return;
+                if (section.classList.contains('hidden')) return; // 仍处于收起状态（toggle 由 onclick 完成）
+                loaded = true;
+                await scanVideos();
+            });
         });
 
         async function scanVideos() {
@@ -956,11 +1291,11 @@
             } else {
                 // 选择 - 添加为对象
                 mediaDiv.classList.add('selected');
-                const isVideo = type === 'video';
+                const isVideo = type === 'video' || isVideoPath(path);
                 selectedImages.push({
                     path: path,
-                    duration: isVideo ? null : 2.0, // 视频使用原始时长，图片默认 2 秒
-                    type: type
+                    duration: isVideo ? 3 : 2.0,
+                    type: isVideo ? 'video' : type
                 });
                 console.log(`选择${type}:`, path);
             }
@@ -978,7 +1313,25 @@
             toggleMediaSelection(imgDiv);
         }
 
-        // 处理本地图片上传
+        function classifyLocalMediaFile(file) {
+            const mime = (file.type || '').toLowerCase();
+            if (mime.startsWith('video/')) return 'video';
+            if (mime.startsWith('image/')) return 'image';
+            const n = (file.name || '').toLowerCase();
+            if (/\.(mp4|webm|mov|avi|mkv)$/.test(n)) return 'video';
+            if (/\.(jpe?g|png|gif|webp|bmp)$/.test(n)) return 'image';
+            return null;
+        }
+
+        function apiErrorMessage(body) {
+            if (!body || typeof body !== 'object') return '上传失败';
+            const d = body.detail;
+            if (typeof d === 'string') return d;
+            if (Array.isArray(d) && d[0] && d[0].msg) return d.map((x) => x.msg).join('; ');
+            return body.message || JSON.stringify(body);
+        }
+
+        // 处理本地上传（图片 + 视频）
         async function handleLocalImageUpload(event) {
             const files = event.target.files;
             const uploadStatus = document.getElementById('uploadStatus');
@@ -988,53 +1341,72 @@
             uploadStatus.innerHTML = `正在上传 ${files.length} 个文件...`;
             
             try {
-                const uploadedPaths = [];
+                const uploadedItems = [];
                 
-                // 逐个处理文件
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
-                    
-                    // 验证文件类型
-                    if (!file.type.startsWith('image/')) {
-                        showToast(`文件 ${file.name} 不是有效的图片格式`, 'error');
+                    const kind = classifyLocalMediaFile(file);
+                    if (!kind) {
+                        showToast(`文件 ${file.name} 不是支持的图片或视频格式`, 'error');
                         continue;
                     }
-                    
-                    // 验证文件大小（限制为10MB）
-                    if (file.size > 10 * 1024 * 1024) {
-                        showToast(`文件 ${file.name} 太大（超过10MB）`, 'error');
-                        continue;
-                    }
-                    
-                    // 创建FormData
-                    const formData = new FormData();
-                    formData.append('image', file);
-                    
-                    try {
-                        const response = await fetch('/upload-local-image', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            uploadedPaths.push(result.image_path);
-                            showToast(`✅ ${file.name} 上传成功`, 'success', 2000);
-                        } else {
-                            showToast(`❌ ${file.name} 上传失败: ${result.message}`, 'error');
+
+                    if (kind === 'image') {
+                        if (file.size > 10 * 1024 * 1024) {
+                            showToast(`图片 ${file.name} 太大（超过10MB）`, 'error');
+                            continue;
                         }
-                    } catch (error) {
-                        showToast(`❌ ${file.name} 上传出错: ${error.message}`, 'error');
+                        const formData = new FormData();
+                        formData.append('image', file);
+                        try {
+                            const response = await fetch('/upload-local-image', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const result = await response.json();
+                            if (response.ok && result.success) {
+                                uploadedItems.push({ path: result.image_path, type: 'image' });
+                                showToast(`✅ ${file.name} 上传成功`, 'success', 2000);
+                            } else {
+                                showToast(`❌ ${file.name} 上传失败: ${apiErrorMessage(result)}`, 'error');
+                            }
+                        } catch (error) {
+                            showToast(`❌ ${file.name} 上传出错: ${error.message}`, 'error');
+                        }
+                    } else {
+                        if (file.size > 200 * 1024 * 1024) {
+                            showToast(`视频 ${file.name} 太大（超过200MB）`, 'error');
+                            continue;
+                        }
+                        const formData = new FormData();
+                        formData.append('video', file);
+                        try {
+                            const response = await fetch('/upload-local-video', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const result = await response.json();
+                            if (response.ok && result.success) {
+                                const vp = result.video_path || result.image_path;
+                                uploadedItems.push({
+                                    path: vp,
+                                    type: 'video',
+                                    name: file.name,
+                                    sizeMb: file.size / (1024 * 1024)
+                                });
+                                showToast(`✅ ${file.name} 上传成功`, 'success', 2000);
+                            } else {
+                                showToast(`❌ ${file.name} 上传失败: ${apiErrorMessage(result)}`, 'error');
+                            }
+                        } catch (error) {
+                            showToast(`❌ ${file.name} 上传出错: ${error.message}`, 'error');
+                        }
                     }
                 }
                 
-                // 将上传的图片添加到选择区域
-                if (uploadedPaths.length > 0) {
-                    addUploadedImagesToSelector(uploadedPaths);
-                    uploadStatus.innerHTML = `✅ 成功上传 ${uploadedPaths.length} 个文件`;
-                    
-                    // 3秒后清除状态
+                if (uploadedItems.length > 0) {
+                    addUploadedMediaToSelector(uploadedItems);
+                    uploadStatus.innerHTML = `✅ 成功上传 ${uploadedItems.length} 个文件`;
                     setTimeout(() => {
                         uploadStatus.innerHTML = '';
                     }, 3000);
@@ -1048,72 +1420,511 @@
                 uploadStatus.innerHTML = '❌ 上传失败';
             }
             
-            // 清空input以便下次选择相同文件
             event.target.value = '';
         }
 
-        // 将上传的图片添加到选择器
-        function addUploadedImagesToSelector(imagePaths) {
+        function addUploadedMediaToSelector(items) {
+            items.forEach((item) => {
+                if (item.type === 'video') {
+                    addUploadedVideoToSelector(item);
+                } else {
+                    addUploadedImageToSelector(item.path);
+                }
+            });
+        }
+
+        function addUploadedVideoToSelector(item) {
+            const imageSelector = document.getElementById('imageSelector');
+            const path = item.path;
+            const existing = Array.from(imageSelector.querySelectorAll('.selectable-video'))
+                .find((el) => el.dataset.path === path);
+            if (existing) return;
+
+            const idx = imageSelector.querySelectorAll('.selectable-image, .selectable-video').length;
+            const fileName = item.name || path.split('/').pop() || '视频';
+            const displayName = fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName;
+            const sizeMb = item.sizeMb != null ? item.sizeMb.toFixed(1) + 'MB' : '未知大小';
+
+            const videoDiv = document.createElement('div');
+            videoDiv.className = 'selectable-video';
+            videoDiv.dataset.index = idx;
+            videoDiv.dataset.path = path;
+            videoDiv.dataset.type = 'video';
+            videoDiv.dataset.source = 'local';
+            videoDiv.innerHTML = `
+                <div class="video-preview">🎬</div>
+                <div class="video-info">
+                    <div>${displayName}</div>
+                    <div>${sizeMb}</div>
+                </div>
+                <div class="checkbox"></div>
+                <div class="image-order-number">${idx + 1}</div>
+                <div class="gif-badge">🎥 视频</div>
+                <div class="local-upload-badge">📱 本地上传</div>
+            `;
+            videoDiv.onclick = (e) => {
+                toggleMediaSelection(videoDiv);
+            };
+            imageSelector.appendChild(videoDiv);
+        }
+
+        function addUploadedImageToSelector(imagePath, options) {
+            const opts = options || {};
+            const source = opts.source || 'local';
             const imageSelector = document.getElementById('imageSelector');
             
-            imagePaths.forEach((imagePath, index) => {
-                // 检查是否已存在
-                const existingImage = Array.from(imageSelector.querySelectorAll('.selectable-image'))
-                    .find(img => img.dataset.path === imagePath);
-                
-                if (existingImage) {
-                    return; // 已存在，跳过
-                }
-                
-                // 创建新的图片元素
-                const imgDiv = document.createElement('div');
-                imgDiv.className = 'selectable-image';
-                imgDiv.dataset.path = imagePath;
-                imgDiv.dataset.type = 'image';
-                imgDiv.dataset.source = 'local'; // 标记为本地上传
-                
-                // 生成唯一的索引（基于现有图片数量）
-                const existingImages = imageSelector.querySelectorAll('.selectable-image').length;
-                imgDiv.dataset.index = existingImages + index;
-                
-                imgDiv.innerHTML = `
-                    <img src="${imagePath}" alt="本地上传图片 ${existingImages + index + 1}" 
+            const existingImage = Array.from(imageSelector.querySelectorAll('.selectable-image'))
+                .find(img => img.dataset.path === imagePath);
+            
+            if (existingImage) {
+                return;
+            }
+
+            const imgDiv = document.createElement('div');
+            imgDiv.className = 'selectable-image';
+            imgDiv.dataset.path = imagePath;
+            imgDiv.dataset.type = 'image';
+            imgDiv.dataset.source = source;
+
+            const slotIndex = imageSelector.querySelectorAll('.selectable-image, .selectable-video').length;
+            imgDiv.dataset.index = slotIndex;
+
+            imgDiv.innerHTML = `
+                    <img src="${imagePath}" alt="本地上传图片 ${slotIndex + 1}" 
                          onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
                     <div class="checkbox"></div>
-                    <div class="image-order-number">${existingImages + index + 1}</div>
+                    <div class="image-order-number">${slotIndex + 1}</div>
                     
-                    <!-- 编辑按钮 -->
-                    <button class="image-edit-btn" onclick="editUploadedImage(event, '${imagePath}')" 
-                            title="编辑此图片（去水印、裁剪等）"
-                            style="position: absolute; top: 5px; right: 35px; width: 32px; height: 32px; 
-                                   background: rgba(102, 126, 234, 0.9); border: none; border-radius: 50%; 
-                                   color: white; font-size: 16px; cursor: pointer; display: flex; 
-                                   align-items: center; justify-content: center; opacity: 0; 
-                                   transition: opacity 0.2s, transform 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.2);"
-                            onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)'" 
-                            onmouseout="this.style.opacity='0'; this.style.transform='scale(1)'">
-                        🛠️
-                    </button>
-                    
-                    <div class="local-upload-badge">📱 本地上传</div>
+                    <div class="local-upload-badge">${
+                        source === 'web_search'
+                            ? '🔍 搜图'
+                                                        : source === 'related_image'
+                                                            ? '🌐 补充图'
+                            : source === 'ai_cover'
+                              ? '🎨 AI封面'
+                              : '📱 本地上传'
+                    }</div>
                     <div class="image-effects">
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'enhance', event)">增强</button>
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'sharpen', event)">锐化</button>
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'grayscale', event)">黑白</button>
                         <button class="effect-btn" onclick="processImage(this.closest('.selectable-image').dataset.path, 'blur', event)">模糊</button>
+                        <button class="effect-btn" onclick="openEditorForImage(this.closest('.selectable-image').dataset.path, this.closest('.selectable-image').querySelector('img')); event.stopPropagation();">🛠️ 编辑/去水印</button>
                     </div>
                 `;
-                
-                // 添加点击事件
-                imgDiv.onclick = (e) => {
-                    // 阻止效果按钮和编辑按钮的事件冒泡
-                    if (e.target.classList.contains('effect-btn') || e.target.classList.contains('image-edit-btn')) return;
-                    toggleMediaSelection(imgDiv);
-                };
-                
-                // 添加到选择器
-                imageSelector.appendChild(imgDiv);
+
+            imgDiv.onclick = (e) => {
+                if (e.target.classList.contains('effect-btn')) return;
+                toggleMediaSelection(imgDiv);
+            };
+
+            imageSelector.appendChild(imgDiv);
+        }
+
+        async function generateCoverFromPageContent() {
+            const contentEl = document.getElementById('contentEditor');
+            const content = contentEl && contentEl.value ? contentEl.value.trim() : '';
+            if (!content) {
+                showToast('请先在正文中保留或填写网页内容', 'error');
+                return;
+            }
+            const l1 = document.getElementById('editableMainLine1');
+            const title =
+                (l1 && l1.value.trim()) ||
+                (typeof currentData !== 'undefined' && currentData && currentData.title
+                    ? currentData.title
+                    : '');
+            const hintEl = document.getElementById('coverGenExtraHint');
+            const extra_hint = hintEl && hintEl.value ? hintEl.value.trim() : '';
+            const statusEl = document.getElementById('coverGenStatus');
+            const btn = document.getElementById('coverGenBtn');
+            if (btn) btn.disabled = true;
+            if (statusEl) statusEl.textContent = '正在调用文生图 API（约 30～120 秒）…';
+            try {
+                const res = await fetch('/api/generate-cover-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, title, extra_hint }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = data.detail || data.message || '生成失败';
+                    const errText =
+                        typeof msg === 'string' ? msg : Array.isArray(msg) ? JSON.stringify(msg) : JSON.stringify(msg);
+                    throw new Error(errText);
+                }
+                if (data.image_path) {
+                    addUploadedImageToSelector(data.image_path, { source: 'ai_cover' });
+                    showToast('封面已加入选区', 'success');
+                    if (statusEl) statusEl.textContent = '已加入选图区（可在下方点击选择）';
+                } else {
+                    throw new Error(data.message || '未返回图片路径');
+                }
+            } catch (err) {
+                console.error(err);
+                const msg = '封面生成失败: ' + (err && err.message ? err.message : String(err));
+                if (statusEl) statusEl.textContent = msg;
+                showToast(msg, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        let _webImageSearchResults = [];
+
+        function _ensureWebImageSearchHoverPreview() {
+            let wrap = document.getElementById('webImageSearchHoverPreview');
+            if (!wrap) {
+                wrap = document.createElement('div');
+                wrap.id = 'webImageSearchHoverPreview';
+                wrap.style.cssText = [
+                    'display:none',
+                    'position:fixed',
+                    'z-index:99999',
+                    'pointer-events:none',
+                    'padding:0',
+                    'margin:0',
+                    'border-radius:10px',
+                    'overflow:hidden',
+                    'box-shadow:0 12px 40px rgba(15,23,42,0.35)',
+                    'border:2px solid #fff',
+                    'background:#fff',
+                ].join(';');
+                const img = document.createElement('img');
+                img.alt = '';
+                img.style.cssText =
+                    'display:block;max-width:min(420px,92vw);max-height:min(380px,72vh);width:auto;height:auto;object-fit:contain;';
+                img.referrerPolicy = 'no-referrer';
+                wrap.appendChild(img);
+                document.body.appendChild(wrap);
+            }
+            return wrap;
+        }
+
+        function _positionWebImageHoverPreview(wrap, clientX, clientY) {
+            const pad = 18;
+            const margin = 8;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            let w = wrap.offsetWidth || 320;
+            let h = wrap.offsetHeight || 280;
+            let left = clientX + pad;
+            let top = clientY + pad;
+            if (left + w > vw - margin) {
+                left = clientX - w - pad;
+            }
+            if (left < margin) left = margin;
+            if (top + h > vh - margin) {
+                top = clientY - h - pad;
+            }
+            if (top < margin) top = margin;
+            if (left + w > vw - margin) left = Math.max(margin, vw - w - margin);
+            if (top + h > vh - margin) top = Math.max(margin, vh - h - margin);
+            wrap.style.left = `${left}px`;
+            wrap.style.top = `${top}px`;
+        }
+
+        function _showWebImageHoverPreview(url, title, clientX, clientY) {
+            if (!url) return;
+            const wrap = _ensureWebImageSearchHoverPreview();
+            const img = wrap.querySelector('img');
+            if (img) {
+                img.alt = title || '';
+                if (img.src !== url) {
+                    img.src = url;
+                }
+            }
+            wrap.style.display = 'block';
+            const place = () => _positionWebImageHoverPreview(wrap, clientX, clientY);
+            requestAnimationFrame(place);
+            if (img) {
+                img.onload = place;
+                if (img.complete) place();
+            }
+        }
+
+        function _hideWebImageHoverPreview() {
+            const wrap = document.getElementById('webImageSearchHoverPreview');
+            if (wrap) wrap.style.display = 'none';
+        }
+
+        async function runWebImageSearch() {
+            const q = (document.getElementById('webImageSearchQuery') || {}).value;
+            const query = (q || '').trim();
+            const statusEl = document.getElementById('webImageSearchStatus');
+            const grid = document.getElementById('webImageSearchGrid');
+            const btn = document.getElementById('webImageSearchBtn');
+            if (!query) {
+                showToast('请输入搜索词', 'error');
+                return;
+            }
+            _hideWebImageHoverPreview();
+            if (btn) btn.disabled = true;
+            if (statusEl) statusEl.textContent = '搜索中…';
+            if (grid) grid.innerHTML = '';
+            _webImageSearchResults = [];
+            try {
+                const res = await fetch('/api/search-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query,
+                        engine: 'baidu',
+                        page: 0,
+                        page_size: 24,
+                    }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = data.detail || data.message || '请求失败';
+                    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+                }
+                _webImageSearchResults = data.items || [];
+                if (!_webImageSearchResults.length) {
+                    if (statusEl) statusEl.textContent = '未找到图片，请换关键词重试';
+                    return;
+                }
+                if (statusEl) {
+                    statusEl.textContent = `找到 ${_webImageSearchResults.length} 张，悬停可看大图，点击加入下方选区`;
+                }
+                _webImageSearchResults.forEach((item, i) => {
+                    const cell = document.createElement('div');
+                    cell.style.cssText =
+                        'position:relative;cursor:pointer;border-radius:8px;overflow:hidden;border:2px solid #e2e8f0;aspect-ratio:1;';
+                    cell.dataset.index = String(i);
+                    const img = document.createElement('img');
+                    img.src = item.thumb_url;
+                    img.alt = item.title || '';
+                    img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                    img.loading = 'lazy';
+                    img.referrerPolicy = 'no-referrer';
+                    cell.appendChild(img);
+                    const previewUrl = item.image_url || item.thumb_url;
+                    cell.addEventListener('mouseenter', (e) => {
+                        _showWebImageHoverPreview(previewUrl, item.title, e.clientX, e.clientY);
+                    });
+                    cell.addEventListener('mousemove', (e) => {
+                        const wrap = document.getElementById('webImageSearchHoverPreview');
+                        if (wrap && wrap.style.display !== 'none') {
+                            _positionWebImageHoverPreview(wrap, e.clientX, e.clientY);
+                        }
+                    });
+                    cell.addEventListener('mouseleave', () => {
+                        _hideWebImageHoverPreview();
+                    });
+                    cell.onclick = () => importWebSearchImage(i);
+                    if (grid) grid.appendChild(cell);
+                });
+            } catch (err) {
+                console.error(err);
+                const msg = '搜索失败: ' + (err && err.message ? err.message : String(err));
+                if (statusEl) statusEl.textContent = msg;
+                showToast(msg, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        async function importWebSearchImage(index) {
+            const item = _webImageSearchResults[index];
+            if (!item) return;
+            const statusEl = document.getElementById('webImageSearchStatus');
+            const url = item.image_url || item.thumb_url;
+            if (statusEl) statusEl.textContent = '正在导入…';
+            try {
+                const res = await fetch('/api/import-remote-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, referer: item.referer || '' }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = data.detail || data.message || '导入失败';
+                    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+                }
+                if (data.image_path) {
+                    addUploadedImageToSelector(data.image_path, { source: 'web_search' });
+                    showToast('已加入选图', 'success');
+                    if (statusEl) statusEl.textContent = '已加入选图区（可继续点选其他缩略图）';
+                }
+            } catch (err) {
+                console.error(err);
+                const msg = '导入失败: ' + (err && err.message ? err.message : String(err));
+                if (statusEl) statusEl.textContent = msg;
+                showToast(msg, 'error');
+            }
+        }
+
+        let _relatedImageResults = [];
+
+        function _getRelatedImageNumber(id, fallback, min, max) {
+            const el = document.getElementById(id);
+            let value = parseInt(el && el.value, 10);
+            if (!Number.isFinite(value)) value = fallback;
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function _getRelatedImagePayload() {
+            const queryEl = document.getElementById('relatedImageQuery');
+            const contentEl = document.getElementById('contentEditor');
+            const titleEl = document.getElementById('resultTitle');
+            const sourceInputs = Array.from(document.querySelectorAll('.related-image-source'));
+            const searchSources = sourceInputs
+                .filter((el) => el.checked)
+                .map((el) => el.value)
+                .filter(Boolean);
+            const title =
+                (currentData && currentData.title) ||
+                (titleEl && titleEl.textContent ? titleEl.textContent.trim() : '');
+            const content = contentEl && contentEl.value ? contentEl.value.trim() : (currentData && currentData.content) || '';
+            const sourceUrl = (currentData && currentData.url) || (document.getElementById('urlInput') || {}).value || '';
+            return {
+                title,
+                content,
+                source_url: sourceUrl,
+                query: queryEl && queryEl.value ? queryEl.value.trim() : '',
+                search_sources: searchSources.length ? searchSources : ['baidu'],
+                max_pages: _getRelatedImageNumber('relatedImageMaxPages', 5, 1, 10),
+                max_crawl_pages: 18,
+                max_images_per_page: _getRelatedImageNumber('relatedImageMaxPerPage', 6, 1, 12),
+            };
+        }
+
+        function _renderRelatedPages(pages) {
+            const wrap = document.getElementById('relatedImagePages');
+            if (!wrap) return;
+            wrap.innerHTML = '';
+            if (!pages || !pages.length) {
+                wrap.style.display = 'none';
+                return;
+            }
+            wrap.style.display = 'block';
+            pages.forEach((page, index) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'padding:6px 0;border-bottom:1px solid #e2e8f0;line-height:1.45;';
+                const title = document.createElement('div');
+                title.style.cssText = 'font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                title.textContent = `${index + 1}. ${page.title || page.url || '相关页面'}${page.images_count != null ? `（${page.images_count} 张）` : ''}`;
+                const meta = document.createElement('div');
+                meta.style.cssText = page.success === false ? 'color:#b91c1c;' : 'color:#64748b;';
+                const sourceLabel = page.search_source ? `${page.search_source_label || page.search_source} 第${page.search_page || 1}页 · ` : '';
+                meta.textContent = page.success === false ? (page.error || page.url || '') : `${sourceLabel}${page.source || page.url || ''}`;
+                row.appendChild(title);
+                row.appendChild(meta);
+                wrap.appendChild(row);
             });
+        }
+
+        function _renderRelatedImages(images) {
+            const grid = document.getElementById('relatedImageGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            _relatedImageResults = images || [];
+            if (!_relatedImageResults.length) {
+                grid.innerHTML = '<p style="grid-column:1/-1;color:#999;text-align:center;padding:24px;">未抓取到可用图片</p>';
+                return;
+            }
+            _relatedImageResults.forEach((item, index) => {
+                const cell = document.createElement('div');
+                cell.style.cssText = 'position:relative;cursor:pointer;border-radius:8px;overflow:hidden;border:2px solid #e2e8f0;background:#fff;';
+                cell.title = item.source_title || item.source_page || '';
+                const img = document.createElement('img');
+                img.src = item.local_path || item.url;
+                img.alt = item.alt || `补充图片 ${index + 1}`;
+                img.loading = 'lazy';
+                img.referrerPolicy = 'no-referrer';
+                img.style.cssText = 'width:100%;aspect-ratio:1;object-fit:cover;display:block;';
+                img.onerror = () => {
+                    img.src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f5f5f5%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>';
+                };
+                const badge = document.createElement('div');
+                badge.style.cssText = 'position:absolute;left:6px;bottom:6px;right:6px;background:rgba(15,23,42,0.78);color:#fff;border-radius:5px;padding:4px 6px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                badge.textContent = item.source_title || item.source_page || '相关页面';
+                cell.appendChild(img);
+                cell.appendChild(badge);
+                const previewUrl = item.local_path || item.url;
+                cell.addEventListener('mouseenter', (e) => {
+                    _showWebImageHoverPreview(previewUrl, item.source_title || item.alt || '', e.clientX, e.clientY);
+                });
+                cell.addEventListener('mousemove', (e) => {
+                    const wrap = document.getElementById('webImageSearchHoverPreview');
+                    if (wrap && wrap.style.display !== 'none') {
+                        _positionWebImageHoverPreview(wrap, e.clientX, e.clientY);
+                    }
+                });
+                cell.addEventListener('mouseleave', () => {
+                    _hideWebImageHoverPreview();
+                });
+                cell.onclick = () => importRelatedImage(index);
+                grid.appendChild(cell);
+            });
+        }
+
+        async function runRelatedImageCrawl() {
+            const statusEl = document.getElementById('relatedImageStatus');
+            const btn = document.getElementById('relatedImageBtn');
+            const grid = document.getElementById('relatedImageGrid');
+            const pagesEl = document.getElementById('relatedImagePages');
+            const payload = _getRelatedImagePayload();
+            if (!payload.title && !payload.content && !payload.query) {
+                showToast('请先抓取页面，或手动输入搜索词', 'error');
+                return;
+            }
+            if (!payload.search_sources || !payload.search_sources.length) {
+                showToast('请至少选择一个搜索源', 'error');
+                return;
+            }
+            if (btn) btn.disabled = true;
+            _hideWebImageHoverPreview();
+            if (statusEl) statusEl.textContent = `正在调用 DeepSeek 生成搜索词，并从 ${payload.search_sources.join('、')} 每源搜索 ${payload.max_pages} 页后抓图…`;
+            if (grid) grid.innerHTML = '';
+            if (pagesEl) {
+                pagesEl.innerHTML = '';
+                pagesEl.style.display = 'none';
+            }
+            _relatedImageResults = [];
+            try {
+                const res = await fetch('/api/related-images/crawl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = data.detail || data.message || '请求失败';
+                    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+                }
+                _renderRelatedPages(data.pages || []);
+                _renderRelatedImages(data.images || []);
+                const keywordText = data.keywords && data.keywords.length ? `；关键词：${data.keywords.join('、')}` : '';
+                const sourceText = data.search_sources && data.search_sources.length ? `；来源：${data.search_sources.join('、')}×每源${data.search_pages_per_source || payload.max_pages}页` : '';
+                const crawlText = data.candidate_pages_count != null ? `；候选页 ${data.candidate_pages_count}，已打开 ${data.crawled_pages_count || 0}` : '';
+                if (statusEl) statusEl.textContent = `搜索词：${data.query || payload.query || '未返回'}；抓到 ${(data.images || []).length} 张候选图片${sourceText}${crawlText}${keywordText}`;
+                if (data.images && data.images.length) {
+                    showToast('已抓到补充图片，点击缩略图可加入选区', 'success');
+                } else {
+                    showToast(data.message || '没有抓到可用图片', 'info');
+                }
+            } catch (err) {
+                console.error(err);
+                const msg = '补充图片失败: ' + (err && err.message ? err.message : String(err));
+                if (statusEl) statusEl.textContent = msg;
+                showToast(msg, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        function importRelatedImage(index) {
+            const item = _relatedImageResults[index];
+            if (!item || !item.local_path) {
+                showToast('图片尚未保存成功，无法加入选区', 'error');
+                return;
+            }
+            addUploadedImageToSelector(item.local_path, { source: 'related_image' });
+            showToast('已加入选图', 'success');
+            const statusEl = document.getElementById('relatedImageStatus');
+            if (statusEl) statusEl.textContent = '已加入选图区（可继续点选其他补充图片）';
         }
 
         async function processImage(imagePath, effect, event) {
@@ -1135,10 +1946,12 @@
 
                 if (data.success) {
                     showToast(`✅ 图片处理成功！效果：${effect}`, 'success');
-                    // 更新显示的图片
-                    const imgDiv = document.querySelector(`.selectable-image[data-path="${imagePath}"]`);
+                    const imgDiv = Array.from(document.querySelectorAll('.selectable-image')).find(
+                        (el) => el.dataset.path === imagePath
+                    );
                     if (imgDiv) {
-                        imgDiv.querySelector('img').src = data.processed_path + '?t=' + Date.now();
+                        const thumb = imgDiv.querySelector('img');
+                        if (thumb) thumb.src = data.processed_path + '?t=' + Date.now();
                     }
                 } else {
                     showToast('❌ 图片处理失败：' + data.message, 'error');
@@ -1149,28 +1962,9 @@
         }
                 
         /**
-         * 编辑已上传的图片
-         */
-        function editUploadedImage(event, imagePath) {
-            event.stopPropagation();
-            console.log('🔧 开始编辑图片...');
-            console.log('   - 传入的 imagePath:', imagePath);
-                    
-            // 先打开图片查看器
-            openImageModal(imagePath, null);
-                    
-            console.log('   - 模态框已打开，currentPath:', modalState.currentPath);
-                    
-            // 立即进入编辑模式（不再使用 setTimeout）
-            console.log('⏰ 准备进入编辑模式...');
-            enterEditMode(imagePath);
-        }
-                
-        /**
-         * 为指定图片打开编辑器（用于"编辑/去水印"按钮）
+         * 为指定图片打开编辑器（用于「编辑/去水印」按钮；需传入缩略图 img 以便保存后更新列表）
          */
         function openEditorForImage(imagePath, sourceEl) {
-            event?.stopPropagation();
             console.log('\n=== 打开编辑器 ===');
             console.log('   - 图片路径:', imagePath);
                     
@@ -1229,7 +2023,7 @@
             console.log('   - 最终使用的 editingPath:', editingPath);
             console.log('   - window.currentEditingImagePath:', window.currentEditingImagePath);
                             
-            showToast('💡 提示：点击"框选水印"工具，框选水印区域后点击"去除水印"', 'info', 5000);
+            // showToast('💡 提示：点击"框选水印"工具，框选水印区域后点击"去除水印"', 'info', 5000);
         }
 
         async function generateSummary() {
@@ -1248,6 +2042,7 @@
             const aiMainLine2El = document.getElementById('editableMainLine2');
             const aiSubTitleEl = document.getElementById('editableSubTitle');
             const aiSummaryEl = document.getElementById('editableAiSummary');
+            const aiVoiceoverEl = document.getElementById('editableVoiceoverScript');
             const aiTagsEl = document.getElementById('editableAiTags');
             const aiMetaEl = document.getElementById('aiMeta');
             
@@ -1255,10 +2050,12 @@
             if (aiMainLine2El) aiMainLine2El.value = '正在生成…';
             if (aiSubTitleEl) aiSubTitleEl.value = '正在生成…';
             if (aiSummaryEl) aiSummaryEl.value = '正在生成摘要...';
+            if (aiVoiceoverEl) aiVoiceoverEl.value = '正在生成口播稿...';
             if (aiTagsEl) aiTagsEl.value = '';
             if (aiMetaEl) aiMetaEl.textContent = '';
 
             try {
+                const voLen = getVoiceoverLengthParams();
                 const response = await fetch('/api/generate-summary', {
                     method: 'POST',
                     headers: {
@@ -1268,7 +2065,9 @@
                         content: content,
                         // 只传递图片路径字符串数组，不需要时长信息
                         images: selectedImages.map(imgObj => imgObj.path),
-                        title: currentData.title
+                        title: currentData.title,
+                        voiceover_min_chars: voLen.voiceover_min_chars,
+                        voiceover_max_chars: voLen.voiceover_max_chars
                     })
                 });
 
@@ -1286,9 +2085,16 @@
                     document.getElementById('editableMainLine2').value = line2;
                     document.getElementById('editableSubTitle').value = subT;
                     document.getElementById('editableAiSummary').value = data.summary;
+                    const voText = data.voiceover_script != null ? data.voiceover_script : '';
+                    if (document.getElementById('editableVoiceoverScript')) {
+                        document.getElementById('editableVoiceoverScript').value = voText;
+                    }
                     document.getElementById('editableAiTags').value = data.tags || '';
+                    editedHighlightKeywords = Array.isArray(data.highlight_keywords)
+                        ? data.highlight_keywords.slice()
+                        : [];
                     document.getElementById('aiMeta').textContent = 
-                        `主L1:${line1.length}字 L2:${line2.length}字 副:${subT.length}字 | 摘要:${data.summary.length}字 | ${data.model} | tokens:${data.tokens_used}`;
+                        `主L1:${line1.length}字 L2:${line2.length}字 副:${subT.length}字 | 摘要:${(data.summary || '').length}字 口播:${voText.length}字 高亮:${editedHighlightKeywords.length}词 | ${data.model} | tokens:${data.tokens_used}`;
                     
                     // 自动保存初始内容
                     saveEditedContent();
@@ -1297,7 +2103,9 @@
                     if (aiMainLine2El) aiMainLine2El.value = '';
                     if (aiSubTitleEl) aiSubTitleEl.value = '';
                     if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + data.message;
+                    if (aiVoiceoverEl) aiVoiceoverEl.value = '';
                     if (aiTagsEl) aiTagsEl.value = '';
+                    editedHighlightKeywords = [];
                     if (aiMetaEl) aiMetaEl.textContent = '';
                 }
             } catch (error) {
@@ -1305,7 +2113,9 @@
                 if (aiMainLine2El) aiMainLine2El.value = '';
                 if (aiSubTitleEl) aiSubTitleEl.value = '';
                 if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + error.message;
+                if (aiVoiceoverEl) aiVoiceoverEl.value = '';
                 if (aiTagsEl) aiTagsEl.value = '';
+                editedHighlightKeywords = [];
                 if (aiMetaEl) aiMetaEl.textContent = '';
             }
         }
@@ -1330,8 +2140,8 @@
             }
             
             // 检查是否有 GIF 或视频需要特殊处理
-            const gifImages = selectedImages.filter(imgObj => 
-                imgObj.path.toLowerCase().endsWith('.gif')
+            const gifImages = selectedImages.filter((imgObj) =>
+                needsAnimationPreconvertPath(imgObj.path)
             );
             const videoFiles = selectedImages.filter(imgObj => 
                 imgObj.path.toLowerCase().endsWith('.mp4') || 
@@ -1350,7 +2160,7 @@
             if (gifImages.length > 0 || videoFiles.length > 0) {
                 let message = '';
                 if (gifImages.length > 0) {
-                    message += `检测到 ${gifImages.length} 个GIF图片`;
+                    message += `检测到 ${gifImages.length} 个 GIF/WebP`;
                 }
                 if (videoFiles.length > 0) {
                     message += `${message ? ' 和 ' : '检测到 '}${videoFiles.length} 个视频文件`;
@@ -1358,11 +2168,10 @@
                 message += '，正在处理...';
                 showToast(message, 'info');
                 
-                // 处理GIF
                 if (gifImages.length > 0) {
                     const gifVideos = await processSelectedGIFs(2.7); // 2.7秒每帧
                     if (gifVideos.length > 0) {
-                        showToast(`✅ 已处理 ${gifVideos.length} 个GIF为视频片段`, 'success');
+                        showToast(`✅ 已处理 ${gifVideos.length} 个 GIF/WebP 为视频片段`, 'success');
                     }
                 }
                 
@@ -1431,17 +2240,13 @@
             };
             
             try {
-                // 准备图片数据（包含时长信息）
-                const imagesWithDuration = selectedImages.map(imgObj => ({
-                    path: imgObj.path,
-                    duration: imgObj.duration // 视频为 null，图片为秒数
-                }));
+                const clipPayload = buildClipPayloadForAnimatedVideo();
                 
                 // 获取用户选择的 BGM
                 const bgmSelect = document.getElementById('bgmSelect');
                 const selectedBGM = bgmSelect ? bgmSelect.value : 'static/music/background.mp3';
                             
-                // 直接调用创建带动画视频的 API
+                // 与 GitHub 第四步相同：POST /api/create-animated-video，画中画由 video_embedding_service 处理
                 const response = await fetch('/api/create-animated-video', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1451,8 +2256,12 @@
                         main_line2: mainLine2 || '',
                         subtitle: subTitle || '',
                         summary: editedSummary,
-                        images: imagesWithDuration,  // 使用包含时长的图片数据
-                        audio_path: selectedBGM  // 使用用户选择的 BGM
+                        images: clipPayload,
+                        audio_path: selectedBGM,
+                        title_font_key: getTitleFontKey(),
+                        show_summary: getShowSummaryOnVideo(),
+                        tags: (document.getElementById('editableAiTags') && document.getElementById('editableAiTags').value.trim()) || '',
+                        summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : []
                     })
                 });
                 
@@ -1544,6 +2353,7 @@
                         console.log('设置视频源:', data.video_path);
                         generatedVideoEl.src = data.video_path;
                         generatedVideoEl.load();
+                        onIndexBaseVideoReady(data.video_path);
                         
                         // 强制设置视频元素样式
                         generatedVideoEl.style.display = 'block';
@@ -1661,12 +2471,12 @@
             }
             
             // 检查是否有 GIF 需要特殊处理
-            const gifImages = selectedImages.filter(imgObj => 
-                imgObj.path.toLowerCase().endsWith('.gif')
+            const gifImages = selectedImages.filter((imgObj) =>
+                needsAnimationPreconvertPath(imgObj.path)
             );
-            
+
             if (gifImages.length > 0) {
-                showToast(`检测到 ${gifImages.length} 个GIF图片，正在预处理...`, 'info');
+                showToast(`检测到 ${gifImages.length} 个 GIF/WebP，正在预处理...`, 'info');
                 
                 // 处理GIF为视频片段
                 const gifVideos = await processSelectedGIFs(2.5); // 默认2.5秒
@@ -1692,7 +2502,8 @@
                         main_line2: ml2,
                         subtitle: st,
                         summary: editedSummary || generatedSummary,
-                        images: selectedImages
+                        images: selectedImages,
+                        title_font_key: getTitleFontKey()
                     })
                 });
 
@@ -1797,6 +2608,9 @@
                         downloadBtn.download = data.video_path.split('/').pop();
                     }
                     if (videoResult) videoResult.style.display = 'block';
+                    const genImgEl = document.getElementById('generatedImage');
+                    if (genImgEl) genImgEl.style.display = 'block';
+                    onIndexBaseVideoReady(data.video_path);
                     
                     showToast(`视频生成成功！时长 ${data.duration.toFixed(1)}秒，大小 ${data.file_size_mb}MB`, 'success', 4500);
                 } else {
@@ -1825,7 +2639,7 @@
 
             // 如果没有手动选择图片，自动选择前5张
             if (selectedImages.length === 0) {
-                const allImgs = document.querySelectorAll('.selectable-image');
+                const allImgs = document.querySelectorAll('.selectable-image, .selectable-video');
                 const maxAuto = Math.min(allImgs.length, 5);
                 for (let i = 0; i < maxAuto; i++) {
                     if (!allImgs[i].classList.contains('selected')) {
@@ -1841,8 +2655,21 @@
             }
 
             try {
-                // 第1步：生成AI标题和摘要
-                btn.textContent = '🚀 [1/2] 生成标题摘要...';
+                const hadAnimRaster = selectedImages.some((o) =>
+                    needsAnimationPreconvertPath(o.path)
+                );
+                if (hadAnimRaster) {
+                    btn.textContent = '🚀 [1/3] 转换 GIF/WebP 为视频…';
+                    showToast(
+                        '检测到 GIF 或 WebP：先转为 MP4（画中画），再生成摘要与成片…',
+                        'info',
+                        4500
+                    );
+                    await processSelectedGIFs(2.7, { silentIfEmpty: true });
+                }
+
+                // 第1步（无预转换时为第1步）：生成AI标题和摘要
+                btn.textContent = hadAnimRaster ? '🚀 [2/3] 生成标题摘要…' : '🚀 [1/2] 生成标题摘要…';
                 showToast('开始一键生成：正在生成AI标题和摘要...', 'info');
 
                 const summaryDiv = document.getElementById('aiSummary');
@@ -1853,25 +2680,31 @@
                 const oneClickL2 = document.getElementById('editableMainLine2');
                 const oneClickSubTitleEl = document.getElementById('editableSubTitle');
                 const oneClickSummaryEl = document.getElementById('editableAiSummary');
+                const oneClickVoiceoverEl = document.getElementById('editableVoiceoverScript');
                 
                 if (oneClickL1) oneClickL1.value = '正在生成…';
                 if (oneClickL2) oneClickL2.value = '正在生成…';
                 if (oneClickSubTitleEl) oneClickSubTitleEl.value = '正在生成…';
                 if (oneClickSummaryEl) oneClickSummaryEl.value = '正在生成摘要...';
+                if (oneClickVoiceoverEl) oneClickVoiceoverEl.value = '正在生成口播稿...';
 
+                const oneClickVoLen = getVoiceoverLengthParams();
                 const summaryResp = await fetch('/api/generate-summary', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         content: content,
-                        images: selectedImages,
-                        title: currentData ? currentData.title : ''
+                        images: selectedImages.map((imgObj) => imgObj.path),
+                        title: currentData ? currentData.title : '',
+                        voiceover_min_chars: oneClickVoLen.voiceover_min_chars,
+                        voiceover_max_chars: oneClickVoLen.voiceover_max_chars
                     })
                 });
                 const summaryData = await summaryResp.json();
 
                 if (!summaryData.success) {
                     showToast('标题摘要生成失败: ' + summaryData.message, 'error');
+                    if (oneClickVoiceoverEl) oneClickVoiceoverEl.value = '';
                     btn.disabled = false;
                     btn.textContent = originalText;
                     return;
@@ -1882,12 +2715,14 @@
                 const l1 = summaryData.main_line1 != null ? summaryData.main_line1 : (summaryData.main_title || (summaryData.title || '').split('|')[0] || '');
                 const l2 = summaryData.main_line2 != null ? summaryData.main_line2 : '';
                 const subT2 = summaryData.sub_title != null ? summaryData.sub_title : '';
+                const voOne = summaryData.voiceover_script != null ? summaryData.voiceover_script : '';
                 
                 // 填充到可编辑输入框（添加安全检查）
                 const aiMainLine1El = document.getElementById('editableMainLine1');
                 const aiMainLine2El = document.getElementById('editableMainLine2');
                 const aiSubTitleEl = document.getElementById('editableSubTitle');
                 const aiSummaryEl = document.getElementById('editableAiSummary');
+                const aiVoiceoverFillEl = document.getElementById('editableVoiceoverScript');
                 const aiTagsEl = document.getElementById('editableAiTags');
                 const aiMetaEl = document.getElementById('aiMeta');
                 
@@ -1895,9 +2730,13 @@
                 if (aiMainLine2El) aiMainLine2El.value = l2;
                 if (aiSubTitleEl) aiSubTitleEl.value = subT2;
                 if (aiSummaryEl) aiSummaryEl.value = summaryData.summary;
+                if (aiVoiceoverFillEl) aiVoiceoverFillEl.value = voOne;
                 if (aiTagsEl) aiTagsEl.value = summaryData.tags || '';
+                editedHighlightKeywords = Array.isArray(summaryData.highlight_keywords)
+                    ? summaryData.highlight_keywords.slice()
+                    : [];
                 if (aiMetaEl) aiMetaEl.textContent =
-                    `L1:${l1.length} L2:${l2.length} 副:${subT2.length} | 摘要:${summaryData.summary.length}字 | ${summaryData.model} | tokens:${summaryData.tokens_used}`;
+                    `L1:${l1.length} L2:${l2.length} 副:${subT2.length} | 摘要:${(summaryData.summary || '').length}字 口播:${voOne.length}字 高亮:${editedHighlightKeywords.length}词 | ${summaryData.model} | tokens:${summaryData.tokens_used}`;
                 
                 // 自动保存内容
                 saveEditedContent();
@@ -1905,7 +2744,7 @@
                 showToast('✅ 标题摘要已生成，开始合成动画视频...', 'success');
 
                 // 第2步：合成动画视频（带弹入特效）
-                btn.textContent = '🚀 [2/2] 合成动画视频...';
+                btn.textContent = hadAnimRaster ? '🚀 [3/3] 合成动画视频…' : '🚀 [2/2] 合成动画视频…';
 
                 const videoResp = await fetch('/api/create-animated-video', {
                     method: 'POST',
@@ -1916,8 +2755,12 @@
                         main_line2: l2 || '',
                         subtitle: subT2 || '',
                         summary: editedSummary || generatedSummary,
-                        images: selectedImages,
-                        audio_path: 'static/music/background.mp3'
+                        images: buildClipPayloadForAnimatedVideo(),
+                        audio_path: 'static/music/background.mp3',
+                        title_font_key: getTitleFontKey(),
+                        show_summary: getShowSummaryOnVideo(),
+                        tags: (document.getElementById('editableAiTags') && document.getElementById('editableAiTags').value.trim()) || '',
+                        summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : []
                     })
                 });
                 const videoData = await videoResp.json();
@@ -1960,6 +2803,7 @@
                         downloadBtn.download = videoData.video_path.split('/').pop();
                     }
                     if (videoResult) videoResult.style.display = 'block';
+                    onIndexBaseVideoReady(videoData.video_path);
 
                     showToast(`🎉 一键生成完成！时长 ${videoData.duration.toFixed(1)}秒，大小 ${videoData.file_size_mb}MB`, 'success', 5000);
                 } else {
@@ -1975,7 +2819,7 @@
 
         function resetSelection() {
             // 清除所有选择
-            document.querySelectorAll('.selectable-image').forEach(img => {
+            document.querySelectorAll('.selectable-image, .selectable-video').forEach(img => {
                 img.classList.remove('selected');
             });
             selectedImages = [];

@@ -1,19 +1,60 @@
 """
 Selenium截图服务
 作为Playwright的替代方案，特别针对Python 3.13兼容性问题
+
+驱动优先级（避免 webdriver-manager 先访问 googlechromelabs 失败导致整链不可用）：
+1. Windows：先显式指定本机 chrome.exe（含 CHROME_BINARY_PATH / LOCALAPPDATA），再 Selenium Manager 配对驱动，减少「版本判成 1」或与陈旧 chromedriver 错配
+2. Selenium 4.6+ 内置 Selenium Manager：webdriver.Chrome(options=...)
+3. webdriver-manager（需能访问外网）
+4. 环境变量 CHROMEDRIVER_PATH 或 PATH 中的 chromedriver
+
+若仍提示 ChromeDriver 与 Chrome 主版本不一致，可删除缓存目录后重试：
+%USERPROFILE%\\.cache\\selenium（或 %LOCALAPPDATA%\\selenium）
 """
-import asyncio
+import os
 import sys
+from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
+
+from PIL import Image
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 from loguru import logger
+
+try:
+    from webdriver_manager.chrome import ChromeDriverManager
+except ImportError:
+    ChromeDriverManager = None
+
+
+def _windows_chrome_exe_paths() -> List[str]:
+    """常见 Windows Chrome 浏览器路径（用于 binary_location，不是 chromedriver）。"""
+    paths: List[str] = []
+    env_chrome = os.environ.get("CHROME_BINARY_PATH", "").strip()
+    if env_chrome:
+        paths.append(env_chrome)
+    local = os.environ.get("LOCALAPPDATA", "")
+    if local:
+        paths.append(str(Path(local) / "Google" / "Chrome" / "Application" / "chrome.exe"))
+    paths.extend(
+        [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ]
+    )
+    seen = set()
+    out: List[str] = []
+    for p in paths:
+        if p and p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
 
 
 class SeleniumScreenshotService:
@@ -29,74 +70,93 @@ class SeleniumScreenshotService:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
+
+    def _build_chrome_options(self, binary_location: Optional[str] = None) -> Options:
+        opts = Options()
+        if self.headless:
+            opts.add_argument('--headless=new')
+        opts.add_argument('--no-sandbox')
+        opts.add_argument('--disable-dev-shm-usage')
+        opts.add_argument('--disable-gpu')
+        opts.add_argument('--disable-web-security')
+        opts.add_argument('--disable-features=VizDisplayCompositor,WebContentsForceDark')
+        opts.add_argument('--window-size=1920,1080')
+        opts.add_argument(
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+            '(KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
+        )
+        if binary_location and Path(binary_location).is_file():
+            opts.binary_location = binary_location
+        return opts
     
     def start(self):
-        """启动Chrome浏览器"""
+        """启动 Chrome：Windows 下先显式 chrome.exe + Selenium Manager，再无 binary 的 Manager，再 webdriver-manager / PATH。"""
+        drivers_tried = []
+
+        def try_chrome(opts: Options, label: str) -> bool:
+            try:
+                self.driver = webdriver.Chrome(options=opts)
+                logger.info(f"Selenium Chrome 启动成功 ({label})")
+                return True
+            except Exception as e:
+                drivers_tried.append(f"{label}: {str(e)[:120]}")
+                logger.debug(f"{label} 失败: {e}")
+                return False
+
+        def try_service(service: Service, opts: Options, label: str) -> bool:
+            try:
+                self.driver = webdriver.Chrome(service=service, options=opts)
+                logger.info(f"Selenium Chrome 启动成功 ({label})")
+                return True
+            except Exception as e:
+                drivers_tried.append(f"{label}: {str(e)[:120]}")
+                logger.debug(f"{label} 失败: {e}")
+                return False
+
         try:
-            # 配置Chrome选项
-            chrome_options = Options()
-            
-            if self.headless:
-                chrome_options.add_argument('--headless=new')
-            
-            # 基本配置
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--disable-web-security')
-            chrome_options.add_argument('--disable-features=VizDisplayCompositor')
-            chrome_options.add_argument('--window-size=1920,1080')
-            
-            # 用户代理
-            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            
-            # 自动下载和配置ChromeDriver（多种备选方案）
-            drivers_tried = []
-            
-            # 方案1: 使用webdriver-manager（在线）
-            try:
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                logger.info("Selenium Chrome浏览器启动成功 (webdriver-manager)")
+            # 1) Windows：先绑定本机 chrome.exe，再让 Selenium Manager 按该浏览器主版本下载/匹配驱动（避免误判版本或与旧缓存驱动错配）
+            if sys.platform == "win32":
+                for chrome_exe in _windows_chrome_exe_paths():
+                    if Path(chrome_exe).is_file():
+                        opts = self._build_chrome_options(binary_location=chrome_exe)
+                        if try_chrome(opts, f"Selenium Manager+binary={chrome_exe}"):
+                            return
+
+            # 2) Selenium Manager（无显式 binary：Linux/macOS 或 Chrome 在非常规路径时可成功）
+            base_opts = self._build_chrome_options()
+            if try_chrome(base_opts, "Selenium Manager"):
                 return
-            except Exception as e:
-                drivers_tried.append(f"webdriver-manager: {str(e)[:50]}")
-                logger.debug(f"webdriver-manager失败: {e}")
-            
-            # 方案2: 使用系统已安装的chromedriver
-            try:
-                service = Service()
-                self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                logger.info("Selenium Chrome浏览器启动成功 (系统chromedriver)")
-                return
-            except Exception as e:
-                drivers_tried.append(f"系统chromedriver: {str(e)[:50]}")
-                logger.debug(f"系统chromedriver失败: {e}")
-            
-            # 方案3: 直接指定常见的ChromeDriver路径
-            common_paths = [
-                "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-                "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-                "./chromedriver.exe",  # 项目目录下的chromedriver
-                "chromedriver.exe"     # PATH中的chromedriver
-            ]
-            
-            for chrome_path in common_paths:
+
+            # 3) webdriver-manager（需访问 googlechromelabs）
+            if ChromeDriverManager is not None:
                 try:
-                    if Path(chrome_path).exists() or "chrome.exe" in chrome_path:
-                        service = Service(chrome_path) if "chromedriver" in chrome_path else Service()
-                        self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                        logger.info(f"Selenium Chrome浏览器启动成功 (路径: {chrome_path})")
+                    path = ChromeDriverManager().install()
+                    if try_service(Service(path), self._build_chrome_options(), "webdriver-manager"):
                         return
                 except Exception as e:
-                    drivers_tried.append(f"路径{chrome_path}: {str(e)[:50]}")
-                    logger.debug(f"路径{chrome_path}失败: {e}")
-            
-            # 所有方案都失败
+                    drivers_tried.append(f"webdriver-manager: {str(e)[:120]}")
+                    logger.debug(f"webdriver-manager: {e}")
+
+            # 4) 环境变量 CHROMEDRIVER_PATH
+            env_driver = os.environ.get("CHROMEDRIVER_PATH", "").strip()
+            if env_driver and Path(env_driver).is_file():
+                if try_service(Service(env_driver), self._build_chrome_options(), "CHROMEDRIVER_PATH"):
+                    return
+
+            # 5) PATH 中的 chromedriver + 可选 Chrome 路径
+            if try_service(Service(), self._build_chrome_options(), "PATH chromedriver"):
+                return
+            if sys.platform == 'win32':
+                for chrome_exe in _windows_chrome_exe_paths():
+                    if Path(chrome_exe).is_file():
+                        opts = self._build_chrome_options(binary_location=chrome_exe)
+                        if try_service(Service(), opts, f"PATH+{Path(chrome_exe).name}"):
+                            return
+
             error_msg = "无法启动Chrome浏览器。尝试过的驱动: " + "; ".join(drivers_tried)
             logger.error(error_msg)
-            raise Exception(error_msg)
-            
+            raise RuntimeError(error_msg)
+
         except Exception as e:
             logger.error(f"Selenium浏览器启动失败: {e}")
             raise
@@ -116,7 +176,8 @@ class SeleniumScreenshotService:
                        width: int = 1920,
                        height: int = 1080,
                        wait_time: int = 3,
-                       timeout: int = 60) -> bool:
+                       timeout: int = 60,
+                       font_scale: float = 1.12) -> bool:
         """
         截取网页截图
         """
@@ -156,17 +217,34 @@ class SeleniumScreenshotService:
             
             # 滚动到顶部
             self.driver.execute_script("window.scrollTo(0, 0)")
+
+            # 浅色模式 + 略放大文字（与 Playwright 路径一致）
+            fs = max(1.0, min(1.35, float(font_scale)))
+            self.driver.execute_script(
+                """
+                const fs = arguments[0];
+                const root = document.documentElement;
+                root.setAttribute('data-color-mode', 'light');
+                root.style.colorScheme = 'light';
+                try { root.classList.remove('dark'); } catch (e) {}
+                root.style.zoom = String(fs);
+                """,
+                fs,
+            )
             
-            # 截图
-            success = self.driver.save_screenshot(str(save_path))
-            
-            if success:
-                logger.info(f"截图已保存: {save_path}")
-                return True
+            # 截图：Selenium 的 save_screenshot 实际输出 PNG，若目标为 .jpg 会触发警告且得到「伪 jpg」，
+            # 浏览器按 JPEG 解码会失败，页面可能仍显示此前 fallback 生成的合法 JPEG。
+            png_bytes = self.driver.get_screenshot_as_png()
+            img = Image.open(BytesIO(png_bytes)).convert("RGB")
+            ext = save_path.suffix.lower()
+            if ext in (".jpg", ".jpeg"):
+                img.save(save_path, "JPEG", quality=90, optimize=True)
             else:
-                logger.error("截图保存失败")
-                return False
-                
+                img.save(save_path, "PNG")
+
+            logger.info(f"截图已保存: {save_path}")
+            return True
+
         except Exception as e:
             logger.error(f"Selenium截图失败: {e}")
             return False
@@ -246,12 +324,8 @@ class SeleniumScreenshotService:
     def _hide_elements(self):
         """隐藏页面上的特定元素"""
         hide_selectors = [
-            'header',
-            '.Header',
-            '.footer',
-            '.Footer',
-            'nav',
-            '.navigation'
+            'div[class="position-relative header-wrapper js-header-wrapper "]',
+            'table[aria-labelledby="folders-and-files"]',
         ]
         
         for selector in hide_selectors:
@@ -259,6 +333,7 @@ class SeleniumScreenshotService:
                 elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
                 for element in elements:
                     self.driver.execute_script("arguments[0].style.display='none';", element)
+                    logger.info(f"隐藏元素: {selector}")
             except Exception as e:
                 logger.debug(f"隐藏元素 {selector} 失败: {e}")
 
@@ -275,7 +350,8 @@ class SyncSeleniumScreenshotService:
                            width: int = 1920,
                            height: int = 1080,
                            wait_time: int = 3,
-                           timeout: int = 60) -> bool:
+                           timeout: int = 60,
+                           font_scale: float = 1.12) -> bool:
         """同步截图接口"""
         try:
             # 检查Python版本兼容性
@@ -284,7 +360,9 @@ class SyncSeleniumScreenshotService:
                 logger.info("检测到Python 3.13，优先使用Selenium替代方案")
             
             with SeleniumScreenshotService(self.headless) as service:
-                return service.take_screenshot(url, save_path, width, height, wait_time, timeout)
+                return service.take_screenshot(
+                    url, save_path, width, height, wait_time, timeout, font_scale=font_scale
+                )
                 
         except Exception as e:
             logger.error(f"Selenium同步截图失败: {e}")

@@ -387,6 +387,19 @@ body {
     border: 1px solid #ddd;
 }
 
+/* 排序面板视频缩略（与 GitHub github-sort-thumb-video 一致，尺寸贴合主站 sortable 缩略图） */
+.sortable-item .index-sort-thumb-video {
+    width: 55px;
+    height: 55px;
+    object-fit: cover;
+    margin-right: 15px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    background: #0d1117;
+    display: block;
+    flex-shrink: 0;
+}
+
 .filename {
     font-size: 13px;  /* 稍微增大字体 */
     color: #666;

@@ -1,15 +1,45 @@
 """
 GitHub图片处理服务
 负责下载、验证和管理从GitHub项目中提取的图片
+
+当 raw.githubusercontent.com 无法解析或被墙时，回退使用 GitHub REST API
+（GET /repos/.../contents/... 与 git/blobs）拉取 base64 内容，不依赖 raw 域名。
 """
+import base64
 import os
 import requests
 from pathlib import Path
 from typing import List, Optional, Tuple
+from urllib.parse import quote, urlparse
+
 from PIL import Image
 from io import BytesIO
 from loguru import logger
-from src.models.github_models import ProjectImage
+from src.models.github_models import ProjectImage, ProjectVideo
+from utils.github_mirror import (
+    mirror_github_api_url,
+    mirror_github_raw_url,
+    normalize_github_image_url,
+)
+
+
+def _parse_raw_githubusercontent_url(url: str) -> Optional[Tuple[str, str, str, str]]:
+    """
+    解析 raw.githubusercontent.com/{owner}/{repo}/{ref}/{path...}
+    返回 (owner, repo, ref, path_in_repo)。
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.netloc != 'raw.githubusercontent.com':
+            return None
+        parts = [p for p in parsed.path.strip('/').split('/') if p]
+        if len(parts) < 4:
+            return None
+        owner, repo, ref = parts[0], parts[1], parts[2]
+        path_in_repo = '/'.join(parts[3:])
+        return owner, repo, ref, path_in_repo
+    except Exception:
+        return None
 
 
 class ImageDownloader:
@@ -22,12 +52,92 @@ class ImageDownloader:
         self.session.headers.update({
             'User-Agent': 'AINews-GitHub-Image-Downloader'
         })
+
+    def _github_api_headers(self) -> dict:
+        h = {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': self.session.headers.get('User-Agent', 'AINews-GitHub-Image-Downloader'),
+        }
+        token = os.environ.get('GITHUB_TOKEN', '').strip()
+        if token:
+            h['Authorization'] = f'token {token}'
+        return h
+
+    def _download_file_via_github_api(
+        self,
+        owner: str,
+        repo: str,
+        ref: str,
+        path_in_repo: str,
+        save_path: Path,
+    ) -> bool:
+        """通过 Contents API（必要时再 git/blobs）写入二进制，不访问 raw.githubusercontent.com。"""
+        headers = self._github_api_headers()
+        encoded_path = '/'.join(quote(seg, safe='') for seg in path_in_repo.split('/'))
+        api_url = mirror_github_api_url(
+            f'https://api.github.com/repos/{owner}/{repo}/contents/{encoded_path}'
+        )
+        try:
+            r = self.session.get(
+                api_url,
+                params={'ref': ref},
+                headers=headers,
+                timeout=self.timeout,
+            )
+            if r.status_code != 200:
+                logger.warning(
+                    f'GitHub contents API {r.status_code}: {api_url} {r.text[:200]}'
+                )
+                return False
+            data = r.json()
+            if not isinstance(data, dict):
+                return False
+            if data.get('type') != 'file':
+                return False
+
+            blob_bytes: Optional[bytes] = None
+            if data.get('encoding') == 'base64' and data.get('content'):
+                b64 = data['content'].replace('\n', '')
+                blob_bytes = base64.b64decode(b64)
+            elif data.get('sha'):
+                blob_url = mirror_github_api_url(
+                    f'https://api.github.com/repos/{owner}/{repo}/git/blobs/{data["sha"]}'
+                )
+                br = self.session.get(blob_url, headers=headers, timeout=self.timeout)
+                if br.status_code != 200:
+                    logger.warning(f'GitHub blob API 失败: {br.status_code}')
+                    return False
+                bdata = br.json()
+                if bdata.get('encoding') == 'base64' and bdata.get('content'):
+                    blob_bytes = base64.b64decode(bdata['content'].replace('\n', ''))
+
+            if not blob_bytes:
+                logger.warning('GitHub API 未返回可解码的文件内容')
+                return False
+
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            save_path.write_bytes(blob_bytes)
+            logger.info(
+                f'已通过 GitHub API 保存（绕过 raw）: {owner}/{repo} {path_in_repo}'
+            )
+            return True
+        except requests.RequestException as e:
+            logger.warning(f'GitHub API 下载异常: {e}')
+            return False
+
+    def _try_github_api_fallback(self, url: str, save_path: Path) -> bool:
+        parsed = _parse_raw_githubusercontent_url(url)
+        if not parsed:
+            return False
+        owner, repo, ref, path_in_repo = parsed
+        return self._download_file_via_github_api(owner, repo, ref, path_in_repo, save_path)
     
     def download_image(self, image: ProjectImage, save_path: Path) -> bool:
         """
         下载单张图片
         返回: 是否下载成功
         """
+        canonical_url = normalize_github_image_url(str(image.url))
         try:
             # 确保保存目录存在
             save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -36,9 +146,9 @@ class ImageDownloader:
             for attempt in range(self.max_retries):
                 try:
                     response = self.session.get(
-                        str(image.url), 
+                        mirror_github_raw_url(str(image.url)),
                         timeout=self.timeout,
-                        stream=True
+                        stream=True,
                     )
                     response.raise_for_status()
                     
@@ -58,7 +168,10 @@ class ImageDownloader:
                         image.size = img_info['size']
                         return True
                     else:
-                        # 图片损坏，删除文件
+                        logger.warning(
+                            f"下载内容非有效图片或校验失败（可能为 HTML/空文件）: id={image.id} "
+                            f"canonical_url={canonical_url[:120]}..."
+                        )
                         save_path.unlink(missing_ok=True)
                         
                 except requests.RequestException as e:
@@ -68,7 +181,83 @@ class ImageDownloader:
                         
         except Exception as e:
             logger.error(f"下载图片失败 {image.url}: {e}")
+            # raw 域名不可用（DNS/墙）时，用 api.github.com 拉取同一文件
+            if 'raw.githubusercontent.com' in canonical_url:
+                logger.info('尝试通过 GitHub REST API 下载（不经过 raw.githubusercontent.com）')
+                try:
+                    if self._try_github_api_fallback(canonical_url, save_path):
+                        if self._validate_image(save_path):
+                            img_info = self._get_image_info(save_path)
+                            image.local_path = save_path
+                            image.width = img_info['width']
+                            image.height = img_info['height']
+                            image.size = img_info['size']
+                            return True
+                        save_path.unlink(missing_ok=True)
+                except Exception as ex:
+                    logger.warning(f'GitHub API 回退仍失败: {ex}')
             
+        return False
+
+    def _video_headers_for_url(self, url: str) -> dict:
+        h = {
+            'User-Agent': self.session.headers.get('User-Agent', 'AINews-GitHub-Image-Downloader'),
+            'Accept': 'application/octet-stream, video/*, */*',
+        }
+        token = os.environ.get('GITHUB_TOKEN', '').strip()
+        try:
+            host = urlparse(url).netloc.lower()
+        except Exception:
+            host = ''
+        if token and (
+            'githubusercontent.com' in host
+            or host.endswith('github.com')
+        ):
+            h['Authorization'] = f'token {token}'
+        return h
+
+    def download_video(self, video: ProjectVideo, save_path: Path) -> bool:
+        """
+        下载 README 中的视频（含 private-user-images.githubusercontent.com 带 JWT 的 URL）。
+        建议配置 GITHUB_TOKEN 以提高成功率。
+        """
+        url = str(video.url)
+        try:
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            headers = self._video_headers_for_url(url)
+            for attempt in range(self.max_retries):
+                try:
+                    r = self.session.get(
+                        mirror_github_raw_url(url),
+                        headers=headers,
+                        timeout=max(self.timeout, 120),
+                        stream=True,
+                    )
+                    if r.status_code != 200:
+                        logger.warning(
+                            f'下载视频 HTTP {r.status_code}: id={video.id} url={url[:120]}...'
+                        )
+                        if attempt == self.max_retries - 1:
+                            return False
+                        continue
+                    with open(save_path, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=65536):
+                            if chunk:
+                                f.write(chunk)
+                    if save_path.stat().st_size < 256:
+                        logger.warning(f'视频过小，可能非有效文件: {video.id}')
+                        save_path.unlink(missing_ok=True)
+                        return False
+                    video.local_path = save_path
+                    video.size = save_path.stat().st_size
+                    logger.info(f'视频下载成功: {video.id} -> {save_path.name}')
+                    return True
+                except requests.RequestException as e:
+                    logger.warning(f'下载视频失败 (尝试 {attempt + 1}/{self.max_retries}): {e}')
+                    if attempt == self.max_retries - 1:
+                        raise
+        except Exception as e:
+            logger.error(f'下载视频失败 {video.id}: {e}')
         return False
     
     def _validate_image(self, image_path: Path) -> bool:
@@ -149,7 +338,7 @@ class ImageProcessor:
 
     @staticmethod
     def is_animation_preserved_image(image_path: Path) -> bool:
-        """Return True for raster animations that must keep multi-frame data."""
+        """需要保留原始多帧数据的图片：GIF 或动画 WebP。"""
         try:
             suffix = image_path.suffix.lower()
             if suffix == '.gif':
@@ -160,9 +349,9 @@ class ImageProcessor:
                 frame_count = int(getattr(img, 'n_frames', 1) or 1)
                 return bool(getattr(img, 'is_animated', False)) and frame_count > 1
         except Exception as e:
-            logger.debug(f"Failed to detect preserved animation image {image_path}: {e}")
+            logger.debug(f"判断图片是否为需保留动图失败 {image_path}: {e}")
             return False
-
+    
     @staticmethod
     def resize_image(image_path: Path, max_width: int = 1920, max_height: int = 1080) -> Optional[Path]:
         """
@@ -171,7 +360,7 @@ class ImageProcessor:
         """
         try:
             if ImageProcessor.is_animation_preserved_image(image_path):
-                logger.info(f"Preserve animated raster for video rendering: {image_path.name}")
+                logger.info(f"保留动图原始文件用于成片动画渲染: {image_path.name}")
                 return image_path
 
             # 对于SVG文件，先转换为PNG再调整尺寸
@@ -221,7 +410,7 @@ class ImageProcessor:
         """
         try:
             if ImageProcessor.is_animation_preserved_image(image_path):
-                logger.info(f"Skip format conversion for animated raster: {image_path.name}")
+                logger.info(f"跳过动图格式转换，保留多帧数据: {image_path.name}")
                 return image_path
 
             # SVG文件特殊处理：转换为PNG
@@ -300,22 +489,59 @@ class ImageManager:
                         successful_images.append(image)
                         logger.info(f"图片下载成功: {filename}")
                     else:
-                        # 处理失败，使用原始图片
+                        image.local_path = save_path
                         successful_images.append(image)
+                        logger.warning(
+                            f"图片已下载但后处理失败，使用原文件: {filename}"
+                        )
+                else:
+                    logger.warning(
+                        f"图片未下载成功（已跳过）: id={image.id} url={image.url}"
+                    )
                         
             except Exception as e:
                 logger.error(f"处理图片 {image.id} 失败: {e}")
                 continue
         
-        logger.info(f"图片下载完成，成功 {len(successful_images)}/{len(images)} 张")
+        fail_n = len(images) - len(successful_images)
+        logger.info(
+            f"图片下载完成，成功 {len(successful_images)}/{len(images)} 张"
+            + (f"，失败 {fail_n} 张（多为无效链接、非图片响应或网络问题）" if fail_n else "")
+        )
         return successful_images
+
+    def download_project_videos(
+        self, project_id: str, videos: List[ProjectVideo]
+    ) -> List[ProjectVideo]:
+        """下载 README 视频到 projects/{id}/videos/。"""
+        out: List[ProjectVideo] = []
+        video_dir = self.base_path / project_id / "videos"
+        logger.info(f'开始下载 {len(videos)} 个 README 视频到 {video_dir}')
+
+        for v in videos:
+            try:
+                path = urlparse(str(v.url)).path
+                ext = Path(path).suffix.lower()
+                if ext not in ('.mp4', '.webm', '.mov', '.m4v'):
+                    ext = '.mp4'
+                save_path = video_dir / f'{v.id}{ext}'
+                if self.downloader.download_video(v, save_path):
+                    out.append(v)
+                else:
+                    logger.warning(f'跳过未下载成功的视频: id={v.id}')
+            except Exception as e:
+                logger.error(f'处理视频 {v.id} 失败: {e}')
+                continue
+
+        logger.info(f'README 视频下载完成: {len(out)}/{len(videos)}')
+        return out
     
     def _process_image(self, image_path: Path) -> Optional[Path]:
         """处理单张图片"""
         try:
             if self.processor.is_animation_preserved_image(image_path):
                 logger.info(
-                    f"Preserve GIF/animated WebP source for duration-based rendering: {image_path.name}"
+                    f"检测到 GIF/动画 WebP，保留原始文件以便按所选时长渲染动图: {image_path.name}"
                 )
                 return image_path
 

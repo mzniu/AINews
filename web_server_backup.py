@@ -567,7 +567,7 @@ async def generate_summary(request: GenerateSummaryRequest):
    - 保持专业性和可信度
 2. 副标题：10-18字，补充主标题的信息，提供更多细节或悬念，不使用任何emoji表情
 3. 摘要：40-50字，简洁有力，适合短视频口播解说，节奏感强
-4. 标签：10个相关标签，每个标签以#开头，用空格分隔
+4. 标签：严格生成10个标签，每个标签以#开头，用空格分隔，顺序固定为：1个赛道标签 + 1个垂直标签 + 1个精准标签 + 1个热点标签 + 1个个人IP标签（优先 #小牛说）+ 5个其他标签
 
 原标题：{request.title}
 
@@ -579,7 +579,7 @@ async def generate_summary(request: GenerateSummaryRequest):
   "main_title": "主标题（8-15字，不含emoji）",
   "sub_title": "副标题（10-20字，不含emoji）",
   "summary": "生成的摘要（40-50字）",
-  "tags": "#AI #人工智能 #科技 ... (10个标签)"
+    "tags": "#赛道标签 #垂直标签 #精准标签 #热点标签 #小牛说 #其他标签1 #其他标签2 #其他标签3 #其他标签4 #其他标签5"
 }}"""
 
         response = client.chat.completions.create(

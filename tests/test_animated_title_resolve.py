@@ -34,12 +34,13 @@ def test_new_format_truncation(draw_and_fonts):
     req = CreateAnimatedVideoRequest(
         summary="x",
         images=[],
-        main_line1="一二三四五六七八九十壹贰叁肆伍",  # 15 字 > MAIN_LINE_MAX_UNITS
+        # 20 字 > 第一行上限 18 汉字当量
+        main_line1="一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾",
         main_line2="",
         subtitle="副" * 20,
     )
     main_lines, sub_lines = _resolve_animated_title_lines(req, d, tf, sf, 800)
-    assert len(main_lines[0]) == 14
+    assert len(main_lines[0]) == 18
     assert len(sub_lines[0]) == 16
 
 

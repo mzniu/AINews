@@ -4,6 +4,8 @@
             initializeEventListeners();
             // 加载 BGM 列表
             loadBGMList();
+            loadTitleFontList();
+            loadIndexSubtitleFonts();
         });
         
         function initializeEventListeners() {
@@ -57,6 +59,65 @@
         /**
          * 备用 BGM 列表（当 API 不可用时）
          */
+        async function loadTitleFontList() {
+            try {
+                const response = await fetch('/api/list-title-fonts');
+                const data = await response.json();
+                const sel = document.getElementById('titleFontSelect');
+                if (!sel || !data.success || !Array.isArray(data.fonts)) return;
+                while (sel.options.length) sel.remove(0);
+                data.fonts.forEach((f) => {
+                    const opt = document.createElement('option');
+                    opt.value = f.key;
+                    opt.textContent = f.label || f.key;
+                    sel.appendChild(opt);
+                });
+            } catch (e) {
+                console.warn('加载主标题字体列表失败', e);
+            }
+        }
+
+        async function loadIndexSubtitleFonts() {
+            const sel = document.getElementById('indexVoiceoverSubtitleFont');
+            if (!sel) return;
+            const fallback = [
+                { fontname: 'Microsoft YaHei', label: '微软雅黑（系统）' },
+                { fontname: 'SimHei', label: '黑体 SimHei（系统）' },
+                { fontname: 'SimSun', label: '宋体 SimSun（系统）' },
+                { fontname: 'KaiTi', label: '楷体 KaiTi（系统）' },
+            ];
+            const current = sel.value;
+            try {
+                const response = await fetch('/api/list-subtitle-fonts');
+                const data = await response.json();
+                if (data.success && Array.isArray(data.fonts) && data.fonts.length) {
+                    sel.innerHTML = '';
+                    data.fonts.forEach((f) => {
+                        const opt = document.createElement('option');
+                        opt.value = f.fontname;
+                        opt.textContent = f.label || f.fontname;
+                        sel.appendChild(opt);
+                    });
+                    if (current && [...sel.options].some((o) => o.value === current)) {
+                        sel.value = current;
+                    } else {
+                        sel.value = 'Microsoft YaHei';
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.warn('加载字幕字体列表失败', e);
+            }
+            sel.innerHTML = '';
+            fallback.forEach((f) => {
+                const opt = document.createElement('option');
+                opt.value = f.fontname;
+                opt.textContent = f.label;
+                sel.appendChild(opt);
+            });
+            sel.value = 'Microsoft YaHei';
+        }
+
         function loadFallbackBGMList() {
             const bgmSelect = document.getElementById('bgmSelect');
             const fallbackFiles = [

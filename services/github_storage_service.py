@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from loguru import logger
-from src.models.github_models import GitHubProject, ProjectImage
+from src.models.github_models import GitHubProject, ProjectImage, ProjectVideo
 
 
 class StorageConfig:
@@ -89,6 +89,7 @@ class ProjectStorageManager:
             
             # 加载图片信息
             project.images = self._load_project_images(project_id)
+            project.videos = self._load_project_videos(project_id)
             
             # 设置截图路径
             screenshot_path = project_dir / self.screenshots_dir / "project_homepage.jpg"
@@ -210,6 +211,9 @@ class ProjectStorageManager:
         for image in metadata.get('images', []):
             if image.get('local_path'):
                 image['local_path'] = str(image['local_path'])
+        for vid in metadata.get('videos', []):
+            if vid.get('local_path'):
+                vid['local_path'] = str(vid['local_path'])
         
         # 保存到JSON文件
         with open(metadata_path, 'w', encoding='utf-8') as f:
@@ -244,6 +248,24 @@ class ProjectStorageManager:
                 logger.error(f"加载图片信息失败: {e}")
         
         return images
+
+    def _load_project_videos(self, project_id: str) -> List[ProjectVideo]:
+        """从元数据加载 README 视频列表"""
+        project_dir = self._get_project_directory(project_id)
+        metadata_path = project_dir / self.metadata_file
+        if not metadata_path.exists():
+            return []
+        try:
+            metadata = self._load_metadata(metadata_path)
+            out: List[ProjectVideo] = []
+            for row in metadata.get('videos', []):
+                if row.get('local_path'):
+                    row['local_path'] = Path(row['local_path'])
+                out.append(ProjectVideo(**row))
+            return out
+        except Exception as e:
+            logger.error(f'加载视频信息失败: {e}')
+            return []
 
 
 class CacheManager:

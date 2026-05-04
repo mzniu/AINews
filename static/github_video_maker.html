@@ -4,521 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub项目视频生成器</title>
-    <style>
-        /* 导航栏样式 */
-        .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 0 20px;
-            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            border-radius: 0 0 12px 12px;
-        }
-        
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 60px;
-        }
-        
-        .nav-brand {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #667eea;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .nav-brand:hover {
-            color: #764ba2;
-        }
-        
-        .nav-menu {
-            display: flex;
-            gap: 5px;
-        }
-        
-        .nav-link {
-            padding: 10px 20px;
-            text-decoration: none;
-            color: #555;
-            font-weight: 500;
-            border-radius: 6px;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .nav-link:hover {
-            background: rgba(102, 126, 234, 0.1);
-            color: #667eea;
-        }
-        
-        .nav-link.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
-        :root {
-            --primary-color: #24292e;
-            --secondary-color: #0366d6;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --light-bg: #f6f8fa;
-            --border-color: #e1e4e8;
-            --text-primary: #24292e;
-            --text-secondary: #586069;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-            background-color: var(--light-bg);
-            color: var(--text-primary);
-            line-height: 1.5;
-            padding-top: 80px; /* 为固定导航栏留出空间 */
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .header h1 {
-            color: var(--primary-color);
-            margin-bottom: 10px;
-        }
-
-        /* 步骤容器 */
-        .steps-container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .step-panel {
-            opacity: 0.7;
-            border-left: 4px solid #ddd;
-            transition: all 0.3s ease;
-        }
-        
-        .step-panel.active {
-            opacity: 1;
-            border-left: 4px solid var(--secondary-color);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        .step-panel.completed {
-            opacity: 0.9;
-            background: #f0f8ff;
-        }
-        
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            margin: 20px 0;
-            gap: 20px;
-        }
-
-        .step {
-            padding: 10px 20px;
-            background: var(--light-bg);
-            border-radius: 20px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        .step.active {
-            background: var(--secondary-color);
-            color: white;
-        }
-
-        .card {
-            background: white;
-            border-radius: 8px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--secondary-color);
-            box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-        }
-
-        .btn-primary {
-            background: var(--secondary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #0256bb;
-            transform: translateY(-2px);
-        }
-
-        .btn-success {
-            background: var(--success-color);
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #218838;
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-        }
-
-        .btn-outline:hover {
-            background: var(--light-bg);
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: var(--light-bg);
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 20px 0;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--secondary-color);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .image-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .image-item {
-            position: relative;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            overflow: hidden;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .image-item.selected {
-            border-color: var(--secondary-color);
-            box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.2);
-        }
-
-        .image-item img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            display: block;
-        }
-
-        .image-info {
-            padding: 10px;
-            background: white;
-        }
-
-        .image-info small {
-            color: var(--text-secondary);
-            font-size: 12px;
-        }
-        
-        .image-info.screenshot-source {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-weight: 500;
-        }
-        
-        .image-info.screenshot-source small {
-            color: white;
-        }
-
-        .checkbox-overlay {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 24px;
-            height: 24px;
-            background: var(--secondary-color);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .image-item.selected .checkbox-overlay {
-            opacity: 1;
-        }
-
-        .checkbox-overlay::after {
-            content: "✓";
-            color: white;
-            font-weight: bold;
-        }
-
-        .content-preview {
-            background: var(--light-bg);
-            border-radius: 6px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-
-        .preview-field {
-            margin-bottom: 15px;
-        }
-
-        .preview-field label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: var(--text-primary);
-        }
-
-        .preview-field .value {
-            padding: 10px;
-            background: white;
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-            min-height: 24px;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .spinner {
-            border: 4px solid var(--light-bg);
-            border-top: 4px solid var(--secondary-color);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .notification {
-            padding: 15px;
-            border-radius: 6px;
-            margin: 15px 0;
-            display: none;
-        }
-
-        .notification.success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-
-        .notification.error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-
-        .notification.warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-        }
-
-        .video-info {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        
-        .video-info h3 {
-            margin-top: 0;
-            color: #2c3e50;
-        }
-        
-        .video-info p {
-            margin: 10px 0;
-            line-height: 1.5;
-        }
-        
-        .video-info strong {
-            color: #34495e;
-        }
-
-        /* 视频预览样式 */
-        .video-preview-container {
-            margin: 25px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
-        }
-        
-        .video-preview-container h3 {
-            margin-top: 0;
-            color: #2c3e50;
-            text-align: center;
-        }
-        
-        .video-preview-area {
-            width: 100%;
-            height: 300px;
-            background: #000;
-            border-radius: 6px;
-            overflow: hidden;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .preview-placeholder {
-            text-align: center;
-            color: #6c757d;
-        }
-        
-        .preview-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-        
-        .preview-placeholder p {
-            margin: 10px 0;
-            font-size: 16px;
-            font-weight: 500;
-        }
-        
-        .preview-placeholder small {
-            color: #adb5bd;
-            font-size: 14px;
-        }
-        
-        .video-preview-area video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        
-        .video-controls-hint {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            opacity: 0.8;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .flex-row {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-
-        .flex-row .form-group {
-            flex: 1;
-            margin-bottom: 0;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-            
-            .image-grid {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            }
-            
-            .step-indicator {
-                flex-wrap: wrap;
-                gap: 10px;
-            }
-            
-            .flex-row {
-                flex-direction: column;
-                gap: 10px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/github_video_maker.css">
 </head>
 <body>
     <!-- 导航栏 -->
@@ -550,6 +36,7 @@
                 <div class="step" id="step2">2. 选择图片</div>
                 <div class="step" id="step3">3. 编辑内容</div>
                 <div class="step" id="step4">4. 生成视频</div>
+                <div class="step" id="step5">5. 配音与字幕</div>
             </div>
         </div>
 
@@ -572,18 +59,14 @@
                     </label>
                 </div>
                 <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="include-audio" checked>
-                        添加背景音乐
-                    </label>
-                    <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
-                        需要 static/music/background.mp3 文件
-                    </small>
-                </div>
-                <div class="form-group">
                     <label for="max-images">最大图片数量</label>
                     <input type="number" id="max-images" class="form-control" 
                            value="20" min="1" max="50">
+                </div>
+                <div class="form-group">
+                    <label for="max-videos">README 内嵌视频数量上限</label>
+                    <input type="number" id="max-videos" class="form-control" 
+                           value="5" min="0" max="20" title="从 README 中 &lt;video&gt; 标签解析并下载">
                 </div>
             </div>
             
@@ -602,22 +85,29 @@
 
         <!-- 步骤2: 选择图片 -->
         <div id="step2-panel" class="card step-panel">
-            <h2>🖼️ 第二步：选择项目图片</h2>
-            <p>从以下图片中选择用于视频制作的图片（包含README图片和项目主页截图）：</p>
+            <h2>🖼️ 第二步：选择图片与 README 视频</h2>
+            <p>从下列素材中选择：README 图片（GIF/动画 WebP 会按时长保留动效）、主页截图、Star 历史曲线图，以及 README 中出现的 <code>&lt;video&gt;</code> 片段（下载后将作为成片中一段<strong>画中画</strong>视频，与主页「图片+视频」模式一致）。</p>
             
             <div class="notification warning" id="image-selection-warning">
-                请选择至少3张图片以获得最佳效果
+                建议选择至少 3 段素材（图片或视频）以获得更佳效果
             </div>
             
             <div class="image-grid" id="image-grid">
                 <!-- 图片将在这里动态加载 -->
             </div>
             
-            <div class="flex-row">
+            <div class="flex-row github-step2-actions">
+                <button type="button" id="open-sort-panel-btn" class="btn btn-outline" title="拖动排序、设置每张显示时长">
+                    📐 排序与时长
+                </button>
+                <button type="button" id="refresh-github-screenshot-btn" class="btn btn-outline" title="不重新下载 README 与图片，仅重新截取仓库主页">
+                    📷 重新获取主页截图
+                </button>
                 <button id="select-all-btn" class="btn btn-outline">全选</button>
                 <button id="select-none-btn" class="btn btn-outline">清空选择</button>
                 <button id="confirm-images-btn" class="btn btn-primary">确认选择</button>
             </div>
+            <p class="github-hint">点击素材可选中；点 🔍 查看大图或预览视频。打开「排序与时长」可调整顺序与各段秒数；GIF/动画 WebP 与 README 视频片段会按设定秒数参与成片绘制。若主页截图失败或需更新画面，可使用「重新获取主页截图」而不必整库重抓。</p>
         </div>
 
         <!-- 步骤3: 编辑内容 -->
@@ -626,10 +116,19 @@
             
             <div class="content-preview">
                 <div class="preview-field">
-                    <label>视频标题</label>
-                    <div class="value" id="generated-title" contenteditable="true">
-                        正在生成...
-                    </div>
+                    <label for="generated-main-line1">主标题第一行</label>
+                    <input type="text" id="generated-main-line1" class="form-control github-title-input" placeholder="第一行主标题" maxlength="40" value="">
+                </div>
+                <div class="preview-field">
+                    <label for="generated-main-line2">主标题第二行</label>
+                    <input type="text" id="generated-main-line2" class="form-control github-title-input" placeholder="第二行（可空）" maxlength="44" value="">
+                </div>
+                <div class="preview-field">
+                    <label for="github-title-font-select">主标题字体</label>
+                    <select id="github-title-font-select" class="form-control">
+                        <option value="msyhbd">微软雅黑 粗体</option>
+                    </select>
+                    <small class="github-bgm-hint">成片两行主标题使用同一字体（与主页视频制作一致）。</small>
                 </div>
                 
                 <div class="preview-field">
@@ -647,7 +146,7 @@
                 </div>
                 
                 <div class="preview-field">
-                    <label>标签</label>
+                    <label>标签（赛道 + 垂直 + 精准 + 热点 + 个人IP + 5个其他标签）</label>
                     <div class="value" id="generated-tags">
                         <!-- 将由AI生成 -->
                     </div>
@@ -656,13 +155,45 @@
             
             <div class="flex-row">
                 <button id="regenerate-btn" class="btn btn-outline">重新生成</button>
-                <button id="confirm-content-btn" class="btn btn-success">确认并生成视频</button>
+                <button id="confirm-content-btn" class="btn btn-success">下一步：生成视频</button>
             </div>
         </div>
 
         <!-- 步骤4: 生成视频 -->
         <div id="step4-panel" class="card step-panel">
             <h2>🎬 第四步：生成视频</h2>
+
+            <div id="step4-options" class="github-step4-options">
+                <p class="github-hint">选择背景音乐、成片背景图后，点击「开始生成视频」。</p>
+                <div class="flex-row" style="flex-wrap: wrap;">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="include-audio" checked>
+                            添加背景音乐
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group github-bgm-group">
+                    <label for="github-bgm-select">背景音乐</label>
+                    <select id="github-bgm-select" class="form-control">
+                        <option value="static/music/background.mp3">🎵 默认 BGM</option>
+                    </select>
+                    <small class="github-bgm-hint">从 <code>static/music</code> 目录加载；也可自行放入 MP3 后刷新列表。</small>
+                </div>
+                <div class="form-group">
+                    <label for="github-background-select">成片背景图</label>
+                    <select id="github-background-select" class="form-control">
+                        <option value="static/imgs/bg.png">默认背景</option>
+                    </select>
+                    <small class="github-bgm-hint">默认图为 <code>static/imgs/bg.png</code>；自定义图可放入 <code>static/imgs/backgrounds/</code> 或使用下方上传。</small>
+                </div>
+                <div class="form-group github-bg-upload-row">
+                    <label for="github-background-file">上传背景图（可选）</label>
+                    <input type="file" id="github-background-file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control">
+                    <button type="button" id="github-background-upload-btn" class="btn btn-outline" style="margin-top:8px;">上传到背景库</button>
+                </div>
+                <button type="button" id="start-generate-video-btn" class="btn btn-primary btn-lg" style="margin-top:12px;">开始生成视频</button>
+            </div>
             
             <div class="loading" id="video-generation-loading">
                 <div class="spinner"></div>
@@ -689,9 +220,95 @@
                 <div id="video-player">
                     <!-- 视频播放器将在这里显示 -->
                 </div>
-                <div class="flex-row">
-                    <button id="download-btn" class="btn btn-primary">下载视频</button>
+                <div class="flex-row github-step4-actions">
+                    <button type="button" id="go-step5-btn" class="btn btn-success">进入第五步：配音与字幕</button>
+                    <button type="button" id="step4-regenerate-settings-btn" class="btn btn-outline">重新选择背景与音乐</button>
+                    <button id="download-btn" class="btn btn-primary">下载基底视频</button>
                     <button id="new-project-btn" class="btn btn-outline">处理新项目</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 步骤5: 配音与字幕 -->
+        <div id="step5-panel" class="card step-panel">
+            <h2>🎙️ 第五步：配音与字幕</h2>
+            <p class="github-hint">画面上不再叠加摘要文字；摘要用于本步口播与字幕。使用 IndexTTS 根据参考音频克隆音色，可与第四步中的背景音乐混合，并可选烧录字幕。</p>
+
+            <div class="form-group">
+                <label for="voiceover-script">口播稿</label>
+                <textarea id="voiceover-script" class="form-control github-textarea" rows="10" placeholder="编辑口播文本，或点击下方「填入摘要」"></textarea>
+            </div>
+            <button type="button" id="fill-summary-voiceover-btn" class="btn btn-outline">填入摘要</button>
+
+            <div class="form-group" style="margin-top: 16px;">
+                <label for="voiceover-clone-audio">声音克隆参考音频（IndexTTS）</label>
+                <input type="file" id="voiceover-clone-audio" class="form-control" accept="audio/wav,audio/mpeg,audio/flac,audio/ogg,audio/webm,audio/mp4,video/mp4,.wav,.mp3,.flac,.ogg,.webm,.m4a,.mp4">
+                <input type="hidden" id="voiceover-clone-audio-path" value="">
+                <small class="github-bgm-hint" id="voiceover-clone-audio-status">推荐上传 5～20 秒清晰人声；未上传时使用 IndexTTS 默认参考音频。</small>
+            </div>
+
+            <div class="form-group flex-row" style="gap: 16px; flex-wrap: wrap;">
+                <div style="flex: 2; min-width: 220px;">
+                    <label for="voiceover-subtitle-font">烧录字幕字体（系统字体需本机已安装；自定义字体放入 <code>static/fonts/subtitle/</code>）</label>
+                    <select id="voiceover-subtitle-font" class="form-control">
+                        <option value="Microsoft YaHei">加载中…</option>
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label for="voiceover-subtitle-margin-pct">字幕距底边（画面高度 %）</label>
+                    <input type="number" id="voiceover-subtitle-margin-pct" class="form-control" min="8" max="45" value="11" title="占画面高度%；数值越大字幕整体越靠上、离底边越远" />
+                </div>
+            </div>
+
+            <div class="form-group flex-row" style="gap: 16px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label for="voiceover-rate">语速</label>
+                    <select id="voiceover-rate" class="form-control">
+                        <option value="+0%">正常</option>
+                        <option value="+15%">略快</option>
+                        <option value="+25%" selected>较快（默认）</option>
+                        <option value="+35%">更快</option>
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 140px;">
+                    <label for="voiceover-subtitle-size">烧录字幕字号（相对档位，会按视频高度换算成像素）</label>
+                    <input type="number" id="voiceover-subtitle-size" class="form-control" min="10" max="36" value="16" title="数值越大字越大；1080p 下约等于 档位×3 像素" />
+                </div>
+                <div style="flex: 1; min-width: 160px;">
+                    <label for="voiceover-subtitle-max-chars">每条字幕约字数</label>
+                    <input type="number" id="voiceover-subtitle-max-chars" class="form-control" min="8" max="40" value="20" />
+                </div>
+            </div>
+
+            <div class="form-group github-voiceover-checks">
+                <label><input type="checkbox" id="voiceover-mix-bgm" checked> 与原片中的背景音乐混合（压低 BGM）</label>
+                <label><input type="checkbox" id="voiceover-burn" checked> 烧录字幕到画面（需本机 FFmpeg 与字体）</label>
+            </div>
+
+            <div class="form-row" style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label for="voiceover-bgm-gain">背景音乐音量（dB，越大越响，多为负值）</label>
+                    <input type="number" id="voiceover-bgm-gain" class="form-control" min="-45" max="6" step="1" value="-22" title="与原片提取的 BGM 混音时的增益；默认压低伴奏" />
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <label for="voiceover-narration-gain">人声音量（dB，越大越响）</label>
+                    <input type="number" id="voiceover-narration-gain" class="form-control" min="-24" max="24" step="1" value="0" title="TTS 旁白在混音前的增益" />
+                </div>
+            </div>
+
+            <button type="button" id="voiceover-generate-btn" class="btn btn-primary">生成配音与字幕视频</button>
+
+            <div class="loading" id="voiceover-loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>正在使用 IndexTTS 合成语音与字幕，首次加载模型可能需要数分钟…</p>
+            </div>
+
+            <div id="voiceover-result" class="hidden" style="margin-top: 20px;">
+                <div class="notification success">配音视频生成成功</div>
+                <div class="video-preview-area" id="voiceover-preview-area"></div>
+                <div class="flex-row" style="margin-top: 12px;">
+                    <a id="voiceover-download-final" class="btn btn-primary" href="#" download>下载成片</a>
+                    <a id="voiceover-download-srt" class="btn btn-outline" href="#" download style="display: none;">下载 SRT</a>
                 </div>
             </div>
         </div>
@@ -700,453 +317,25 @@
         <div id="notifications"></div>
     </div>
 
-    <script>
-        // 全局变量
-        let currentProjectId = null;
-        let selectedImages = [];
-        let generatedContent = null;
+    <!-- 右侧：已选图片排序与时长 -->
+    <div id="githubSortPanel" class="github-sort-panel" aria-hidden="true">
+        <div class="github-sort-panel-header">
+            <h4>📐 已选素材排序与时长</h4>
+            <button type="button" id="close-github-sort-panel" class="github-sort-close" aria-label="关闭">×</button>
+        </div>
+        <div class="github-sort-panel-tip">
+            拖动条目排序；每段「秒」为该片段在成片中的时长（图片、GIF/动画 WebP 或 README 视频，默认 3 秒）。视频段为画中画效果。
+        </div>
+        <div id="githubSortableList" class="github-sortable-list"></div>
+    </div>
 
-        // DOM元素引用
-        const stepPanels = {
-            1: document.getElementById('step1-panel'),
-            2: document.getElementById('step2-panel'),
-            3: document.getElementById('step3-panel'),
-            4: document.getElementById('step4-panel')
-        };
+    <!-- 大图预览 -->
+    <div id="ghImageLightbox" class="gh-lightbox-overlay" role="dialog" aria-modal="true">
+        <button type="button" class="gh-lightbox-close" id="ghLightboxClose" aria-label="关闭">×</button>
+        <img id="ghLightboxImg" src="" alt="大图预览" />
+        <video id="ghLightboxVideo" controls playsinline style="display:none;max-width:92vw;max-height:90vh;border-radius:8px;"></video>
+    </div>
 
-        const stepIndicators = {
-            1: document.getElementById('step1'),
-            2: document.getElementById('step2'),
-            3: document.getElementById('step3'),
-            4: document.getElementById('step4')
-        };
-
-        // API基础URL
-        const API_BASE = '/api/github';
-
-        // 通知函数
-        function showNotification(message, type = 'info') {
-            const notificationArea = document.getElementById('notifications');
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.innerHTML = message;
-            notification.style.display = 'block';
-            
-            notificationArea.appendChild(notification);
-            
-            // 3秒后自动消失
-            setTimeout(() => {
-                notification.remove();
-            }, 3000);
-        }
-
-        // 更新步骤状态
-        function updateStep(currentStep) {
-            // 更新步骤指示器
-            Object.keys(stepIndicators).forEach(stepNum => {
-                if (parseInt(stepNum) <= currentStep) {
-                    stepIndicators[stepNum].classList.add('active');
-                } else {
-                    stepIndicators[stepNum].classList.remove('active');
-                }
-            });
-
-            // 更新步骤面板状态
-            Object.keys(stepPanels).forEach(stepNum => {
-                const panel = stepPanels[stepNum];
-                if (parseInt(stepNum) < currentStep) {
-                    panel.classList.add('completed');
-                    panel.classList.remove('active');
-                } else if (parseInt(stepNum) === currentStep) {
-                    panel.classList.add('active');
-                    panel.classList.remove('completed');
-                } else {
-                    panel.classList.remove('active', 'completed');
-                }
-            });
-        }
-
-        // 处理项目按钮点击事件
-        document.getElementById('process-btn').addEventListener('click', async () => {
-            const githubUrl = document.getElementById('github-url').value.trim();
-            const includeScreenshots = document.getElementById('include-screenshots').checked;
-            const includeAudio = document.getElementById('include-audio').checked;
-            const maxImages = parseInt(document.getElementById('max-images').value);
-
-            if (!githubUrl) {
-                showNotification('请输入GitHub项目链接', 'error');
-                return;
-            }
-
-            try {
-                // 显示加载状态
-                document.getElementById('processing-loading').style.display = 'block';
-                document.getElementById('process-btn').disabled = true;
-
-                // 发送处理请求
-                const response = await fetch(`${API_BASE}/process-project`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        github_url: githubUrl,
-                        include_screenshots: includeScreenshots,
-                        include_audio: includeAudio,  // 添加音频选项
-                        max_images: maxImages
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    currentProjectId = result.project_id;
-                    showNotification(`项目处理成功: ${result.project_id}`, 'success');
-                    updateStep(2);
-                    loadProjectImages();
-                } else {
-                    showNotification(`处理失败: ${result.message}`, 'error');
-                }
-            } catch (error) {
-                showNotification(`请求失败: ${error.message}`, 'error');
-            } finally {
-                document.getElementById('processing-loading').style.display = 'none';
-                document.getElementById('process-btn').disabled = false;
-            }
-        });
-
-        // 加载项目图片
-        async function loadProjectImages() {
-            if (!currentProjectId) return;
-
-            try {
-                const response = await fetch(`${API_BASE}/projects/${currentProjectId}/images`);
-                const imageData = await response.json();
-
-                const imageGrid = document.getElementById('image-grid');
-                imageGrid.innerHTML = '';
-
-                imageData.available_images.forEach(image => {
-                    const imageItem = document.createElement('div');
-                    imageItem.className = 'image-item';
-                    imageItem.dataset.imageId = image.id;
-                    
-                    // 根据图片来源设置不同的样式和提示
-                    const sourceText = image.source === 'readme' ? 'README图片' : 
-                                     image.source === 'screenshot' ? '主页截图' : '项目图片';
-                    const sourceClass = image.source === 'screenshot' ? 'screenshot-source' : '';
-                    
-                    imageItem.innerHTML = `
-                        <img src="${API_BASE}/projects/${currentProjectId}/images/${image.id}" 
-                             alt="${image.alt_text || '项目图片'}">
-                        <div class="image-info ${sourceClass}">
-                            <small>${sourceText}</small>
-                        </div>
-                        <div class="checkbox-overlay"></div>
-                    `;
-
-                    imageItem.addEventListener('click', () => {
-                        imageItem.classList.toggle('selected');
-                        updateSelectedImages();
-                    });
-
-                    imageGrid.appendChild(imageItem);
-                });
-
-            } catch (error) {
-                showNotification(`加载图片失败: ${error.message}`, 'error');
-            }
-        }
-
-        // 更新选中的图片
-        function updateSelectedImages() {
-            const selectedItems = document.querySelectorAll('.image-item.selected');
-            selectedImages = Array.from(selectedItems).map(item => item.dataset.imageId);
-            
-            // 更新警告提示
-            const warning = document.getElementById('image-selection-warning');
-            if (selectedImages.length < 3) {
-                warning.style.display = 'block';
-            } else {
-                warning.style.display = 'none';
-            }
-        }
-
-        // 确认图片选择
-        document.getElementById('confirm-images-btn').addEventListener('click', async () => {
-            if (selectedImages.length === 0) {
-                showNotification('请至少选择一张图片', 'warning');
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/projects/${currentProjectId}/select-images`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(selectedImages)
-                });
-
-                if (response.ok) {
-                    showNotification('图片选择已保存', 'success');
-                    updateStep(3);
-                    generateContent();
-                } else {
-                    throw new Error('保存图片选择失败');
-                }
-            } catch (error) {
-                showNotification(`操作失败: ${error.message}`, 'error');
-            }
-        });
-
-        // 生成内容
-        async function generateContent() {
-            try {
-                const response = await fetch(`${API_BASE}/generate-content`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        project_id: currentProjectId,
-                        selected_images: selectedImages
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    generatedContent = result.video_metadata;
-                    updateContentPreview();
-                    showNotification('内容重新生成成功！', 'success');
-                } else {
-                    throw new Error(result.message || '内容生成失败');
-                }
-            } catch (error) {
-                showNotification(`生成内容失败: ${error.message}`, 'error');
-                console.error('重新生成内容失败:', error);
-            }
-        }
-
-        // 更新内容预览
-        function updateContentPreview() {
-            console.log('更新内容预览:', generatedContent);
-            if (!generatedContent) return;
-
-            document.getElementById('generated-title').textContent = generatedContent.title;
-            document.getElementById('generated-subtitle').textContent = generatedContent.subtitle || '';
-            document.getElementById('generated-summary').textContent = generatedContent.summary;
-            
-            const tagsContainer = document.getElementById('generated-tags');
-            tagsContainer.innerHTML = generatedContent.tags.map(tag => 
-                `<span style="background: #0366d6; color: white; padding: 4px 8px; border-radius: 12px; margin: 2px; font-size: 12px;">${tag}</span>`
-            ).join(' ');
-        }
-
-        // 重新生成内容
-        // 注意：这个监听器会在页面初始化时绑定
-        if (document.getElementById('regenerate-btn')) {
-            document.getElementById('regenerate-btn').addEventListener('click', async () => {
-                console.log('重新生成按钮被点击');
-                await generateContent();
-            });
-        }
-
-        // 确认内容并生成视频
-        document.getElementById('confirm-content-btn').addEventListener('click', async () => {
-            updateStep(4);
-            await generateActualVideo();
-        });
-
-        // 实际的视频生成函数
-        async function generateActualVideo() {
-            const loading = document.getElementById('video-generation-loading');
-            const result = document.getElementById('video-result');
-            
-            loading.style.display = 'block';
-            result.classList.add('hidden');
-            
-            try {
-                // 获取编辑后的内容
-                const title = document.getElementById('generated-title').textContent.trim();
-                const subtitle = document.getElementById('generated-subtitle').textContent.trim();
-                const summary = document.getElementById('generated-summary').textContent.trim();
-                
-                // 构造请求数据
-                const requestData = {
-                    project_id: currentProjectId,
-                    selected_images: selectedImages,
-                    custom_title: title || undefined,
-                    custom_summary: summary || undefined,
-                    include_audio: document.getElementById('include-audio').checked  // 传递音频选项
-                };
-                
-                console.log('发送视频生成请求:', requestData);
-                
-                // 调用视频生成API
-                const response = await fetch(`${API_BASE}/generate-video`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestData)
-                });
-                
-                const data = await response.json();
-                console.log('视频生成响应:', data);
-                
-                if (data.success) {
-                    loading.style.display = 'none';
-                    result.classList.remove('hidden');
-                    showNotification('视频生成成功！', 'success');
-                    
-                    // 显示视频信息和预览
-                    const videoPlayer = document.getElementById('video-player');
-                    const videoPreviewArea = document.getElementById('video-preview-area');
-                    
-                    // 显示视频信息
-                    videoPlayer.innerHTML = `
-                        <div class="video-info">
-                            <h3>生成的视频信息</h3>
-                            <p><strong>标题:</strong> ${data.video_metadata.title}</p>
-                            <p><strong>摘要:</strong> ${data.video_metadata.summary.substring(0, 100)}...</p>
-                            <p><strong>标签:</strong> ${data.video_metadata.tags.join(', ')}</p>
-                            <p><strong>项目ID:</strong> ${data.project_id}</p>
-                            <button onclick="downloadGeneratedVideo('${data.project_id}')" class="btn btn-primary">
-                                下载视频
-                            </button>
-                        </div>
-                    `;
-                    
-                    // 显示视频预览
-                    showVideoPreview(data.project_id);
-                } else {
-                    throw new Error(data.message || '视频生成失败');
-                }
-                
-            } catch (error) {
-                console.error('视频生成错误:', error);
-                loading.style.display = 'none';
-                showNotification(`视频生成失败: ${error.message}`, 'error');
-                // 回到上一步
-                updateStep(3);
-            }
-        }
-
-        // 显示视频预览
-        function showVideoPreview(projectId) {
-            const previewArea = document.getElementById('video-preview-area');
-            
-            // 清空预览区域
-            previewArea.innerHTML = `
-                <div class="preview-placeholder">
-                    <div class="spinner"></div>
-                    <p>正在加载视频预览...</p>
-                </div>
-            `;
-            
-            // 创建视频元素
-            const videoElement = document.createElement('video');
-            videoElement.controls = true;
-            videoElement.autoplay = false;
-            videoElement.preload = 'metadata';
-            videoElement.style.display = 'none';
-            
-            // 设置视频源
-            const videoUrl = `${API_BASE}/projects/${projectId}/video`;
-            videoElement.src = videoUrl;
-            
-            // 视频加载成功后显示
-            videoElement.addEventListener('loadeddata', () => {
-                previewArea.innerHTML = '';
-                videoElement.style.display = 'block';
-                previewArea.appendChild(videoElement);
-                
-                // 添加播放控制提示
-                const controlsHint = document.createElement('div');
-                controlsHint.className = 'video-controls-hint';
-                controlsHint.innerHTML = '点击播放按钮开始观看';
-                previewArea.appendChild(controlsHint);
-            });
-            
-            // 视频加载失败处理
-            videoElement.addEventListener('error', (e) => {
-                console.error('视频加载失败:', e);
-                previewArea.innerHTML = `
-                    <div class="preview-placeholder">
-                        <div class="preview-icon">❌</div>
-                        <p>视频加载失败</p>
-                        <small>请尝试重新生成或下载视频</small>
-                        <button onclick="retryVideoPreview('${projectId}')" class="btn btn-outline" style="margin-top: 10px;">
-                            重试加载
-                        </button>
-                    </div>
-                `;
-            });
-        }
-        
-        // 重试视频预览
-        function retryVideoPreview(projectId) {
-            showVideoPreview(projectId);
-        }
-        function downloadGeneratedVideo(projectId) {
-            const videoUrl = `${API_BASE}/projects/${projectId}/video`;
-            
-            // 创建下载链接
-            const link = document.createElement('a');
-            link.href = videoUrl;
-            link.download = `github_project_${projectId}.mp4`;
-            link.style.display = 'none';
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            showNotification('开始下载视频...', 'info');
-        }
-
-        // 下载视频
-        document.getElementById('download-btn').addEventListener('click', () => {
-            if (currentProjectId) {
-                downloadGeneratedVideo(currentProjectId);
-            } else {
-                showNotification('暂无视频可下载', 'warning');
-            }
-        });
-
-        // 处理新项目
-        document.getElementById('new-project-btn').addEventListener('click', () => {
-            // 重置所有状态
-            currentProjectId = null;
-            selectedImages = [];
-            generatedContent = null;
-            
-            // 清空表单
-            document.getElementById('github-url').value = '';
-            document.getElementById('image-grid').innerHTML = '';
-            
-            // 回到第一步
-            updateStep(1);
-        });
-
-        // 全选/取消全选功能
-        document.getElementById('select-all-btn').addEventListener('click', () => {
-            document.querySelectorAll('.image-item').forEach(item => {
-                item.classList.add('selected');
-            });
-            updateSelectedImages();
-        });
-
-        document.getElementById('select-none-btn').addEventListener('click', () => {
-            document.querySelectorAll('.image-item').forEach(item => {
-                item.classList.remove('selected');
-            });
-            updateSelectedImages();
-        });
-
-        // 初始化
-        updateStep(1);
-    </script>
+    <script src="/static/js/github_video_maker.js"></script>
 </body>
 </html>

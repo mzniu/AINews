@@ -1,7 +1,9 @@
 """视频处理相关API路由"""
+import asyncio
+
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
 from loguru import logger
@@ -14,14 +16,97 @@ from utils.video_utils import (
     _render_frame_animated, _apply_video_effect, _safe_paste, _draw_text_overlay,
     _load_fonts, _wrap_text, _break_summary_by_punctuation, _subtitle_block_height,
     MAIN_SUBTITLE_GAP_PX,
+    _scroll_up_effective_distance,
+    SCROLL_UP_PIXELS_PER_SEC,
 )
-from utils.title_units import truncate_han_equiv, MAIN_LINE_MAX_UNITS, SUBTITLE_MAX_UNITS
+from utils.summary_highlights import resolve_highlight_keywords
+from utils.title_units import (
+    truncate_han_equiv,
+    MAIN_LINE1_MAX_UNITS,
+    MAIN_LINE2_MAX_UNITS,
+    SUBTITLE_MAX_UNITS,
+)
 from services.video_service import VideoService
 from services.video_embedding_service import video_embedding_service
+from services.gif_processor import gif_processor
 import cv2
 import numpy as np
 
 router = APIRouter(prefix="/api", tags=["视频"])
+
+
+def _resolve_background_image_path(path_str: Optional[str]) -> Path:
+    """成片背景图：仅允许项目内 static/ 下的已有文件，否则回退默认底图。"""
+    default = Path("static/imgs/bg.png")
+    if not path_str or not str(path_str).strip():
+        return default
+    raw = str(path_str).strip().replace("\\", "/").lstrip("/")
+    if ".." in raw:
+        return default
+    p = Path(raw)
+    if not p.is_file():
+        return default
+    try:
+        abs_p = p.resolve()
+        static_root = Path("static").resolve()
+        if static_root not in abs_p.parents and abs_p != static_root:
+            return default
+    except (OSError, ValueError):
+        return default
+    return p
+
+
+def _perspective_coefficients(src_points, dst_points):
+    matrix = []
+    for (src_x, src_y), (dst_x, dst_y) in zip(src_points, dst_points):
+        matrix.append([dst_x, dst_y, 1, 0, 0, 0, -src_x * dst_x, -src_x * dst_y])
+        matrix.append([0, 0, 0, dst_x, dst_y, 1, -src_y * dst_x, -src_y * dst_y])
+    vector = np.array(src_points).reshape(8)
+    return np.linalg.lstsq(np.array(matrix, dtype=float), vector, rcond=None)[0]
+
+
+def _apply_side_flip_rounded_card(image: Image.Image, angle_degrees: float = 30.0) -> Image.Image:
+    """将图片处理成带圆角的侧翻透视卡片，用于 GitHub 首图特效。"""
+    source = image.convert('RGBA')
+    width, height = source.size
+    if width < 4 or height < 4:
+        return source
+
+    radius = max(16, min(width, height) // 16)
+    rounded_mask = Image.new('L', (width, height), 0)
+    mask_draw = ImageDraw.Draw(rounded_mask)
+    mask_draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=radius, fill=255)
+    rounded = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    rounded.paste(source, (0, 0), rounded_mask)
+
+    # 45 度侧翻的视觉核心是横向压缩与远端边收短；这里保留较大的画面面积，避免内容过窄。
+    angle_factor = max(0.55, min(0.9, float(np.cos(np.deg2rad(angle_degrees)))))
+    output_width = max(2, int(width * (0.72 + 0.18 * angle_factor)))
+    output_height = height
+    far_edge_inset = max(8, int(height * (0.08 + 0.08 * (1.0 - angle_factor))))
+
+    src_points = [
+        (0, 0),
+        (width - 1, 0),
+        (width - 1, height - 1),
+        (0, height - 1),
+    ]
+    dst_points = [
+        (0, 0),
+        (output_width - 1, far_edge_inset),
+        (output_width - 1, output_height - 1 - far_edge_inset),
+        (0, output_height - 1),
+    ]
+    coefficients = _perspective_coefficients(src_points, dst_points)
+    transform_method = getattr(getattr(Image, 'Transform', Image), 'PERSPECTIVE', Image.PERSPECTIVE)
+    resample_method = getattr(getattr(Image, 'Resampling', Image), 'BICUBIC', Image.BICUBIC)
+    return rounded.transform(
+        (output_width, output_height),
+        transform_method,
+        coefficients,
+        resample=resample_method,
+        fillcolor=(0, 0, 0, 0),
+    )
 
 
 def _resolve_animated_title_lines(
@@ -33,12 +118,13 @@ def _resolve_animated_title_lines(
 ):
     """
     新格式：main_line1 / main_line2 / subtitle — 主标题两行白字单行绘制；副标题黄底黑字圆角单行。
-    长度：主标题每行 12～14 汉字当量（英文数字计 0.5），服务端截断至 14；副标题≤16 当量。
+    长度：主标题第一行 14～18 汉字当量（英文数字计 0.5），服务端截断至 18；
+    第二行 16～20 当量，截断至 20；副标题≤16 当量。
     旧格式：仅 title，为「主文|副标题」，主文可自动换行。
     返回 (main_title_lines, sub_title_lines)。
     """
-    m1 = truncate_han_equiv((request.main_line1 or "").strip(), MAIN_LINE_MAX_UNITS)
-    m2 = truncate_han_equiv((request.main_line2 or "").strip(), MAIN_LINE_MAX_UNITS)
+    m1 = truncate_han_equiv((request.main_line1 or "").strip(), MAIN_LINE1_MAX_UNITS)
+    m2 = truncate_han_equiv((request.main_line2 or "").strip(), MAIN_LINE2_MAX_UNITS)
     sub = truncate_han_equiv((request.subtitle or "").strip(), SUBTITLE_MAX_UNITS)
     legacy = (request.title or "").strip()
 
@@ -102,7 +188,7 @@ async def list_videos():
 async def extract_video_thumbnail(video_filename: str):
     """为指定视频文件提取封面图片"""
     try:
-        from moviepy.editor import VideoFileClip
+        from moviepy import VideoFileClip
         import cv2
         
         video_path = Path("data/videos") / video_filename
@@ -271,17 +357,20 @@ async def create_video(request: CreateVideoRequest):
         logger.error(f"详细错误信息: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"视频生成失败: {str(e)}")
 
-@router.post("/create-animated-video")
-async def create_animated_video(request: CreateAnimatedVideoRequest):
-    """一步生成带小图入场动画效果的视频（跳过静态关键帧步骤）"""
+def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
+    """MoviePy 合成（同步、耗时长）；由 create_animated_video 在后台线程中调用，避免阻塞事件循环。"""
     try:
         if not request.images:
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少选择一张图片"})
 
-        from moviepy.video.VideoClip import ImageClip, VideoClip
-        from moviepy.video.compositing.concatenate import concatenate_videoclips
-        from moviepy.audio.io.AudioFileClip import AudioFileClip
+        # MoviePy 2.x：concatenate 已并入 CompositeVideoClip 模块，请从 moviepy 顶层导入
+        from moviepy import (
+            VideoClip,
+            concatenate_videoclips,
+            AudioFileClip,
+            concatenate_audioclips,
+        )
 
         FPS = 24
         ENTRANCE_DUR = 0.4     # 小图弹落动画时长
@@ -290,12 +379,17 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         HOLD_WITH_TEXT = 1.4     # 文字显示后静持时长
         
         DEFAULT_CLIP_DURATION = HOLD_NO_TEXT + TEXT_FADE_IN + HOLD_WITH_TEXT  # 默认每段约 2.7 秒
+        _ssm = request.summary_scroll_mode
 
         # 加载背景和字体
-        bg_path = Path("static/imgs/bg.png")
+        bg_path = _resolve_background_image_path(
+            getattr(request, "background_image_path", None)
+        )
         bg_template = Image.open(bg_path) if bg_path.exists() else Image.new('RGB', (1080, 1920), (102, 126, 234))
         img_width, img_height = bg_template.size
-        title_font, subtitle_font, summary_font = _load_fonts()
+        title_font, subtitle_font, summary_font = _load_fonts(
+            getattr(request, "title_font_key", None)
+        )
 
         margin = int(img_width * 0.08)
         text_width = img_width - 2 * margin
@@ -328,26 +422,31 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         title_info = (title_font, subtitle_font, main_title_lines, sub_title_lines,
                       title_start_y, main_title_height, margin, text_width)
                 
-        # 摘要：先按句末标点分行，再按宽度自动换行；字体较小（_load_fonts）
-        summary_lines = _wrap_text(
-            _break_summary_by_punctuation(request.summary),
-            summary_font,
-            text_width,
-            temp_draw,
-        )
-        
-        # 计算摘要高度
-        summary_height = sum(
-            temp_draw.textbbox((0, 0), l, font=summary_font)[3] -
-            temp_draw.textbbox((0, 0), l, font=summary_font)[1] + 12
-            for l in summary_lines
-        )
-        
-        # 摘要起始位置（距离底部 10%）
-        summary_start_y = int(img_height * 0.9) - summary_height
-        
-        # 构建 summary_info
-        summary_info = (summary_font, summary_lines, summary_start_y)
+        # 摘要：可选（GitHub 成片可关闭，改由后续步骤口播+字幕）
+        if getattr(request, "show_summary", True):
+            summary_lines = _wrap_text(
+                _break_summary_by_punctuation(request.summary),
+                summary_font,
+                text_width,
+                temp_draw,
+            )
+            summary_height = sum(
+                temp_draw.textbbox((0, 0), l, font=summary_font)[3] -
+                temp_draw.textbbox((0, 0), l, font=summary_font)[1] + 12
+                for l in summary_lines
+            )
+            summary_start_y = int(img_height * 0.9) - summary_height
+            hi_kw = resolve_highlight_keywords(
+                request.summary,
+                getattr(request, "tags", None) or "",
+                list(getattr(request, "summary_highlight_keywords", None) or []),
+            )
+            summary_info = (summary_font, summary_lines, summary_start_y, hi_kw)
+        else:
+            summary_lines = []
+            summary_height = 0
+            summary_start_y = int(img_height * 0.92)
+            summary_info = None
 
         clips = []
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -388,13 +487,17 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         for i in range(num_images):
             anim_queue.append(all_anim_types[i % len(all_anim_types)])
 
+        first_clip_already_placed = False
+        first_static_image_effect_applied = False
         for idx, img_data in enumerate(processed_images, 1):
             img_path = img_data['path']
             img_duration = img_data['duration']  # 可能为 null（视频）或秒数（图片）
             try:
-                # 检查文件类型
+                _tse = not first_clip_already_placed
+                # 检查文件类型（动画 WebP 与 GIF 一样走多帧轨；静态 WebP 走下方静态图）
                 is_video = img_path.lower().endswith(('.mp4', '.webm', '.mov'))
-                is_gif = img_path.lower().endswith('.gif')
+                _ap = Path(img_path.lstrip('/'))
+                is_gif = _ap.is_file() and gif_processor.is_animation_raster(str(_ap))
                 
                 if is_video:
                     # 处理视频文件 - 画中画效果
@@ -419,7 +522,12 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                     
                     # 创建画中画效果
                     pip_result = video_embedding_service.create_pip_video_effect(
-                        [actual_video_path], bg_template, title_info, summary_info, clip_duration
+                        [actual_video_path],
+                        bg_template,
+                        title_info,
+                        summary_info,
+                        clip_duration,
+                        title_slide_entrance=_tse,
                     )
                                         
                     if pip_result.get('success') and pip_result.get('segments'):
@@ -432,8 +540,9 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                             frame_index = min(frame_index, len(frames) - 1)
                             return np.array(frames[frame_index])
                                             
-                        clip = VideoClip(make_pip_frame, duration=clip_duration).set_fps(FPS)
+                        clip = VideoClip(make_pip_frame, duration=clip_duration).with_fps(FPS)
                         clips.append(clip)
+                        first_clip_already_placed = True
                         
                         # 保存预览帧（使用第一帧）
                         if segment['frames']:
@@ -470,9 +579,9 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                             continue
                 
                 if is_gif:
-                    # 处理 GIF 动画
-                    logger.info(f"🔄 处理 GIF 动画：{img_path}")
-                    logger.info(f"   GIF 路径：{img_path}")
+                    # 处理 GIF / 动画 WebP（多帧）
+                    logger.info(f"🔄 处理 GIF/动画 WebP：{img_path}")
+                    logger.info(f"   素材路径：{img_path}")
                     
                     # 使用用户配置的时长，如果没有则使用默认值
                     clip_duration = img_duration if img_duration is not None else DEFAULT_CLIP_DURATION
@@ -480,22 +589,20 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                     
                     # 修复路径问题 - 去掉开头的斜杠
                     actual_gif_path = img_path.lstrip('/')
-                    logger.info(f"   实际GIF路径: {actual_gif_path}")
+                    logger.info(f"   实际路径: {actual_gif_path}")
                     
                     # 检查文件是否存在
                     if not Path(actual_gif_path).exists():
-                        logger.error(f"   ❌ GIF文件不存在: {actual_gif_path}")
+                        logger.error(f"   ❌ 文件不存在: {actual_gif_path}")
                         logger.warning(f"   ⚠️ 回退到静态图片处理: {img_path}")
                         # 继续使用静态图片处理逻辑
                     else:
-                        logger.info(f"   ✅ GIF文件存在")
-                        
-                        # 提取GIF帧用于动画处理
-                        from services.gif_processor import gif_processor
+                        logger.info(f"   ✅ 文件存在")
+
                         gif_frames = gif_processor.extract_gif_frames(actual_gif_path)
                         
                         if gif_frames and len(gif_frames) > 0:
-                            logger.info(f"   🎬 提取到 {len(gif_frames)} 帧GIF动画")
+                            logger.info(f"   🎬 提取到 {len(gif_frames)} 帧动画")
                             
                             # 将第一帧作为基础图片进行处理
                             first_frame = Image.fromarray(gif_frames[0])
@@ -523,16 +630,28 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                             
                             logger.info(f"   片段 {idx}: 生成 {clip_duration:.1f}s GIF 动画，尺寸 {target_w}x{target_h}")
                             
+                            # ⚠️ 智能动画选择：如果图片高度过大，自动使用向上滚动
+                            # 使用原始GIF帧高度来判断（未缩放前）
+                            orig_gif_height = gif_frames[0].shape[0]  # 第一帧的高度
+                            gif_height_ratio = orig_gif_height / img_height  # 原始高度占屏幕比例
+                            
                             # 使用GIF帧创建动画片段
                             anim = anim_queue.pop(0)
-                            logger.info(f"   片段 {idx} 动画类型: {anim}")
+                            
+                            if gif_height_ratio > 0.7:  # 如果原始GIF高度超过屏幕 70%
+                                anim = 'scroll_up'  # 强制使用向上滚动
+                                logger.info(f"   片段 {idx} 检测到高图（原始高度 {orig_gif_height}px, 占比 {gif_height_ratio:.1%}），自动使用 scroll_up 动画")
+                            else:
+                                logger.info(f"   片段 {idx} 动画类型: {anim}")
                             
                             # 创建GIF动画make_frame函数
                             def make_gif_frame_func(t, _bg=bg_template, _frames=gif_frames,
                                                    _px=paste_x, _py=final_paste_y,
                                                    _tw=target_w, _th=target_h,
                                                    _ti=title_info, _si=summary_info,
-                                                   _anim=anim, _dur=clip_duration):
+                                                   _anim=anim, _dur=clip_duration,
+                                                   _tse=_tse,
+                                                   _slot=available):
                                 # 计算当前应该显示哪一帧
                                 total_frames = len(_frames)
                                 current_frame_index = int((t / _dur) * total_frames) % total_frames
@@ -548,13 +667,52 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                                     _ti, _si, t,
                                     entrance_duration=ENTRANCE_DUR,
                                     hold_with_text_start=HOLD_NO_TEXT,
-                                    anim_type=_anim
+                                    anim_type=_anim,
+                                    title_slide_entrance=_tse,
+                                    clip_duration=_dur,
+                                    summary_scroll_mode=_ssm,
+                                    scroll_viewport_height=_slot,
+                                    clip_fps=FPS,
                                 )
                             
-                            clip = VideoClip(make_gif_frame_func, duration=clip_duration).set_fps(FPS)
+                            clip = VideoClip(make_gif_frame_func, duration=clip_duration).with_fps(FPS)
                             clips.append(clip)
+                            first_clip_already_placed = True
                             logger.info(f"   🎬 GIF动画片段 {idx} 添加成功")
-                            
+                            if anim == 'scroll_up':
+                                _scroll_phase = max(0.0, float(clip_duration) - float(ENTRANCE_DUR))
+                                _phase_cap = max(0.05, _scroll_phase)
+                                _scroll_dist = _scroll_up_effective_distance(
+                                    target_h, available, _scroll_phase
+                                )
+                                if available is not None and available > 0:
+                                    _overflow_px = max(0, target_h - available)
+                                else:
+                                    _overflow_px = max(1, int(target_h * 0.28))
+                                _max_travel_px = SCROLL_UP_PIXELS_PER_SEC * _phase_cap
+                                _avg_px_s = (
+                                    float(_scroll_dist) / _scroll_phase
+                                    if _scroll_phase > 1e-9
+                                    else 0.0
+                                )
+                                logger.info(
+                                    "[animated_video_gif] scroll_up 片段 {}: 成片时长={:.3f}s | 入场={:.3f}s | "
+                                    "上滑阶段时长={:.3f}s | 缩放后图 {}x{} | 可视槽高={} | overflow≈{}px | "
+                                    "匀速上限={} px/s | 速度×阶段位移上限={:.1f}px | 实际上移总位移={}px | 平均速度≈{:.1f} px/s",
+                                    idx,
+                                    clip_duration,
+                                    ENTRANCE_DUR,
+                                    _scroll_phase,
+                                    target_w,
+                                    target_h,
+                                    available,
+                                    _overflow_px,
+                                    SCROLL_UP_PIXELS_PER_SEC,
+                                    _max_travel_px,
+                                    _scroll_dist,
+                                    _avg_px_s,
+                                )
+
                             # 保存预览帧（取中间帧）
                             mid_frame_index = len(gif_frames) // 2
                             mid_frame = Image.fromarray(gif_frames[mid_frame_index])
@@ -567,7 +725,12 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                                 target_w, target_h, img_width, img_height,
                                 title_info, summary_info, clip_duration,
                                 entrance_duration=ENTRANCE_DUR, hold_with_text_start=HOLD_NO_TEXT,
-                                anim_type=anim
+                                anim_type=anim,
+                                title_slide_entrance=_tse,
+                                clip_duration=clip_duration,
+                                summary_scroll_mode=_ssm,
+                                scroll_viewport_height=available,
+                                clip_fps=FPS,
                             )
                             preview_path = output_dir / f"preview_{idx:02d}.png"
                             Image.fromarray(preview).save(preview_path, quality=95)
@@ -601,6 +764,21 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
 
                 user_img_resized = user_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
+                use_first_static_card_effect = (
+                    not first_static_image_effect_applied
+                    and getattr(request, "first_image_effect", None) == "side_flip_rounded"
+                )
+                if use_first_static_card_effect:
+                    user_img_resized = _apply_side_flip_rounded_card(
+                        user_img_resized,
+                        angle_degrees=30.0,
+                    )
+                    target_w, target_h = user_img_resized.size
+                    first_static_image_effect_applied = True
+                    logger.info(
+                        f"GitHub首张静态图特效: 30度侧翻圆角卡片, 处理后尺寸={target_w}x{target_h}"
+                    )
+
                 paste_x = (img_width - target_w) // 2
                 # 图片在标题和摘要之间居中
                 available = summary_start_y - 40 - (title_start_y + title_height + 30)
@@ -612,22 +790,86 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                                 
                 logger.info(f"片段 {idx}: 生成 {clip_duration:.1f}s 动画，图片 {target_w}x{target_h}")
                 
+                # ⚠️ 智能动画选择：如果图片高度过大，自动使用向上滚动
+                # 使用原始图片高度来判断（未缩放前）
+                orig_img_height = user_img.height
+                img_height_ratio = orig_img_height / img_height  # 原始图片高度占屏幕比例
+                
                 # 每张图使用不同的动画（打乱后循环分配）
                 anim = anim_queue.pop(0)
-                logger.info(f"片段 {idx} 动画类型：{anim}")
+                
+                if use_first_static_card_effect:
+                    anim = 'fade_in'
+                    logger.info(f"片段 {idx} 使用 GitHub 首图侧翻圆角卡片特效，动画固定为 fade_in")
+                elif img_height_ratio > 0.7:  # 如果原始图片高度超过屏幕 70%
+                    anim = 'scroll_up'  # 强制使用向上滚动
+                    logger.info(f"片段 {idx} 检测到高图（原始高度 {orig_img_height}px, 占比 {img_height_ratio:.1%}），自动使用 scroll_up 动画")
+                else:
+                    logger.info(f"片段 {idx} 动画类型：{anim}")
                 
                 # 检查是否需要放大效果（从 frame_info 中读取）
                 has_zoom = img_data.get('has_zoom', False)
                 zoom_start = img_data.get('zoom_start_scale', 1.0)
                 zoom_end = img_data.get('zoom_end_scale', 1.15)
                 
-                if has_zoom:
-                    logger.info(f"片段 {idx} 启用放大效果：{zoom_start} -> {zoom_end}")
+                # ⚠️ 智能调整：如果使用了 scroll_up 动画（高图），禁用放大效果
+                if use_first_static_card_effect:
+                    has_zoom = True
+                    zoom_start = 1.0
+                    zoom_end = 1.18
+                    logger.info(f"片段 {idx} 首图卡片特效启用渐进放大：{zoom_start} -> {zoom_end}")
+                elif anim == 'scroll_up':
+                    has_zoom = False  # 高图不使用放大效果，改为向上滚动
+                    logger.info(f"片段 {idx} 高图使用 scroll_up 动画，已禁用放大效果")
+                else:
+                    # 首段多为 GitHub 主页截图；后续片段缩放区间略加大，动效更明显
+                    if idx == 1 and has_zoom:
+                        zoom_end = min(1.48, float(zoom_end) + 0.5)
+                        zoom_start = max(1, float(zoom_start))
+                    if idx >= 2 and has_zoom:
+                        zoom_end = min(1.48, float(zoom_end) )
+                        zoom_start = max(0.88, float(zoom_start) - 0.03)
+                    
+                    if has_zoom:
+                        logger.info(f"片段 {idx} 启用放大效果：{zoom_start} -> {zoom_end}")
                 
                 # 只有第一个片段启用摘要滚动效果
                 enable_summary_scroll = (idx == 1)
                 logger.info(f"片段 {idx} 摘要滚动：{'开启' if enable_summary_scroll else '关闭'}")
-                
+                if anim == 'scroll_up':
+                    _scroll_phase = max(0.0, float(clip_duration) - float(ENTRANCE_DUR))
+                    _phase_cap = max(0.05, _scroll_phase)
+                    _scroll_dist = _scroll_up_effective_distance(
+                        target_h, available, _scroll_phase
+                    )
+                    if available is not None and available > 0:
+                        _overflow_px = max(0, target_h - available)
+                    else:
+                        _overflow_px = max(1, int(target_h * 0.28))
+                    _max_travel_px = SCROLL_UP_PIXELS_PER_SEC * _phase_cap
+                    _avg_px_s = (
+                        float(_scroll_dist) / _scroll_phase
+                        if _scroll_phase > 1e-9
+                        else 0.0
+                    )
+                    logger.info(
+                        "[animated_video_static] scroll_up 片段 {}: 成片时长={:.3f}s | 入场={:.3f}s | "
+                        "上滑阶段时长={:.3f}s | 缩放后图 {}x{} | 可视槽高={} | overflow≈{}px | "
+                        "匀速上限={} px/s | 速度×阶段位移上限={:.1f}px | 实际上移总位移={}px | 平均速度≈{:.1f} px/s",
+                        idx,
+                        clip_duration,
+                        ENTRANCE_DUR,
+                        _scroll_phase,
+                        target_w,
+                        target_h,
+                        available,
+                        _overflow_px,
+                        SCROLL_UP_PIXELS_PER_SEC,
+                        _max_travel_px,
+                        _scroll_dist,
+                        _avg_px_s,
+                    )
+
                 # 使用 make_frame 创建动画片段
                 def make_frame_func(t, _bg=bg_template, _img=user_img_resized,
                                     _px=paste_x, _py=final_paste_y,
@@ -635,7 +877,9 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                                     _ti=title_info, _si=summary_info,
                                     _anim=anim, _zoom=has_zoom,
                                     _zs=zoom_start, _ze=zoom_end,
-                                    _scroll=enable_summary_scroll):
+                                    _scroll=enable_summary_scroll,
+                                    _tse=_tse,
+                                    _slot=available):
                     return _render_frame_animated(
                         _bg, _img, _px, _py, _tw, _th, img_width, img_height,
                         _ti, _si, t,
@@ -647,11 +891,16 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                         zoom_end_scale=_ze,
                         clip_duration=clip_duration,
                         summary_scroll=_scroll,
-                        summary_segments=None  # 不再使用分段
+                        summary_scroll_mode=_ssm,
+                        summary_segments=None,  # 不再使用分段
+                        title_slide_entrance=_tse,
+                        scroll_viewport_height=_slot,
+                        clip_fps=FPS,
                     )
                 
-                clip = VideoClip(make_frame_func, duration=clip_duration).set_fps(FPS)
+                clip = VideoClip(make_frame_func, duration=clip_duration).with_fps(FPS)
                 clips.append(clip)
+                first_clip_already_placed = True
                 
                 # 同时保存一张静态预览帧（用于前端显示）
                 preview = _render_frame_animated(
@@ -665,7 +914,11 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                     zoom_end_scale=zoom_end,
                     clip_duration=clip_duration,
                     summary_scroll=enable_summary_scroll,
-                    summary_segments=None  # 不再使用分段
+                    summary_scroll_mode=_ssm,
+                    summary_segments=None,  # 不再使用分段
+                    title_slide_entrance=_tse,
+                    scroll_viewport_height=available,
+                    clip_fps=FPS,
                 )
                 preview_path = output_dir / f"preview_{idx:02d}.png"
                 Image.fromarray(preview).save(preview_path, quality=95)
@@ -697,16 +950,15 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
                 speed = 1.1
-                audio = audio.fl_time(lambda t: t * speed).set_duration(audio.duration / speed)
+                audio = audio.with_speed_scaled(speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
                 logger.info(f"   加速后时长: {new_duration:.2f}秒")
                 logger.info(f"   时间压缩: {(original_duration - new_duration) / original_duration * 100:.1f}%")
                 if audio.duration < video_duration:
-                    from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclip(0, video_duration)
-                final_clip = final_clip.set_audio(audio)
+                audio = audio.subclipped(0, video_duration)
+                final_clip = final_clip.with_audio(audio)
                 logger.info("背景音乐已添加")
 
         # 输出
@@ -761,6 +1013,13 @@ async def create_animated_video(request: CreateAnimatedVideoRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"动画视频生成失败: {str(e)}")
 
+
+@router.post("/create-animated-video")
+async def create_animated_video(request: CreateAnimatedVideoRequest):
+    """一步生成带小图入场动画效果的视频（跳过静态关键帧步骤）。"""
+    return await asyncio.to_thread(_create_animated_video_blocking, request)
+
+
 @router.post("/create-user-video")
 async def create_user_video(
     title: str = Form(default=""),
@@ -790,7 +1049,7 @@ async def create_user_video(
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少上传一张图片"})
 
-        from moviepy.editor import concatenate_videoclips, AudioFileClip, VideoClip
+        from moviepy import concatenate_videoclips, AudioFileClip, VideoClip, concatenate_audioclips
 
         FPS = 24
         ENTRANCE_DUR = 0.7       # 入场动画时长
@@ -857,35 +1116,35 @@ async def create_user_video(
         random.shuffle(all_anim_types)
         anim_queue = [all_anim_types[i % len(all_anim_types)] for i in range(len(valid_images))]
 
+        first_clip_already_placed = False
         for idx, (img_path, orig_w, orig_h) in enumerate(valid_images, 1):
             try:
-                # 检查是否为GIF文件
-                is_gif = img_path.lower().endswith('.gif')
+                _tse = not first_clip_already_placed
+                _ap2 = Path(img_path.lstrip('/'))
+                is_gif = _ap2.is_file() and gif_processor.is_animation_raster(str(_ap2))
                 
                 if is_gif:
-                    # 处理GIF动画
-                    logger.info(f"🔄 处理GIF动画: {img_path}")
-                    logger.info(f"   GIF路径: {img_path}")
+                    # 处理 GIF / 动画 WebP
+                    logger.info(f"🔄 处理 GIF/动画 WebP: {img_path}")
+                    logger.info(f"   素材路径: {img_path}")
                     logger.info(f"   目标时长: {clip_duration}秒")
                     
                     # 修复路径问题 - 去掉开头的斜杠
                     actual_gif_path = img_path.lstrip('/')
-                    logger.info(f"   实际GIF路径: {actual_gif_path}")
+                    logger.info(f"   实际路径: {actual_gif_path}")
                     
                     # 检查文件是否存在
                     if not Path(actual_gif_path).exists():
-                        logger.error(f"   ❌ GIF文件不存在: {actual_gif_path}")
+                        logger.error(f"   ❌ 文件不存在: {actual_gif_path}")
                         logger.warning(f"   ⚠️ 回退到静态图片处理: {img_path}")
                         # 继续使用静态图片处理逻辑
                     else:
-                        logger.info(f"   ✅ GIF文件存在")
-                        
-                        # 提取GIF帧用于动画处理
-                        from services.gif_processor import gif_processor
+                        logger.info(f"   ✅ 文件存在")
+
                         gif_frames = gif_processor.extract_gif_frames(actual_gif_path)
                         
                         if gif_frames and len(gif_frames) > 0:
-                            logger.info(f"   🎬 提取到 {len(gif_frames)} 帧GIF动画")
+                            logger.info(f"   🎬 提取到 {len(gif_frames)} 帧动画")
                             
                             # 将第一帧作为基础图片进行处理
                             first_frame = Image.fromarray(gif_frames[0])
@@ -910,7 +1169,8 @@ async def create_user_video(
                                                    _tw=target_w, _th=target_h,
                                                    _ti=title_info, _si=summary_info,
                                                    _anim=anim, _eff=_effect, _sd=_seed,
-                                                   _cd=_clip_dur, _dur=clip_duration):
+                                                   _cd=_clip_dur, _dur=clip_duration,
+                                                   _tse=_tse):
                                 # 计算当前应该显示哪一帧
                                 total_frames = len(_frames)
                                 current_frame_index = int((t / _dur) * total_frames) % total_frames
@@ -925,26 +1185,64 @@ async def create_user_video(
                                     _ti, _si, t,
                                     entrance_duration=ENTRANCE_DUR,
                                     hold_with_text_start=ENTRANCE_DUR,
-                                    anim_type=_anim
+                                    anim_type=_anim,
+                                    title_slide_entrance=_tse,
+                                    clip_duration=_cd,
+                                    clip_fps=FPS,
                                 )
                                 return _apply_video_effect(frame, t, _eff, canvas_w, canvas_h, _cd, seed=_sd)
                             
-                            clip = VideoClip(make_gif_frame_func, duration=clip_duration).set_fps(FPS)
+                            clip = VideoClip(make_gif_frame_func, duration=clip_duration).with_fps(FPS)
                             clips.append(clip)
+                            first_clip_already_placed = True
                             logger.info(f"   🎬 GIF动画片段 {idx} 添加成功")
-                            
+                            if anim == 'scroll_up':
+                                _uv_slot = None
+                                _scroll_phase = max(0.0, float(clip_duration) - float(ENTRANCE_DUR))
+                                _phase_cap = max(0.05, _scroll_phase)
+                                _scroll_dist = _scroll_up_effective_distance(
+                                    target_h, _uv_slot, _scroll_phase
+                                )
+                                _overflow_px = max(1, int(target_h * 0.28))
+                                _max_travel_px = SCROLL_UP_PIXELS_PER_SEC * _phase_cap
+                                _avg_px_s = (
+                                    float(_scroll_dist) / _scroll_phase
+                                    if _scroll_phase > 1e-9
+                                    else 0.0
+                                )
+                                logger.info(
+                                    "[user_video_gif] scroll_up 片段 {}: 成片时长={:.3f}s | 入场={:.3f}s | "
+                                    "上滑阶段时长={:.3f}s | 缩放后图 {}x{} | 可视槽高={} | overflow≈{}px | "
+                                    "匀速上限={} px/s | 速度×阶段位移上限={:.1f}px | 实际上移总位移={}px | 平均速度≈{:.1f} px/s",
+                                    idx,
+                                    clip_duration,
+                                    ENTRANCE_DUR,
+                                    _scroll_phase,
+                                    target_w,
+                                    target_h,
+                                    _uv_slot,
+                                    _overflow_px,
+                                    SCROLL_UP_PIXELS_PER_SEC,
+                                    _max_travel_px,
+                                    _scroll_dist,
+                                    _avg_px_s,
+                                )
+
                             # 保存预览帧（取中间帧）
                             mid_frame_index = len(gif_frames) // 2
                             mid_frame = Image.fromarray(gif_frames[mid_frame_index])
                             if mid_frame.mode != 'RGBA':
                                 mid_frame = mid_frame.convert('RGBA')
-                            
+
                             preview_raw = _render_frame_animated(
                                 bg_template, mid_frame, paste_x, paste_y,
                                 target_w, target_h, canvas_w, canvas_h,
                                 title_info, summary_info, clip_duration,
                                 entrance_duration=ENTRANCE_DUR, hold_with_text_start=ENTRANCE_DUR,
-                                anim_type=anim
+                                anim_type=anim,
+                                title_slide_entrance=_tse,
+                                clip_duration=clip_duration,
+                                clip_fps=FPS,
                             )
                             preview = _apply_video_effect(preview_raw, clip_duration * 0.5, effect, canvas_w, canvas_h, clip_duration, seed=idx)
                             preview_path = output_dir / f"preview_{idx:02d}.png"
@@ -968,6 +1266,37 @@ async def create_user_video(
 
                 anim = anim_queue.pop(0)
                 logger.info(f"用户视频片段 {idx}: 动画={anim}, 图片={target_w}x{target_h}, 偏移=({paste_x},{paste_y})")
+                if anim == 'scroll_up':
+                    _uv_slot = None
+                    _scroll_phase = max(0.0, float(clip_duration) - float(ENTRANCE_DUR))
+                    _phase_cap = max(0.05, _scroll_phase)
+                    _scroll_dist = _scroll_up_effective_distance(
+                        target_h, _uv_slot, _scroll_phase
+                    )
+                    _overflow_px = max(1, int(target_h * 0.28))
+                    _max_travel_px = SCROLL_UP_PIXELS_PER_SEC * _phase_cap
+                    _avg_px_s = (
+                        float(_scroll_dist) / _scroll_phase
+                        if _scroll_phase > 1e-9
+                        else 0.0
+                    )
+                    logger.info(
+                        "[user_video_static] scroll_up 片段 {}: 成片时长={:.3f}s | 入场={:.3f}s | "
+                        "上滑阶段时长={:.3f}s | 缩放后图 {}x{} | 可视槽高={} | overflow≈{}px | "
+                        "匀速上限={} px/s | 速度×阶段位移上限={:.1f}px | 实际上移总位移={}px | 平均速度≈{:.1f} px/s",
+                        idx,
+                        clip_duration,
+                        ENTRANCE_DUR,
+                        _scroll_phase,
+                        target_w,
+                        target_h,
+                        _uv_slot,
+                        _overflow_px,
+                        SCROLL_UP_PIXELS_PER_SEC,
+                        _max_travel_px,
+                        _scroll_dist,
+                        _avg_px_s,
+                    )
 
                 _effect = effect
                 _clip_dur = clip_duration
@@ -978,18 +1307,23 @@ async def create_user_video(
                                     _tw=target_w, _th=target_h,
                                     _ti=title_info, _si=summary_info,
                                     _anim=anim, _eff=_effect, _sd=_seed,
-                                    _cd=_clip_dur):
+                                    _cd=_clip_dur,
+                                    _tse=_tse):
                     frame = _render_frame_animated(
                         _bg, _img, _px, _py, _tw, _th, canvas_w, canvas_h,
                         _ti, _si, t,
                         entrance_duration=ENTRANCE_DUR,
                         hold_with_text_start=ENTRANCE_DUR,
-                        anim_type=_anim
+                        anim_type=_anim,
+                        title_slide_entrance=_tse,
+                        clip_duration=_cd,
+                        clip_fps=FPS,
                     )
                     return _apply_video_effect(frame, t, _eff, canvas_w, canvas_h, _cd, seed=_sd)
 
-                clip = VideoClip(make_frame_func, duration=clip_duration).set_fps(FPS)
+                clip = VideoClip(make_frame_func, duration=clip_duration).with_fps(FPS)
                 clips.append(clip)
+                first_clip_already_placed = True
 
                 # 保存预览帧（带特效）
                 preview_raw = _render_frame_animated(
@@ -997,7 +1331,10 @@ async def create_user_video(
                     target_w, target_h, canvas_w, canvas_h,
                     title_info, summary_info, clip_duration,
                     entrance_duration=ENTRANCE_DUR, hold_with_text_start=ENTRANCE_DUR,
-                    anim_type=anim
+                    anim_type=anim,
+                    title_slide_entrance=_tse,
+                    clip_duration=clip_duration,
+                    clip_fps=FPS,
                 )
                 preview = _apply_video_effect(preview_raw, clip_duration * 0.5, effect, canvas_w, canvas_h, clip_duration, seed=idx)
                 preview_path = output_dir / f"preview_{idx:02d}.png"
@@ -1029,16 +1366,15 @@ async def create_user_video(
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
                 
                 speed = 1.1
-                audio = audio.fl_time(lambda t: t * speed).set_duration(audio.duration / speed)
+                audio = audio.with_speed_scaled(speed)
                 new_duration = audio.duration
                 logger.info(f"   🚀 应用{speed}倍速")
                 logger.info(f"   加速后时长: {new_duration:.2f}秒")
                 logger.info(f"   时间压缩: {(original_duration - new_duration) / original_duration * 100:.1f}%")
                 if audio.duration < video_duration:
-                    from moviepy.editor import concatenate_audioclips
                     audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclip(0, video_duration)
-                final_clip = final_clip.set_audio(audio)
+                audio = audio.subclipped(0, video_duration)
+                final_clip = final_clip.with_audio(audio)
                 logger.info("用户视频背景音乐已添加")
 
         video_dir = Path("data/videos")

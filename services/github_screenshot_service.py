@@ -3,10 +3,18 @@ GitHub项目主页截图服务
 使用Playwright进行网页渲染和截图
 """
 import asyncio
+import concurrent.futures
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 from playwright.async_api import async_playwright, Browser, Page
 from loguru import logger
+
+
+def _env_allow_fallback_screenshot() -> bool:
+    """是否允许在浏览器自动化失败时仍写入 PIL 占位图（默认否，避免误判为截图成功）。"""
+    v = os.environ.get("GITHUB_SCREENSHOT_ALLOW_FALLBACK", "").strip().lower()
+    return v in ("1", "true", "yes")
 
 
 class ScreenshotOptions:
@@ -19,8 +27,14 @@ class ScreenshotOptions:
         self.wait_time = kwargs.get('wait_time', 3000)  # 页面加载等待时间(ms)
         self.timeout = kwargs.get('timeout', 30000)    # 截图超时时间(ms)
         self.hide_elements = kwargs.get('hide_elements', [
-            'header', '.Header', '.footer', '.Footer'
+            'header[role="banner"]',
+            '.Header',
+            'div[data-hpc="true"]',
+            '.footer',
+            '.Footer',
         ])
+        # 整页缩放，略大于 1 可使正文更易读（与浏览器 Ctrl+ 类似）
+        self.font_scale = float(kwargs.get('font_scale', 1.12))
 
 
 class GitHubScreenshotService:
@@ -50,7 +64,9 @@ class GitHubScreenshotService:
                     '--no-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
-                    '--disable-web-security'
+                    '--disable-web-security',
+                    # 避免无头模式按深色主题渲染网页（GitHub 等会整页黑底）
+                    '--disable-features=WebContentsForceDark',
                 ]
             )
             logger.info("浏览器启动成功")
@@ -88,42 +104,59 @@ class GitHubScreenshotService:
             # 确保保存目录存在
             save_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # 创建新页面
-            page = await self.browser.new_page()
-            
-            # 设置视口大小
-            await page.set_viewport_size({
-                "width": options.width,
-                "height": options.height
-            })
-            
-            # 访问GitHub页面
-            logger.info(f"正在访问: {github_url}")
-            await page.goto(github_url, wait_until="networkidle", timeout=options.timeout)
-            
-            # 等待页面加载
-            await page.wait_for_timeout(options.wait_time)
-            
-            # 高亮显示stars区域
-            await self._highlight_stars_area(page)
-            
-            # 隐藏不需要的元素
-            await self._hide_elements(page, options.hide_elements)
-            
-            # 滚动到顶部确保一致性
-            await page.evaluate("window.scrollTo(0, 0)")
-            
-            # 截图
-            screenshot_kwargs = {
-                "path": str(save_path),
-                "full_page": options.full_page,
-                "quality": options.quality,
-                "type": "jpeg"
-            }
-            
-            await page.screenshot(**screenshot_kwargs)
-            await page.close()
-            
+            # 独立上下文：强制浅色模式（否则 headless 常出 GitHub 深色/黑底）
+            context = await self.browser.new_context(
+                color_scheme="light",
+                viewport={"width": options.width, "height": options.height},
+            )
+            page = await context.new_page()
+            try:
+                await page.emulate_media(color_scheme="light")
+
+                # 访问GitHub页面
+                logger.info(f"正在访问: {github_url}")
+                await page.goto(github_url, wait_until="networkidle", timeout=options.timeout)
+
+                # 等待页面加载
+                await page.wait_for_timeout(options.wait_time)
+
+                # GitHub：再写一次根节点属性，避免仍按 dark 渲染
+                await page.evaluate(
+                    """() => {
+                  const root = document.documentElement;
+                  root.setAttribute('data-color-mode', 'light');
+                  root.style.colorScheme = 'light';
+                  try { root.classList.remove('dark'); } catch (e) {}
+                }"""
+                )
+
+                # 高亮显示stars区域
+                await self._highlight_stars_area(page)
+
+                # 隐藏不需要的元素
+                await self._hide_elements(page, options.hide_elements)
+
+                # 滚动到顶部确保一致性
+                await page.evaluate("window.scrollTo(0, 0)")
+
+                # 略放大整页（含文字），便于成片里阅读
+                fs = max(1.0, min(1.35, float(getattr(options, "font_scale", 1.12))))
+                await page.evaluate(
+                    "(z) => { document.documentElement.style.zoom = String(z); }", fs
+                )
+
+                # 截图
+                screenshot_kwargs = {
+                    "path": str(save_path),
+                    "full_page": options.full_page,
+                    "quality": options.quality,
+                    "type": "jpeg",
+                }
+
+                await page.screenshot(**screenshot_kwargs)
+            finally:
+                await context.close()
+
             logger.info(f"截图已保存: {save_path}")
             return True
             
@@ -277,80 +310,89 @@ class SyncGitHubScreenshotService:
     
     def __init__(self, headless: bool = True):
         self.headless = headless
+
+    def _run_playwright_in_thread(
+        self,
+        github_url: str,
+        save_path: Path,
+        options: Optional[ScreenshotOptions] = None,
+        *,
+        timeout_sec: float = 180.0,
+    ) -> bool:
+        """
+        在独立线程中用 asyncio.run() 执行 Playwright。
+        解决 FastAPI 等场景下主线程已有运行中的事件循环时，
+        run_until_complete / asyncio.run 报错「Cannot run the event loop while another loop is running」。
+        """
+        import sys
+
+        def runner() -> bool:
+            if sys.platform == "win32" and hasattr(asyncio, "WindowsProactorEventLoopPolicy"):
+                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+            try:
+                return asyncio.run(
+                    self._take_screenshot_internal(github_url, save_path, options)
+                )
+            except Exception as e:
+                logger.warning(f"Playwright截图失败: {e}")
+                return False
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                fut = pool.submit(runner)
+                return bool(fut.result(timeout=timeout_sec))
+        except concurrent.futures.TimeoutError:
+            logger.warning(f"Playwright截图超时（{timeout_sec}s）")
+            return False
+        except Exception as e:
+            logger.warning(f"Playwright线程执行失败: {e}")
+            return False
     
     def take_screenshot_sync(self, 
                            github_url: str, 
                            save_path: Path,
                            options: Optional[ScreenshotOptions] = None) -> bool:
-        """完全同步的截图接口（智能选择最佳方案）"""
+        """
+        完全同步的截图接口（Playwright → Selenium，按平台分支）。
+        仅当真实浏览器截图成功时返回 True。
+        自动化失败时默认不把 PIL 占位图当作成功；需要占位图可设 GITHUB_SCREENSHOT_ALLOW_FALLBACK=1。
+        """
         try:
-            # 首先检查Python版本兼容性
             import sys
             python_version = sys.version_info
             
-            # 对于Python 3.13+ on Windows，优先使用Selenium
+            # Python 3.13+ Windows：历史上优先 Selenium；若 Chrome/驱动不可用则回退 Playwright
             if python_version.major == 3 and python_version.minor >= 13 and sys.platform == 'win32':
-                logger.info(f"检测到Python {python_version.major}.{python_version.minor} on Windows，使用Selenium替代方案")
-                return self._try_selenium_screenshot(github_url, save_path, options)
+                logger.info(
+                    f"检测到 Python {python_version.major}.{python_version.minor} on Windows，先尝试 Selenium"
+                )
+                if self._try_selenium_screenshot(github_url, save_path, options):
+                    return True
+                logger.warning(
+                    "Selenium 截图不可用（Chrome/Chromedriver 或网络问题），回退尝试 Playwright"
+                )
             
-            # 尝试使用Playwright截图
-            import asyncio
-            
-            if sys.platform == 'win32':
-                # 为Windows设置适当的事件循环策略
-                if hasattr(asyncio, 'WindowsProactorEventLoopPolicy'):
-                    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-                elif hasattr(asyncio, 'WindowsSelectorEventLoopPolicy'):
-                    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-            
-            # 创建新的事件循环
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            if self._run_playwright_in_thread(github_url, save_path, options):
+                return True
+
+            # 非 Windows 3.13 路径：Playwright 失败后再尝试 Selenium（兼容性问题等）
+            if not (python_version.major == 3 and python_version.minor >= 13 and sys.platform == 'win32'):
+                if self._try_selenium_screenshot(github_url, save_path, options):
+                    return True
                 
-                try:
-                    result = loop.run_until_complete(
-                        self._take_screenshot_internal(github_url, save_path, options)
-                    )
-                    if result:
-                        return True
-                except Exception as e:
-                    logger.warning(f"Playwright截图失败: {e}")
-                    # 检查是否是已知的兼容性问题
-                    if "NotImplementedError" in str(e) or "subprocess_exec" in str(e):
-                        logger.info("检测到兼容性问题，尝试Selenium替代方案")
-                        return self._try_selenium_screenshot(github_url, save_path, options)
-                finally:
-                    loop.close()
-            except RuntimeError as e:
-                if "Cannot run the event loop while another loop is running" in str(e):
-                    logger.warning("事件循环冲突，尝试不同的方法")
-                    # 尝试使用现有的事件循环
-                    try:
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            # 在运行的循环中调度任务
-                            future = asyncio.run_coroutine_threadsafe(
-                                self._take_screenshot_internal(github_url, save_path, options),
-                                loop
-                            )
-                            try:
-                                result = future.result(timeout=30)
-                                if result:
-                                    return True
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
-                
-            # 如果Playwright和Selenium都失败，使用最后的降级方案
-            logger.info("所有自动化方案都失败，使用基础降级截图")
-            return self._fallback_screenshot(github_url, save_path)
+            return self._finish_with_optional_fallback(
+                github_url,
+                save_path,
+                "Playwright 与 Selenium 均未成功截取真实页面",
+            )
                 
         except Exception as e:
             logger.error(f"同步截图完全失败: {e}")
-            # 最后的降级方案
-            return self._fallback_screenshot(github_url, save_path)
+            return self._finish_with_optional_fallback(
+                github_url,
+                save_path,
+                f"同步截图异常: {e}",
+            )
     
     def _try_selenium_screenshot(self, github_url: str, save_path: Path, options: Optional[ScreenshotOptions] = None) -> bool:
         """尝试使用Selenium进行截图"""
@@ -364,8 +406,9 @@ class SyncGitHubScreenshotService:
             height = options.height if options else 1080
             wait_time = (options.wait_time // 1000) if options else 3
             
+            fs = float(getattr(options, "font_scale", 1.12)) if options else 1.12
             result = selenium_service.take_screenshot_sync(
-                github_url, save_path, width, height, wait_time
+                github_url, save_path, width, height, wait_time, font_scale=fs
             )
             
             if result:
@@ -376,11 +419,31 @@ class SyncGitHubScreenshotService:
                 return False
                 
         except ImportError:
-            logger.warning("Selenium未安装，使用基础降级方案")
-            return self._fallback_screenshot(github_url, save_path)
+            logger.warning("Selenium 未安装")
+            return self._finish_with_optional_fallback(
+                github_url,
+                save_path,
+                "Selenium 未安装",
+            )
         except Exception as e:
             logger.error(f"Selenium截图异常: {e}")
             return False
+    
+    def _finish_with_optional_fallback(
+        self, github_url: str, save_path: Path, reason: str
+    ) -> bool:
+        """
+        自动化失败时的收尾：默认返回 False；仅当 GITHUB_SCREENSHOT_ALLOW_FALLBACK=1 时写入占位图并返回 True。
+        """
+        if _env_allow_fallback_screenshot():
+            logger.warning(f"{reason}；已设置 GITHUB_SCREENSHOT_ALLOW_FALLBACK，写入占位图")
+            return self._fallback_screenshot(github_url, save_path)
+        logger.error(
+            f"{reason}。未写入占位图（避免误判为截图成功）。"
+            "若界面仍见「Fallback / placeholder」字样，多为历史生成的占位文件，可删除后重试「重新获取主页截图」。"
+            "请安装 Playwright 浏览器：在项目目录执行 `playwright install chromium`，并确保可访问 GitHub。"
+        )
+        return False
     
     async def _take_screenshot_internal(self, 
                                       github_url: str, 

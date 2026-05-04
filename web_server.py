@@ -26,6 +26,9 @@ from api.routes.gif_routes import router as gif_router
 from api.routes.github_routes import router as github_router
 from api.routes.video_text_routes import router as video_text_router  # 新增视频文字路由
 from api.routes.manual_content_routes import router as manual_content_router  # 新增手动内容路由
+from api.routes.image_search_routes import router as image_search_router
+from api.routes.cover_image_routes import router as cover_image_router
+from api.routes.related_image_routes import router as related_image_router
 
 # 加载环境变量
 load_dotenv()
@@ -64,6 +67,9 @@ app.include_router(gif_router)
 app.include_router(github_router)
 app.include_router(video_text_router)  # 注册视频文字路由
 app.include_router(manual_content_router)  # 注册手动内容路由
+app.include_router(image_search_router)
+app.include_router(cover_image_router)
+app.include_router(related_image_router)
 # main_routes 放在最后，避免被其他路由覆盖，并添加 API 前缀
 print(f"main_router: {main_router}")
 app.include_router(main_router)
@@ -71,10 +77,28 @@ print("路由注册完成")
 
 if __name__ == "__main__":
     import uvicorn
+
+    port = int(os.getenv("PORT", "8080"))
+    # 多进程 worker：适合 CPU 密集；与 asyncio.to_thread 可同时使用（多页并发 + 单进程内不阻塞）
+    workers = int(os.getenv("UVICORN_WORKERS", "1"))
+
     print("🚀 AINews API服务已启动")
-    print("🌐 访问: http://localhost:8080")
-    print("📖 API文档: http://localhost:8080/docs")
+    print(f"🌐 访问: http://localhost:{port}")
+    print(f"📖 API文档: http://localhost:{port}/docs")
     print("\n⚙️  配置DeepSeek API Key:")
-    print("   编辑 .env 文件，设置 DEEPSEEK_API_KEY=你的密钥\n")
-    
-    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
+    print("   编辑 .env 文件，设置 DEEPSEEK_API_KEY=你的密钥")
+    if workers > 1:
+        print(f"\n🔧 UVICORN_WORKERS={workers}（多进程，需使用模块路径启动）\n")
+    else:
+        print()
+
+    if workers > 1:
+        uvicorn.run(
+            "web_server:app",
+            host="0.0.0.0",
+            port=port,
+            workers=workers,
+            log_level="info",
+        )
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

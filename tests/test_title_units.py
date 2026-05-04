@@ -1,7 +1,12 @@
 """utils.title_units 汉字当量与截断"""
 import pytest
 
-from utils.title_units import char_han_units, han_equiv_len, truncate_han_equiv, MAIN_LINE_MAX_UNITS
+from utils.title_units import (
+    char_han_units,
+    han_equiv_len,
+    truncate_han_equiv,
+    MAIN_LINE1_MAX_UNITS,
+)
 
 
 def test_ascii_half():
@@ -20,9 +25,9 @@ def test_len_mixed():
 
 
 def test_truncate_mixed():
-    s = "A" * 24  # 12 当量
-    assert len(truncate_han_equiv(s, MAIN_LINE_MAX_UNITS)) == 24
-    assert han_equiv_len(truncate_han_equiv(s, MAIN_LINE_MAX_UNITS)) == 12.0
+    s = "A" * 36  # 18 当量（主标题第一行上限）
+    assert len(truncate_han_equiv(s, MAIN_LINE1_MAX_UNITS)) == 36
+    assert han_equiv_len(truncate_han_equiv(s, MAIN_LINE1_MAX_UNITS)) == 18.0
 
 
 def test_truncate_cjk():

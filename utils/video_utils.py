@@ -1,29 +1,256 @@
 """视频处理工具函数"""
 import math
+import os
 import random
 import re
-from typing import Tuple, List
+from pathlib import Path
+from typing import Tuple, List, Optional, Dict, Any
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
-# 主标题文字块底边与副标题黄条之间的间距（在原 12px 基础上 +5px）
-MAIN_SUBTITLE_GAP_PX = 17
+# 主标题文字块底边与副标题黄条之间的间距（在 17px 基础上再 +10px）
+MAIN_SUBTITLE_GAP_PX = 27
+
+# 主标题第一、二行白字字号（相对原先 66 小一号）
+TITLE_MAIN_FONT_SIZE = 60
+
+# 主标题 + 副标题自上方滑入的默认时长（秒；仅首个成片片段启用）
+DEFAULT_TITLE_SLIDE_DURATION = 0.68
+
+# 高图 scroll_up：匀速上滑（像素/秒），与图高无关。
+# 总位移 = min(可滚动量 overflow, SCROLL_UP_PIXELS_PER_SEC × 上滑阶段秒数)；进度在阶段内线性 0→1。
+SCROLL_UP_PIXELS_PER_SEC = 380.0
 
 
-def _load_fonts():
-    """加载字体，返回 (title_font, subtitle_font, summary_font)；摘要略小"""
-    try:
-        return (ImageFont.truetype("msyhbd.ttc", 66),
-                ImageFont.truetype("msyhbd.ttc", 58),
-                ImageFont.truetype("msyh.ttc", 40))
-    except:
+def _scroll_up_effective_distance(
+    target_height: int,
+    scroll_viewport_height: Optional[int],
+    scroll_phase_sec: float,
+) -> int:
+    """
+    上滑总像素：min(overflow, 匀速×上滑阶段秒数)。匀速 = SCROLL_UP_PIXELS_PER_SEC（与图高无关）。
+    overflow：缩放后图高 − 可视槽高度（无槽信息时用图高估算）。
+    """
+    phase = max(0.05, float(scroll_phase_sec))
+    if scroll_viewport_height is not None and scroll_viewport_height > 0:
+        overflow = max(0, target_height - scroll_viewport_height)
+    else:
+        overflow = max(1, int(target_height * 0.28))
+    if overflow <= 0:
+        max_dist = max(1, int(target_height * 0.15))
+    else:
+        max_dist = overflow
+    max_travel = SCROLL_UP_PIXELS_PER_SEC * phase
+    raw = min(max_dist, max_travel)
+    return max(1, int(round(raw)))
+
+
+def compute_title_slide_offset_y(
+    t: float,
+    *,
+    title_slide_delay: float = 0.0,
+    title_slide_duration: float = DEFAULT_TITLE_SLIDE_DURATION,
+    slide_px: int = 120,
+) -> int:
+    """
+    返回加在 title_y 上的纵向偏移（≤0），使主标题与副标题作为整体自上方滑入。
+    t < delay 时固定在起点（画面上方）；delay ≤ t < delay+duration 时缓出；之后为 0。
+    """
+    if title_slide_duration <= 0:
+        return 0
+    slide_px = max(0, int(slide_px))
+    if slide_px == 0:
+        return 0
+    tt = t - title_slide_delay
+    if tt < 0:
+        return -slide_px
+    if tt >= title_slide_duration:
+        return 0
+    progress = max(0.0, min(1.0, tt / title_slide_duration))
+    ease = 1 - (1 - progress) ** 3
+    return -int(round(slide_px * (1 - ease)))
+
+# 摘要中匹配关键字时的强调色（高饱和金黄，相对白字更醒目）
+DEFAULT_SUMMARY_HIGHLIGHT_COLOR = (255, 236, 48)
+# 关键字描边，增强与白字/背景的分离度
+SUMMARY_HIGHLIGHT_STROKE_FILL = (55, 28, 0)
+
+
+def merge_summary_highlight_keywords(
+    explicit: Optional[List[str]] = None,
+    tags: Optional[str] = None,
+) -> List[str]:
+    """合并显式关键字与标签串（支持 #词 与空格分隔）。"""
+    out: List[str] = []
+    for e in explicit or []:
+        s = (e or "").strip()
+        if s:
+            out.append(s)
+    if tags:
+        for part in tags.replace("，", " ").split():
+            w = part.strip().lstrip("#").strip()
+            if w:
+                out.append(w)
+    seen = set()
+    uniq: List[str] = []
+    for x in out:
+        if x not in seen:
+            seen.add(x)
+            uniq.append(x)
+    return uniq
+
+
+def _build_highlight_pattern(keywords: List[str]) -> Optional[str]:
+    if not keywords:
+        return None
+    kws = sorted({k.strip() for k in keywords if k and k.strip()}, key=len, reverse=True)
+    if not kws:
+        return None
+    return "|".join(re.escape(k) for k in kws)
+
+
+def _split_line_highlight_segments(line: str, pattern: str) -> List[Tuple[str, bool]]:
+    if not pattern or not line:
+        return [(line, False)]
+    segs: List[Tuple[str, bool]] = []
+    last = 0
+    for m in re.finditer(pattern, line):
+        if m.start() > last:
+            segs.append((line[last:m.start()], False))
+        segs.append((m.group(), True))
+        last = m.end()
+    if last < len(line):
+        segs.append((line[last:], False))
+    return segs if segs else [(line, False)]
+
+
+def _unpack_summary_info(summary_info):
+    """兼容 3 元组与 4 元组 (font, lines, y, highlight_keywords)。"""
+    if not summary_info:
+        return None, None, None, []
+    if len(summary_info) == 3:
+        f, lines, y = summary_info
+        return f, lines, y, []
+    f, lines, y, kw = summary_info[0], summary_info[1], summary_info[2], summary_info[3]
+    return f, lines, y, list(kw or [])
+
+
+def _draw_text_line_shadow_segments(
+    draw,
+    x: float,
+    y: float,
+    segments: List[Tuple[str, bool]],
+    font,
+    base_color: Tuple[int, int, int],
+    highlight_color: Tuple[int, int, int],
+) -> None:
+    """左对齐一行：分段着色（摘要用）。高亮段加粗描边与更亮填充。"""
+    cx = x
+    for text, is_hi in segments:
+        if not text:
+            continue
+        fill = highlight_color if is_hi else base_color
+        if is_hi:
+            draw.text((cx + 4, y + 4), text, font=font, fill=(0, 0, 0))
+            draw.text(
+                (cx, y),
+                text,
+                font=font,
+                fill=fill,
+                stroke_width=2,
+                stroke_fill=SUMMARY_HIGHLIGHT_STROKE_FILL,
+            )
+        else:
+            draw.text((cx + 3, y + 3), text, font=font, fill=(0, 0, 0))
+            draw.text((cx + 1, y + 1), text, font=font, fill=(10, 10, 30))
+            draw.text((cx, y), text, font=font, fill=fill)
+        if is_hi:
+            bb = draw.textbbox((0, 0), text, font=font, stroke_width=2)
+        else:
+            bb = draw.textbbox((0, 0), text, font=font)
+        cx += bb[2] - bb[0]
+
+
+# 主标题字形预设：key -> 候选文件名（依次在 cwd 与 Windows/Fonts 下查找）
+_TITLE_FONT_CANDIDATES: Dict[str, List[str]] = {
+    "msyhbd": ["msyhbd.ttc"],
+    "msyh": ["msyh.ttc"],
+    "simhei": ["simhei.ttf", "simhei.ttc"],
+    "simsun": ["simsun.ttc", "simsun.ttf"],
+    "kaiti": ["simkai.ttf", "STKAITI.TTF", "stkaiti.ttf"],
+}
+
+
+def title_font_presets_for_api() -> List[Dict[str, str]]:
+    """供 GET /api/list-title-fonts 返回。"""
+    return [
+        {"key": "msyhbd", "label": "微软雅黑 粗体"},
+        {"key": "msyh", "label": "微软雅黑"},
+        {"key": "simhei", "label": "黑体"},
+        {"key": "simsun", "label": "宋体"},
+        {"key": "kaiti", "label": "楷体"},
+    ]
+
+
+def _find_font_path(candidates: List[str]) -> Optional[str]:
+    """在 cwd、static/fonts、Windows Fonts 中查找首个存在的字体文件。"""
+    windir = os.environ.get("WINDIR", "C:/Windows")
+    font_dirs = [
+        Path("."),
+        Path("static/fonts"),
+        Path(windir) / "Fonts",
+    ]
+    for name in candidates:
+        for base in font_dirs:
+            p = base / name
+            if p.is_file():
+                return str(p.resolve())
+    return None
+
+
+def _load_title_font_truetype(title_font_key: Optional[str], size: int) -> ImageFont.FreeTypeFont:
+    key = (title_font_key or "msyhbd").strip().lower()
+    names = _TITLE_FONT_CANDIDATES.get(key, _TITLE_FONT_CANDIDATES["msyhbd"])
+    path = _find_font_path(names)
+    if path:
         try:
-            return (ImageFont.truetype("simhei.ttf", 66),
-                    ImageFont.truetype("simhei.ttf", 58),
-                    ImageFont.truetype("simhei.ttf", 40))
-        except:
-            df = ImageFont.load_default()
-            return df, df, df
+            return ImageFont.truetype(path, size)
+        except OSError:
+            pass
+    for fb in ("msyhbd.ttc", "simhei.ttf"):
+        p2 = _find_font_path([fb])
+        if p2:
+            try:
+                return ImageFont.truetype(p2, size)
+            except OSError:
+                pass
+    return ImageFont.load_default()
+
+
+def _load_fonts(title_font_key: Optional[str] = None):
+    """加载字体，返回 (title_font, subtitle_font, summary_font)；主标题字形由 title_font_key 选择。"""
+    title_font = _load_title_font_truetype(title_font_key, TITLE_MAIN_FONT_SIZE)
+    try:
+        p58 = _find_font_path(["msyhbd.ttc"]) or _find_font_path(["simhei.ttf"])
+        p40 = _find_font_path(["msyh.ttc"]) or _find_font_path(["simhei.ttf"])
+        if p58 and p40:
+            subtitle_font = ImageFont.truetype(p58, 58)
+            summary_font = ImageFont.truetype(p40, 40)
+            return title_font, subtitle_font, summary_font
+    except OSError:
+        pass
+    try:
+        p = _find_font_path(["simhei.ttf"])
+        if p:
+            return (
+                title_font,
+                ImageFont.truetype(p, 58),
+                ImageFont.truetype(p, 40),
+            )
+    except OSError:
+        pass
+    df = ImageFont.load_default()
+    return title_font, df, df
 
 
 def _wrap_text(text, font, max_width, draw_obj):
@@ -79,7 +306,15 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                           hold_with_text_start=0.8, anim_type='zoom_in',
                           zoom_effect=False, zoom_start_scale=1.0, 
                           zoom_end_scale=1.15, clip_duration=None,
-                          summary_scroll=False, summary_segments=None):
+                          summary_scroll=False,
+                          summary_scroll_mode: str = "block",
+                          summary_segments=None,
+                          title_slide_duration=DEFAULT_TITLE_SLIDE_DURATION,
+                          title_slide_px=None,
+                          title_slide_delay=None,
+                          title_slide_entrance: bool = True,
+                          scroll_viewport_height: Optional[int] = None,
+                          clip_fps: float = 24.0):
     """
     渲染动画的某一帧（时间 t 秒）。
     anim_type: 'zoom_in'(动感放大), 'zoom_out'(动感缩小), 'unfold'(展开),
@@ -90,7 +325,12 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
     zoom_end_scale: 结束缩放比例
     clip_duration: 片段总时长（用于计算放大进度）
     summary_scroll: 是否启用摘要滚动显示
+    summary_scroll_mode: "block" 整块上滑；"line_uniform" 方案 A 逐行均分时段上滑
     summary_segments: 摘要分段信息 [(text1, y1), (text2, y2), (text3, y3)]
+    title_slide_duration: 主标题+副标题自上方滑入时长（秒）
+    title_slide_px: 滑入起点相对终点的上移像素；None 则按画布高度估算
+    title_slide_delay: 滑入开始时刻（秒）；None 表示在图片入场结束（entrance_duration）后开始
+    title_slide_entrance: False 时标题/副标题不播放滑入（用于非首段成片）
     返回 numpy array (H, W, 3) uint8
     """
     bg = bg_template.copy().convert('RGB')
@@ -145,7 +385,7 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
             _safe_paste(bg, cropped, px, py)
 
         elif anim_type == 'scroll_up':
-            # 向上滚动：从下方滑入
+            # 入场：从下方滑入（持续上滑在 t >= entrance_duration 分支）
             start_y = img_height + 50
             cur_y = int(start_y + (final_paste_y - start_y) * ease)
             _safe_paste(bg, user_img_resized, paste_x, cur_y)
@@ -178,8 +418,32 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
             _safe_paste(bg, user_img_resized, paste_x, cur_y)
 
     else:
-        # 小图已落定，应用持续放大效果（如果启用）
-        if zoom_effect and clip_duration and clip_duration > entrance_duration:
+        # 小图已落定：scroll_up 持续上滑；或持续放大；否则静态粘贴
+        if anim_type == 'scroll_up':
+            if clip_duration and clip_duration > entrance_duration:
+                scroll_phase = clip_duration - entrance_duration
+                scroll_progress = (t - entrance_duration) / scroll_phase
+            elif clip_duration and clip_duration > 0:
+                scroll_phase = max(clip_duration, 1e-6)
+                scroll_progress = t / scroll_phase
+            else:
+                scroll_progress = 1.0
+            scroll_progress = max(0.0, min(1.0, scroll_progress))
+            phase_for_dist = (
+                (clip_duration - entrance_duration)
+                if clip_duration and clip_duration > entrance_duration
+                else (clip_duration if clip_duration else 1.0)
+            )
+            scroll_dist = _scroll_up_effective_distance(
+                target_height,
+                scroll_viewport_height,
+                phase_for_dist,
+            )
+            # 用浮点偏移再取整，减少小 scroll_dist 时多帧同一 y 的卡顿感
+            offset_y = float(scroll_dist) * float(scroll_progress)
+            cur_y = int(round(float(final_paste_y) - offset_y))
+            _safe_paste(bg, user_img_resized, paste_x, cur_y)
+        elif zoom_effect and clip_duration and clip_duration > entrance_duration:
             # 计算放大阶段的进度（从 entrance_duration 到 clip_duration）
             zoom_progress = (t - entrance_duration) / (clip_duration - entrance_duration)
             zoom_progress = max(0.0, min(1.0, zoom_progress))  # 限制在 [0, 1]
@@ -211,23 +475,51 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
             else:
                 bg.paste(user_img_resized, (paste_x, final_paste_y))
 
-    # --- 标题和摘要始终显示 ---
-    if title_info and summary_info:
+    # --- 标题（必选若有 title_info）；摘要仅在 summary_info 非空时绘制 ---
+    if title_info:
         t_font, st_font, main_lines, sub_lines, title_y, main_h, margin, text_width = title_info
-        summary_font, summary_lines, summary_y = summary_info
 
-        # 主标题：白色 + 蓝色光晕
-        bg, _ = _draw_text_overlay(
-            bg, main_lines, t_font, title_y, img_width, margin, text_width,
-            text_color=(255, 255, 255), glow_color=(102, 126, 234), line_spacing=18
+        _slide_delay = (
+            entrance_duration if title_slide_delay is None else float(title_slide_delay)
         )
-        # 副标题：黄底黑字，紧跟主标题下方
+        _slide_px = (
+            title_slide_px
+            if title_slide_px is not None
+            else max(80, min(200, int(img_height * 0.07)))
+        )
+        if title_slide_entrance:
+            title_y_off = compute_title_slide_offset_y(
+                t,
+                title_slide_delay=_slide_delay,
+                title_slide_duration=title_slide_duration,
+                slide_px=_slide_px,
+            )
+        else:
+            title_y_off = 0
+        title_y_draw = title_y + title_y_off
+
+        # 主标题：白色 + 蓝色光晕（背景条自画面顶部铺满至主标题区下缘）
+        bg, _ = _draw_text_overlay(
+            bg, main_lines, t_font, title_y_draw, img_width, margin, text_width,
+            text_color=(255, 255, 255), glow_color=(102, 126, 234), line_spacing=18,
+            background_top_y=0,
+        )
+        # 副标题：黄底黑字，紧跟主标题下方（与主标题同位移，整体自上方滑入）
         if sub_lines:
-            sub_y = title_y + main_h + MAIN_SUBTITLE_GAP_PX
+            sub_y = title_y_draw + main_h + MAIN_SUBTITLE_GAP_PX
             bg, _ = _draw_subtitle_yellow_bar(
                 bg, sub_lines, st_font, sub_y, img_width, margin, text_width,
                 line_spacing=14,
             )
+
+        if not summary_info:
+            return np.array(bg)
+
+        summary_font, summary_lines, summary_y, summary_hi_kw = _unpack_summary_info(
+            summary_info
+        )
+        if not summary_lines:
+            return np.array(bg)
         
         # 摘要滚动显示逻辑
         if summary_scroll and summary_segments and len(summary_segments) == 3:
@@ -256,6 +548,8 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                         bg, [segment_text], summary_font, current_y,
                         img_width, margin, text_width,
                         text_color=(255, 255, 255), line_spacing=12, align="left",
+                        highlight_keywords=summary_hi_kw or None,
+                        background_bottom_y=img_height,
                     )
                     
                     # 应用透明度
@@ -274,6 +568,24 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                         bg = overlay.convert('RGB')
                     else:
                         bg = temp_bg
+        elif (
+            summary_scroll
+            and summary_scroll_mode == "line_uniform"
+            and summary_info
+        ):
+            bg = _draw_summary_line_uniform_scheme_a(
+                bg,
+                summary_font=summary_font,
+                summary_lines=summary_lines,
+                summary_y=summary_y,
+                summary_hi_kw=summary_hi_kw,
+                img_width=img_width,
+                margin=margin,
+                text_width=text_width,
+                t=t,
+                entrance_duration=entrance_duration,
+                clip_duration=clip_duration,
+            )
         elif summary_scroll and summary_info:
             # 首张图片段内：摘要自下而上滚入，在 clip_duration 内完成；左对齐
             scroll_duration = (
@@ -283,19 +595,22 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
             ease = 1 - (1 - scroll_progress) ** 3
             slide_max = 100
             slide_offset = int(slide_max * (1 - ease))
-            summary_font_obj, summary_lines, summary_base_y = summary_info
-            # 自下方移入：起始 y 更大，结束时落在 summary_base_y
-            current_y = summary_base_y + slide_offset
+            # 自下方移入：起始 y 更大，结束时落在 summary_y
+            current_y = summary_y + slide_offset
             bg, _ = _draw_text_overlay(
-                bg, summary_lines, summary_font_obj, current_y,
+                bg, summary_lines, summary_font, current_y,
                 img_width, margin, text_width,
                 text_color=(255, 255, 255), line_spacing=12, align="left",
+                highlight_keywords=summary_hi_kw or None,
+                background_bottom_y=img_height,
             )
         else:
             # 后续片段等：摘要静止、左对齐
             bg, _ = _draw_text_overlay(
                 bg, summary_lines, summary_font, summary_y, img_width, margin, text_width,
                 text_color=(255, 255, 255), line_spacing=12, align="left",
+                highlight_keywords=summary_hi_kw or None,
+                background_bottom_y=img_height,
             )
 
     return np.array(bg)
@@ -410,6 +725,149 @@ def _apply_video_effect(frame_array, t, effect, width, height, clip_duration, se
     return np.array(img.convert('RGB'))
 
 
+def _apply_summary_gradient_background(
+    bg: Image.Image,
+    start_y: int,
+    total_h: int,
+    img_width: int,
+    background_bottom_y: Optional[int] = None,
+) -> Image.Image:
+    """与 _draw_text_overlay 摘要区相同的半透明条背景。
+    background_bottom_y: 若指定（如画布高度），背景下缘铺到该 y（不含），用于摘要区贴视频下沿。"""
+    bg_y = start_y - 25
+    span_end = bg_y + total_h + 40
+    if background_bottom_y is not None:
+        span_end = max(span_end, int(background_bottom_y))
+    _, ih = bg.size
+    span_end = min(span_end, ih)
+    bg_h = max(1, span_end - bg_y)
+    overlay = Image.new("RGBA", bg.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    for i in range(bg_h):
+        p = i / bg_h if bg_h else 0
+        alpha = int(220 * (min(p, 1 - p) / 0.1 if min(p, 1 - p) < 0.1 else 1))
+        od.rectangle([(0, bg_y + i), (img_width, bg_y + i + 1)], fill=(20, 20, 40, alpha))
+    return Image.alpha_composite(bg.convert("RGBA"), overlay).convert("RGB")
+
+
+def _draw_one_summary_line_left(
+    bg: Image.Image,
+    line: str,
+    font,
+    cy: int,
+    img_width: int,
+    margin: int,
+    text_width: int,
+    highlight_keywords: Optional[List[str]],
+) -> None:
+    """单行摘要：左对齐，与 _draw_text_overlay 单行逻辑一致（无整块背景）。"""
+    draw = ImageDraw.Draw(bg)
+    hl_kw = [k.strip() for k in (highlight_keywords or []) if k and k.strip()]
+    hl_pattern = _build_highlight_pattern(hl_kw) if hl_kw else None
+    bbox = draw.textbbox((0, 0), line, font=font)
+    use_hl = bool(hl_pattern)
+    if use_hl:
+        segs = _split_line_highlight_segments(line, hl_pattern)
+        total_w = 0.0
+        for seg, _ in segs:
+            if not seg:
+                continue
+            bb = draw.textbbox((0, 0), seg, font=font)
+            total_w += bb[2] - bb[0]
+        lw = total_w
+    else:
+        segs = None
+        lw = bbox[2] - bbox[0]
+    x = margin
+    if use_hl and segs:
+        _draw_text_line_shadow_segments(
+            draw,
+            float(x),
+            float(cy),
+            segs,
+            font,
+            (255, 255, 255),
+            DEFAULT_SUMMARY_HIGHLIGHT_COLOR,
+        )
+    else:
+        draw.text((x + 3, cy + 3), line, font=font, fill=(0, 0, 0))
+        draw.text((x + 1, cy + 1), line, font=font, fill=(10, 10, 30))
+        draw.text((x, cy), line, font=font, fill=(255, 255, 255))
+
+
+def _draw_summary_line_uniform_scheme_a(
+    bg: Image.Image,
+    *,
+    summary_font,
+    summary_lines: List[str],
+    summary_y: int,
+    summary_hi_kw: Optional[List[str]],
+    img_width: int,
+    margin: int,
+    text_width: int,
+    t: float,
+    entrance_duration: float,
+    clip_duration: Optional[float],
+    line_spacing: int = 12,
+    slide_max_px: int = 100,
+) -> Image.Image:
+    """
+    摘要方案 A：将 [entrance_duration, clip_duration] 均分为 n 段，
+    第 i 行在对应 slot 内自下而上滑入（缓动与整块摘要一致）。
+    """
+    if not summary_lines:
+        return bg
+    draw = ImageDraw.Draw(bg)
+    line_tops: List[float] = []
+    cy = float(summary_y)
+    total_h = 0
+    for line in summary_lines:
+        bbox = draw.textbbox((0, 0), line, font=summary_font)
+        line_h = bbox[3] - bbox[1]
+        line_tops.append(cy)
+        total_h += line_h + line_spacing
+        cy += line_h + line_spacing
+
+    scroll_start = float(entrance_duration)
+    cd = float(clip_duration) if clip_duration and clip_duration > 0 else 1.2
+    T = max(1e-3, cd - scroll_start)
+    n = len(summary_lines)
+    slot = T / n
+
+    if t < scroll_start:
+        return bg
+
+    bg = _apply_summary_gradient_background(
+        bg, summary_y, total_h, img_width,
+        background_bottom_y=bg.size[1],
+    )
+
+    for i, line in enumerate(summary_lines):
+        t0 = scroll_start + i * slot
+        t1 = scroll_start + (i + 1) * slot
+        if t < t0:
+            continue
+        if t >= t1:
+            offset = 0
+        else:
+            local_p = (t - t0) / slot
+            local_p = max(0.0, min(1.0, local_p))
+            ease = 1 - (1 - local_p) ** 3
+            offset = int(slide_max_px * (1 - ease))
+        y = int(line_tops[i]) + offset
+        _draw_one_summary_line_left(
+            bg,
+            line,
+            summary_font,
+            y,
+            img_width,
+            margin,
+            text_width,
+            summary_hi_kw,
+        )
+    return bg
+
+
 def _safe_paste(bg, img, x, y):
     """安全粘贴：处理图片部分在画面外的情况"""
     bg_w, bg_h = bg.size
@@ -436,17 +894,36 @@ def _safe_paste(bg, img, x, y):
 
 def _draw_text_overlay(bg, lines, font, start_y, img_width, margin, text_width,
                       text_color=(255, 255, 255), glow_color=None, line_spacing=12,
-                      align="center"):
+                      align="center",
+                      highlight_keywords: Optional[List[str]] = None,
+                      highlight_color: Tuple[int, int, int] = DEFAULT_SUMMARY_HIGHLIGHT_COLOR,
+                      background_top_y: Optional[int] = None,
+                      background_bottom_y: Optional[int] = None):
     """在图片上绘制带半透明背景的文字块，返回 (result_image, block_height)。
-    align: 'center' | 'left'（摘要建议 left）"""
+    align: 'center' | 'left'（摘要建议 left）
+    highlight_keywords: 非空时在行内匹配并着色（长词优先；与 glow 不同时使用）
+    background_top_y: 若指定（如 0），背景条从该 y 铺到原底边，用于主标题区顶到视频上沿。
+    background_bottom_y: 若指定（如画布高度），背景下缘至少铺到该 y（不含），用于摘要区贴视频下沿。"""
     draw = ImageDraw.Draw(bg)
+    hl_kw = [k.strip() for k in (highlight_keywords or []) if k and k.strip()]
+    hl_pattern = _build_highlight_pattern(hl_kw) if hl_kw else None
+
     total_h = sum(
         draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] + line_spacing
         for line in lines
     )
-    # 半透明背景
-    bg_y = start_y - 25
-    bg_h = total_h + 40
+    # 半透明背景（默认仅包住文字块上缘外 25px；background_top_y 可把上缘抬到画面顶部；
+    # background_bottom_y 可把下缘延伸到画面底部）
+    span_end = (start_y - 25) + (total_h + 40)
+    if background_top_y is not None:
+        bg_y = max(0, int(background_top_y))
+    else:
+        bg_y = start_y - 25
+    if background_bottom_y is not None:
+        span_end = max(span_end, int(background_bottom_y))
+    _, ih = bg.size
+    span_end = min(span_end, ih)
+    bg_h = max(1, int(span_end - bg_y))
     overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
     for i in range(bg_h):
@@ -459,12 +936,32 @@ def _draw_text_overlay(bg, lines, font, start_y, img_width, margin, text_width,
     cy = start_y
     for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
-        lw = bbox[2] - bbox[0]
+        line_h = bbox[3] - bbox[1]
+
+        use_hl = bool(hl_pattern) and not glow_color
+        if use_hl:
+            segs = _split_line_highlight_segments(line, hl_pattern)
+            total_w = 0.0
+            for seg, _ in segs:
+                if not seg:
+                    continue
+                bb = draw.textbbox((0, 0), seg, font=font)
+                total_w += bb[2] - bb[0]
+            lw = total_w
+        else:
+            segs = None
+            lw = bbox[2] - bbox[0]
+
         if align == "left":
             x = margin
         else:
             x = margin + (text_width - lw) // 2
-        if glow_color:
+
+        if use_hl and segs:
+            _draw_text_line_shadow_segments(
+                draw, float(x), float(cy), segs, font, text_color, highlight_color
+            )
+        elif glow_color:
             # 外层柔光（r=3）
             for dx in range(-3, 4):
                 for dy in range(-3, 4):
@@ -473,12 +970,14 @@ def _draw_text_overlay(bg, lines, font, start_y, img_width, margin, text_width,
                         a = int(50 * (1 - d2 / 9))
                         draw.text((x + dx, cy + dy), line, font=font,
                                   fill=(glow_color[0], glow_color[1], glow_color[2], a))
-        # 深色阴影
-        draw.text((x + 3, cy + 3), line, font=font, fill=(0, 0, 0))
-        draw.text((x + 1, cy + 1), line, font=font, fill=(10, 10, 30))
-        # 主文字
-        draw.text((x, cy), line, font=font, fill=text_color)
-        cy += bbox[3] - bbox[1] + line_spacing
+            draw.text((x + 3, cy + 3), line, font=font, fill=(0, 0, 0))
+            draw.text((x + 1, cy + 1), line, font=font, fill=(10, 10, 30))
+            draw.text((x, cy), line, font=font, fill=text_color)
+        else:
+            draw.text((x + 3, cy + 3), line, font=font, fill=(0, 0, 0))
+            draw.text((x + 1, cy + 1), line, font=font, fill=(10, 10, 30))
+            draw.text((x, cy), line, font=font, fill=text_color)
+        cy += line_h + line_spacing
 
     return result, total_h
 

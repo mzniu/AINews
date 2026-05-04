@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GIF处理服务 - 将GIF动画转换为视频片段
+GIF / 动画 WebP 处理：抽帧、转 MP4 片段（与成片画中画管线一致）。
+静态 WebP 走普通图片分支，不在此作为「动画」处理。
 """
 
 import os
@@ -26,11 +27,11 @@ import cv2
 logger = logging.getLogger(__name__)
 
 class GIFProcessor:
-    """GIF动画处理器"""
-    
+    """GIF / 动画 WebP 处理器"""
+
     def __init__(self):
         self.supported_formats = ['.gif']
-    
+
     def is_gif_file(self, file_path: str) -> bool:
         """检查文件是否为GIF格式"""
         try:
@@ -38,47 +39,132 @@ class GIFProcessor:
             return path.suffix.lower() in self.supported_formats
         except Exception:
             return False
-    
-    def extract_gif_frames(self, gif_path: str) -> Optional[List[np.ndarray]]:
-        """提取GIF动画帧"""
+
+    @staticmethod
+    def is_webp_file(file_path: str) -> bool:
         try:
-            if not self.is_gif_file(gif_path):
-                logger.warning(f"文件不是GIF格式: {gif_path}")
+            return Path(file_path).suffix.lower() == '.webp'
+        except Exception:
+            return False
+
+    def is_animated_webp_file(self, file_path: str) -> bool:
+        """多帧动画 WebP（静态 WebP 为 False）。"""
+        try:
+            if not self.is_webp_file(file_path):
+                return False
+            im = Image.open(file_path)
+            try:
+                n = int(getattr(im, "n_frames", 1) or 1)
+                animated = bool(getattr(im, "is_animated", False))
+                return animated and n > 1
+            finally:
+                im.close()
+        except Exception as e:
+            logger.debug(f"判断动画 WebP 失败 {file_path}: {e}")
+            return False
+
+    def is_animation_raster(self, file_path: str) -> bool:
+        """成片「动画轨」：GIF（多帧）或动画 WebP；静态 WebP 为 False。"""
+        if self.is_gif_file(file_path):
+            return True
+        return self.is_animated_webp_file(file_path)
+
+    def is_convertible_to_mp4_animation(self, file_path: str) -> bool:
+        """可批量转为 MP4 的素材：.gif 或 .webp（含静态 WebP，将生成短片段）。"""
+        try:
+            suf = Path(file_path).suffix.lower()
+            return suf in ('.gif', '.webp')
+        except Exception:
+            return False
+
+    def extract_webp_frames(self, webp_path: str) -> Optional[List[np.ndarray]]:
+        """用 Pillow 读取动画 WebP 各帧（含单帧静态）。"""
+        try:
+            im = Image.open(webp_path)
+            frames: List[np.ndarray] = []
+            try:
+                n = int(getattr(im, "n_frames", 1) or 1)
+                for i in range(n):
+                    im.seek(i)
+                    frames.append(np.array(im.convert("RGBA")))
+            finally:
+                im.close()
+            if not frames:
                 return None
-            
-            # 使用imageio读取GIF帧
-            reader = imageio.get_reader(gif_path)
-            frames = []
-            
+            logger.info(f"成功提取 {len(frames)} 帧 WebP from {webp_path}")
+            return frames
+        except Exception as e:
+            logger.error(f"提取 WebP 帧失败 {webp_path}: {e}")
+            return None
+
+    def _extract_gif_frames_imageio(self, gif_path: str) -> Optional[List[np.ndarray]]:
+        reader = imageio.get_reader(gif_path)
+        frames = []
+        try:
             for frame in reader:
-                # 转换为numpy数组
                 if isinstance(frame, np.ndarray):
                     frames.append(frame)
                 else:
-                    # 如果是PIL Image，转换为numpy数组
                     frames.append(np.array(frame))
-            
+        finally:
             reader.close()
-            
-            if not frames:
-                logger.warning(f"GIF文件没有有效帧: {gif_path}")
+        return frames or None
+
+    def extract_gif_frames(self, gif_path: str) -> Optional[List[np.ndarray]]:
+        """提取 GIF 或 WebP 的帧（兼容旧名；WebP 含动画与单帧）。"""
+        try:
+            suf = Path(gif_path).suffix.lower()
+            if suf == '.gif':
+                if not self.is_gif_file(gif_path):
+                    logger.warning(f"文件不是GIF格式: {gif_path}")
+                    return None
+                frames = self._extract_gif_frames_imageio(gif_path)
+            elif suf == '.webp':
+                frames = self.extract_webp_frames(gif_path)
+            else:
+                logger.warning(f"不支持的动画格式: {gif_path}")
                 return None
-                
+
+            if not frames:
+                logger.warning(f"未读到有效帧: {gif_path}")
+                return None
+
             logger.info(f"成功提取 {len(frames)} 帧 from {gif_path}")
             return frames
-            
+
         except Exception as e:
-            logger.error(f"提取GIF帧失败 {gif_path}: {e}")
+            logger.error(f"提取帧失败 {gif_path}: {e}")
             return None
-    
+
+    def get_webp_properties(self, webp_path: str) -> Dict:
+        try:
+            im = Image.open(webp_path)
+            try:
+                n = int(getattr(im, "n_frames", 1) or 1)
+                dur_ms = 0.0
+                for i in range(n):
+                    im.seek(i)
+                    dur_ms += float(im.info.get("duration", 100) or 100)
+                return {
+                    "frame_count": n,
+                    "duration": dur_ms,
+                    "loop_count": im.info.get("loop", 0),
+                    "size": im.size,
+                }
+            finally:
+                im.close()
+        except Exception as e:
+            logger.error(f"获取 WebP 属性失败 {webp_path}: {e}")
+            return {}
+
     def get_gif_properties(self, gif_path: str) -> Dict:
         """获取GIF属性信息"""
         try:
             if not self.is_gif_file(gif_path):
                 return {}
-            
+
             reader = imageio.get_reader(gif_path)
-            
+
             # 获取基本属性
             props = {
                 'frame_count': reader.get_length(),
@@ -86,13 +172,22 @@ class GIFProcessor:
                 'loop_count': reader.get_meta_data().get('loop', 0),
                 'size': reader.get_meta_data().get('size', (0, 0))
             }
-            
+
             reader.close()
             return props
-            
+
         except Exception as e:
             logger.error(f"获取GIF属性失败 {gif_path}: {e}")
             return {}
+
+    def get_animation_properties(self, path: str) -> Dict:
+        """GIF 或 WebP，用于估算帧率/时长。"""
+        suf = Path(path).suffix.lower()
+        if suf == '.gif':
+            return self.get_gif_properties(path)
+        if suf == '.webp':
+            return self.get_webp_properties(path)
+        return {}
     
     def convert_gif_to_video(self, 
                            gif_path: str, 
@@ -111,8 +206,8 @@ class GIFProcessor:
             if not frames:
                 return False
             
-            # 获取原始属性
-            gif_props = self.get_gif_properties(gif_path)
+            # 获取原始属性（GIF 或 WebP）
+            gif_props = self.get_animation_properties(gif_path)
             original_frame_count = len(frames)
             
             # 计算帧率

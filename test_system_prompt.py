@@ -115,8 +115,9 @@ app.run()
     
     # 标签质量检查
     tag_checks = [
-        ('数量合理', 5 <= len(metadata.tags) <= 10),
-        ('包含技术标签', any(tag in metadata.tags for tag in ['Python', 'API', '开发'])),
+        ('数量固定为10个', len(metadata.tags) == 10),
+        ('包含个人IP标签', '#小牛说' in metadata.tags or '#小牛说AI' in metadata.tags),
+        ('包含技术/项目相关标签', any(tag in metadata.tags for tag in ['#Python', '#API', '#开发', '#GitHub项目'])),
         ('格式正确', all(tag.startswith('#') for tag in metadata.tags))
     ]
     

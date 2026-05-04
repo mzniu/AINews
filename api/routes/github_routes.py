@@ -2,7 +2,7 @@
 GitHub项目处理API路由
 提供GitHub项目内容抓取、图片处理和内容生成功能的REST API
 """
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, FileResponse
 from typing import List, Optional
 from pathlib import Path
@@ -12,7 +12,10 @@ from loguru import logger
 from src.models.github_models import (
     GitHubProjectRequest, ContentGenerationRequest,
     ProcessResult, ImageSelectionResponse, ContentGenerationResponse,
-    GitHubProject, GitHubVideoGenerationRequest
+    GitHubProject, GitHubVideoGenerationRequest,
+    GitHubVoiceoverRequest, GitHubVoiceoverResponse,
+    SelectAssetsRequest,
+    GitHubLocalCacheLookup,
 )
 from services.github_service import GitHubProcessingService
 
@@ -28,6 +31,23 @@ def get_github_service() -> GitHubProcessingService:
     if github_service is None:
         github_service = GitHubProcessingService()
     return github_service
+
+
+@router.get("/local-cache", response_model=GitHubLocalCacheLookup)
+async def github_local_cache_lookup(github_url: str):
+    """
+    根据仓库链接判断本地是否已有已处理/已下载的数据（存在 metadata.json）。
+    不访问网络，仅查磁盘；用于前端「是否使用已下载内容」提示。
+    """
+    try:
+        service = get_github_service()
+        pid = service.find_cached_project_id(github_url)
+        if pid:
+            return GitHubLocalCacheLookup(cached=True, project_id=pid)
+        return GitHubLocalCacheLookup(cached=False, project_id=None)
+    except Exception as e:
+        logger.warning(f"本地缓存查询失败: {e}")
+        return GitHubLocalCacheLookup(cached=False, project_id=None)
 
 
 @router.post("/process-project", response_model=ProcessResult)
@@ -129,7 +149,9 @@ async def get_project_images(project_id: str):
         response = service.get_available_images(project_id)
         
         if not response:
-            raise HTTPException(status_code=404, detail=f"项目 {project_id} 不存在或无图片")
+            raise HTTPException(status_code=404, detail=f"项目 {project_id} 不存在")
+        if response.total_count == 0:
+            raise HTTPException(status_code=404, detail=f"项目 {project_id} 无可用图片或视频")
         
         return response
     except HTTPException:
@@ -140,24 +162,39 @@ async def get_project_images(project_id: str):
 
 
 @router.post("/projects/{project_id}/select-images")
-async def select_project_images(project_id: str, selected_image_ids: List[str]):
+async def select_project_images(project_id: str, request: Request):
     """
-    选择项目图片
+    选择项目图片与 README 视频。
+    兼容旧版：请求体为 JSON 字符串数组时仅更新图片。
+    新版：{"image_ids": [...], "video_ids": [...]}
     """
     try:
+        import json
         service = get_github_service()
-        success = service.select_images(project_id, selected_image_ids)
+        raw = await request.body()
+        text = (raw.decode() or "").strip()
+        if not text:
+            data = []
+        else:
+            data = json.loads(text)
+        if isinstance(data, list):
+            success = service.select_assets(project_id, data, [])
+        else:
+            body = SelectAssetsRequest.model_validate(data)
+            success = service.select_assets(
+                project_id, body.image_ids, body.video_ids
+            )
         
         if success:
-            return {"success": True, "message": "图片选择已更新"}
+            return {"success": True, "message": "选择已更新"}
         else:
             raise HTTPException(status_code=404, detail=f"项目 {project_id} 不存在")
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"选择图片时发生错误: {e}")
-        raise HTTPException(status_code=500, detail=f"选择图片失败: {str(e)}")
+        logger.error(f"选择素材时发生错误: {e}")
+        raise HTTPException(status_code=500, detail=f"选择失败: {str(e)}")
 
 
 @router.post("/generate-content", response_model=ContentGenerationResponse)
@@ -183,6 +220,29 @@ async def generate_video_content(request: ContentGenerationRequest):
         raise HTTPException(status_code=500, detail=f"内容生成失败: {str(e)}")
 
 
+@router.post("/projects/{project_id}/refresh-screenshot")
+async def refresh_project_screenshot(project_id: str):
+    """
+    仅重新截取 GitHub 项目主页截图并更新本地元数据。
+    不重新下载 README、README 图片与视频，适用于首次截图失败时单独重试。
+    """
+    try:
+        service = get_github_service()
+        ok, msg = await service.refresh_project_homepage_screenshot_async(project_id)
+        if not ok:
+            raise HTTPException(status_code=400, detail=msg)
+        return {
+            "success": True,
+            "message": msg,
+            "project_id": project_id,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"单独刷新主页截图失败: {e}")
+        raise HTTPException(status_code=500, detail=f"刷新截图失败: {str(e)}")
+
+
 @router.get("/projects/{project_id}/screenshot")
 async def get_project_screenshot(project_id: str):
     """
@@ -198,7 +258,11 @@ async def get_project_screenshot(project_id: str):
         return FileResponse(
             screenshot_path,
             media_type="image/jpeg",
-            filename=f"{project_id}_screenshot.jpg"
+            filename=f"{project_id}_screenshot.jpg",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+            },
         )
         
     except HTTPException:
@@ -235,7 +299,11 @@ async def get_project_image(project_id: str, image_id: str):
         return FileResponse(
             image_path,
             media_type=media_type,
-            filename=image_path.name
+            filename=image_path.name,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+            },
         )
         
     except HTTPException:
@@ -243,6 +311,35 @@ async def get_project_image(project_id: str, image_id: str):
     except Exception as e:
         logger.error(f"获取图片失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取图片失败: {str(e)}")
+
+
+@router.get("/projects/{project_id}/videos/{video_id}")
+async def get_project_readme_video(project_id: str, video_id: str):
+    """流式预览已下载的 README 内嵌视频（本地缓存）。"""
+    try:
+        service = get_github_service()
+        p = service.get_video_path(project_id, video_id)
+        if not p or not p.exists():
+            raise HTTPException(status_code=404, detail="视频不存在")
+        mt = "video/mp4"
+        if p.suffix.lower() == ".webm":
+            mt = "video/webm"
+        elif p.suffix.lower() == ".mov":
+            mt = "video/quicktime"
+        return FileResponse(
+            p,
+            media_type=mt,
+            filename=p.name,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取 README 视频失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取视频失败: {str(e)}")
 
 
 @router.get("/projects/{project_id}/stats")
@@ -312,7 +409,8 @@ async def generate_github_video(
             project_request = GitHubProjectRequest(
                 github_url=request.github_url,
                 include_screenshots=request.include_screenshots,
-                max_images=request.max_images
+                max_images=request.max_images,
+                max_videos=request.max_videos,
             )
             process_result = await service.process_project_async(project_request)
             if not process_result.success:
@@ -341,42 +439,138 @@ async def generate_github_video(
         # 4. 准备视频生成参数
         video_metadata = content_response.video_metadata
         
-        # 获取图片路径列表
-        image_paths = []
-        for image in project.images:
-            if image.local_path and image.local_path.exists():
-                image_paths.append(str(image.local_path))
-        
-        if not image_paths:
-            raise HTTPException(status_code=400, detail="没有可用的图片用于视频生成")
-        
         # 5. 调用现有的视频生成API
         from api.routes.video_routes import create_animated_video
-        from api.schemas.request_models import CreateAnimatedVideoRequest
-        
-        # 构造视频生成请求
-        audio_path = "static/music/background.mp3" if request.include_audio else ""
+        from api.schemas.request_models import CreateAnimatedVideoRequest, ImageWithDuration
+
+        if not request.include_audio:
+            audio_path = ""
+        else:
+            ap = (request.audio_path or "").strip()
+            audio_path = ap if ap else "static/music/background.mp3"
+
+        if request.image_sequence:
+            id_to_path = {
+                im.id: str(im.local_path)
+                for im in project.images
+                if im.local_path and im.local_path.exists()
+            }
+            id_to_path.update({
+                v.id: str(v.local_path)
+                for v in project.videos
+                if v.local_path and v.local_path.exists()
+            })
+            images_payload = []
+            for clip in request.image_sequence:
+                p = id_to_path.get(clip.id)
+                if p:
+                    images_payload.append(
+                        ImageWithDuration(path=p, duration=float(clip.duration))
+                    )
+            if not images_payload:
+                raise HTTPException(
+                    status_code=400,
+                    detail="image_sequence 中的素材 id 无法解析为本地文件（支持图片与 README 视频）",
+                )
+            images_payload = images_payload[:10]
+        else:
+            selected_imgs = [
+                img
+                for img in project.images
+                if img.is_selected and img.local_path and img.local_path.exists()
+            ]
+            selected_vids = [
+                v
+                for v in project.videos
+                if v.is_selected and v.local_path and v.local_path.exists()
+            ]
+            if selected_imgs or selected_vids:
+                pool = selected_imgs + selected_vids
+            else:
+                pool = [
+                    img
+                    for img in project.images
+                    if img.local_path and img.local_path.exists()
+                ] + [
+                    v
+                    for v in project.videos
+                    if v.local_path and v.local_path.exists()
+                ]
+            image_paths = [str(x.local_path) for x in pool]
+            if not image_paths:
+                raise HTTPException(
+                    status_code=400,
+                    detail="没有可用的图片或 README 视频用于生成",
+                )
+            images_payload = image_paths[:10]
+
+        from utils.title_units import (
+            split_main_title_to_two_lines,
+            truncate_han_equiv,
+            MAIN_LINE1_MAX_UNITS,
+            MAIN_LINE2_MAX_UNITS,
+            SUBTITLE_MAX_UNITS,
+        )
+
+        _has_line_fields = (
+            request.custom_main_line1 is not None or request.custom_main_line2 is not None
+        )
+        _nonempty_custom = (request.custom_main_line1 or "").strip() or (
+            request.custom_main_line2 or ""
+        ).strip()
+        if _has_line_fields and _nonempty_custom:
+            m1 = truncate_han_equiv(
+                (request.custom_main_line1 or "").strip(), MAIN_LINE1_MAX_UNITS
+            )
+            m2 = truncate_han_equiv(
+                (request.custom_main_line2 or "").strip(), MAIN_LINE2_MAX_UNITS
+            )
+        else:
+            m1, m2 = split_main_title_to_two_lines(video_metadata.title or "")
+        sub = truncate_han_equiv(
+            (video_metadata.subtitle or "").strip(), SUBTITLE_MAX_UNITS
+        )
         video_request = CreateAnimatedVideoRequest(
-            title=f"{video_metadata.title} | {video_metadata.subtitle or ''}".strip(' |'),
+            title="",
+            main_line1=m1,
+            main_line2=m2,
+            subtitle=sub,
             summary=video_metadata.summary,
-            images=image_paths[:10],  # 限制图片数量
-            audio_path=audio_path  # 根据选项决定是否添加音频
+            images=images_payload,
+            audio_path=audio_path,
+            show_summary=False,
+            background_image_path=request.background_image_path,
+            title_font_key=request.title_font_key,
+            first_image_effect="side_flip_rounded",
+            summary_highlight_keywords=list(video_metadata.tags)
+            if getattr(video_metadata, "tags", None)
+            else None,
         )
         
-        # 6. 生成视频
+        # 6. 生成视频（画面上不叠摘要，摘要用于第五步口播）
         video_result = await create_animated_video(video_request)
-        
-        # 7. 保存视频信息到项目
-        # 这里可以扩展项目模型来存储视频信息
-        
+        from starlette.responses import JSONResponse
+
+        if isinstance(video_result, JSONResponse):
+            import json
+
+            body = json.loads(video_result.body.decode())
+            raise HTTPException(
+                status_code=int(video_result.status_code),
+                detail=body.get("message", "视频生成失败"),
+            )
+
+        video_path = video_result.get("video_path") if isinstance(video_result, dict) else None
+
         return ContentGenerationResponse(
             success=True,
             project_id=project_id,
             video_metadata=video_metadata,
             processing_details={
                 "video_generated": True,
-                "video_result": video_result if hasattr(video_result, 'dict') else str(video_result)
-            }
+                "video_path": video_path,
+                "video_result": video_result if isinstance(video_result, dict) else {},
+            },
         )
         
     except HTTPException:
@@ -384,6 +578,45 @@ async def generate_github_video(
     except Exception as e:
         logger.error(f"生成GitHub视频时发生错误: {e}")
         raise HTTPException(status_code=500, detail=f"视频生成失败: {str(e)}")
+
+
+@router.post("/projects/{project_id}/voiceover", response_model=GitHubVoiceoverResponse)
+async def github_render_voiceover(project_id: str, request: GitHubVoiceoverRequest):
+    """第五步：为已生成的基底视频添加 TTS 配音与字幕（硬字幕可选）。"""
+    service = get_github_service()
+    if not service.get_project(project_id):
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    base = request.base_video_path.strip().lstrip("/")
+    base_path = Path(base)
+    if not base_path.is_file():
+        raise HTTPException(status_code=400, detail=f"基底视频不存在: {request.base_video_path}")
+
+    from services.github_voiceover_service import render_voiceover_for_video
+
+    ok, msg, final_url, srt_url = await render_voiceover_for_video(
+        base_video_path=base_path,
+        script=request.script,
+        voice=request.voice or "zh-CN-XiaoxiaoNeural",
+        voice_clone_audio_path=request.voice_clone_audio_path,
+        mix_bgm=request.mix_bgm,
+        bgm_gain_db=request.bgm_gain_db,
+        narration_gain_db=request.narration_gain_db,
+        burn_subtitles=request.burn_subtitles,
+        tts_rate=(request.tts_rate or "+25%").strip(),
+        subtitle_fontname=request.subtitle_fontname or "Microsoft YaHei",
+        subtitle_fontsize=request.subtitle_fontsize,
+        subtitle_margin_bottom_percent=float(request.subtitle_margin_bottom_percent),
+        subtitle_max_chars=request.subtitle_max_chars,
+    )
+    if not ok:
+        raise HTTPException(status_code=500, detail=msg or "配音合成失败")
+    return GitHubVoiceoverResponse(
+        success=True,
+        message=msg or "完成",
+        final_video_path=final_url,
+        srt_path=srt_url,
+    )
 
 
 @router.get("/projects/{project_id}/video")

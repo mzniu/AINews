@@ -6,8 +6,18 @@ import json as _json
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from loguru import logger
-from utils.title_units import truncate_han_equiv, MAIN_LINE_MAX_UNITS, SUBTITLE_MAX_UNITS
-from utils.video_utils import _wrap_text, _break_summary_by_punctuation
+from utils.title_units import (
+    truncate_han_equiv,
+    MAIN_LINE1_MAX_UNITS,
+    MAIN_LINE2_MAX_UNITS,
+    SUBTITLE_MAX_UNITS,
+)
+from utils.video_utils import (
+    _wrap_text,
+    _break_summary_by_punctuation,
+    _load_fonts,
+    TITLE_MAIN_FONT_SIZE,
+)
 
 
 class VideoService:
@@ -21,6 +31,7 @@ class VideoService:
         main_line1: str = "",
         main_line2: str = "",
         subtitle: str = "",
+        title_font_key: str = None,
     ) -> Dict:
         """生成视频关键帧。若提供 main_line1/main_line2/subtitle，则用换行拼接标题区（与动画视频语义一致）。"""
         try:
@@ -36,17 +47,8 @@ class VideoService:
             
             img_width, img_height = bg_template.size
             
-            # 加载字体（保持与原始版本一致）
-            try:
-                title_font = ImageFont.truetype("msyhbd.ttc", 66)       # 微软雅黑粗体，更大
-                summary_font = ImageFont.truetype("msyh.ttc", 40)       # 微软雅黑常规（与动画成片摘要一致）
-            except:
-                try:
-                    title_font = ImageFont.truetype("simhei.ttf", 66)   # 备选：黑体
-                    summary_font = ImageFont.truetype("simhei.ttf", 40)
-                except:
-                    title_font = ImageFont.load_default()
-                    summary_font = ImageFont.load_default()
+            # 主标题字体与动画成片一致；摘要字体系 _load_fonts 第三项
+            title_font, _, summary_font = _load_fonts(title_font_key)
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_dir = Path("data/generated") / f"frames_{timestamp}"
@@ -54,8 +56,8 @@ class VideoService:
             
             generated_frames = []
 
-            m1 = truncate_han_equiv((main_line1 or "").strip(), MAIN_LINE_MAX_UNITS)
-            m2 = truncate_han_equiv((main_line2 or "").strip(), MAIN_LINE_MAX_UNITS)
+            m1 = truncate_han_equiv((main_line1 or "").strip(), MAIN_LINE1_MAX_UNITS)
+            m2 = truncate_han_equiv((main_line2 or "").strip(), MAIN_LINE2_MAX_UNITS)
             sub = truncate_han_equiv((subtitle or "").strip(), SUBTITLE_MAX_UNITS)
             if m1 or m2 or sub:
                 title_for_layout = "\n".join([x for x in [m1, m2, sub] if x])
@@ -123,9 +125,11 @@ class VideoService:
                     title_start_y = int(img_height * 0.15)
                     current_y = title_start_y
                     
-                    # 绘制标题背景（渐变毛玻璃效果）
+                    # 绘制标题背景（渐变毛玻璃效果）；上缘贴视频顶，下缘仍包住标题块（与 video_utils 主标题一致）
                     title_bg_y = current_y - 25
-                    title_bg_height = title_height + 40
+                    title_bg_bottom = title_bg_y + title_height + 40
+                    title_bg_y = 0
+                    title_bg_height = max(1, title_bg_bottom - title_bg_y)
                     overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
                     overlay_draw = ImageDraw.Draw(overlay)
                     # 多层渐变：上下边缘更透明，中间稍实
@@ -195,16 +199,18 @@ class VideoService:
                         "source_image": img_path,
                         "has_zoom": True,  # 标记需要放大效果
                         "zoom_start_scale": 1.0,  # 起始缩放比例
-                        "zoom_end_scale": 1.15,   # 结束缩放比例（放大 15%）
+                        "zoom_end_scale": 1.08,   # 结束缩放比例（轻微放大）
                         "zoom_center": (img_width / 2, img_height / 2),  # 缩放中心
                         "image_position": (paste_x, paste_y) if user_img_resized else None,
                         "image_size": (target_width, target_height) if user_img_resized else None
                     }
                     
-                    # 绘制摘要背景（柔和渐变半透明）
+                    # 绘制摘要背景（柔和渐变半透明）；下缘贴视频底（与 video_utils 摘要一致）
                     current_y = summary_start_y
                     summary_bg_y = current_y - 35
-                    summary_bg_height = summary_height + 50
+                    summary_bg_bottom = summary_bg_y + summary_height + 50
+                    summary_bg_bottom = max(summary_bg_bottom, img_height)
+                    summary_bg_height = max(1, summary_bg_bottom - summary_bg_y)
                     overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
                     overlay_draw = ImageDraw.Draw(overlay)
                     for i in range(summary_bg_height):
@@ -293,11 +299,11 @@ class VideoService:
                 
             # 加载字体
             try:
-                title_font = ImageFont.truetype("msyhbd.ttc", 66)
+                title_font = ImageFont.truetype("msyhbd.ttc", TITLE_MAIN_FONT_SIZE)
                 summary_font = ImageFont.truetype("msyh.ttc", 40)
             except:
                 try:
-                    title_font = ImageFont.truetype("simhei.ttf", 66)
+                    title_font = ImageFont.truetype("simhei.ttf", TITLE_MAIN_FONT_SIZE)
                     summary_font = ImageFont.truetype("simhei.ttf", 40)
                 except:
                     title_font = ImageFont.load_default()
@@ -384,7 +390,7 @@ class VideoService:
                         "duration": durations[idx-1] if durations and idx <= len(durations) else None,
                         "has_zoom": True,
                         "zoom_start_scale": 1.0,
-                        "zoom_end_scale": 1.15,
+                        "zoom_end_scale": 1.08,
                         "zoom_center": (img_width / 2, img_height / 2),
                         "image_position": (paste_x, paste_y),
                         "image_size": (target_width, target_height)
