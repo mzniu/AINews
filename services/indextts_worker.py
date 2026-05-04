@@ -75,12 +75,27 @@ def _load_tts(project_dir: Path, output_dir: Path, args: argparse.Namespace):
     )
 
 
+def _resolve_worker_path(raw_path: str, *, launch_dir: Path, repo_dir: Path) -> Path:
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path.resolve()
+    launch_path = (launch_dir / path).resolve()
+    if launch_path.exists():
+        return launch_path
+    repo_path = (repo_dir / path).resolve()
+    if repo_path.exists() or repo_path.parent.exists():
+        return repo_path
+    return launch_path
+
+
 def main() -> int:
     args = _parse_args()
+    launch_dir = Path.cwd().resolve()
+    repo_dir = Path(__file__).resolve().parents[1]
     project_dir = Path(args.project_dir).resolve()
-    segments_json = Path(args.segments_json).resolve()
-    output_dir = Path(args.output_dir).resolve()
-    prompt_audio = Path(args.prompt_audio).resolve()
+    segments_json = _resolve_worker_path(args.segments_json, launch_dir=launch_dir, repo_dir=repo_dir)
+    output_dir = _resolve_worker_path(args.output_dir, launch_dir=launch_dir, repo_dir=repo_dir)
+    prompt_audio = _resolve_worker_path(args.prompt_audio, launch_dir=launch_dir, repo_dir=repo_dir)
 
     if not project_dir.is_dir():
         raise FileNotFoundError(f"IndexTTS project dir not found: {project_dir}")

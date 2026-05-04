@@ -616,6 +616,7 @@ def _synthesize_indextts_segments_blocking(
     *,
     voice_clone_audio_path: Optional[str] = None,
 ) -> List[Path]:
+    work_dir = Path(work_dir).resolve()
     project_dir = Path(os.getenv("INDEXTTS_PROJECT_DIR", str(_DEFAULT_INDEXTTS_PROJECT_DIR))).resolve()
     python_exe = project_dir / "py312" / "python.exe"
     if not python_exe.is_file():
@@ -624,8 +625,8 @@ def _synthesize_indextts_segments_blocking(
         raise FileNotFoundError(f"IndexTTS checkpoints/config.yaml 不存在: {project_dir}")
 
     prompt_audio = _resolve_voice_clone_audio(voice_clone_audio_path)
-    segments_json = work_dir / "indextts_segments.json"
-    wav_dir = work_dir / "indextts_wav"
+    segments_json = (work_dir / "indextts_segments.json").resolve()
+    wav_dir = (work_dir / "indextts_wav").resolve()
     wav_dir.mkdir(parents=True, exist_ok=True)
     with segments_json.open("w", encoding="utf-8") as f:
         json.dump(segments, f, ensure_ascii=False, indent=2)
@@ -642,7 +643,7 @@ def _synthesize_indextts_segments_blocking(
         "--output-dir",
         str(wav_dir),
         "--prompt-audio",
-        str(prompt_audio),
+        str(prompt_audio.resolve()),
         "--fast",
     ]
     if os.getenv("INDEXTTS_DEVICE"):
