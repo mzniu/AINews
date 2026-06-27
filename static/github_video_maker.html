@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub项目视频生成器</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
     <link rel="stylesheet" href="/static/css/github_video_maker.css">
 </head>
 <body>
@@ -15,6 +16,7 @@
                 <a href="/" class="nav-link">🏠 主页</a>
                 <a href="/video-maker" class="nav-link">📹 视频制作</a>
                 <a href="/github-video-maker" class="nav-link active">🐙 GitHub项目</a>
+                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
             </div>
         </div>
     </nav>
@@ -132,8 +134,15 @@
                 </div>
                 
                 <div class="preview-field">
-                    <label>副标题</label>
+                    <label>副标题第一行</label>
                     <div class="value" id="generated-subtitle" contenteditable="true">
+                        <!-- 将由AI生成 -->
+                    </div>
+                </div>
+
+                <div class="preview-field">
+                    <label>副标题第二行（流量钩子） <small class="github-bgm-hint">11～15 汉字当量；从七种钩子自动挑一种触发评论/转发，可空</small></label>
+                    <div class="value" id="generated-subtitle2" contenteditable="true">
                         <!-- 将由AI生成 -->
                     </div>
                 </div>
@@ -149,6 +158,17 @@
                     <label>标签（赛道 + 垂直 + 精准 + 热点 + 个人IP + 5个其他标签）</label>
                     <div class="value" id="generated-tags">
                         <!-- 将由AI生成 -->
+                    </div>
+                </div>
+
+                <div class="preview-field" id="github-methodology-insight" style="display: none;">
+                    <label>目标受众 / 夸赞点 / 流量钩子</label>
+                    <div class="value" style="background: linear-gradient(135deg, #f3e8ff 0%, #e0e7ff 100%); border: 1px solid #c4b5fd; color: #4c1d95; line-height: 1.7;">
+                        <span style="font-weight: 600;">🎯 <span id="github-target-audience">—</span></span>
+                        <span style="margin: 0 8px; color: #a78bfa;">|</span>
+                        <span style="font-weight: 600;">💬 <span id="github-praise-tags">—</span></span>
+                        <span style="margin: 0 8px; color: #a78bfa;">|</span>
+                        <span style="font-weight: 600;">🎬 <span id="github-traffic-hook">—</span></span>
                     </div>
                 </div>
             </div>

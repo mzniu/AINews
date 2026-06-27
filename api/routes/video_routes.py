@@ -20,12 +20,6 @@ from utils.video_utils import (
     SCROLL_UP_PIXELS_PER_SEC,
 )
 from utils.summary_highlights import resolve_highlight_keywords
-from utils.title_units import (
-    truncate_han_equiv,
-    MAIN_LINE1_MAX_UNITS,
-    MAIN_LINE2_MAX_UNITS,
-    SUBTITLE_MAX_UNITS,
-)
 from services.video_service import VideoService
 from services.video_embedding_service import video_embedding_service
 from services.gif_processor import gif_processor
@@ -56,59 +50,6 @@ def _resolve_background_image_path(path_str: Optional[str]) -> Path:
     return p
 
 
-def _perspective_coefficients(src_points, dst_points):
-    matrix = []
-    for (src_x, src_y), (dst_x, dst_y) in zip(src_points, dst_points):
-        matrix.append([dst_x, dst_y, 1, 0, 0, 0, -src_x * dst_x, -src_x * dst_y])
-        matrix.append([0, 0, 0, dst_x, dst_y, 1, -src_y * dst_x, -src_y * dst_y])
-    vector = np.array(src_points).reshape(8)
-    return np.linalg.lstsq(np.array(matrix, dtype=float), vector, rcond=None)[0]
-
-
-def _apply_side_flip_rounded_card(image: Image.Image, angle_degrees: float = 30.0) -> Image.Image:
-    """将图片处理成带圆角的侧翻透视卡片，用于 GitHub 首图特效。"""
-    source = image.convert('RGBA')
-    width, height = source.size
-    if width < 4 or height < 4:
-        return source
-
-    radius = max(16, min(width, height) // 16)
-    rounded_mask = Image.new('L', (width, height), 0)
-    mask_draw = ImageDraw.Draw(rounded_mask)
-    mask_draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=radius, fill=255)
-    rounded = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-    rounded.paste(source, (0, 0), rounded_mask)
-
-    # 45 度侧翻的视觉核心是横向压缩与远端边收短；这里保留较大的画面面积，避免内容过窄。
-    angle_factor = max(0.55, min(0.9, float(np.cos(np.deg2rad(angle_degrees)))))
-    output_width = max(2, int(width * (0.72 + 0.18 * angle_factor)))
-    output_height = height
-    far_edge_inset = max(8, int(height * (0.08 + 0.08 * (1.0 - angle_factor))))
-
-    src_points = [
-        (0, 0),
-        (width - 1, 0),
-        (width - 1, height - 1),
-        (0, height - 1),
-    ]
-    dst_points = [
-        (0, 0),
-        (output_width - 1, far_edge_inset),
-        (output_width - 1, output_height - 1 - far_edge_inset),
-        (0, output_height - 1),
-    ]
-    coefficients = _perspective_coefficients(src_points, dst_points)
-    transform_method = getattr(getattr(Image, 'Transform', Image), 'PERSPECTIVE', Image.PERSPECTIVE)
-    resample_method = getattr(getattr(Image, 'Resampling', Image), 'BICUBIC', Image.BICUBIC)
-    return rounded.transform(
-        (output_width, output_height),
-        transform_method,
-        coefficients,
-        resample=resample_method,
-        fillcolor=(0, 0, 0, 0),
-    )
-
-
 def _resolve_animated_title_lines(
     request: CreateAnimatedVideoRequest,
     temp_draw,
@@ -117,20 +58,20 @@ def _resolve_animated_title_lines(
     text_width: int,
 ):
     """
-    新格式：main_line1 / main_line2 / subtitle — 主标题两行白字单行绘制；副标题黄底黑字圆角单行。
-    长度：主标题第一行 14～18 汉字当量（英文数字计 0.5），服务端截断至 18；
-    第二行 16～20 当量，截断至 20；副标题≤16 当量。
+    新格式：main_line1 / main_line2 / subtitle / subtitle2 — 主标题两行白字单行绘制；副标题最多两行黄底黑字圆角单行堆叠。
+    长度约束由前端 prompt 与 LLM 输出控制；服务端不再截断，按输入框内容原样渲染。
     旧格式：仅 title，为「主文|副标题」，主文可自动换行。
     返回 (main_title_lines, sub_title_lines)。
     """
-    m1 = truncate_han_equiv((request.main_line1 or "").strip(), MAIN_LINE1_MAX_UNITS)
-    m2 = truncate_han_equiv((request.main_line2 or "").strip(), MAIN_LINE2_MAX_UNITS)
-    sub = truncate_han_equiv((request.subtitle or "").strip(), SUBTITLE_MAX_UNITS)
+    m1 = (request.main_line1 or "").strip()
+    m2 = (request.main_line2 or "").strip()
+    sub = (request.subtitle or "").strip()
+    sub2 = (request.subtitle2 or "").strip()
     legacy = (request.title or "").strip()
 
-    if m1 or m2 or sub:
+    if m1 or m2 or sub or sub2:
         main_title_lines = [x for x in [m1, m2] if x]
-        sub_title_lines = [sub] if sub else []
+        sub_title_lines = [x for x in [sub, sub2] if x]
         return main_title_lines, sub_title_lines
 
     if legacy:
@@ -388,7 +329,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
         bg_template = Image.open(bg_path) if bg_path.exists() else Image.new('RGB', (1080, 1920), (102, 126, 234))
         img_width, img_height = bg_template.size
         title_font, subtitle_font, summary_font = _load_fonts(
-            getattr(request, "title_font_key", None)
+            getattr(request, "title_font_key", None),
+            getattr(request, "title_font_size", None),
         )
 
         margin = int(img_width * 0.08)
@@ -448,6 +390,10 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
             summary_start_y = int(img_height * 0.92)
             summary_info = None
 
+        # 主标题颜色（前端传入 #RRGGBB 字符串，默认白色）
+        _main_line1_color = getattr(request, 'main_line1_color', '#FFFFFF') or '#FFFFFF'
+        _main_line2_color = getattr(request, 'main_line2_color', '#FFFFFF') or '#FFFFFF'
+
         clips = []
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir = Path("data/generated") / f"anim_{timestamp}"
@@ -477,7 +423,10 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                     'duration': img_item.duration,
                     'has_zoom': getattr(img_item, 'has_zoom', True),
                     'zoom_start_scale': getattr(img_item, 'zoom_start_scale', 1.0),
-                    'zoom_end_scale': getattr(img_item, 'zoom_end_scale', 1.15)
+                    'zoom_end_scale': getattr(img_item, 'zoom_end_scale', 1.15),
+                    'image_y_offset_pct': float(getattr(img_item, 'image_y_offset_pct', 0.0)),
+                    'animation': getattr(img_item, 'animation', None) or 'auto',
+                    'scroll_after': bool(getattr(img_item, 'scroll_after', False)),
                 })
         
         num_images = len(processed_images)
@@ -488,7 +437,6 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
             anim_queue.append(all_anim_types[i % len(all_anim_types)])
 
         first_clip_already_placed = False
-        first_static_image_effect_applied = False
         for idx, img_data in enumerate(processed_images, 1):
             img_path = img_data['path']
             img_duration = img_data['duration']  # 可能为 null（视频）或秒数（图片）
@@ -627,6 +575,14 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                             available = summary_start_y - 40 - (title_start_y + title_height + 30)
                             final_paste_y = title_start_y + title_height + 30 + (available - target_h) // 2
                             final_paste_y = max(title_start_y + title_height + 30, final_paste_y)
+                            # 用户纵向偏移：负数上移，正数下移（占画面高度百分比）
+                            _y_off_pct = img_data.get('image_y_offset_pct', 0.0)
+                            if _y_off_pct:
+                                _y_off_px = int(img_height * _y_off_pct / 100.0)
+                                final_paste_y = max(
+                                    title_start_y + title_height + 30,
+                                    min(final_paste_y + _y_off_px, summary_start_y - target_h - 10)
+                                )
                             
                             logger.info(f"   片段 {idx}: 生成 {clip_duration:.1f}s GIF 动画，尺寸 {target_w}x{target_h}")
                             
@@ -651,7 +607,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                                                    _ti=title_info, _si=summary_info,
                                                    _anim=anim, _dur=clip_duration,
                                                    _tse=_tse,
-                                                   _slot=available):
+                                                   _slot=available,
+                                                   _c1=_main_line1_color, _c2=_main_line2_color):
                                 # 计算当前应该显示哪一帧
                                 total_frames = len(_frames)
                                 current_frame_index = int((t / _dur) * total_frames) % total_frames
@@ -673,6 +630,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                                     summary_scroll_mode=_ssm,
                                     scroll_viewport_height=_slot,
                                     clip_fps=FPS,
+                                    main_line1_color=_c1,
+                                    main_line2_color=_c2,
                                 )
                             
                             clip = VideoClip(make_gif_frame_func, duration=clip_duration).with_fps(FPS)
@@ -731,6 +690,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                                 summary_scroll_mode=_ssm,
                                 scroll_viewport_height=available,
                                 clip_fps=FPS,
+                                main_line1_color=_main_line1_color,
+                                main_line2_color=_main_line2_color,
                             )
                             preview_path = output_dir / f"preview_{idx:02d}.png"
                             Image.fromarray(preview).save(preview_path, quality=95)
@@ -764,26 +725,19 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
 
                 user_img_resized = user_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-                use_first_static_card_effect = (
-                    not first_static_image_effect_applied
-                    and getattr(request, "first_image_effect", None) == "side_flip_rounded"
-                )
-                if use_first_static_card_effect:
-                    user_img_resized = _apply_side_flip_rounded_card(
-                        user_img_resized,
-                        angle_degrees=30.0,
-                    )
-                    target_w, target_h = user_img_resized.size
-                    first_static_image_effect_applied = True
-                    logger.info(
-                        f"GitHub首张静态图特效: 30度侧翻圆角卡片, 处理后尺寸={target_w}x{target_h}"
-                    )
-
                 paste_x = (img_width - target_w) // 2
                 # 图片在标题和摘要之间居中
                 available = summary_start_y - 40 - (title_start_y + title_height + 30)
                 final_paste_y = title_start_y + title_height + 30 + (available - target_h) // 2
                 final_paste_y = max(title_start_y + title_height + 30, final_paste_y)
+                # 用户纵向偏移：负数上移，正数下移（占画面高度百分比）
+                _y_off_pct = img_data.get('image_y_offset_pct', 0.0)
+                if _y_off_pct:
+                    _y_off_px = int(img_height * _y_off_pct / 100.0)
+                    final_paste_y = max(
+                        title_start_y + title_height + 30,
+                        min(final_paste_y + _y_off_px, summary_start_y - target_h - 10)
+                    )
 
                 # 使用用户配置的时长，如果没有则使用默认值
                 clip_duration = img_duration if img_duration is not None else DEFAULT_CLIP_DURATION
@@ -795,13 +749,15 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                 orig_img_height = user_img.height
                 img_height_ratio = orig_img_height / img_height  # 原始图片高度占屏幕比例
                 
-                # 每张图使用不同的动画（打乱后循环分配）
-                anim = anim_queue.pop(0)
+                # 每张图使用不同的动画（打乱后循环分配，用户指定时优先使用）
+                _user_anim = img_data.get('animation', 'auto')
+                if _user_anim and _user_anim != 'auto':
+                    anim = _user_anim
+                    anim_queue.pop(0)  # 消耗队列占位，保持其他片段错开
+                else:
+                    anim = anim_queue.pop(0)
                 
-                if use_first_static_card_effect:
-                    anim = 'fade_in'
-                    logger.info(f"片段 {idx} 使用 GitHub 首图侧翻圆角卡片特效，动画固定为 fade_in")
-                elif img_height_ratio > 0.7:  # 如果原始图片高度超过屏幕 70%
+                if img_height_ratio > 0.7:  # 如果原始图片高度超过屏幕 70%
                     anim = 'scroll_up'  # 强制使用向上滚动
                     logger.info(f"片段 {idx} 检测到高图（原始高度 {orig_img_height}px, 占比 {img_height_ratio:.1%}），自动使用 scroll_up 动画")
                 else:
@@ -813,12 +769,7 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                 zoom_end = img_data.get('zoom_end_scale', 1.15)
                 
                 # ⚠️ 智能调整：如果使用了 scroll_up 动画（高图），禁用放大效果
-                if use_first_static_card_effect:
-                    has_zoom = True
-                    zoom_start = 1.0
-                    zoom_end = 1.18
-                    logger.info(f"片段 {idx} 首图卡片特效启用渐进放大：{zoom_start} -> {zoom_end}")
-                elif anim == 'scroll_up':
+                if anim == 'scroll_up':
                     has_zoom = False  # 高图不使用放大效果，改为向上滚动
                     logger.info(f"片段 {idx} 高图使用 scroll_up 动画，已禁用放大效果")
                 else:
@@ -879,7 +830,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                                     _zs=zoom_start, _ze=zoom_end,
                                     _scroll=enable_summary_scroll,
                                     _tse=_tse,
-                                    _slot=available):
+                                    _slot=available,
+                                    _c1=_main_line1_color, _c2=_main_line2_color):
                     return _render_frame_animated(
                         _bg, _img, _px, _py, _tw, _th, img_width, img_height,
                         _ti, _si, t,
@@ -896,6 +848,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                         title_slide_entrance=_tse,
                         scroll_viewport_height=_slot,
                         clip_fps=FPS,
+                        main_line1_color=_c1,
+                        main_line2_color=_c2,
                     )
                 
                 clip = VideoClip(make_frame_func, duration=clip_duration).with_fps(FPS)
@@ -919,6 +873,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                     title_slide_entrance=_tse,
                     scroll_viewport_height=available,
                     clip_fps=FPS,
+                    main_line1_color=_main_line1_color,
+                    main_line2_color=_main_line2_color,
                 )
                 preview_path = output_dir / f"preview_{idx:02d}.png"
                 Image.fromarray(preview).save(preview_path, quality=95)

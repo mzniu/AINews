@@ -573,12 +573,28 @@
                 }
             }
             document.getElementById('generated-subtitle').textContent = generatedContent.subtitle || '';
+            const sub2El = document.getElementById('generated-subtitle2');
+            if (sub2El) sub2El.textContent = generatedContent.subtitle2 || '';
             document.getElementById('generated-summary').textContent = generatedContent.summary;
             
             const tagsContainer = document.getElementById('generated-tags');
-            tagsContainer.innerHTML = generatedContent.tags.map(tag => 
+            tagsContainer.innerHTML = generatedContent.tags.map(tag =>
                 `<span style="background: #0366d6; color: white; padding: 4px 8px; border-radius: 12px; margin: 2px; font-size: 12px;">${tag}</span>`
             ).join(' ');
+
+            const insight = document.getElementById('github-methodology-insight');
+            const audEl = document.getElementById('github-target-audience');
+            const praiseEl = document.getElementById('github-praise-tags');
+            const hookEl = document.getElementById('github-traffic-hook');
+            const aud = (generatedContent.target_audience || '').toString().trim();
+            const hook = (generatedContent.traffic_hook || '').toString().trim();
+            const tags = Array.isArray(generatedContent.praise_tags)
+                ? generatedContent.praise_tags.map(t => (t || '').toString().trim()).filter(Boolean)
+                : [];
+            if (audEl) audEl.textContent = aud || '—';
+            if (praiseEl) praiseEl.textContent = tags.length ? tags.join(' · ') : '—';
+            if (hookEl) hookEl.textContent = hook || '—';
+            if (insight) insight.style.display = (aud || tags.length || hook) ? 'block' : 'none';
         }
 
         // 重新生成内容
@@ -620,6 +636,7 @@
                 const ml2 = document.getElementById('generated-main-line2')?.value.trim() || '';
                 const combinedTitle = [ml1, ml2].filter(Boolean).join('\n');
                 const subtitle = document.getElementById('generated-subtitle').textContent.trim();
+                const subtitle2 = (document.getElementById('generated-subtitle2')?.textContent || '').trim();
                 const summary = document.getElementById('generated-summary').textContent.trim();
                 const titleFontKey =
                     document.getElementById('github-title-font-select')?.value || 'msyhbd';
@@ -642,6 +659,7 @@
                     custom_summary: summary || undefined,
                     custom_main_line1: ml1,
                     custom_main_line2: ml2,
+                    custom_subtitle2: subtitle2 || undefined,
                     title_font_key: titleFontKey,
                     include_audio: includeAudio,
                     background_image_path: backgroundPath,
@@ -860,6 +878,18 @@
                                 parseFloat(
                                     document.getElementById('voiceover-subtitle-margin-pct')?.value || '11'
                                 ) || 11
+                            )
+                        ),
+                        subtitle_margin_left_percent: Math.min(
+                            45,
+                            Math.max(
+                                0,
+                                (() => {
+                                    const v = parseFloat(
+                                        document.getElementById('voiceover-subtitle-left-pct')?.value ?? '4.5'
+                                    );
+                                    return Number.isFinite(v) ? v : 4.5;
+                                })()
                             )
                         ),
                         subtitle_fontsize: Math.min(

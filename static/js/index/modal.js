@@ -16,7 +16,13 @@
             imgOffsetX: 0,
             imgOffsetY: 0,
             sourceElement: null,   // 点击来源的img元素
-            skipAutoDetect: false  // 去水印后跳过自动检测
+            skipAutoDetect: false, // 去水印后跳过自动检测
+            // ---- 边框绘制 ----
+            borderMode: false,
+            borderDrawing: false,
+            borders: [],           // [{x, y, width, height, color, lineWidth}]（图片原始坐标）
+            borderColor: '#ff0000',
+            borderLineWidth: 3,
         };
 
         function openImageModal(imgSrc, sourceEl) {
@@ -27,6 +33,10 @@
             modalState.regions = [];
             modalState.sourceElement = sourceEl || null;
             modalState.skipAutoDetect = false;
+            // 边框状态重置
+            modalState.borderMode = false;
+            modalState.borderDrawing = false;
+            modalState.borders = [];
 
             const overlay = document.getElementById('imageModalOverlay');
             const img = document.getElementById('modalImage');
@@ -113,9 +123,10 @@
             document.getElementById('imageModalOverlay').classList.remove('active');
             clearCanvas();
             toggleRegionPanel(false);
-            modalState.isFullscreen = true;  // 重置为全屏模式
+            modalState.isFullscreen = true;
             updateFullscreenButton();
-            
+            // 退出边框模式
+            if (modalState.borderMode) _exitBorderMode();
             // 退出编辑模式
             exitEditMode();
         }
@@ -223,6 +234,9 @@
         }
 
         function toggleDrawMode() {
+            // 互斥：关闭边框模式
+            if (modalState.borderMode) toggleBorderMode();
+
             modalState.drawMode = !modalState.drawMode;
             const btn = document.getElementById('drawModeBtn');
             const canvas = document.getElementById('modalCanvas');
@@ -323,6 +337,27 @@
                 ctx.fillStyle = '#e94560';
                 ctx.font = 'bold 14px sans-serif';
                 ctx.fillText(`${idx + 1}`, topLeft.x + 4, topLeft.y + 16);
+            });
+
+            // 同时绘制已保存的边框
+            _drawBordersOnCanvas(ctx);
+        }
+
+        /**
+         * 将 modalState.borders 绘制到 canvas（复用坐标转换）
+         */
+        function _drawBordersOnCanvas(ctx, extraBorder) {
+            const allBorders = extraBorder
+                ? [...modalState.borders, extraBorder]
+                : modalState.borders;
+
+            allBorders.forEach((b) => {
+                const tl = imageToCanvasCoords(b.x, b.y);
+                const br = imageToCanvasCoords(b.x + b.width, b.y + b.height);
+                ctx.strokeStyle = b.color || '#ff0000';
+                ctx.lineWidth = b.lineWidth || 3;
+                ctx.setLineDash([]);
+                ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
             });
         }
 
@@ -462,73 +497,108 @@
             toggleRegionPanel(false);
         }
 
-        // Canvas事件：画框
+        // Canvas事件：画框（水印框选 & 边框绘制 双模式）
         const modalCanvas = document.getElementById('modalCanvas');
         modalCanvas.style.pointerEvents = 'none';
 
         modalCanvas.addEventListener('mousedown', function(e) {
-            if (!modalState.drawMode) return;
             const coords = getCanvasCoords(e);
-            modalState.drawing = true;
-            modalState.startX = coords.x;
-            modalState.startY = coords.y;
+            if (modalState.drawMode) {
+                modalState.drawing = true;
+                modalState.startX = coords.x;
+                modalState.startY = coords.y;
+            } else if (modalState.borderMode) {
+                modalState.borderDrawing = true;
+                modalState.startX = coords.x;
+                modalState.startY = coords.y;
+            }
         });
 
         modalCanvas.addEventListener('mousemove', function(e) {
-            if (!modalState.drawing || !modalState.drawMode) return;
             const coords = getCanvasCoords(e);
-            
-            // 重绘已有区域 + 当前正在画的框
-            redrawRegions();
-            
-            const ctx = modalCanvas.getContext('2d');
-            const x = Math.min(modalState.startX, coords.x);
-            const y = Math.min(modalState.startY, coords.y);
-            const w = Math.abs(coords.x - modalState.startX);
-            const h = Math.abs(coords.y - modalState.startY);
-            
-            ctx.fillStyle = 'rgba(102, 126, 234, 0.3)';
-            ctx.fillRect(x, y, w, h);
-            ctx.strokeStyle = '#667eea';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 4]);
-            ctx.strokeRect(x, y, w, h);
-            ctx.setLineDash([]);
+
+            if (modalState.drawing && modalState.drawMode) {
+                // ---- 水印框选预览 ----
+                redrawRegions();
+                const ctx = modalCanvas.getContext('2d');
+                const x = Math.min(modalState.startX, coords.x);
+                const y = Math.min(modalState.startY, coords.y);
+                const w = Math.abs(coords.x - modalState.startX);
+                const h = Math.abs(coords.y - modalState.startY);
+                ctx.fillStyle = 'rgba(102, 126, 234, 0.3)';
+                ctx.fillRect(x, y, w, h);
+                ctx.strokeStyle = '#667eea';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.strokeRect(x, y, w, h);
+                ctx.setLineDash([]);
+
+            } else if (modalState.borderDrawing && modalState.borderMode) {
+                // ---- 边框绘制预览 ----
+                redrawRegions();
+                const ctx = modalCanvas.getContext('2d');
+                const x = Math.min(modalState.startX, coords.x);
+                const y = Math.min(modalState.startY, coords.y);
+                const w = Math.abs(coords.x - modalState.startX);
+                const h = Math.abs(coords.y - modalState.startY);
+                // 预览实线边框
+                ctx.strokeStyle = modalState.borderColor;
+                ctx.lineWidth = modalState.borderLineWidth;
+                ctx.setLineDash([5, 3]);
+                ctx.strokeRect(x, y, w, h);
+                ctx.setLineDash([]);
+            }
         });
 
         modalCanvas.addEventListener('mouseup', function(e) {
-            if (!modalState.drawing || !modalState.drawMode) return;
-            modalState.drawing = false;
-            
             const coords = getCanvasCoords(e);
-            const cx = Math.min(modalState.startX, coords.x);
-            const cy = Math.min(modalState.startY, coords.y);
-            const cw = Math.abs(coords.x - modalState.startX);
-            const ch = Math.abs(coords.y - modalState.startY);
-            
-            // 忽略太小的框选（小于5px的意外点击）
-            if (cw < 5 || ch < 5) {
+
+            if (modalState.drawing && modalState.drawMode) {
+                // ---- 水印框选确认 ----
+                modalState.drawing = false;
+                const cx = Math.min(modalState.startX, coords.x);
+                const cy = Math.min(modalState.startY, coords.y);
+                const cw = Math.abs(coords.x - modalState.startX);
+                const ch = Math.abs(coords.y - modalState.startY);
+                if (cw < 5 || ch < 5) { redrawRegions(); return; }
+                const topLeft = canvasToImageCoords(cx, cy);
+                const bottomRight = canvasToImageCoords(cx + cw, cy + ch);
+                const region = {
+                    x: Math.round(topLeft.x),
+                    y: Math.round(topLeft.y),
+                    width: Math.round(bottomRight.x - topLeft.x),
+                    height: Math.round(bottomRight.y - topLeft.y)
+                };
+                if (region.width > 0 && region.height > 0) {
+                    modalState.regions.push(region);
+                }
                 redrawRegions();
-                return;
+                updateRegionUI();
+
+            } else if (modalState.borderDrawing && modalState.borderMode) {
+                // ---- 边框绘制确认 ----
+                modalState.borderDrawing = false;
+                const cx = Math.min(modalState.startX, coords.x);
+                const cy = Math.min(modalState.startY, coords.y);
+                const cw = Math.abs(coords.x - modalState.startX);
+                const ch = Math.abs(coords.y - modalState.startY);
+                if (cw < 5 || ch < 5) { redrawRegions(); return; }
+                const topLeft = canvasToImageCoords(cx, cy);
+                const bottomRight = canvasToImageCoords(cx + cw, cy + ch);
+                const border = {
+                    x: Math.round(topLeft.x),
+                    y: Math.round(topLeft.y),
+                    width: Math.round(bottomRight.x - topLeft.x),
+                    height: Math.round(bottomRight.y - topLeft.y),
+                    color: modalState.borderColor,
+                    lineWidth: modalState.borderLineWidth,
+                };
+                if (border.width > 0 && border.height > 0) {
+                    modalState.borders.push(border);
+                }
+                redrawRegions();
+                _updateBorderUI();
             }
-            
-            // 转换为图片原始坐标
-            const topLeft = canvasToImageCoords(cx, cy);
-            const bottomRight = canvasToImageCoords(cx + cw, cy + ch);
-            
-            const region = {
-                x: Math.round(topLeft.x),
-                y: Math.round(topLeft.y),
-                width: Math.round(bottomRight.x - topLeft.x),
-                height: Math.round(bottomRight.y - topLeft.y)
-            };
-            
-            if (region.width > 0 && region.height > 0) {
-                modalState.regions.push(region);
-            }
-            
-            redrawRegions();
-            updateRegionUI();
         });
 
         // 窗口大小变化时重新计算
@@ -800,6 +870,122 @@
             } catch (error) {
                 console.error('替换图片异常:', error);
                 showToast('❌ 替换图片失败：' + error.message, 'error');
+            }
+        }
+
+        // ===== 边框绘制功能 =====
+
+        function toggleBorderMode() {
+            // 互斥：关闭水印框选模式
+            if (modalState.drawMode) toggleDrawMode();
+
+            modalState.borderMode = !modalState.borderMode;
+            const btn = document.getElementById('borderModeBtn');
+            const canvas = document.getElementById('modalCanvas');
+            const opts = document.getElementById('borderToolOptions');
+
+            if (modalState.borderMode) {
+                btn.classList.add('active');
+                btn.textContent = '🔲 绘制中...';
+                canvas.style.pointerEvents = 'auto';
+                if (opts) opts.style.display = 'flex';
+                // 同步 UI 输入框到当前状态
+                const cp = document.getElementById('borderColorPicker');
+                if (cp) { cp.value = modalState.borderColor; }
+                const wi = document.getElementById('borderWidthInput');
+                if (wi) { wi.value = modalState.borderLineWidth; }
+            } else {
+                _exitBorderMode();
+            }
+        }
+
+        function _exitBorderMode() {
+            modalState.borderMode = false;
+            modalState.borderDrawing = false;
+            const btn = document.getElementById('borderModeBtn');
+            const canvas = document.getElementById('modalCanvas');
+            const opts = document.getElementById('borderToolOptions');
+            if (btn) {
+                btn.classList.remove('active');
+                btn.textContent = '🔲 绘制边框';
+            }
+            if (canvas && !modalState.drawMode) {
+                canvas.style.pointerEvents = 'none';
+            }
+            if (opts) opts.style.display = 'none';
+        }
+
+        function _updateBorderUI() {
+            const count = modalState.borders.length;
+            const undoBtn = document.getElementById('undoBorderBtn');
+            const clearBtn = document.getElementById('clearBordersBtn');
+            const applyBtn = document.getElementById('applyBordersBtn');
+            if (undoBtn) undoBtn.style.display = count > 0 ? 'inline-block' : 'none';
+            if (clearBtn) clearBtn.style.display = count > 0 ? 'inline-block' : 'none';
+            if (applyBtn) applyBtn.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+
+        function undoLastBorder() {
+            if (modalState.borders.length === 0) return;
+            modalState.borders.pop();
+            redrawRegions();
+            _updateBorderUI();
+            showToast('已撤销上一条边框', 'info', 1500);
+        }
+
+        function clearAllBorders() {
+            modalState.borders = [];
+            redrawRegions();
+            _updateBorderUI();
+            showToast('已清除全部边框', 'info', 1500);
+        }
+
+        async function applyBorders() {
+            if (modalState.borders.length === 0) {
+                showToast('请先在图片上拖拽绘制边框', 'info');
+                return;
+            }
+            const btn = document.getElementById('applyBordersBtn');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ 应用中...'; }
+
+            try {
+                const payload = {
+                    image_path: modalState.currentPath,
+                    borders: modalState.borders.map(b => ({
+                        x: b.x, y: b.y,
+                        width: b.width, height: b.height,
+                        color: b.color,
+                        line_width: b.lineWidth,
+                    }))
+                };
+                const resp = await fetch('/api/draw-borders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    // 更新当前展示图片
+                    modalState.currentPath = data.result_path;
+                    modalState.cleanedPath = data.result_path;
+                    document.getElementById('modalImage').src = data.result_path + '?t=' + Date.now();
+                    // 清除 canvas 上的边框预览（已烧录到图片）
+                    modalState.borders = [];
+                    redrawRegions();
+                    _updateBorderUI();
+                    // 标记编辑状态，启用保存按鈕
+                    window.editModified = true;
+                    const saveBtn = document.getElementById('saveEditBtn');
+                    if (saveBtn) saveBtn.disabled = false;
+                    showToast(`✅ 边框已烧录！${data.message}`, 'success');
+                } else {
+                    showToast('应用边框失败: ' + data.message, 'error');
+                }
+            } catch (err) {
+                showToast('应用边框异常: ' + err.message, 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '✅ 应用边框'; }
             }
         }
         

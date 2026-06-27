@@ -25,9 +25,9 @@ def test_len_mixed():
 
 
 def test_truncate_mixed():
-    s = "A" * 36  # 18 当量（主标题第一行上限）
-    assert len(truncate_han_equiv(s, MAIN_LINE1_MAX_UNITS)) == 36
-    assert han_equiv_len(truncate_han_equiv(s, MAIN_LINE1_MAX_UNITS)) == 18.0
+    s = "A" * 24  # 12 当量（主标题第一行上限）
+    assert len(truncate_han_equiv(s, MAIN_LINE1_MAX_UNITS)) == 24
+    assert han_equiv_len(truncate_han_equiv(s, MAIN_LINE1_MAX_UNITS)) == 12.0
 
 
 def test_truncate_cjk():

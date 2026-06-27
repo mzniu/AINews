@@ -34,6 +34,12 @@ async def github_video_maker_page():
     with open(os.path.join("static", "github_video_maker.html"), "r", encoding="utf-8") as f:
         return f.read()
 
+@router.get("/digital-human", response_class=HTMLResponse)
+async def digital_human_page():
+    """数字人视频生成页面"""
+    with open(os.path.join("static", "digital_human.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
 @router.get("/health")
 async def health():
     """健康检查"""
@@ -228,13 +234,16 @@ async def upload_voice_clone_audio(audio: UploadFile = File(...)):
             "audio/ogg",
             "audio/webm",
             "audio/mp4",
+            "audio/aac",
+            "audio/x-aac",
+            "audio/x-m4a",
             "video/mp4",
             "application/octet-stream",
         }
         suffix = Path(audio.filename or "").suffix.lower()
-        allowed_suffixes = {".wav", ".mp3", ".flac", ".ogg", ".webm", ".m4a", ".mp4"}
+        allowed_suffixes = {".wav", ".mp3", ".flac", ".ogg", ".webm", ".m4a", ".mp4", ".aac"}
         if audio.content_type not in allowed_types and suffix not in allowed_suffixes:
-            raise HTTPException(status_code=400, detail="不支持的音频格式，请上传 wav/mp3/flac/ogg/webm/m4a")
+            raise HTTPException(status_code=400, detail="不支持的音频格式，请上传 wav/mp3/flac/ogg/webm/m4a/aac")
 
         content = await audio.read()
         if len(content) > 50 * 1024 * 1024:

@@ -5,6 +5,7 @@
         let editedMainLine1 = '';
         let editedMainLine2 = '';
         let editedSubTitle = '';
+        let editedSubTitle2 = '';
         let editedSummary = '';
         let editedVoiceover = '';
         let editedTags = '';

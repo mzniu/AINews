@@ -29,19 +29,47 @@ def test_new_format_two_main_lines_and_subtitle(draw_and_fonts):
     assert sub_lines == ["副标题单独一行"]
 
 
-def test_new_format_truncation(draw_and_fonts):
+def test_new_format_two_subtitle_lines(draw_and_fonts):
     d, tf, sf = draw_and_fonts
     req = CreateAnimatedVideoRequest(
         summary="x",
         images=[],
-        # 20 字 > 第一行上限 18 汉字当量
+        main_line1="主标题第一行",
+        main_line2="主标题第二行",
+        subtitle="副标题第一行",
+        subtitle2="副标题第二行流量钩子",
+    )
+    main_lines, sub_lines = _resolve_animated_title_lines(req, d, tf, sf, 800)
+    assert main_lines == ["主标题第一行", "主标题第二行"]
+    assert sub_lines == ["副标题第一行", "副标题第二行流量钩子"]
+
+
+def test_subtitle2_empty_is_skipped(draw_and_fonts):
+    d, tf, sf = draw_and_fonts
+    req = CreateAnimatedVideoRequest(
+        summary="x",
+        images=[],
+        main_line1="主标题第一行",
+        subtitle="只有第一行副标题",
+        subtitle2="",
+    )
+    main_lines, sub_lines = _resolve_animated_title_lines(req, d, tf, sf, 800)
+    assert sub_lines == ["只有第一行副标题"]
+
+
+def test_new_format_passes_through_untruncated(draw_and_fonts):
+    d, tf, sf = draw_and_fonts
+    req = CreateAnimatedVideoRequest(
+        summary="x",
+        images=[],
+        # 超长输入：服务端不再截断，原样回传
         main_line1="一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾",
         main_line2="",
         subtitle="副" * 20,
     )
     main_lines, sub_lines = _resolve_animated_title_lines(req, d, tf, sf, 800)
-    assert len(main_lines[0]) == 18
-    assert len(sub_lines[0]) == 16
+    assert main_lines[0] == "一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾"
+    assert len(sub_lines[0]) == 20
 
 
 def test_legacy_title_pipe(draw_and_fonts):

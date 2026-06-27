@@ -22,6 +22,9 @@ class ImageWithDuration(BaseModel):
     has_zoom: bool = True  # 是否启用放大效果
     zoom_start_scale: float = 1.0  # 起始缩放比例
     zoom_end_scale: float = 1.08   # 结束缩放比例（较轻微放大）
+    animation: Optional[str] = None  # None/"auto"=自动; 或 zoom_in/zoom_out/unfold/scroll_up/slide_left/slide_right/fade_in/drop_bounce
+    scroll_after: Optional[bool] = None  # 入场动画结束后是否持续上滑；None/False=不上滑；True=上滑（scroll_up 动画本身已内置，此项对其无额外效果）
+    image_y_offset_pct: float = Field(default=0.0, ge=-50.0, le=50.0)  # 图片纵向偏移（占画面高度百分比）；负数=上移，正数=下移，0=居中
 
 
 class GenerateSummaryRequest(BaseModel):
@@ -50,7 +53,9 @@ class GenerateImageRequest(BaseModel):
     main_line1: str = ""
     main_line2: str = ""
     subtitle: str = ""
+    subtitle2: str = ""  # 副标题第二行（流量钩子），可空
     title_font_key: Optional[str] = None  # 与 create-animated-video 一致，见 /api/list-title-fonts
+    title_font_size: Optional[int] = None   # 主标题字号（px），默认 TITLE_MAIN_FONT_SIZE
 
 
 class ProcessImageRequest(BaseModel):
@@ -77,6 +82,22 @@ class DetectWatermarkRequest(BaseModel):
     image_path: str
 
 
+class BorderItem(BaseModel):
+    """单条边框参数"""
+    x: int
+    y: int
+    width: int
+    height: int
+    color: str = "#ff0000"       # CSS 十六进制颜色，如 "#ff0000"
+    line_width: int = 3
+
+
+class DrawBordersRequest(BaseModel):
+    """绘制边框请求"""
+    image_path: str
+    borders: List[BorderItem]
+
+
 class CreateAnimatedVideoRequest(BaseModel):
     """创建带动画视频请求"""
     summary: str
@@ -84,14 +105,18 @@ class CreateAnimatedVideoRequest(BaseModel):
     images: List[Union[str, ImageWithDuration]] = []
     audio_path: str = ""
     title: str = ""  # 向后兼容：旧版 main|副标题，整段主标题会参与自动换行
-    main_line1: str = ""  # 主标题第一行，14～18 汉字当量，单行绘制
-    main_line2: str = ""  # 主标题第二行，16～20 汉字当量，单行绘制
-    subtitle: str = ""  # 副标题，14～16 汉字当量，单行
+    main_line1: str = ""  # 主标题第一行，9～12 汉字当量，单行绘制
+    main_line2: str = ""  # 主标题第二行，9～12 汉字当量，单行绘制
+    main_line1_color: str = "#FFFFFF"  # 第一行颜色，十六进制如 #FFFF00，默认白色
+    main_line2_color: str = "#FFFFFF"  # 第二行颜色，十六进制如 #FFD700，默认白色
+    subtitle: str = ""  # 副标题第一行，11～15 汉字当量，单行
+    subtitle2: str = ""  # 副标题第二行（流量钩子），11～15 汉字当量，单行；可空
     show_summary: bool = True  # False：画面上不绘制摘要（口播在后续步骤）
     # block：整块摘要自下而上；line_uniform：方案 A，在 [入场, 成片结束] 内均分时段逐行上滑
     summary_scroll_mode: str = "line_uniform"
     background_image_path: Optional[str] = None  # 成片背景图，须为 static/ 下可访问路径
     title_font_key: Optional[str] = None  # 主标题字体预设，见 /api/list-title-fonts
+    title_font_size: Optional[int] = None   # 主标题字号（px），默认 TITLE_MAIN_FONT_SIZE
     first_image_effect: Optional[str] = None  # GitHub页可用：side_flip_rounded，将第一张静态图做30度侧翻圆角卡片并渐进放大
     # 摘要高亮：在「标签」串中解析 #词；或直接使用下列词在摘要中匹配着色（长词优先；服务端会收束为每词≤5字）
     tags: Optional[str] = None

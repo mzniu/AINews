@@ -23,6 +23,7 @@ class Config:
     # DeepSeek配置
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
     DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+    DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
     
     # 数据库配置
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///data/ainews.db")

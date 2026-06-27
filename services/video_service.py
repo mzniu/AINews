@@ -6,12 +6,6 @@ import json as _json
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from loguru import logger
-from utils.title_units import (
-    truncate_han_equiv,
-    MAIN_LINE1_MAX_UNITS,
-    MAIN_LINE2_MAX_UNITS,
-    SUBTITLE_MAX_UNITS,
-)
 from utils.video_utils import (
     _wrap_text,
     _break_summary_by_punctuation,
@@ -31,13 +25,14 @@ class VideoService:
         main_line1: str = "",
         main_line2: str = "",
         subtitle: str = "",
+        subtitle2: str = "",
         title_font_key: str = None,
     ) -> Dict:
-        """生成视频关键帧。若提供 main_line1/main_line2/subtitle，则用换行拼接标题区（与动画视频语义一致）。"""
+        """生成视频关键帧。若提供 main_line1/main_line2/subtitle/subtitle2，则用换行拼接标题区（与动画视频语义一致）。"""
         try:
             if not images:
                 return {"success": False, "message": "请至少选择一张图片"}
-            
+
             # 加载背景图
             bg_path = Path("static/imgs/bg.png")
             if not bg_path.exists():
@@ -56,11 +51,12 @@ class VideoService:
             
             generated_frames = []
 
-            m1 = truncate_han_equiv((main_line1 or "").strip(), MAIN_LINE1_MAX_UNITS)
-            m2 = truncate_han_equiv((main_line2 or "").strip(), MAIN_LINE2_MAX_UNITS)
-            sub = truncate_han_equiv((subtitle or "").strip(), SUBTITLE_MAX_UNITS)
-            if m1 or m2 or sub:
-                title_for_layout = "\n".join([x for x in [m1, m2, sub] if x])
+            m1 = (main_line1 or "").strip()
+            m2 = (main_line2 or "").strip()
+            sub = (subtitle or "").strip()
+            sub2 = (subtitle2 or "").strip()
+            if m1 or m2 or sub or sub2:
+                title_for_layout = "\n".join([x for x in [m1, m2, sub, sub2] if x])
             else:
                 title_for_layout = title or ""
 

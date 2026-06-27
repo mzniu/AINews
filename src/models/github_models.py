@@ -55,10 +55,15 @@ class VideoMetadata(BaseModel):
     """视频元数据"""
     title: str
     subtitle: Optional[str] = None
+    subtitle2: Optional[str] = None  # 副标题第二行：流量钩子（11-15 汉字当量）
     summary: str
     tags: List[str]
     ai_generated: bool = True
     confidence_score: Optional[float] = None
+    # 社交货币方法论：LLM 推断回显（用户不输入）
+    target_audience: Optional[str] = None
+    praise_tags: Optional[List[str]] = None
+    traffic_hook: Optional[str] = None  # 流量钩子类型中文名，如「观众想看结果」
 
 
 class GitHubProject(GitHubProjectBase):
@@ -113,6 +118,8 @@ class GitHubVoiceoverRequest(BaseModel):
     subtitle_fontsize: int = Field(default=16, ge=10, le=36)
     # 字幕底边距：占画面高度的百分比，越大离画面底边越远（ASS MarginV）
     subtitle_margin_bottom_percent: float = Field(default=11.0, ge=8.0, le=45.0)
+    # 字幕左边距：占画面宽度的百分比，用于调整字幕文本区域的左侧位置（ASS MarginL）
+    subtitle_margin_left_percent: float = Field(default=4.5, ge=0.0, le=45.0)
     # 每条字幕约多少字（与 TTS 分段一致）
     subtitle_max_chars: int = Field(default=20, ge=8, le=40)
 
@@ -122,6 +129,7 @@ class GitHubVoiceoverResponse(BaseModel):
     message: str = ""
     final_video_path: Optional[str] = None
     srt_path: Optional[str] = None
+    tts_audio_path: Optional[str] = None
 
 
 class GitHubVideoGenerationRequest(BaseModel):
@@ -144,6 +152,7 @@ class GitHubVideoGenerationRequest(BaseModel):
     # 第三步编辑：主标题两行（若任一有值则优先于从 title 自动拆分）
     custom_main_line1: Optional[str] = None
     custom_main_line2: Optional[str] = None
+    custom_subtitle2: Optional[str] = None  # 副标题第二行（流量钩子）覆盖；为空则沿用 AI 生成值
     title_font_key: Optional[str] = None  # 主标题字体，见 GET /api/list-title-fonts
     
     # 已选图片顺序与每段时长（与前端排序面板一致）；为空则按仓库内全部图片顺序

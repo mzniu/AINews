@@ -2,6 +2,7 @@
 AI内容分析服务
 基于项目内容自动生成视频标题、副标题、摘要和标签
 """
+import json
 import re
 from typing import List, Dict, Optional, Tuple
 from loguru import logger
@@ -26,37 +27,110 @@ class ContentAnalyzer:
                 api_key=api_key,
                 base_url=os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
             )
+        self.model = os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
     
     def analyze_project_content(self, project: GitHubProject) -> VideoMetadata:
         """
-        分析项目内容并生成视频元数据
+        分析项目内容并生成视频元数据（单次 LLM JSON 调用，复用社交货币方法论 prompt）
         """
         if not self.client:
             logger.warning("未配置AI API密钥，使用默认内容生成")
             return self._generate_default_content(project)
-        
+
         try:
-            # 提取关键信息
             project_info = self._extract_project_info(project)
-            
-            # 生成各部分内容
-            title = self._generate_title(project_info)
-            subtitle = self._generate_subtitle(project_info,title)
-            summary = self._generate_summary(project_info)
-            tags = self._generate_tags(project_info)
-            
-            return VideoMetadata(
-                title=format_main_title_two_lines(title),
-                subtitle=subtitle,
-                summary=summary,
-                tags=tags,
-                ai_generated=True,
-                confidence_score=0.9
-            )
-            
+            return self._generate_content_via_json(project_info)
         except Exception as e:
             logger.error(f"AI内容生成失败: {e}")
             return self._generate_default_content(project)
+
+    def _generate_content_via_json(self, info: Dict) -> VideoMetadata:
+        """单次 LLM JSON 调用：复用 utils/content_methodology 的方法论 prompt，一次产出全部字段。"""
+        from utils.content_methodology import build_methodology_prompt_section
+        from utils.tags_normalizer import normalize_structured_tags
+        from utils.summary_highlights import normalize_highlight_keywords_from_llm
+
+        vmin = 120
+        vmax = 400
+        json_template = f"""
+【输出 JSON 格式】（严格遵守，不要返回其他内容）
+{{
+  "target_audience": "推断的目标受众（≤12个汉字）",
+  "praise_tags": ["夸赞标签1", "夸赞标签2", "夸赞标签3"],
+  "traffic_hook": "流量钩子类型中文名（如「观众想看结果」），可空字符串",
+  "main_line1": "主标题第一行（9~12汉字当量，话题引入，不含emoji）",
+  "main_line2": "主标题第二行（9~12汉字当量，核心夸赞，可空字符串）",
+  "sub_title": "副标题第一行（11~15汉字当量，轻观点收尾，不含emoji）",
+  "sub_title2": "副标题第二行（11~15汉字当量，七种流量钩子之一，可空字符串）",
+  "summary": "生成的摘要（40-50字，以「小牛说：」开头）",
+  "tags": "#赛道标签 #垂直标签 #精准标签 #热点标签 #小牛说 #其他标签1 #其他标签2 #其他标签3 #其他标签4 #其他标签5",
+  "voiceover_script": "口播稿全文（{vmin}~{vmax}字，以「小牛说：」开头）",
+  "highlight_keywords": ["摘要中连续子串1", "子串2", "子串3"]
+}}
+
+【输入】
+项目名称: {info['name']}
+描述: {info['description']}
+技术栈: {', '.join(info['tech_stack'])}
+特点: {', '.join(info['features'])}
+Star数: {info['stars']}
+完整README内容:
+{info['readme_content'][:3000]}
+"""
+        prompt = build_methodology_prompt_section(
+            vmin=vmin, vmax=vmax, json_template=json_template
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": "你是顶级自媒体爆款文案大师，精通微信视频号的「社交货币 / 夸赞」方法论：通过高情商夸赞目标受众、帮用户立人设来触发社交裂变点赞；同时熟练掌握「制造悬念、列举数字、提出疑问、强调时效、引发争议（中立可讨论）、指向明确」六种辅助标题技法，能在方法论为主、技法为辅的前提下综合运用。你的文案在合规前提下引发点赞与传播，信息密度高。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
+                + "我是小牛，一个专业的AI技术专家，对AI行业有深度的见解，请你根据项目信息为我生成标题、副标题、摘要、标签与口播稿。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.85,
+            max_tokens=int(os.getenv("DEEPSEEK_MAX_TOKENS", "8192")),
+            response_format={"type": "json_object"}
+        )
+
+        result_text = response.choices[0].message.content.strip()
+        result = json.loads(result_text)
+
+        main_line1 = (result.get('main_line1') or '').strip()
+        main_line2 = (result.get('main_line2') or '').strip()
+        sub_title = (result.get('sub_title') or '').strip()
+        sub_title2 = (result.get('sub_title2') or '').strip()
+        traffic_hook = (result.get('traffic_hook') or '').strip()
+        title_two_lines = "\n".join([x for x in [main_line1, main_line2] if x])
+        summary_text = (result.get("summary") or "").strip()
+        voiceover_script = (result.get("voiceover_script") or "").strip()
+        tags = normalize_structured_tags(result.get('tags', ''))
+        highlight_keywords = normalize_highlight_keywords_from_llm(
+            result.get("highlight_keywords"), summary_text
+        )
+        target_audience = (result.get("target_audience") or "").strip()
+        raw_praise_tags = result.get("praise_tags") or []
+        if isinstance(raw_praise_tags, str):
+            raw_praise_tags = [t.strip() for t in raw_praise_tags.replace("，", ",").split(",") if t.strip()]
+        praise_tags = [str(t).strip() for t in raw_praise_tags if str(t).strip()][:5]
+        logger.success(
+            f"GitHub内容生成成功 - 受众:{target_audience}, 夸赞:{praise_tags}, 钩子:{traffic_hook}, "
+            f"L1:{main_line1}, L2:{main_line2}, 副1:{sub_title}, 副2:{sub_title2}, "
+            f"摘要:{len(summary_text)}字, 口播:{len(voiceover_script)}字"
+        )
+
+        return VideoMetadata(
+            title=format_main_title_two_lines(title_two_lines),
+            subtitle=sub_title,
+            subtitle2=sub_title2,
+            summary=summary_text,
+            tags=tags,
+            ai_generated=True,
+            confidence_score=0.9,
+            target_audience=target_audience,
+            praise_tags=praise_tags,
+            traffic_hook=traffic_hook,
+        )
     
     def _extract_project_info(self, project: GitHubProject) -> Dict:
         """提取项目关键信息"""
@@ -125,227 +199,6 @@ class ContentAnalyzer:
         
         return features[:3]  # 最多返回3个特性
     
-    def _generate_title(self, info: Dict) -> str:
-        """生成吸引人的标题"""
-        try:
-            system_prompt = """
-            你是一位专业的技术内容创作者，专门为GitHub开源项目制作短视频内容。
-            你的任务是基于项目信息生成「两行」中文主标题，用于竖屏/横屏视频首屏展示。
-            创作时可综合运用视频号常用标题技法（择其二三即可）：制造悬念；列举数字（如Star数、版本、性能数字）；提出疑问；强调时效（若README确有更新/新规）；引发争议（技术选型中立讨论，不引战）；指向明确（如「后端开发者」「小白友好」）。
-
-            版式硬性要求（必须遵守）：
-            - 输出恰好两行，中间用换行符 \\n 分隔，不要加引号或序号。
-            - 第一行：强话题性、吸睛、能引发好奇或讨论（可用疑问、反差、热词、惊叹），控制在约14个汉字以内；不要写完整项目全名，侧重「钩子」。
-            - 第二行：点出项目名称或核心技术/价值补充，务必包含或明确指向项目名称「与第一行形成完整信息」；约14个汉字以内。
-            - 两行加起来突出技术亮点与实用价值，用语真实不造谣。
-            """
-            
-            user_prompt = f"""
-            基于以下GitHub项目信息，生成两行中文主标题（第一行话题钩子，第二行项目名/亮点）：
-
-            项目名称: {info['name']}
-            描述: {info['description']}
-            技术栈: {', '.join(info['tech_stack'])}
-            特点: {', '.join(info['features'])}
-            Star数: {info['stars']}
-            完整README内容:
-            {info['readme_content']}
-
-            要求：
-            1. 严格输出两行，用换行 \\n 分隔；第一行必须有话题性，第二行须包含或对应项目名称：{info['name']}
-            2. 第一行像短视频爆款标题钩子（可含悬念、数字、疑问、受众指向），第二行落地到具体项目
-            3. 可适度夸张但基于真实 README，不编造 Star 或功能
-            4. 只返回两行标题，不要解释或其它内容
-            """
-            
-            response = self.client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=80,
-                temperature=0.75
-            )
-            
-            title = response.choices[0].message.content.strip()
-            # 统一换行，去掉模型可能加上的引号包裹
-            title = title.replace("\r\n", "\n").strip().strip('"').strip("'")
-            return title
-            
-        except Exception as e:
-            logger.error(f"生成标题失败: {e}")
-            return self._generate_default_title(info)
-    
-    def _generate_subtitle(self, info: Dict, title) -> str:
-        """生成副标题（包含Star数信息）""" 
-        try:
-            # 构造Star数描述
-            star_description = self._format_star_count(info['stars'])
-            
-            system_prompt = """
-            你是一位专业的视频内容策划师，负责为GitHub项目生成吸引人的副标题。
-            
-            副标题创作原则：
-            - 主标题可能为两行（第一行偏话题钩子、第二行偏项目名），副标题要从新角度补充，不要重复第一行钩子句
-            - 可补充：数字（Star、性能）、悬念、时效（若确有）、明确受众，与主标题形成层次
-            - 重点强调 Star、解决的痛点或应用场景
-            - 长度控制在25-35个字符
-            - 避免与主标题第二行同质化
-            """
-            
-            user_prompt = f"""
-            为以下GitHub项目生成一个中文副标题，突出Star数优势：
-            
-            项目名称: {info['name']}
-            主标题: {title}
-            描述: {info['description']}
-            技术栈: {', '.join(info['tech_stack'])}
-            Star数: {info['stars']} ({star_description})
-            完整README内容: 
-            {info['readme_content']}
-
-            要求：
-            1. 强调项目的受欢迎程度（Star数）
-            2. 强调项目解决了什么问题
-            3. 增强可信度和吸引力
-            4. 保持简洁有力
-            5. 直接返回副标题，不要其他内容
-            6. 不要和主标题内容相似，突出其他特点
-            """
-            
-            response = self.client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=60,
-                temperature=0.75
-            )
-            
-            subtitle = response.choices[0].message.content.strip()
-            return subtitle[:40] + ("..." if len(subtitle) > 40 else "")
-            
-        except Exception as e:
-            logger.error(f"生成副标题失败: {e}")
-            return self._generate_default_subtitle_with_stars(info)
-    
-    def _generate_summary(self, info: Dict) -> str:
-        """生成项目摘要（使用完整README内容）"""
-        try:
-            # 使用完整的README内容
-            full_readme = info['readme_content']
-            
-            system_prompt = """
-            你是一位技术文档专家，擅长将复杂的GitHub项目信息写成适合口播/字幕的短摘要。
-
-            摘要写作要求：
-            - 长度控制在约120-160个字符（含标点）
-            - 第一句必须是面向观众的「分享式」开场，例如「今天给大家分享一个宝藏项目」「给大家安利一个开源好项目」「给大家推荐一个我最近挖到的宝藏仓库」等同类表达，语气亲切自然；随后紧接项目名与一句核心价值。
-            - 第二句起再展开：核心功能、解决什么问题、技术亮点（基于 README，不编造）；可自然加入具体数字、一句反问或「适合谁用」，增强视频号口播节奏
-            - 语言口语化、通俗易懂，避免堆砌术语
-            - 基于真实 README，保持准确性
-            """
-            
-            user_prompt = f"""
-            基于以下完整的GitHub项目 README，写一段中文摘要（口播稿风格）：
-
-            项目名称: {info['name']}
-            项目描述: {info['description']}
-            技术栈: {', '.join(info['tech_stack'])}
-            特点: {', '.join(info['features'])}
-            Star数: {info['stars']}
-            
-            完整README内容:
-            {full_readme}
-            
-            要求：
-            1. 第一句必须是分享/安利式开场（类似「给大家分享一个宝藏项目」），并自然带出项目名 {info['name']}
-            2. 后面几句说明做什么、解决什么问题、亮点是什么
-            3. 直接返回一段连续摘要，不要小标题或列表
-            """
-            
-            response = self.client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=100,
-                temperature=0.75
-            )
-            
-            summary = response.choices[0].message.content.strip()
-            return summary[:160] + ("..." if len(summary) > 160 else "")
-            
-        except Exception as e:
-            logger.error(f"生成摘要失败: {e}")
-            return self._generate_default_summary(info)
-    
-    def _generate_tags(self, info: Dict) -> List[str]:
-        """生成相关标签"""
-        try:
-            system_prompt = """
-            你是一位社交媒体内容专家，擅长为技术项目创建精准的短视频标签体系。
-            
-            标签创建原则：
-            - 严格输出 10 个标签，且顺序固定
-            - 第1个：赛道标签，表示宏观领域/行业赛道
-            - 第2个：垂直标签，表示细分方向/应用场景
-            - 第3个：精准标签，表示项目名、产品名、技术名或最核心概念
-            - 第4个：热点标签，表示当前传播热点、技术趋势或高关注话题
-            - 第5个：个人IP标签，固定使用 #小牛说 或与内容强相关的 #小牛说AI
-            - 第6～10个：其他补充标签，用于技术栈、受众、价值点、平台、场景等
-            - 避免重复标签；每个标签都以 # 开头，用空格分隔
-            """
-            
-            user_prompt = f"""
-            为以下GitHub项目生成10个中文标签：
-            
-            项目名称: {info['name']}
-            项目描述: {info['description']}
-            技术栈: {', '.join(info['tech_stack'])}
-            特点: {', '.join(info['features'])}
-            Star数: {info['stars']}
-            
-            要求：
-            1. 严格按顺序给出：1个赛道标签 + 1个垂直标签 + 1个精准标签 + 1个热点标签 + 1个个人IP标签 + 5个其他标签。
-            2. 第5个个人IP标签优先固定为 #小牛说。
-            3. 每个标签以 # 开头，用空格分隔，例如：#开源项目 #AI编程 #WorldMonitor #GitHub热门 #小牛说 #Python #监控工具 #开发者工具 #自动化 #效率工具。
-            4. 只返回这一行标签，不要解释，不要编号，不要逗号。
-            """
-            
-            response = self.client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=120,
-                temperature=0.4
-            )
-            
-            tags_text = response.choices[0].message.content.strip()
-            tags = self._parse_hashtag_line(tags_text)
-            if len(tags) < 10:
-                defaults = self._generate_default_tags(info)
-                for tag in defaults:
-                    if tag not in tags:
-                        tags.append(tag)
-            has_ip_tag = '#小牛说' in tags or '#小牛说AI' in tags
-            if not has_ip_tag:
-                tags.insert(4, '#小牛说')
-            elif len(tags) >= 5 and tags[4] not in ('#小牛说', '#小牛说AI'):
-                ip_tag = '#小牛说' if '#小牛说' in tags else '#小牛说AI'
-                tags = [tag for tag in tags if tag != ip_tag]
-                tags.insert(4, ip_tag)
-            return tags[:10]
-            
-        except Exception as e:
-            logger.error(f"生成标签失败: {e}")
-            return self._generate_default_tags(info)
-
     @staticmethod
     def _parse_hashtag_line(tags_text: str) -> List[str]:
         """解析模型返回的标签行，兼容空格、逗号、顿号与换行。"""

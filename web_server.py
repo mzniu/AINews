@@ -29,6 +29,8 @@ from api.routes.manual_content_routes import router as manual_content_router  # 
 from api.routes.image_search_routes import router as image_search_router
 from api.routes.cover_image_routes import router as cover_image_router
 from api.routes.related_image_routes import router as related_image_router
+from api.routes.digital_human_routes import router as digital_human_router
+from api.routes.pip_routes import router as pip_router
 
 # 加载环境变量
 load_dotenv()
@@ -70,6 +72,8 @@ app.include_router(manual_content_router)  # 注册手动内容路由
 app.include_router(image_search_router)
 app.include_router(cover_image_router)
 app.include_router(related_image_router)
+app.include_router(digital_human_router)
+app.include_router(pip_router)
 # main_routes 放在最后，避免被其他路由覆盖，并添加 API 前缀
 print(f"main_router: {main_router}")
 app.include_router(main_router)
@@ -78,7 +82,7 @@ print("路由注册完成")
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("PORT", "8080"))
+    port = int(os.getenv("PORT", "8088"))
     # 多进程 worker：适合 CPU 密集；与 asyncio.to_thread 可同时使用（多页并发 + 单进程内不阻塞）
     workers = int(os.getenv("UVICORN_WORKERS", "1"))
 

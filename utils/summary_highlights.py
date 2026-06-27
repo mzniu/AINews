@@ -153,9 +153,12 @@ def pick_highlight_keywords_llm(
 只返回 JSON 对象：{{"highlight_keywords": ["词1", "词2", ...]}}"""
 
     try:
-        client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        client = OpenAI(
+            api_key=api_key,
+            base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+        )
         response = client.chat.completions.create(
-            model="deepseek-chat",
+            model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
             messages=[
                 {
                     "role": "system",

@@ -506,10 +506,6 @@ async def generate_github_video(
 
         from utils.title_units import (
             split_main_title_to_two_lines,
-            truncate_han_equiv,
-            MAIN_LINE1_MAX_UNITS,
-            MAIN_LINE2_MAX_UNITS,
-            SUBTITLE_MAX_UNITS,
         )
 
         _has_line_fields = (
@@ -519,22 +515,18 @@ async def generate_github_video(
             request.custom_main_line2 or ""
         ).strip()
         if _has_line_fields and _nonempty_custom:
-            m1 = truncate_han_equiv(
-                (request.custom_main_line1 or "").strip(), MAIN_LINE1_MAX_UNITS
-            )
-            m2 = truncate_han_equiv(
-                (request.custom_main_line2 or "").strip(), MAIN_LINE2_MAX_UNITS
-            )
+            m1 = (request.custom_main_line1 or "").strip()
+            m2 = (request.custom_main_line2 or "").strip()
         else:
             m1, m2 = split_main_title_to_two_lines(video_metadata.title or "")
-        sub = truncate_han_equiv(
-            (video_metadata.subtitle or "").strip(), SUBTITLE_MAX_UNITS
-        )
+        sub = (video_metadata.subtitle or "").strip()
+        sub2 = (request.custom_subtitle2 if request.custom_subtitle2 is not None else (video_metadata.subtitle2 or "")).strip()
         video_request = CreateAnimatedVideoRequest(
             title="",
             main_line1=m1,
             main_line2=m2,
             subtitle=sub,
+            subtitle2=sub2,
             summary=video_metadata.summary,
             images=images_payload,
             audio_path=audio_path,
@@ -594,7 +586,7 @@ async def github_render_voiceover(project_id: str, request: GitHubVoiceoverReque
 
     from services.github_voiceover_service import render_voiceover_for_video
 
-    ok, msg, final_url, srt_url = await render_voiceover_for_video(
+    ok, msg, final_url, srt_url, tts_audio_url = await render_voiceover_for_video(
         base_video_path=base_path,
         script=request.script,
         voice=request.voice or "zh-CN-XiaoxiaoNeural",
@@ -607,6 +599,7 @@ async def github_render_voiceover(project_id: str, request: GitHubVoiceoverReque
         subtitle_fontname=request.subtitle_fontname or "Microsoft YaHei",
         subtitle_fontsize=request.subtitle_fontsize,
         subtitle_margin_bottom_percent=float(request.subtitle_margin_bottom_percent),
+        subtitle_margin_left_percent=float(request.subtitle_margin_left_percent),
         subtitle_max_chars=request.subtitle_max_chars,
     )
     if not ok:
@@ -616,6 +609,7 @@ async def github_render_voiceover(project_id: str, request: GitHubVoiceoverReque
         message=msg or "完成",
         final_video_path=final_url,
         srt_path=srt_url,
+        tts_audio_path=tts_audio_url,
     )
 
 

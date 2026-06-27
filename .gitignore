@@ -59,3 +59,6 @@ Thumbs.db
 .cache/
 *.pth
 *.onnx
+
+# niuclaude-memory
+MEMORY.md

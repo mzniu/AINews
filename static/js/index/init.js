@@ -6,7 +6,19 @@
             loadBGMList();
             loadTitleFontList();
             loadIndexSubtitleFonts();
+            // 开发模式：URL 含 ?dev=1 时显示 .dev-only 面板
+            applyDevMode();
         });
+
+        function applyDevMode() {
+            try {
+                const params = new URLSearchParams(location.search);
+                const dev = params.get('dev') === '1' || localStorage.getItem('devMode') === '1';
+                if (dev) {
+                    document.querySelectorAll('.dev-only').forEach(el => el.classList.add('is-visible'));
+                }
+            } catch (e) { /* ignore */ }
+        }
         
         function initializeEventListeners() {
             // 排序面板相关事件
@@ -20,6 +32,9 @@
             if (resetBtn) {
                 resetBtn.addEventListener('click', resetImageOrder);
             }
+
+            // 图片/视频选择器：悬停原图/原视频预览
+            _attachMediaSelectorHover();
         }
         
         /**
@@ -145,6 +160,9 @@
             return {
                 main_line1: document.getElementById('editableMainLine1')?.value.trim() || '',
                 main_line2: document.getElementById('editableMainLine2')?.value.trim() || '',
+                main_line1_color: (document.querySelector('input[name="mainLine1Color"]:checked') || {}).value || '#FFFFFF',
+                main_line2_color: (document.querySelector('input[name="mainLine2Color"]:checked') || {}).value || '#FFFFFF',
+                title_font_size: (() => { const v = parseInt(document.getElementById('titleFontSizeInput')?.value, 10); return (v >= 28 && v <= 120) ? v : null; })(),
                 subtitle: document.getElementById('editableSubTitle')?.value.trim() || ''
             };
         }

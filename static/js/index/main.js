@@ -318,9 +318,39 @@
                     imgObj.duration = Math.min(30, Math.max(0.5, raw));
                 }
             });
+            // 从排序面板滑块同步纵向偏移
+            document.querySelectorAll('.image-yoffset-slider').forEach((sl) => {
+                const path = sl.dataset.path;
+                if (!path) return;
+                const imgObj = selectedImages.find((img) => img.path === path);
+                if (!imgObj) return;
+                const raw = parseFloat(sl.value);
+                if (!isNaN(raw)) {
+                    imgObj.image_y_offset_pct = Math.min(50, Math.max(-50, raw));
+                }
+            });
+            // 从排序面板动画选择框同步
+            document.querySelectorAll('.image-animation-select').forEach((sel) => {
+                const path = sel.dataset.path;
+                if (!path) return;
+                const imgObj = selectedImages.find((img) => img.path === path);
+                if (!imgObj) return;
+                imgObj.animation = sel.value;
+            });
+            // 从排序面板上滑 checkbox 同步
+            document.querySelectorAll('.scroll-after-checkbox').forEach((cb) => {
+                const path = cb.dataset.path;
+                if (!path) return;
+                const imgObj = selectedImages.find((img) => img.path === path);
+                if (!imgObj) return;
+                imgObj.scroll_after = cb.checked;
+            });
             return selectedImages.map((imgObj) => ({
                 path: imgObj.path,
                 duration: Number(imgObj.duration),
+                image_y_offset_pct: Number(imgObj.image_y_offset_pct || 0),
+                animation: imgObj.animation || 'auto',
+                scroll_after: !!imgObj.scroll_after,
             }));
         }
 
@@ -340,14 +370,31 @@
             normalizeSelectedClipDurations();
             const container = document.getElementById('sortableList');
             container.innerHTML = '';
-            
+
             selectedImages.forEach((imgObj, index) => {
                 const item = createSortableItem(imgObj, index + 1);
                 container.appendChild(item);
             });
-            
+
             // 初始化拖拽功能
             initDragAndDrop();
+            _updateSortPanelSummary();
+        }
+
+        function _updateSortPanelSummary() {
+            const countEl = document.getElementById('sortPanelCount');
+            const totalEl = document.getElementById('sortPanelTotalDuration');
+            if (countEl) {
+                countEl.textContent = selectedImages.length ? String(selectedImages.length) : '';
+            }
+            if (totalEl) {
+                let total = 0;
+                selectedImages.forEach((img) => {
+                    const v = Number(img.duration);
+                    if (!isNaN(v)) total += v;
+                });
+                totalEl.textContent = (Math.round(total * 10) / 10).toFixed(1);
+            }
         }
         
         function createSortableItem(imgObj, order) {
@@ -406,15 +453,91 @@
                 ? `<video src="${imgObj.path}" muted playsinline preload="metadata" class="index-sort-thumb-video"></video>`
                 : `<img src="${imgObj.path}" alt="选中媒体" 
                      onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><circle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/><path d=%22M21 15l-5-5L5 21%22/></svg>'">`;
-            
+
+            const yOffsetVal = (imgObj.image_y_offset_pct != null && !isNaN(Number(imgObj.image_y_offset_pct)))
+                ? Math.min(50, Math.max(-50, Number(imgObj.image_y_offset_pct)))
+                : 0;
+            const yOffsetDisplay = (yOffsetVal >= 0 ? '+' : '') + yOffsetVal + '%';
+
+            const animVal = imgObj.animation || 'auto';
+            const scrollAfterVal = !!imgObj.scroll_after;
+            const animHtml = `
+                    <div class="sort-item-row sort-item-row-anim">
+                        <span class="control-label">入场动画</span>
+                        <select class="image-animation-select" data-path="${imgObj.path.replace(/"/g, '&quot;')}">
+                            <option value="auto"${animVal==='auto'?' selected':''}>🎲 自动</option>
+                            <option value="zoom_in"${animVal==='zoom_in'?' selected':''}>🔍 放大</option>
+                            <option value="zoom_out"${animVal==='zoom_out'?' selected':''}>🔎 缩小</option>
+                            <option value="slide_left"${animVal==='slide_left'?' selected':''}>⬅️ 左移</option>
+                            <option value="slide_right"${animVal==='slide_right'?' selected':''}>➡️ 右移</option>
+                            <option value="scroll_up"${animVal==='scroll_up'?' selected':''}>⬆️ 上滑</option>
+                            <option value="unfold"${animVal==='unfold'?' selected':''}>📖 展开</option>
+                            <option value="fade_in"${animVal==='fade_in'?' selected':''}>✨ 淡入</option>
+                            <option value="drop_bounce"${animVal==='drop_bounce'?' selected':''}>🎯 弹落</option>
+                        </select>
+                        <label class="scroll-after-label" title="入场动画结束后持续缓慢上滑（scroll_up动画已内置，不重复）">
+                            <input type="checkbox" class="scroll-after-checkbox" data-path="${imgObj.path.replace(/"/g, '&quot;')}" ${scrollAfterVal?'checked':''}>
+                            <span>上滑</span>
+                        </label>
+                    </div>
+                `;
+
+            const yOffsetHtml = `
+                    <div class="sort-item-row sort-item-row-yoffset">
+                        <span class="control-label">纵向偏移</span>
+                        <input type="range"
+                               class="image-yoffset-slider"
+                               data-path="${imgObj.path.replace(/"/g, '&quot;')}"
+                               value="${yOffsetVal}"
+                               min="-50" max="50" step="1">
+                        <span class="yoffset-value" data-path="${imgObj.path.replace(/"/g, '&quot;')}">${yOffsetDisplay}</span>
+                        <button class="yoffset-reset-btn" data-path="${imgObj.path.replace(/"/g, '&quot;')}" title="重置">↺</button>
+                    </div>
+                `;
+
             div.innerHTML = `
-                <span class="order-number">${order}.</span>
-                ${thumbHtml}
-                ${indicator}
-                <span class="filename" title="${fileName} (${fileType})">${displayName}</span>
-                ${durationHtml}
+                <div class="sort-item-row sort-item-row-main">
+                    <span class="sort-drag-handle" title="拖动排序">⠿</span>
+                    <span class="order-number">${order}.</span>
+                    ${thumbHtml}
+                    ${indicator}
+                    <span class="filename" title="${fileName} (${fileType})">${displayName}</span>
+                    ${durationHtml}
+                </div>
+                ${animHtml}
+                ${yOffsetHtml}
             `;
-            
+
+            // 事件绑定（不用 inline handler，避免路径中特殊字符问题）
+            const slider = div.querySelector('.image-yoffset-slider');
+            const valueLabel = div.querySelector('.yoffset-value');
+            const resetBtn = div.querySelector('.yoffset-reset-btn');
+            if (slider) {
+                slider.addEventListener('input', () => {
+                    updateImageYOffset(imgObj.path, slider.value);
+                });
+            }
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    if (slider) slider.value = '0';
+                    if (valueLabel) valueLabel.textContent = '+0%';
+                    updateImageYOffset(imgObj.path, 0);
+                });
+            }
+
+            const animSelect = div.querySelector('.image-animation-select');
+            if (animSelect) {
+                animSelect.addEventListener('change', () => {
+                    imgObj.animation = animSelect.value;
+                });
+            }
+            const scrollCb = div.querySelector('.scroll-after-checkbox');
+            if (scrollCb) {
+                scrollCb.addEventListener('change', () => {
+                    imgObj.scroll_after = scrollCb.checked;
+                });
+            }
+
             return div;
         }
         
@@ -518,6 +641,19 @@
                     inp.value = String(clamped);
                 }
             });
+            _updateSortPanelSummary();
+        }
+
+        function updateImageYOffset(path, value) {
+            const v = parseFloat(value);
+            const imgObj = selectedImages.find(img => img.path === path);
+            if (!imgObj || isNaN(v)) return;
+            const clamped = Math.min(50, Math.max(-50, v));
+            imgObj.image_y_offset_pct = clamped;
+            // 同步展示数字
+            document.querySelectorAll(`.yoffset-value[data-path="${CSS.escape(path)}"]`).forEach((el) => {
+                el.textContent = (clamped >= 0 ? '+' : '') + clamped + '%';
+            });
         }
         
         function updateOrderNumbers() {
@@ -562,18 +698,19 @@
             editedMainLine1 = document.getElementById('editableMainLine1').value.trim();
             editedMainLine2 = document.getElementById('editableMainLine2').value.trim();
             editedSubTitle = document.getElementById('editableSubTitle').value.trim();
+            editedSubTitle2 = (document.getElementById('editableSubTitle2')?.value || '').trim();
             editedSummary = document.getElementById('editableAiSummary').value.trim();
             const voEl = document.getElementById('editableVoiceoverScript');
             editedVoiceover = voEl ? voEl.value.trim() : '';
             editedTags = document.getElementById('editableAiTags').value.trim();
-            
+
             if (!editedMainLine1 || !editedSummary) {
                 showToast('请填写主标题第一行和摘要后再保存', 'error');
                 return;
             }
-            
+
             showToast('✅ 内容已保存，将在视频生成时使用', 'success');
-            console.log('保存的编辑内容:', { editedMainLine1, editedMainLine2, editedSubTitle, editedSummary, editedVoiceover, editedTags });
+            console.log('保存的编辑内容:', { editedMainLine1, editedMainLine2, editedSubTitle, editedSubTitle2, editedSummary, editedVoiceover, editedTags });
         }
         
         // GIF 处理相关函数
@@ -712,6 +849,38 @@
             });
         }
 
+        function copyAllAiContent() {
+            const fields = [
+                document.getElementById('editableMainLine1')?.value?.trim() || '',
+                document.getElementById('editableMainLine2')?.value?.trim() || '',
+                document.getElementById('editableSubTitle')?.value?.trim() || '',
+                document.getElementById('editableSubTitle2')?.value?.trim() || '',
+                document.getElementById('editableVoiceoverScript')?.value?.trim() || '',
+                document.getElementById('editableAiTags')?.value?.trim() || ''
+            ];
+
+            const text = fields.filter(Boolean).join('\n');
+            if (!text) {
+                showToast('没有可复制的内容', 'info');
+                return;
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('已一键复制全部 AI 内容', 'success', 2200);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('已一键复制全部 AI 内容', 'success', 2200);
+            });
+        }
+
         function toggleCollapse(header) {
             const body = header.nextElementSibling;
             header.classList.toggle('collapsed');
@@ -723,130 +892,8 @@
             document.getElementById('urlInput').value = url;
         }
 
-        // 视频列表：改为懒加载 —— 仅在用户首次展开「视频列表」折叠区时再请求 /api/list-videos，
-        // 避免每次打开首页都扫描 data/videos/ 下数百个文件。
-        window.addEventListener('DOMContentLoaded', function () {
-            const section = document.getElementById('videosSection');
-            if (!section) return;
-            const header = section.previousElementSibling;
-            if (!header || !header.classList.contains('collapsible-header')) return;
-            let loaded = false;
-            header.addEventListener('click', async () => {
-                if (loaded) return;
-                if (section.classList.contains('hidden')) return; // 仍处于收起状态（toggle 由 onclick 完成）
-                loaded = true;
-                await scanVideos();
-            });
-        });
-
-        async function scanVideos() {
-            try {
-                const response = await fetch('/api/list-videos');
-                const data = await response.json();
-                
-                if (data.success && data.videos && data.videos.length > 0) {
-                    displayVideos(data.videos);
-                }
-            } catch (error) {
-                console.error('扫描视频文件失败:', error);
-            }
-        }
-
-        function displayVideos(videos) {
-            const videosSection = document.getElementById('videosSection');
-            const videosGrid = document.getElementById('videosGrid');
-            
-            if (!videosSection || !videosGrid) return;
-            
-            // 显示视频区域
-            videosSection.style.display = 'block';
-            videosGrid.innerHTML = '';
-            
-            videos.forEach(async (video, index) => {
-                const videoCard = document.createElement('div');
-                videoCard.className = 'video-card';
-                videoCard.style.cssText = `
-                    position: relative;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    transition: transform 0.2s;
-                    background: white;
-                `;
-                
-                // 构建初始HTML
-                let videoHtml = `
-                    <div style="position: relative; cursor: pointer;" onclick="openVideoModal('${video.local_path}')">
-                `;
-                
-                // 根据是否有缩略图显示不同内容
-                if (video.has_thumbnail && video.thumbnail_path) {
-                    videoHtml += `
-                        <img src="${video.thumbnail_path}" 
-                             alt="视频封面" 
-                             style="width: 100%; height: 150px; object-fit: cover; display: block;"
-                             onerror="this.parentElement.innerHTML='<div style=\'width:100%;height:150px;background:linear-gradient(45deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;\'><span style=\'color:white;font-size:48px;\'>🎬</span></div>'">
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 50%; font-size: 16px;">▶️</div>
-                    `;
-                } else {
-                    // 默认渐变背景
-                    videoHtml += `
-                        <div style="width: 100%; height: 150px; background: linear-gradient(45deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center;">
-                            <span style="color: white; font-size: 48px;">🎬</span>
-                        </div>
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 50%; font-size: 16px;">▶️</div>
-                    `;
-                }
-                
-                videoHtml += `</div>`;
-                
-                // 信息部分
-                videoHtml += `
-                    <div style="padding: 10px;">
-                        <div style="font-size: 13px; color: #666; margin-bottom: 4px; font-weight: 500;">${video.filename}</div>
-                        <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
-                            <span>${video.size_mb ? video.size_mb.toFixed(1) + 'MB' : '未知大小'}</span>
-                            <span>${new Date(video.created_time).toLocaleDateString('zh-CN')}</span>
-                        </div>
-                    </div>
-                    <div style="padding: 6px 10px; font-size: 12px; text-align: center; background: #d4edda; color: #155724; border-top: 1px solid #c3e6cb; display: flex; justify-content: space-between; align-items: center;">
-                        <span>✓ 已生成</span>
-                        <button onclick="event.stopPropagation(); openVideoModal('${video.local_path}')" 
-                                style="background: #667eea; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">
-                            👁️ 查看
-                        </button>
-                    </div>
-                `;
-                
-                videoCard.innerHTML = videoHtml;
-                videosGrid.appendChild(videoCard);
-                
-                // 如果没有缩略图，尝试生成一个
-                if (!video.has_thumbnail) {
-                    try {
-                        const response = await fetch(`/api/extract-thumbnail/${encodeURIComponent(video.filename)}`);
-                        const result = await response.json();
-                        if (result.success && result.thumbnail_path) {
-                            // 更新卡片显示真实缩略图
-                            const imgContainer = videoCard.querySelector('[onclick^="openVideoModal"]');
-                            if (imgContainer) {
-                                imgContainer.innerHTML = `
-                                    <img src="${result.thumbnail_path}" 
-                                         alt="视频封面" 
-                                         style="width: 100%; height: 150px; object-fit: cover; display: block;"
-                                         onerror="this.outerHTML='<div style=\\'width:100%;height:150px;background:linear-gradient(45deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;\\'><span style=\\'color:white;font-size:48px;\\'>🎬</span></div>'">
-                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 50%; font-size: 16px;">▶️</div>
-                                `;
-                            }
-                        }
-                    } catch (error) {
-                        console.log('缩略图生成失败:', error);
-                    }
-                }
-            });
-            
-            console.log(`✅ 已显示 ${videos.length} 个视频文件`);
-        }
+        // 首页「视频列表」只展示当前网页抓取结果中的 data.videos。
+        // 本地生成视频库由视频制作/成片页面管理，避免误触发 /api/list-videos 与缩略图提取。
 
         // 视频播放模态框
         function openVideoModal(videoPath) {
@@ -909,7 +956,7 @@
             const content = document.getElementById('manualContent').value.trim();
             
             if (!content) {
-                alert('请先粘贴文章内容！');
+                showToast('请先粘贴文章内容', 'error');
                 return;
             }
             
@@ -1295,7 +1342,8 @@
                 selectedImages.push({
                     path: path,
                     duration: isVideo ? 3 : 2.0,
-                    type: isVideo ? 'video' : type
+                    type: isVideo ? 'video' : type,
+                    image_y_offset_pct: 0,
                 });
                 console.log(`选择${type}:`, path);
             }
@@ -1646,6 +1694,143 @@
         function _hideWebImageHoverPreview() {
             const wrap = document.getElementById('webImageSearchHoverPreview');
             if (wrap) wrap.style.display = 'none';
+        }
+
+        // === #imageSelector 卡片悬停：图片显原图、视频自动播放 ===
+        function _ensureMediaSelectorHoverPreview() {
+            let wrap = document.getElementById('mediaSelectorHoverPreview');
+            if (!wrap) {
+                wrap = document.createElement('div');
+                wrap.id = 'mediaSelectorHoverPreview';
+                wrap.style.cssText = [
+                    'display:none',
+                    'position:fixed',
+                    'z-index:99999',
+                    'pointer-events:none',
+                    'padding:0',
+                    'margin:0',
+                    'border-radius:10px',
+                    'overflow:hidden',
+                    'box-shadow:0 12px 40px rgba(15,23,42,0.35)',
+                    'border:2px solid #fff',
+                    'background:#fff'
+                ].join(';');
+                const img = document.createElement('img');
+                img.alt = '';
+                img.style.cssText =
+                    'display:none;max-width:min(520px,92vw);max-height:min(460px,80vh);width:auto;height:auto;object-fit:contain;';
+                wrap.appendChild(img);
+                const video = document.createElement('video');
+                video.muted = true;
+                video.loop = true;
+                video.playsInline = true;
+                video.setAttribute('muted', '');
+                video.style.cssText =
+                    'display:none;max-width:min(520px,92vw);max-height:min(460px,80vh);width:auto;height:auto;object-fit:contain;background:#000;';
+                wrap.appendChild(video);
+                document.body.appendChild(wrap);
+            }
+            return wrap;
+        }
+
+        function _showMediaSelectorImage(src, clientX, clientY) {
+            if (!src) return;
+            const wrap = _ensureMediaSelectorHoverPreview();
+            const img = wrap.querySelector('img');
+            const video = wrap.querySelector('video');
+            if (video) {
+                video.pause();
+                video.removeAttribute('src');
+                if (video.load) video.load();
+                video.style.display = 'none';
+            }
+            if (img) {
+                img.style.display = 'block';
+                if (img.src !== src) img.src = src;
+            }
+            wrap.style.display = 'block';
+            const place = () => _positionWebImageHoverPreview(wrap, clientX, clientY);
+            requestAnimationFrame(place);
+            if (img) {
+                img.onload = place;
+                if (img.complete) place();
+            }
+        }
+
+        function _showMediaSelectorVideo(src, clientX, clientY) {
+            if (!src) return;
+            const wrap = _ensureMediaSelectorHoverPreview();
+            const img = wrap.querySelector('img');
+            const video = wrap.querySelector('video');
+            if (img) {
+                img.removeAttribute('src');
+                img.style.display = 'none';
+            }
+            if (video) {
+                video.style.display = 'block';
+                if (video.src !== src) video.src = src;
+                const p = video.play();
+                if (p && p.catch) p.catch(() => {});
+            }
+            wrap.style.display = 'block';
+            const place = () => _positionWebImageHoverPreview(wrap, clientX, clientY);
+            requestAnimationFrame(place);
+        }
+
+        function _hideMediaSelectorHoverPreview() {
+            const wrap = document.getElementById('mediaSelectorHoverPreview');
+            if (!wrap) return;
+            wrap.style.display = 'none';
+            const video = wrap.querySelector('video');
+            if (video) {
+                video.pause();
+                video.removeAttribute('src');
+                if (video.load) video.load();
+            }
+            const img = wrap.querySelector('img');
+            if (img) img.removeAttribute('src');
+        }
+
+        function _attachMediaSelectorHover() {
+            const selector = document.getElementById('imageSelector');
+            if (!selector || selector.dataset.hoverPreviewBound === '1') return;
+            selector.dataset.hoverPreviewBound = '1';
+
+            const cardFromTarget = (target) => {
+                if (!target || !target.closest) return null;
+                return target.closest('.selectable-image, .selectable-video');
+            };
+            const isSameCard = (related, card) => {
+                return !!(related && card && (card === related || card.contains(related)));
+            };
+
+            selector.addEventListener('mouseover', (e) => {
+                const card = cardFromTarget(e.target);
+                if (!card) return;
+                if (isSameCard(e.relatedTarget, card)) return;
+                const path = card.dataset.path;
+                if (!path) return;
+                if (card.classList.contains('selectable-image')) {
+                    const imgEl = card.querySelector('img');
+                    const src = (imgEl && imgEl.src) || path;
+                    _showMediaSelectorImage(src, e.clientX, e.clientY);
+                } else if (card.classList.contains('selectable-video')) {
+                    _showMediaSelectorVideo(path, e.clientX, e.clientY);
+                }
+            });
+
+            selector.addEventListener('mousemove', (e) => {
+                const wrap = document.getElementById('mediaSelectorHoverPreview');
+                if (!wrap || wrap.style.display === 'none') return;
+                _positionWebImageHoverPreview(wrap, e.clientX, e.clientY);
+            });
+
+            selector.addEventListener('mouseout', (e) => {
+                const card = cardFromTarget(e.target);
+                if (!card) return;
+                if (isSameCard(e.relatedTarget, card)) return;
+                _hideMediaSelectorHoverPreview();
+            });
         }
 
         async function runWebImageSearch() {
@@ -2026,33 +2211,55 @@
             // showToast('💡 提示：点击"框选水印"工具，框选水印区域后点击"去除水印"', 'info', 5000);
         }
 
+        function setAiMethodologyInsight(targetAudience, praiseTags, trafficHook) {
+            const wrap = document.getElementById('aiMethodologyInsight');
+            if (!wrap) return;
+            const audEl = document.getElementById('aiTargetAudience');
+            const praiseEl = document.getElementById('aiPraiseTags');
+            const hookEl = document.getElementById('aiTrafficHook');
+            const aud = (targetAudience || '').toString().trim();
+            const tags = Array.isArray(praiseTags)
+                ? praiseTags.map(t => (t || '').toString().trim()).filter(Boolean)
+                : [];
+            const hook = (trafficHook || '').toString().trim();
+            if (audEl) audEl.textContent = aud || '—';
+            if (praiseEl) praiseEl.textContent = tags.length ? tags.join(' · ') : '—';
+            if (hookEl) hookEl.textContent = hook || '—';
+            wrap.style.display = (aud || tags.length || hook) ? 'block' : 'none';
+        }
+
         async function generateSummary() {
             const content = document.getElementById('contentEditor').value;
             
             if (!content.trim()) {
-                alert('请先输入或编辑文章内容');
+                showToast('请先输入或编辑文章内容', 'error');
                 return;
             }
 
             // 显示加载状态（添加安全检查）
             const summaryDiv = document.getElementById('aiSummary');
             if (summaryDiv) summaryDiv.style.display = 'block';
-            
+            const aiLoadingEl = document.getElementById('aiSummaryLoading');
+            if (aiLoadingEl) aiLoadingEl.classList.add('active');
+
             const aiMainLine1El = document.getElementById('editableMainLine1');
             const aiMainLine2El = document.getElementById('editableMainLine2');
             const aiSubTitleEl = document.getElementById('editableSubTitle');
+            const aiSubTitle2El = document.getElementById('editableSubTitle2');
             const aiSummaryEl = document.getElementById('editableAiSummary');
             const aiVoiceoverEl = document.getElementById('editableVoiceoverScript');
             const aiTagsEl = document.getElementById('editableAiTags');
             const aiMetaEl = document.getElementById('aiMeta');
-            
-            if (aiMainLine1El) aiMainLine1El.value = '正在生成…';
-            if (aiMainLine2El) aiMainLine2El.value = '正在生成…';
-            if (aiSubTitleEl) aiSubTitleEl.value = '正在生成…';
-            if (aiSummaryEl) aiSummaryEl.value = '正在生成摘要...';
-            if (aiVoiceoverEl) aiVoiceoverEl.value = '正在生成口播稿...';
+
+            if (aiMainLine1El) aiMainLine1El.value = '';
+            if (aiMainLine2El) aiMainLine2El.value = '';
+            if (aiSubTitleEl) aiSubTitleEl.value = '';
+            if (aiSubTitle2El) aiSubTitle2El.value = '';
+            if (aiSummaryEl) aiSummaryEl.value = '';
+            if (aiVoiceoverEl) aiVoiceoverEl.value = '';
             if (aiTagsEl) aiTagsEl.value = '';
             if (aiMetaEl) aiMetaEl.textContent = '';
+            setAiMethodologyInsight('', [], '');
 
             try {
                 const voLen = getVoiceoverLengthParams();
@@ -2074,16 +2281,19 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    if (aiLoadingEl) aiLoadingEl.classList.remove('active');
                     generatedTitle = data.title;
                     generatedSummary = data.summary;
                     
                     const line1 = data.main_line1 != null ? data.main_line1 : (data.main_title || (data.title || '').split('|')[0] || '');
                     const line2 = data.main_line2 != null ? data.main_line2 : '';
                     const subT = data.sub_title != null ? data.sub_title : '';
-                    
+                    const subT2 = data.sub_title2 != null ? data.sub_title2 : '';
+
                     document.getElementById('editableMainLine1').value = line1;
                     document.getElementById('editableMainLine2').value = line2;
                     document.getElementById('editableSubTitle').value = subT;
+                    document.getElementById('editableSubTitle2').value = subT2;
                     document.getElementById('editableAiSummary').value = data.summary;
                     const voText = data.voiceover_script != null ? data.voiceover_script : '';
                     if (document.getElementById('editableVoiceoverScript')) {
@@ -2093,30 +2303,37 @@
                     editedHighlightKeywords = Array.isArray(data.highlight_keywords)
                         ? data.highlight_keywords.slice()
                         : [];
-                    document.getElementById('aiMeta').textContent = 
-                        `主L1:${line1.length}字 L2:${line2.length}字 副:${subT.length}字 | 摘要:${(data.summary || '').length}字 口播:${voText.length}字 高亮:${editedHighlightKeywords.length}词 | ${data.model} | tokens:${data.tokens_used}`;
-                    
+                    document.getElementById('aiMeta').textContent =
+                        `主L1:${line1.length}字 L2:${line2.length}字 副1:${subT.length}字 副2:${subT2.length}字 | 摘要:${(data.summary || '').length}字 口播:${voText.length}字 高亮:${editedHighlightKeywords.length}词 | ${data.model} | tokens:${data.tokens_used}`;
+                    setAiMethodologyInsight(data.target_audience, data.praise_tags, data.traffic_hook);
+
                     // 自动保存初始内容
                     saveEditedContent();
                 } else {
+                    if (aiLoadingEl) aiLoadingEl.classList.remove('active');
                     if (aiMainLine1El) aiMainLine1El.value = '';
                     if (aiMainLine2El) aiMainLine2El.value = '';
                     if (aiSubTitleEl) aiSubTitleEl.value = '';
+                    if (aiSubTitle2El) aiSubTitle2El.value = '';
                     if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + data.message;
                     if (aiVoiceoverEl) aiVoiceoverEl.value = '';
                     if (aiTagsEl) aiTagsEl.value = '';
                     editedHighlightKeywords = [];
                     if (aiMetaEl) aiMetaEl.textContent = '';
+                    setAiMethodologyInsight('', [], '');
                 }
             } catch (error) {
+                if (aiLoadingEl) aiLoadingEl.classList.remove('active');
                 if (aiMainLine1El) aiMainLine1El.value = '';
                 if (aiMainLine2El) aiMainLine2El.value = '';
                 if (aiSubTitleEl) aiSubTitleEl.value = '';
+                if (aiSubTitle2El) aiSubTitle2El.value = '';
                 if (aiSummaryEl) aiSummaryEl.value = '生成失败: ' + error.message;
                 if (aiVoiceoverEl) aiVoiceoverEl.value = '';
                 if (aiTagsEl) aiTagsEl.value = '';
                 editedHighlightKeywords = [];
                 if (aiMetaEl) aiMetaEl.textContent = '';
+                setAiMethodologyInsight('', [], '');
             }
         }
 
@@ -2125,6 +2342,7 @@
             const mainLine1 = document.getElementById('editableMainLine1')?.value.trim();
             const mainLine2 = document.getElementById('editableMainLine2')?.value.trim();
             const subTitle = document.getElementById('editableSubTitle')?.value.trim();
+            const subTitle2 = (document.getElementById('editableSubTitle2')?.value || '').trim();
             const editedSummary = document.getElementById('editableAiSummary')?.value.trim();
             
             if (!mainLine1 || !editedSummary) {
@@ -2132,7 +2350,7 @@
                 return;
             }
             
-            const editedTitle = [mainLine1, mainLine2, subTitle].filter(Boolean).join('|');
+            const editedTitle = [mainLine1, mainLine2, subTitle, subTitle2].filter(Boolean).join('|');
             
             if (selectedImages.length === 0) {
                 showToast('请至少选择一张图片', 'error');
@@ -2254,11 +2472,15 @@
                         title: '',
                         main_line1: mainLine1,
                         main_line2: mainLine2 || '',
+                        main_line1_color: (document.querySelector('input[name="mainLine1Color"]:checked') || {}).value || '#FFFFFF',
+                        main_line2_color: (document.querySelector('input[name="mainLine2Color"]:checked') || {}).value || '#FFFFFF',
                         subtitle: subTitle || '',
+                        subtitle2: subTitle2 || '',
                         summary: editedSummary,
                         images: clipPayload,
                         audio_path: selectedBGM,
                         title_font_key: getTitleFontKey(),
+                        title_font_size: (() => { const v = parseInt(document.getElementById('titleFontSizeInput')?.value, 10); return (v >= 28 && v <= 120) ? v : null; })(),
                         show_summary: getShowSummaryOnVideo(),
                         tags: (document.getElementById('editableAiTags') && document.getElementById('editableAiTags').value.trim()) || '',
                         summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : []
@@ -2461,12 +2683,12 @@
 
         async function generateVideoImage() {
             if (!generatedTitle || !generatedSummary) {
-                alert('请先生成AI标题和摘要');
+                showToast('请先生成AI标题和摘要', 'error');
                 return;
             }
 
             if (selectedImages.length === 0) {
-                alert('请至少选择一张图片');
+                showToast('请至少选择一张图片', 'error');
                 return;
             }
             
@@ -2491,6 +2713,7 @@
                 const ml1 = document.getElementById('editableMainLine1')?.value.trim() || '';
                 const ml2 = document.getElementById('editableMainLine2')?.value.trim() || '';
                 const st = document.getElementById('editableSubTitle')?.value.trim() || '';
+                const st2 = (document.getElementById('editableSubTitle2')?.value || '').trim() || '';
                 const response = await fetch('/api/generate-image', {
                     method: 'POST',
                     headers: {
@@ -2501,6 +2724,7 @@
                         main_line1: ml1,
                         main_line2: ml2,
                         subtitle: st,
+                        subtitle2: st2,
                         summary: editedSummary || generatedSummary,
                         images: selectedImages,
                         title_font_key: getTitleFontKey()
@@ -2674,19 +2898,24 @@
 
                 const summaryDiv = document.getElementById('aiSummary');
                 if (summaryDiv) summaryDiv.style.display = 'block';
-                
+                const oneClickLoadingEl = document.getElementById('aiSummaryLoading');
+                if (oneClickLoadingEl) oneClickLoadingEl.classList.add('active');
+
                 // 使用新的可编辑输入框ID（避免变量名冲突）
                 const oneClickL1 = document.getElementById('editableMainLine1');
                 const oneClickL2 = document.getElementById('editableMainLine2');
                 const oneClickSubTitleEl = document.getElementById('editableSubTitle');
+                const oneClickSubTitle2El = document.getElementById('editableSubTitle2');
                 const oneClickSummaryEl = document.getElementById('editableAiSummary');
                 const oneClickVoiceoverEl = document.getElementById('editableVoiceoverScript');
-                
-                if (oneClickL1) oneClickL1.value = '正在生成…';
-                if (oneClickL2) oneClickL2.value = '正在生成…';
-                if (oneClickSubTitleEl) oneClickSubTitleEl.value = '正在生成…';
-                if (oneClickSummaryEl) oneClickSummaryEl.value = '正在生成摘要...';
-                if (oneClickVoiceoverEl) oneClickVoiceoverEl.value = '正在生成口播稿...';
+
+                if (oneClickL1) oneClickL1.value = '';
+                if (oneClickL2) oneClickL2.value = '';
+                if (oneClickSubTitleEl) oneClickSubTitleEl.value = '';
+                if (oneClickSubTitle2El) oneClickSubTitle2El.value = '';
+                if (oneClickSummaryEl) oneClickSummaryEl.value = '';
+                if (oneClickVoiceoverEl) oneClickVoiceoverEl.value = '';
+                setAiMethodologyInsight('', [], '');
 
                 const oneClickVoLen = getVoiceoverLengthParams();
                 const summaryResp = await fetch('/api/generate-summary', {
@@ -2703,6 +2932,7 @@
                 const summaryData = await summaryResp.json();
 
                 if (!summaryData.success) {
+                    if (oneClickLoadingEl) oneClickLoadingEl.classList.remove('active');
                     showToast('标题摘要生成失败: ' + summaryData.message, 'error');
                     if (oneClickVoiceoverEl) oneClickVoiceoverEl.value = '';
                     btn.disabled = false;
@@ -2710,25 +2940,29 @@
                     return;
                 }
 
+                if (oneClickLoadingEl) oneClickLoadingEl.classList.remove('active');
                 generatedTitle = summaryData.title;
                 generatedSummary = summaryData.summary;
                 const l1 = summaryData.main_line1 != null ? summaryData.main_line1 : (summaryData.main_title || (summaryData.title || '').split('|')[0] || '');
                 const l2 = summaryData.main_line2 != null ? summaryData.main_line2 : '';
                 const subT2 = summaryData.sub_title != null ? summaryData.sub_title : '';
+                const subT2Line2 = summaryData.sub_title2 != null ? summaryData.sub_title2 : '';
                 const voOne = summaryData.voiceover_script != null ? summaryData.voiceover_script : '';
-                
+
                 // 填充到可编辑输入框（添加安全检查）
                 const aiMainLine1El = document.getElementById('editableMainLine1');
                 const aiMainLine2El = document.getElementById('editableMainLine2');
                 const aiSubTitleEl = document.getElementById('editableSubTitle');
+                const aiSubTitle2El = document.getElementById('editableSubTitle2');
                 const aiSummaryEl = document.getElementById('editableAiSummary');
                 const aiVoiceoverFillEl = document.getElementById('editableVoiceoverScript');
                 const aiTagsEl = document.getElementById('editableAiTags');
                 const aiMetaEl = document.getElementById('aiMeta');
-                
+
                 if (aiMainLine1El) aiMainLine1El.value = l1;
                 if (aiMainLine2El) aiMainLine2El.value = l2;
                 if (aiSubTitleEl) aiSubTitleEl.value = subT2;
+                if (aiSubTitle2El) aiSubTitle2El.value = subT2Line2;
                 if (aiSummaryEl) aiSummaryEl.value = summaryData.summary;
                 if (aiVoiceoverFillEl) aiVoiceoverFillEl.value = voOne;
                 if (aiTagsEl) aiTagsEl.value = summaryData.tags || '';
@@ -2736,7 +2970,8 @@
                     ? summaryData.highlight_keywords.slice()
                     : [];
                 if (aiMetaEl) aiMetaEl.textContent =
-                    `L1:${l1.length} L2:${l2.length} 副:${subT2.length} | 摘要:${(summaryData.summary || '').length}字 口播:${voOne.length}字 高亮:${editedHighlightKeywords.length}词 | ${summaryData.model} | tokens:${summaryData.tokens_used}`;
+                    `L1:${l1.length} L2:${l2.length} 副1:${subT2.length} 副2:${subT2Line2.length} | 摘要:${(summaryData.summary || '').length}字 口播:${voOne.length}字 高亮:${editedHighlightKeywords.length}词 | ${summaryData.model} | tokens:${summaryData.tokens_used}`;
+                setAiMethodologyInsight(summaryData.target_audience, summaryData.praise_tags, summaryData.traffic_hook);
                 
                 // 自动保存内容
                 saveEditedContent();
@@ -2754,6 +2989,7 @@
                         main_line1: l1,
                         main_line2: l2 || '',
                         subtitle: subT2 || '',
+                        subtitle2: subT2Line2 || '',
                         summary: editedSummary || generatedSummary,
                         images: buildClipPayloadForAnimatedVideo(),
                         audio_path: 'static/music/background.mp3',
@@ -2842,7 +3078,7 @@
             // 隐藏AI摘要
             document.getElementById('aiSummary').style.display = 'none';
             
-            alert('已重置所有选择');
+            showToast('已重置所有选择', 'info');
         }
 
         function showError(message) {

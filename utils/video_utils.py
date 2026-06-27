@@ -227,9 +227,10 @@ def _load_title_font_truetype(title_font_key: Optional[str], size: int) -> Image
     return ImageFont.load_default()
 
 
-def _load_fonts(title_font_key: Optional[str] = None):
+def _load_fonts(title_font_key: Optional[str] = None, title_font_size: Optional[int] = None):
     """加载字体，返回 (title_font, subtitle_font, summary_font)；主标题字形由 title_font_key 选择。"""
-    title_font = _load_title_font_truetype(title_font_key, TITLE_MAIN_FONT_SIZE)
+    _size = title_font_size if (title_font_size and 20 <= title_font_size <= 120) else TITLE_MAIN_FONT_SIZE
+    title_font = _load_title_font_truetype(title_font_key, _size)
     try:
         p58 = _find_font_path(["msyhbd.ttc"]) or _find_font_path(["simhei.ttf"])
         p40 = _find_font_path(["msyh.ttc"]) or _find_font_path(["simhei.ttf"])
@@ -314,7 +315,9 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                           title_slide_delay=None,
                           title_slide_entrance: bool = True,
                           scroll_viewport_height: Optional[int] = None,
-                          clip_fps: float = 24.0):
+                          clip_fps: float = 24.0,
+                          main_line1_color: str = "#FFFFFF",
+                          main_line2_color: str = "#FFFFFF"):
     """
     渲染动画的某一帧（时间 t 秒）。
     anim_type: 'zoom_in'(动感放大), 'zoom_out'(动感缩小), 'unfold'(展开),
@@ -498,12 +501,34 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
             title_y_off = 0
         title_y_draw = title_y + title_y_off
 
-        # 主标题：白色 + 蓝色光晕（背景条自画面顶部铺满至主标题区下缘）
-        bg, _ = _draw_text_overlay(
-            bg, main_lines, t_font, title_y_draw, img_width, margin, text_width,
-            text_color=(255, 255, 255), glow_color=(102, 126, 234), line_spacing=18,
-            background_top_y=0,
-        )
+        # 主标题：用户配色 + 白色时启用蓝色光晕（画面顶部铺满至主标题区下缘）
+        _c1 = _hex_to_rgb(main_line1_color, (255, 255, 255))
+        _c2 = _hex_to_rgb(main_line2_color, (255, 255, 255))
+        _glow1 = (102, 126, 234) if _c1 == (255, 255, 255) else None
+        _glow2 = (102, 126, 234) if _c2 == (255, 255, 255) else None
+
+        if len(main_lines) < 2 or _c1 == _c2:
+            # 单行或两行同色：一次绘制，背景+文字一起处理
+            bg, _ = _draw_text_overlay(
+                bg, main_lines, t_font, title_y_draw, img_width, margin, text_width,
+                text_color=_c1, glow_color=_glow1, line_spacing=18,
+                background_top_y=0,
+            )
+        else:
+            # 两行不同色：先用全部行建立背景+绘制第一行，再无背景覆画第二行
+            bg, _ = _draw_text_overlay(
+                bg, main_lines, t_font, title_y_draw, img_width, margin, text_width,
+                text_color=_c1, glow_color=_glow1, line_spacing=18,
+                background_top_y=0,
+            )
+            _tmp_draw = ImageDraw.Draw(bg)
+            _bb1 = _tmp_draw.textbbox((0, 0), main_lines[0], font=t_font)
+            _line2_y = title_y_draw + (_bb1[3] - _bb1[1]) + 18  # 18 = line_spacing for title
+            bg, _ = _draw_text_overlay(
+                bg, [main_lines[1]], t_font, _line2_y, img_width, margin, text_width,
+                text_color=_c2, glow_color=_glow2, line_spacing=18,
+                draw_background=False,
+            )
         # 副标题：黄底黑字，紧跟主标题下方（与主标题同位移，整体自上方滑入）
         if sub_lines:
             sub_y = title_y_draw + main_h + MAIN_SUBTITLE_GAP_PX
@@ -892,18 +917,31 @@ def _safe_paste(bg, img, x, y):
         bg.paste(cropped, (dst_x, dst_y))
 
 
+def _hex_to_rgb(hex_str: str, default: Tuple[int, int, int] = (255, 255, 255)) -> Tuple[int, int, int]:
+    """将 '#RRGGBB' 转换为 (R, G, B) 整数元组；转换失败时返回 default。"""
+    try:
+        h = (hex_str or '').lstrip('#')
+        if len(h) == 6:
+            return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    except Exception:
+        pass
+    return default
+
+
 def _draw_text_overlay(bg, lines, font, start_y, img_width, margin, text_width,
                       text_color=(255, 255, 255), glow_color=None, line_spacing=12,
                       align="center",
                       highlight_keywords: Optional[List[str]] = None,
                       highlight_color: Tuple[int, int, int] = DEFAULT_SUMMARY_HIGHLIGHT_COLOR,
                       background_top_y: Optional[int] = None,
-                      background_bottom_y: Optional[int] = None):
+                      background_bottom_y: Optional[int] = None,
+                      draw_background: bool = True):
     """在图片上绘制带半透明背景的文字块，返回 (result_image, block_height)。
     align: 'center' | 'left'（摘要建议 left）
     highlight_keywords: 非空时在行内匹配并着色（长词优先；与 glow 不同时使用）
     background_top_y: 若指定（如 0），背景条从该 y 铺到原底边，用于主标题区顶到视频上沿。
-    background_bottom_y: 若指定（如画布高度），背景下缘至少铺到该 y（不含），用于摘要区贴视频下沿。"""
+    background_bottom_y: 若指定（如画布高度），背景下缘至少铺到该 y（不含），用于摘要区贴视频下沿。
+    draw_background: False 时跳过半透明背景叠层（仅绘制文字），用于多行不同色时第二次覆画。"""
     draw = ImageDraw.Draw(bg)
     hl_kw = [k.strip() for k in (highlight_keywords or []) if k and k.strip()]
     hl_pattern = _build_highlight_pattern(hl_kw) if hl_kw else None
@@ -914,23 +952,26 @@ def _draw_text_overlay(bg, lines, font, start_y, img_width, margin, text_width,
     )
     # 半透明背景（默认仅包住文字块上缘外 25px；background_top_y 可把上缘抬到画面顶部；
     # background_bottom_y 可把下缘延伸到画面底部）
-    span_end = (start_y - 25) + (total_h + 40)
-    if background_top_y is not None:
-        bg_y = max(0, int(background_top_y))
+    if draw_background:
+        span_end = (start_y - 25) + (total_h + 40)
+        if background_top_y is not None:
+            bg_y = max(0, int(background_top_y))
+        else:
+            bg_y = start_y - 25
+        if background_bottom_y is not None:
+            span_end = max(span_end, int(background_bottom_y))
+        _, ih = bg.size
+        span_end = min(span_end, ih)
+        bg_h = max(1, int(span_end - bg_y))
+        overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
+        od = ImageDraw.Draw(overlay)
+        for i in range(bg_h):
+            p = i / bg_h
+            alpha = int(220 * (min(p, 1 - p) / 0.1 if min(p, 1 - p) < 0.1 else 1))
+            od.rectangle([(0, bg_y + i), (img_width, bg_y + i + 1)], fill=(20, 20, 40, alpha))
+        result = Image.alpha_composite(bg.convert('RGBA'), overlay).convert('RGB')
     else:
-        bg_y = start_y - 25
-    if background_bottom_y is not None:
-        span_end = max(span_end, int(background_bottom_y))
-    _, ih = bg.size
-    span_end = min(span_end, ih)
-    bg_h = max(1, int(span_end - bg_y))
-    overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    for i in range(bg_h):
-        p = i / bg_h
-        alpha = int(220 * (min(p, 1 - p) / 0.1 if min(p, 1 - p) < 0.1 else 1))
-        od.rectangle([(0, bg_y + i), (img_width, bg_y + i + 1)], fill=(20, 20, 40, alpha))
-    result = Image.alpha_composite(bg.convert('RGBA'), overlay).convert('RGB')
+        result = bg
     draw = ImageDraw.Draw(result)
 
     cy = start_y

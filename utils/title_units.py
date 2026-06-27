@@ -35,14 +35,16 @@ def truncate_han_equiv(s: str, max_units: float) -> str:
     return "".join(out)
 
 
-# 主标题第一行：上限 18 汉字当量（产品「14～18」由 AI 控制，服务端防超长）
-MAIN_LINE1_MAX_UNITS = 18.0
-# 主标题第二行：上限 20 汉字当量（产品「16～20」）
-MAIN_LINE2_MAX_UNITS = 20.0
+# 主标题第一行：上限 12 汉字当量（产品「9～12」由 AI 控制，服务端防超长）
+MAIN_LINE1_MAX_UNITS = 12.0
+# 主标题第二行：上限 12 汉字当量（产品「9～12」）
+MAIN_LINE2_MAX_UNITS = 12.0
 # 兼容旧代码：曾统一用 14；新逻辑请用 MAIN_LINE1_MAX_UNITS / MAIN_LINE2_MAX_UNITS
 MAIN_LINE_MAX_UNITS = MAIN_LINE1_MAX_UNITS
-# 副标题单行上限 16 汉字当量（产品「14～16」）
-SUBTITLE_MAX_UNITS = 16.0
+# 副标题第一行上限 15 汉字当量（产品「11～15」）
+SUBTITLE_MAX_UNITS = 15.0
+# 副标题第二行（流量钩子）上限 15 汉字当量（产品「11～15」，与 sub_title 同上限）
+SUBTITLE2_MAX_UNITS = 15.0
 
 
 def split_main_title_to_two_lines(title: str) -> tuple[str, str]:
