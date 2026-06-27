@@ -41,6 +41,20 @@ def _compatible_config_path(project_dir: Path, output_dir: Path) -> Path:
     return sanitized
 
 
+def _looks_like_indextts2_runtime(project_dir: Path) -> bool:
+    cfg_path = project_dir / "checkpoints" / "config.yaml"
+    try:
+        cfg_text = cfg_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        cfg_text = ""
+    return (
+        "emo_condition_module" in cfg_text
+        or "semantic_codec:" in cfg_text
+        or "s2mel:" in cfg_text
+        or (project_dir / "checkpoints" / "s2mel.pth").is_file()
+    )
+
+
 def _load_tts(project_dir: Path, output_dir: Path, args: argparse.Namespace):
     """Prefer the external app's compiled IndexTTS2 runtime; fall back to pure Python IndexTTS."""
     try:
@@ -60,6 +74,13 @@ def _load_tts(project_dir: Path, output_dir: Path, args: argparse.Namespace):
             use_cuda_kernel=bool(args.use_cuda_kernel),
         )
     except Exception as exc:
+        if _looks_like_indextts2_runtime(project_dir):
+            raise RuntimeError(
+                "IndexTTS2 runtime failed before synthesis and cannot safely fall back to "
+                "indextts.infer.IndexTTS because the current checkpoint is IndexTTS2. "
+                "Check CUDA_VISIBLE_DEVICES/INDEXTTS_DEVICE and kelong_tts2 runtime. "
+                f"Original error: {exc}"
+            ) from exc
         print(f">> kelong_tts2 unavailable, falling back to indextts.infer.IndexTTS: {exc}")
 
     from indextts.infer import IndexTTS

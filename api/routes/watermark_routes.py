@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from datetime import datetime
 from ..schemas.request_models import (
-    RemoveWatermarkRequest, DetectWatermarkRequest
+    RemoveWatermarkRequest, DetectWatermarkRequest, DrawBordersRequest
 )
 
 router = APIRouter(prefix="/api", tags=["去水印"])
@@ -51,56 +51,57 @@ def merge_regions(regions):
     
     return merged
 
+def _make_mock_lama():
+    class MockLamaModel:
+        def __call__(self, image, mask):
+            return image.copy()
+    return MockLamaModel()
+
+
 def get_lama_model():
-    """获取LaMa去水印模型实例"""
+    """获取LaMa去水印模型实例。先尝试 CUDA，失败则回退到 CPU。"""
+    import os
+    import torch
+
     try:
-        import torch
         from simple_lama_inpainting import SimpleLama
-        
-        # 智能选择设备
-        if torch.cuda.is_available():
-            device = 'cuda'
-            device_info = "GPU加速模式"
-        else:
-            device = 'cpu'
-            device_info = "CPU模式"
-            # 如果是CPU模式，设置环境变量确保不使用CUDA
-            import os
-            os.environ['CUDA_VISIBLE_DEVICES'] = ''
-        
-        logger.info(f"检测到设备: {device_info} (CUDA可用: {torch.cuda.is_available()})")
-        
-        # 创建模型实例
-        model = SimpleLama(device=device)
-        
-        # 如果模型有to()方法，确保在正确设备上
-        if hasattr(model, 'to'):
-            model = model.to(device)
-            
-        logger.info(f"LaMa模型加载成功 ({device_info})")
-        return model
-        
     except ImportError as e:
         logger.warning(f"LaMa模型未安装: {e}，使用模拟实现")
-        class MockLamaModel:
-            def __call__(self, image, mask):
-                # 模拟去水印效果：简单地模糊被遮盖区域
-                from PIL import ImageFilter
-                result = image.copy()
-                # 创建一个遮罩来标识需要修复的区域
-                mask_rgba = mask.convert('RGBA')
-                # 应用轻微模糊来模拟修复效果
-                blurred = result.filter(ImageFilter.GaussianBlur(radius=2))
-                # 这里应该实现真正的去水印逻辑
-                return result
-        return MockLamaModel()
+        return _make_mock_lama()
+
+    # --- 尝试 CUDA ---
+    if torch.cuda.is_available():
+        try:
+            model = SimpleLama(device='cuda')
+            if hasattr(model, 'to'):
+                model = model.to('cuda')
+            logger.info("LaMa模型加载成功 (GPU加速模式)")
+            return model
+        except Exception as cuda_err:
+            logger.warning(f"CUDA 模式初始化失败，回退到 CPU: {cuda_err}")
+
+    # --- 强制 CPU ---
+    # simple_lama_inpainting 在 torch.jit.load() 时未指定 map_location，
+    # 导致 CUDA 存储的权重被映射到 CUDA 设备，在 CPU-only PyTorch 下崩溃。
+    # 通过 monkey-patch 强制注入 map_location='cpu'，确保权重加载到 CPU。
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
+    _orig_jit_load = torch.jit.load
+    try:
+        def _cpu_jit_load(f, *args, **kwargs):
+            kwargs.setdefault('map_location', torch.device('cpu'))
+            return _orig_jit_load(f, *args, **kwargs)
+        torch.jit.load = _cpu_jit_load
+
+        model = SimpleLama(device='cpu')
+        if hasattr(model, 'to'):
+            model = model.to('cpu')
+        logger.info("LaMa模型加载成功 (CPU模式)")
+        return model
     except Exception as e:
         logger.error(f"LaMa模型加载失败: {e}")
-        # 返回模拟模型作为后备
-        class MockLamaModel:
-            def __call__(self, image, mask):
-                return image.copy()
-        return MockLamaModel()
+        return _make_mock_lama()
+    finally:
+        torch.jit.load = _orig_jit_load  # 恢复原始函数
 
 @router.post("/detect-watermark")
 async def detect_watermark(request: DetectWatermarkRequest):
@@ -320,3 +321,62 @@ async def replace_edited_image(request: dict):
         import traceback
         traceback.print_exc()
         return {"success": False, "message": f"替换图片失败：{str(e)}"}
+
+
+@router.post("/draw-borders")
+async def draw_borders(request: DrawBordersRequest):
+    """在图片上烧录矩形边框并保存为新文件"""
+    try:
+        image_path = Path(request.image_path.lstrip('/'))
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="图片不存在")
+
+        if not request.borders:
+            return {"success": False, "message": "请至少绘制一个边框"}
+
+        img = Image.open(image_path).convert("RGB")
+        img_w, img_h = img.size
+        draw = ImageDraw.Draw(img)
+
+        for border in request.borders:
+            # 防御性检查：坐标和尺寸合法性
+            x1 = max(0, border.x)
+            y1 = max(0, border.y)
+            x2 = min(img_w - 1, border.x + border.width)
+            y2 = min(img_h - 1, border.y + border.height)
+            if x2 <= x1 or y2 <= y1:
+                continue
+
+            # 颜色格式校验：仅允许 #rrggbb / #rgb
+            color_hex = border.color.strip()
+            if not color_hex.startswith('#') or len(color_hex) not in (4, 7):
+                color_hex = '#ff0000'
+
+            draw.rectangle(
+                [(x1, y1), (x2, y2)],
+                outline=color_hex,
+                width=max(1, border.line_width)
+            )
+
+        # 保存结果（复用 watermark_removed 目录）
+        output_dir = image_path.parent / "watermark_removed"
+        output_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%H%M%S")
+        output_path = output_dir / f"{image_path.stem}_bordered_{timestamp}{image_path.suffix}"
+        img.save(output_path, quality=95)
+
+        relative_path = str(output_path.relative_to(Path("."))).replace("\\", "/")
+        logger.success(f"边框绘制成功: {output_path}")
+        return {
+            "success": True,
+            "message": f"已绘制 {len(request.borders)} 个边框",
+            "result_path": f"/{relative_path}"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"绘制边框失败：{e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"绘制边框失败：{str(e)}"}

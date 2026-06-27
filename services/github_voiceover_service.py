@@ -298,7 +298,7 @@ def _ass_fontsize_pixels(ui_fontsize: int, play_res_y: int) -> int:
 
 # 烧录字幕：无描边；阴影约 70% 不透明。不使用 \\blur（会令整字发糊），仅用 shad 偏移 + 半透明阴影色
 # &HAABBGGRR：AA=4D ≈ 30% 透明 → 约 70% 不透明黑
-_ASS_BURN_SHADOW_PREFIX = r"{\bord0\shad3\4c&H4D000000}"
+_ASS_BURN_SHADOW_PREFIX = r""  # BorderStyle 3 使用背景框，不需要额外 inline 覆盖
 
 
 def _ass_horizontal_margins(play_res_x: int) -> Tuple[int, int]:
@@ -399,6 +399,7 @@ def _write_ass_for_burn(
     *,
     fontname: str,
     fontsize: int,
+    margin_l: Optional[int] = None,
     margin_v: int,
     play_res_x: int,
     play_res_y: int,
@@ -413,7 +414,15 @@ def _write_ass_for_burn(
     # 页面字号 → ASS 像素（与 PlayRes 一致）
     fs = _ass_fontsize_pixels(int(fontsize), pry)
     mv = max(0, int(margin_v))
-    ml, mr = _ass_horizontal_margins(prx)
+    default_ml, default_mr = _ass_horizontal_margins(prx)
+    if margin_l is None:
+        ml, mr = default_ml, default_mr
+    else:
+        ml = max(0, min(prx - 100, int(margin_l)))
+        default_usable = max(100, prx - default_ml - default_mr)
+        mr = max(0, prx - ml - default_usable)
+        if prx - ml - mr < 100:
+            mr = max(0, prx - ml - 100)
     cpl = _ass_chars_per_line(prx, ml, mr, fs)
     logger.info(
         f"ASS 烧录: UI字号={fontsize} → Fontsize={fs}px, PlayRes={prx}x{pry}, "
@@ -430,7 +439,7 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{fn},{fs},&H00FFFFFF,&H00000000,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,0,0,2,{ml},{mr},{mv},1
+Style: Default,{fn},{fs},&H00FFFFFF,&H00000000,&H00000000,&HA0000000,-1,0,0,0,100,100,0,0,3,8,0,2,{ml},{mr},{mv},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -606,6 +615,15 @@ def _resolve_voice_clone_audio(voice_clone_audio_path: Optional[str], *, project
 
 def _build_indextts_env(project_dir: Path) -> dict:
     env = os.environ.copy()
+    # Some unrelated routes may temporarily force CPU by setting
+    # CUDA_VISIBLE_DEVICES="" in the long-lived web process. Do not let that
+    # leak into the dedicated IndexTTS runtime unless explicitly requested.
+    indextts_cuda_visible = env.get("INDEXTTS_CUDA_VISIBLE_DEVICES")
+    if indextts_cuda_visible is not None:
+        env["CUDA_VISIBLE_DEVICES"] = indextts_cuda_visible
+    elif env.get("CUDA_VISIBLE_DEVICES") == "":
+        env.pop("CUDA_VISIBLE_DEVICES", None)
+
     py_dir = project_dir / "py312"
     path_parts = [
         py_dir,
@@ -740,6 +758,7 @@ async def render_voiceover_for_video(
     subtitle_fontname: str = "Microsoft YaHei",
     subtitle_fontsize: int = 16,
     subtitle_margin_bottom_percent: float = 11.0,
+    subtitle_margin_left_percent: float = 4.5,
     subtitle_max_chars: int = 20,
     output_dir: Optional[Path] = None,
 ) -> Tuple[bool, str, Optional[str], Optional[str]]:
@@ -827,6 +846,8 @@ async def render_voiceover_for_video(
             narr_audio += AudioSegment.silent(duration=(v_ms - n_ms))
         elif n_ms > v_ms:
             narr_audio = narr_audio[:v_ms]
+            # 将截断后的旁白同步写回磁盘，确保数字人步骤拿到的音频与视频等长
+            narr_audio.export(str(narr_mp3), format="mp3")
 
         # 混 BGM：从视频中提取
         mixed_audio = narr_audio
@@ -899,12 +920,16 @@ async def render_voiceover_for_video(
             pct = float(subtitle_margin_bottom_percent)
             pct = max(8.0, min(45.0, pct))
             margin_v = max(8, int(round(vh * (pct / 100.0))))
+            left_pct = float(subtitle_margin_left_percent)
+            left_pct = max(0.0, min(45.0, left_pct))
+            margin_l = int(round(vw * (left_pct / 100.0)))
             ass_path = work / "burn_subs.ass"
             _write_ass_for_burn(
                 times,
                 ass_path,
                 fontname=str(subtitle_fontname or "Microsoft YaHei"),
                 fontsize=int(subtitle_fontsize),
+                margin_l=margin_l,
                 margin_v=margin_v,
                 play_res_x=vw,
                 play_res_y=vh,
@@ -928,8 +953,15 @@ async def render_voiceover_for_video(
 
         rel = "/" + str(final_mp4.relative_to(Path("."))).replace("\\", "/")
         srel = "/" + str(srt_path.relative_to(Path("."))).replace("\\", "/")
-        return True, "ok", rel, srel
+
+        # 将旁白音频复制到输出目录，供数字人步骤使用
+        narr_out = out_dir / "narration.mp3"
+        import shutil as _shutil
+        _shutil.copy2(narr_mp3, narr_out)
+        narr_url = "/" + str(narr_out.relative_to(Path("."))).replace("\\", "/")
+
+        return True, "ok", rel, srel, narr_url
 
     except Exception as e:
         logger.exception(f"配音合成失败: {e}")
-        return False, str(e), None, None
+        return False, str(e), None, None, None

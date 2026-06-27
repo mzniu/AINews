@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数字人视频生成器</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/digital_human.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">AINews</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">主页</a>
+                <a href="/video-maker" class="nav-link">视频制作</a>
+                <a href="/github-video-maker" class="nav-link">GitHub项目</a>
+                <a href="/digital-human" class="nav-link active">数字人</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <header class="page-header">
+            <div>
+                <h1>数字人视频生成器</h1>
+                <p>选择生成方式，上传形象与音频，一键生成数字人口播视频。</p>
+            </div>
+            <button type="button" class="btn btn-outline" id="refreshAvatarsBtn">刷新形象库</button>
+        </header>
+
+        <section class="workbench">
+            <div class="panel upload-panel">
+                <!-- ① 选择生成方式 -->
+                <div class="step-section">
+                    <div class="step-label">① 选择生成方式</div>
+                    <div class="engine-seg" id="engineSeg">
+                        <button type="button" class="engine-seg-btn active" data-engine="auto">
+                            自动选择<small>推荐</small>
+                        </button>
+                        <button type="button" class="engine-seg-btn" data-engine="echomimic">
+                            EchoMimic V2<small>上传图片</small>
+                        </button>
+                        <button type="button" class="engine-seg-btn" data-engine="musetalk">
+                            MuseTalk<small>上传视频</small>
+                        </button>
+                        <button type="button" class="engine-seg-btn" data-engine="wav2lip">
+                            Wav2Lip<small>上传视频</small>
+                        </button>
+                    </div>
+                    <p id="engineHint" class="engine-hint">自动选择可用的最佳引擎（EchoMimic V2 → MuseTalk → Wav2Lip）</p>
+                </div>
+
+                <!-- ② 上传形象 -->
+                <div class="step-section">
+                    <div class="step-label">② 上传形象</div>
+                    <!-- 图片（EchoMimic 专用） -->
+                    <label class="upload-box" id="imageUploadBox" for="avatarImageInput" style="display:none">
+                        <span class="upload-label">形象图片</span>
+                        <strong id="avatarImageName">选择图片</strong>
+                        <small>jpg、png、webp 等，推荐正脸清晰半身像</small>
+                        <input type="file" id="avatarImageInput" accept="image/jpeg,image/png,image/webp,image/bmp">
+                    </label>
+                    <!-- 视频（Auto / MuseTalk / Wav2Lip） -->
+                    <label class="upload-box" id="videoUploadBox" for="avatarInput">
+                        <span class="upload-label">形象视频</span>
+                        <strong id="avatarName">选择视频</strong>
+                        <small>mp4、mov、webm、mkv 等，建议正脸清晰、光线稳定</small>
+                        <input type="file" id="avatarInput" accept="video/*">
+                    </label>
+                </div>
+
+                <!-- ③ 上传音频 -->
+                <div class="step-section">
+                    <div class="step-label">③ 上传音频</div>
+                    <label class="upload-box" for="audioInput">
+                        <span class="upload-label">驱动音频</span>
+                        <strong id="audioName">选择音频</strong>
+                        <small>mp3、wav、m4a、aac 等，音频越干净效果越好</small>
+                        <input type="file" id="audioInput" accept="audio/*">
+                    </label>
+                </div>
+
+                <div class="status-list" id="uploadStatus"></div>
+            </div>
+
+            <div class="panel settings-panel">
+                <!-- 隐藏的引擎 select，供 JS 与后端保持兼容 -->
+                <select id="engineSelect" style="display:none">
+                    <option value="auto">自动</option>
+                    <option value="echomimic">EchoMimic V2</option>
+                    <option value="musetalk">MuseTalk</option>
+                    <option value="wav2lip">Wav2Lip</option>
+                </select>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                    <div class="panel-title" style="margin-bottom:0">生成设置</div>
+                    <span id="engineStatusBadge" style="font-size:12px"></span>
+                </div>
+                <div class="form-row">
+                    <label for="avatarSelect">已上传形象</label>
+                    <select id="avatarSelect" class="form-control">
+                        <option value="">请先上传或选择形象</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="audioSelect">已上传音频</label>
+                    <select id="audioSelect" class="form-control">
+                        <option value="">请先上传驱动音频</option>
+                    </select>
+                </div>
+                <div class="form-row" id="modeRow">
+                    <label for="modeSelect">生成模式</label>
+                    <select id="modeSelect" class="form-control">
+                        <option value="ai">AI 唇形同步</option>
+                        <option value="fast">快速合成（ffmpeg）</option>
+                    </select>
+                </div>
+                <div class="settings-grid">
+                    <label class="toggle-row">
+                        <input type="checkbox" id="superResolutionToggle">
+                        <span>牙齿美化 / 超分</span>
+                    </label>
+                    <label class="toggle-row">
+                        <input type="checkbox" id="actionToggle">
+                        <span>动作随机</span>
+                    </label>
+                    <label class="number-row" for="batchSizeInput">
+                        <span>批大小</span>
+                        <input type="number" id="batchSizeInput" min="1" max="32" value="4">
+                    </label>
+                </div>
+
+                <button type="button" class="btn btn-primary btn-full" id="generateBtn">生成数字人视频</button>
+                <div class="progress-card hidden" id="progressCard">
+                    <div class="progress-meta">
+                        <span id="progressText">准备中</span>
+                        <strong id="progressPercent">0%</strong>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel preview-panel">
+                <div class="panel-title">预览</div>
+                <div class="preview-stage" id="previewStage">
+                    <video id="resultVideo" controls playsinline></video>
+                    <div class="preview-empty" id="previewEmpty">生成完成后在这里预览</div>
+                </div>
+                <div class="result-actions hidden" id="resultActions">
+                    <a class="btn btn-success" id="downloadLink" href="#" download>下载视频</a>
+                    <button type="button" class="btn btn-outline" id="copyLinkBtn">复制地址</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/digital_human.js"></script>
+</body>
+</html>
