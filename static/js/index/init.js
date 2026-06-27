@@ -4,8 +4,17 @@
             initializeEventListeners();
             // 加载 BGM 列表
             loadBGMList();
+            loadBackgroundImageList();
             loadTitleFontList();
             loadIndexSubtitleFonts();
+            // 背景图选择 change 时同步预览
+            const _bgSel = document.getElementById('bgSelect');
+            if (_bgSel) {
+                _bgSel.onchange = () => {
+                    const p = document.getElementById('bgPreview');
+                    if (p) p.src = '/' + _bgSel.value;
+                };
+            }
             // 开发模式：URL 含 ?dev=1 时显示 .dev-only 面板
             applyDevMode();
         });
@@ -40,6 +49,36 @@
         /**
          * 动态加载 BGM 列表
          */
+        /**
+         * 动态加载背景图列表并初始化预览
+         */
+        async function loadBackgroundImageList() {
+            const sel = document.getElementById('bgSelect');
+            const preview = document.getElementById('bgPreview');
+            if (!sel) return;
+            const current = sel.value;
+            try {
+                const response = await fetch('/api/list-background-images');
+                const data = await response.json();
+                if (data.success && Array.isArray(data.files) && data.files.length) {
+                    sel.innerHTML = '';
+                    data.files.forEach((f) => {
+                        const opt = document.createElement('option');
+                        opt.value = f.path;
+                        opt.textContent = f.name || f.path.split('/').pop();
+                        sel.appendChild(opt);
+                    });
+                    if (current && [...sel.options].some((o) => o.value === current)) {
+                        sel.value = current;
+                    }
+                }
+            } catch (e) {
+                console.error('加载背景图列表失败:', e);
+            } finally {
+                if (preview) preview.src = '/' + (sel.value || 'static/imgs/bg.png');
+            }
+        }
+
         async function loadBGMList() {
             try {
                 // 读取 static/music 目录下的所有 mp3 文件

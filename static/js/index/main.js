@@ -2463,7 +2463,9 @@
                 // 获取用户选择的 BGM
                 const bgmSelect = document.getElementById('bgmSelect');
                 const selectedBGM = bgmSelect ? bgmSelect.value : 'static/music/background.mp3';
-                            
+                const bgSelect = document.getElementById('bgSelect');
+                const selectedBgPath = bgSelect ? bgSelect.value : 'static/imgs/bg.png';
+
                 // 与 GitHub 第四步相同：POST /api/create-animated-video，画中画由 video_embedding_service 处理
                 const response = await fetch('/api/create-animated-video', {
                     method: 'POST',
@@ -2479,6 +2481,7 @@
                         summary: editedSummary,
                         images: clipPayload,
                         audio_path: selectedBGM,
+                        background_image_path: selectedBgPath,
                         title_font_key: getTitleFontKey(),
                         title_font_size: (() => { const v = parseInt(document.getElementById('titleFontSizeInput')?.value, 10); return (v >= 28 && v <= 120) ? v : null; })(),
                         show_summary: getShowSummaryOnVideo(),
@@ -2993,6 +2996,7 @@
                         summary: editedSummary || generatedSummary,
                         images: buildClipPayloadForAnimatedVideo(),
                         audio_path: 'static/music/background.mp3',
+                        background_image_path: (document.getElementById('bgSelect')?.value) || 'static/imgs/bg.png',
                         title_font_key: getTitleFontKey(),
                         show_summary: getShowSummaryOnVideo(),
                         tags: (document.getElementById('editableAiTags') && document.getElementById('editableAiTags').value.trim()) || '',

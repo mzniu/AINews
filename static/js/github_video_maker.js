@@ -1094,6 +1094,7 @@
             const sel = document.getElementById('github-background-select');
             if (!sel) return;
             const current = sel.value;
+            const preview = document.getElementById('github-bg-preview');
             try {
                 const response = await fetch('/api/list-background-images');
                 const data = await response.json();
@@ -1111,7 +1112,14 @@
                 }
             } catch (e) {
                 console.error('加载背景图列表失败:', e);
+            } finally {
+                if (preview) preview.src = '/' + (sel.value || 'static/imgs/bg.png');
             }
+            // 用 onchange 避免多次调用本函数时累积监听器
+            sel.onchange = () => {
+                const p = document.getElementById('github-bg-preview');
+                if (p) p.src = '/' + sel.value;
+            };
         }
 
         async function loadGithubBGMList() {
@@ -1221,7 +1229,10 @@
                         showNotification('背景图已上传', 'success');
                         await loadBackgroundImageList();
                         const s = document.getElementById('github-background-select');
-                        if (s) s.value = data.path;
+                        if (s) {
+                            s.value = data.path;
+                            s.dispatchEvent(new Event('change'));
+                        }
                     } else {
                         throw new Error(data.message || '上传失败');
                     }

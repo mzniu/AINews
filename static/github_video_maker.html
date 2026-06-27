@@ -202,9 +202,12 @@
                 </div>
                 <div class="form-group">
                     <label for="github-background-select">成片背景图</label>
-                    <select id="github-background-select" class="form-control">
-                        <option value="static/imgs/bg.png">默认背景</option>
-                    </select>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <select id="github-background-select" class="form-control" style="flex: 1; min-width: 200px; max-width: 240px;">
+                            <option value="static/imgs/bg.png">默认背景</option>
+                        </select>
+                        <img id="github-bg-preview" alt="背景图预览" src="/static/imgs/bg.png" onerror="this.style.display='none'" style="width: 60px; height: 107px; border-radius: var(--radius-sm); border: 1px solid var(--border-soft); object-fit: cover; flex-shrink: 0;" />
+                    </div>
                     <small class="github-bgm-hint">默认图为 <code>static/imgs/bg.png</code>；自定义图可放入 <code>static/imgs/backgrounds/</code> 或使用下方上传。</small>
                 </div>
                 <div class="form-group github-bg-upload-row">

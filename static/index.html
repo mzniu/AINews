@@ -361,10 +361,15 @@
                             <button class="btn" onclick="generateVideoDirectly()">
                                 🎬 生成视频
                             </button>
-                            <select id="bgmSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; cursor: pointer; min-width: 200px;">
+                            <select id="bgmSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: var(--fs-md); cursor: pointer; min-width: 200px; max-width: 240px; text-overflow: ellipsis;">
                                 <option value="static/music/background.mp3">🎵 默认 BGM</option>
                                 <!-- 其他 BGM 选项将动态加载 -->
                             </select>
+                            <select id="bgSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: var(--fs-md); cursor: pointer; min-width: 200px; max-width: 240px; text-overflow: ellipsis;">
+                                <option value="static/imgs/bg.png">🖼️ 默认背景</option>
+                                <!-- 其他背景图选项将动态加载 -->
+                            </select>
+                            <img id="bgPreview" alt="背景图预览" src="/static/imgs/bg.png" onerror="this.style.display='none'" style="width: 60px; height: 107px; border-radius: var(--radius-sm); border: 1px solid var(--border-soft); object-fit: cover;" />
                         </div>
                         <div class="aux-actions">
                             <button class="secondary-btn" onclick="saveEditedContent()" title="保存修改后的内容用于视频生成">
