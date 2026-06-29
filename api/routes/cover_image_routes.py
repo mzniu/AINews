@@ -1,6 +1,7 @@
 """AI 封面图：Seedance / 火山 Ark 文生图 + 入库到 data/local_uploads"""
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
@@ -34,7 +35,7 @@ async def api_generate_cover_image(body: GenerateCoverImageRequest) -> Dict[str,
 
     logger.info(f"封面生图 prompt 长度={len(prompt)}")
 
-    gen = generate_cover_image_url(prompt)
+    gen = await asyncio.to_thread(generate_cover_image_url, prompt)
     if not gen.get("success"):
         msg = gen.get("error") or "生图失败"
         raise HTTPException(status_code=503, detail=msg)

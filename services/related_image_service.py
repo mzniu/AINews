@@ -46,14 +46,17 @@ class RelatedImageService:
         max_crawl_pages: int = 18,
         max_images_per_page: int = 6,
     ) -> Dict[str, Any]:
-        generated = cls.generate_search_query(title=title, content=content, user_query=query)
+        generated = await asyncio.to_thread(
+            cls.generate_search_query, title=title, content=content, user_query=query
+        )
         final_query = generated.get("query") or query or title
         if not final_query:
             raise ValueError("无法生成有效搜索词")
 
         sources = cls._normalize_search_sources(search_sources)
         search_pages_per_source = max(1, min(10, int(max_pages)))
-        pages = cls.search_related_pages(
+        pages = await asyncio.to_thread(
+            cls.search_related_pages,
             final_query,
             source_url=source_url,
             search_sources=sources,

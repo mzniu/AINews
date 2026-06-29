@@ -7,6 +7,7 @@ GIF处理API路由
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from pathlib import Path
+import asyncio
 import json
 import logging
 from typing import List, Optional
@@ -36,10 +37,11 @@ async def process_gif_for_video(
                 logger.warning(f"GIF兼容性问题: {analysis.get('issues')}")
         
         # 处理GIF转换
-        result_path = gif_processor.process_gif_for_video(
+        result_path = await asyncio.to_thread(
+            gif_processor.process_gif_for_video,
             gif_path=gif_path,
             target_duration=target_duration,
-            output_dir=output_dir
+            output_dir=output_dir,
         )
         
         if result_path:
@@ -70,47 +72,44 @@ async def batch_process_gifs(
             target_duration,
             output_dir,
         )
-        results = []
-        failed_count = 0
-        
-        for gif_path in gif_paths:
+
+        async def _process_one(gif_path: str):
             try:
                 if not gif_processor.is_convertible_to_mp4_animation(gif_path):
-                    results.append({
+                    return {
                         "original_path": gif_path,
                         "status": "failed",
                         "error": "仅支持 .gif 或 .webp",
-                    })
-                    failed_count += 1
-                    continue
-                result = gif_processor.process_gif_for_video(
+                    }
+                result = await asyncio.to_thread(
+                    gif_processor.process_gif_for_video,
                     gif_path=gif_path,
                     target_duration=target_duration,
-                    output_dir=output_dir
+                    output_dir=output_dir,
                 )
-                
                 if result:
-                    results.append({
+                    return {
                         "original_path": gif_path,
                         "video_path": result,
-                        "status": "success"
-                    })
-                else:
-                    results.append({
-                        "original_path": gif_path,
-                        "status": "failed",
-                        "error": "转换失败"
-                    })
-                    failed_count += 1
-                    
-            except Exception as e:
-                results.append({
+                        "status": "success",
+                    }
+                return {
                     "original_path": gif_path,
                     "status": "failed",
-                    "error": str(e)
-                })
-                failed_count += 1
-        
+                    "error": "转换失败",
+                }
+            except Exception as e:
+                return {
+                    "original_path": gif_path,
+                    "status": "failed",
+                    "error": str(e),
+                }
+
+        # 并发处理所有 GIF（每个在独立线程，避免阻塞 event loop）
+        results = await asyncio.gather(*[_process_one(p) for p in gif_paths])
+        results = list(results)
+        failed_count = sum(1 for r in results if r.get("status") != "success")
+
         return {
             "success": True,
             "results": results,

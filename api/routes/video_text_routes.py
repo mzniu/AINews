@@ -9,6 +9,7 @@ MoviePy 2.x：已移除 moviepy.editor，请使用「from moviepy import …」�
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from typing import Dict
+import asyncio
 import json
 from pathlib import Path
 from datetime import datetime
@@ -60,11 +61,12 @@ async def add_text_to_video(
 
         logger.info(f"视频文件已保存: {temp_input_path}")
 
-        # 处理视频添加文字
-        output_path = await process_video_with_text(
-            input_path=temp_input_path,
-            output_path=temp_output_path,
-            settings=text_settings
+        # 处理视频添加文字（moviepy 是同步 CPU 密集，整块放到线程跑）
+        output_path = await asyncio.to_thread(
+            _process_video_with_text_sync,
+            temp_input_path,
+            temp_output_path,
+            text_settings,
         )
 
         # 移动到最终位置
@@ -81,7 +83,7 @@ async def add_text_to_video(
         # 返回结果
         relative_path = str(final_path.relative_to(Path("."))).replace("\\", "/")
         file_size = final_path.stat().st_size / (1024 * 1024)
-        duration = get_video_duration(str(final_path))
+        duration = await asyncio.to_thread(get_video_duration, str(final_path))
 
         logger.info(f"视频文字添加完成: {final_path}")
 
@@ -102,9 +104,9 @@ async def add_text_to_video(
         raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
 
 
-async def process_video_with_text(input_path: Path, output_path: Path, settings: Dict) -> Path:
+def _process_video_with_text_sync(input_path: Path, output_path: Path, settings: Dict) -> Path:
     """
-    使用MoviePy处理视频并添加文字
+    使用 MoviePy 同步处理视频并添加文字（CPU 密集，需在线程中调用）。
     """
     try:
         logger.info(f"开始处理视频: {input_path}")

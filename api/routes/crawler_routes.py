@@ -1,4 +1,5 @@
 """爬虫相关API路由"""
+import asyncio
 from fastapi import APIRouter, HTTPException
 from typing import Dict
 from loguru import logger
@@ -151,7 +152,8 @@ async def generate_summary(request: GenerateSummaryRequest):
             vmin=vmin, vmax=vmax, json_template=json_template
         )
 
-        response = client.chat.completions.create(
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
             model=model,
             messages=[
                 {"role": "system", "content": "你是顶级自媒体爆款文案大师，精通微信视频号的「社交货币 / 夸赞」方法论：通过高情商夸赞目标受众、帮用户立人设来触发社交裂变点赞；同时熟练掌握「制造悬念、列举数字、提出疑问、强调时效、引发争议（中立可讨论）、指向明确」六种辅助标题技法，能在方法论为主、技法为辅的前提下综合运用。你的文案在合规前提下引发点赞与传播，信息密度高。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
@@ -249,7 +251,8 @@ async def generate_image(request: GenerateImageRequest):
     """生成视频关键帧"""
     try:
         from ...services.video_service import VideoService
-        result = VideoService.create_video_frames(
+        result = await asyncio.to_thread(
+            VideoService.create_video_frames,
             request.title,
             request.summary,
             request.images,

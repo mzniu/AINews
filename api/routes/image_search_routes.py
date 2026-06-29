@@ -1,6 +1,7 @@
 """网页搜图 API（百度 acjson + 远程图片拉取入库）"""
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -61,7 +62,8 @@ async def api_search_images(body: SearchImagesRequest) -> Dict[str, Any]:
     if not q:
         raise HTTPException(status_code=400, detail="query 不能为空")
 
-    items = search_images(
+    items = await asyncio.to_thread(
+        search_images,
         q,
         engine=body.engine,
         page=body.page,
@@ -84,56 +86,59 @@ async def api_import_remote_image(body: ImportRemoteImageRequest) -> Dict[str, A
         "Referer": referer,
     }
 
-    try:
-        r = requests.get(raw, headers=headers, timeout=25, stream=True)
-        r.raise_for_status()
-    except requests.RequestException as e:
-        logger.warning(f"拉取远程图片失败: {raw[:80]}... {e}")
-        raise HTTPException(status_code=502, detail=f"下载失败: {e}") from e
+    def _download_and_save() -> Dict[str, Any]:
+        """同步下载 + 解析 + 写盘，整块放到线程里跑，避免阻塞 event loop。"""
+        try:
+            r = requests.get(raw, headers=headers, timeout=25, stream=True)
+            r.raise_for_status()
+        except requests.RequestException as e:
+            logger.warning(f"拉取远程图片失败: {raw[:80]}... {e}")
+            raise HTTPException(status_code=502, detail=f"下载失败: {e}") from e
 
-    ct = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        ct = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
 
-    chunks: List[bytes] = []
-    total = 0
-    for chunk in r.iter_content(chunk_size=65536):
-        if not chunk:
-            continue
-        total += len(chunk)
-        if total > _MAX_BYTES:
-            raise HTTPException(status_code=400, detail="图片超过 10MB 限制")
-        chunks.append(chunk)
-    content = b"".join(chunks)
-    if len(content) < 32:
-        raise HTTPException(status_code=400, detail="文件过小或为空")
+        chunks: List[bytes] = []
+        total = 0
+        for chunk in r.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > _MAX_BYTES:
+                raise HTTPException(status_code=400, detail="图片超过 10MB 限制")
+            chunks.append(chunk)
+        content = b"".join(chunks)
+        if len(content) < 32:
+            raise HTTPException(status_code=400, detail="文件过小或为空")
 
-    ext: Optional[str] = _EXT.get(ct) if ct in _EXT else None
-    if not ext and ct in ("", "application/octet-stream"):
-        ext = _sniff_image_ext(content)
-    if not ext:
-        ext = _guess_ext_from_url(raw)
-    if not ext and ct and ct.startswith("image/"):
-        ext = _sniff_image_ext(content)
-    if not ext:
-        ext = _sniff_image_ext(content)
-    if not ext:
-        if ct and not ct.startswith("image/") and ct != "application/octet-stream":
-            raise HTTPException(status_code=400, detail=f"无法识别为图片: {ct}")
-        raise HTTPException(status_code=400, detail="无法识别图片格式")
+        ext: Optional[str] = _EXT.get(ct) if ct in _EXT else None
+        if not ext and ct in ("", "application/octet-stream"):
+            ext = _sniff_image_ext(content)
+        if not ext:
+            ext = _guess_ext_from_url(raw)
+        if not ext and ct and ct.startswith("image/"):
+            ext = _sniff_image_ext(content)
+        if not ext:
+            ext = _sniff_image_ext(content)
+        if not ext:
+            if ct and not ct.startswith("image/") and ct != "application/octet-stream":
+                raise HTTPException(status_code=400, detail=f"无法识别为图片: {ct}")
+            raise HTTPException(status_code=400, detail="无法识别图片格式")
 
-    upload_dir = Path("data/local_uploads") / datetime.now().strftime("%Y%m%d")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    file_path = upload_dir / f"{uuid.uuid4()}{ext}"
-    with open(file_path, "wb") as f:
-        f.write(content)
+        upload_dir = Path("data/local_uploads") / datetime.now().strftime("%Y%m%d")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = upload_dir / f"{uuid.uuid4()}{ext}"
+        with open(file_path, "wb") as f:
+            f.write(content)
 
-    relative_path = str(file_path.relative_to(Path("."))).replace("\\", "/")
-    image_path = f"/{relative_path}"
+        relative_path = str(file_path.relative_to(Path("."))).replace("\\", "/")
+        image_path = f"/{relative_path}"
+        logger.info(f"远程图片已保存: {raw[:100]} -> {image_path}")
+        return {"image_path": image_path, "size": len(content)}
 
-    logger.info(f"远程图片已保存: {raw[:100]} -> {image_path}")
-
+    result = await asyncio.to_thread(_download_and_save)
     return {
         "success": True,
         "message": "图片已保存",
-        "image_path": image_path,
-        "size": len(content),
+        "image_path": result["image_path"],
+        "size": result["size"],
     }

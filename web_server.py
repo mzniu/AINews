@@ -83,8 +83,10 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", "8088"))
-    # 多进程 worker：适合 CPU 密集；与 asyncio.to_thread 可同时使用（多页并发 + 单进程内不阻塞）
-    workers = int(os.getenv("UVICORN_WORKERS", "1"))
+    # 多进程 worker：与 asyncio.to_thread 配合（多进程隔离 + 单进程内不阻塞 event loop）
+    # 注意：>1 时数字人模块的内存态任务（task_id → 进度）无法跨进程共享，
+    # 如依赖 /api/digital-human/progress 轮询，请保持 workers=1 或改用外部任务存储
+    workers = int(os.getenv("UVICORN_WORKERS", "4"))
 
     print("🚀 AINews API服务已启动")
     print(f"🌐 访问: http://localhost:{port}")

@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Dict, Optional
 from bs4 import BeautifulSoup
 from loguru import logger
+import asyncio
 import re
 from datetime import datetime
 
@@ -38,10 +39,10 @@ async def process_manual_content(data: Dict):
         
         if is_html:
             logger.info("检测到 HTML 格式，使用 BeautifulSoup 解析")
-            result = process_html_content(content, url)
+            result = await asyncio.to_thread(process_html_content, content, url)
         else:
             logger.info("检测到纯文本格式")
-            result = process_text_content(content, url)
+            result = await asyncio.to_thread(process_text_content, content, url)
         
         # 添加时间戳
         result['timestamp'] = datetime.now().isoformat()

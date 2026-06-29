@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from pathlib import Path
 from datetime import datetime
 from loguru import logger
+import asyncio
 import os
 
 from src.models.github_models import GitHubVoiceoverRequest, GitHubVoiceoverResponse
@@ -297,9 +298,11 @@ async def upload_local_image(image: UploadFile = File(...)):
         unique_filename = f"{uuid.uuid4()}{file_extension}"
         file_path = upload_dir / unique_filename
         
-        # 保存文件
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
+        # 保存文件（在线程中跑，避免阻塞 event loop）
+        def _write_file():
+            with open(file_path, "wb") as buffer:
+                buffer.write(content)
+        await asyncio.to_thread(_write_file)
         
         # 返回相对路径
         relative_path = str(file_path.relative_to(Path("."))).replace("\\", "/")
@@ -360,8 +363,10 @@ async def upload_local_video(video: UploadFile = File(...)):
         unique_filename = f"{uuid.uuid4()}{ext}"
         file_path = upload_dir / unique_filename
 
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
+        def _write_video():
+            with open(file_path, "wb") as buffer:
+                buffer.write(content)
+        await asyncio.to_thread(_write_video)
 
         relative_path = str(file_path.relative_to(Path("."))).replace("\\", "/")
         video_url_path = f"/{relative_path}"
