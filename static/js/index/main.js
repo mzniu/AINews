@@ -26,6 +26,18 @@
             return el ? el.checked : true;
         }
 
+        function getLayoutPositionPayload() {
+            const readPct = (id, fallback, min, max) => {
+                const v = parseFloat(document.getElementById(id)?.value);
+                if (!Number.isFinite(v)) return fallback;
+                return Math.max(min, Math.min(max, v));
+            };
+            return {
+                title_y_percent: readPct('titlePositionPct', 15, 0, 45),
+                summary_y_percent: readPct('summaryPositionPct', 80, 45, 95)
+            };
+        }
+
         function getVoiceoverLengthParams() {
             const minEl = document.getElementById('voiceoverMinChars');
             const maxEl = document.getElementById('voiceoverMaxChars');
@@ -2484,6 +2496,7 @@
                         background_image_path: selectedBgPath,
                         title_font_key: getTitleFontKey(),
                         title_font_size: (() => { const v = parseInt(document.getElementById('titleFontSizeInput')?.value, 10); return (v >= 28 && v <= 120) ? v : null; })(),
+                        ...getLayoutPositionPayload(),
                         show_summary: getShowSummaryOnVideo(),
                         tags: (document.getElementById('editableAiTags') && document.getElementById('editableAiTags').value.trim()) || '',
                         summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : []
@@ -2730,7 +2743,9 @@
                         subtitle2: st2,
                         summary: editedSummary || generatedSummary,
                         images: selectedImages,
-                        title_font_key: getTitleFontKey()
+                        title_font_key: getTitleFontKey(),
+                        title_font_size: (() => { const v = parseInt(document.getElementById('titleFontSizeInput')?.value, 10); return (v >= 28 && v <= 120) ? v : null; })(),
+                        ...getLayoutPositionPayload()
                     })
                 });
 
@@ -2998,6 +3013,7 @@
                         audio_path: 'static/music/background.mp3',
                         background_image_path: (document.getElementById('bgSelect')?.value) || 'static/imgs/bg.png',
                         title_font_key: getTitleFontKey(),
+                        ...getLayoutPositionPayload(),
                         show_summary: getShowSummaryOnVideo(),
                         tags: (document.getElementById('editableAiTags') && document.getElementById('editableAiTags').value.trim()) || '',
                         summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : []

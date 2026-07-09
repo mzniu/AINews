@@ -27,6 +27,9 @@ class VideoService:
         subtitle: str = "",
         subtitle2: str = "",
         title_font_key: str = None,
+        title_font_size: int = None,
+        title_y_percent: float = None,
+        summary_y_percent: float = None,
     ) -> Dict:
         """生成视频关键帧。若提供 main_line1/main_line2/subtitle/subtitle2，则用换行拼接标题区（与动画视频语义一致）。"""
         try:
@@ -43,7 +46,17 @@ class VideoService:
             img_width, img_height = bg_template.size
             
             # 主标题字体与动画成片一致；摘要字体系 _load_fonts 第三项
-            title_font, _, summary_font = _load_fonts(title_font_key)
+            title_font, _, summary_font = _load_fonts(title_font_key, title_font_size)
+            try:
+                title_y_percent = 15.0 if title_y_percent is None else float(title_y_percent)
+            except (TypeError, ValueError):
+                title_y_percent = 15.0
+            try:
+                summary_y_percent = 80.0 if summary_y_percent is None else float(summary_y_percent)
+            except (TypeError, ValueError):
+                summary_y_percent = 80.0
+            title_y_percent = max(0.0, min(45.0, title_y_percent))
+            summary_y_percent = max(45.0, min(95.0, summary_y_percent))
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_dir = Path("data/generated") / f"frames_{timestamp}"
@@ -117,8 +130,8 @@ class VideoService:
                     # 计算总高度（标题 + 间距 + 图片 + 间距 + 摘要）
                     total_content_height = title_height + 30 + target_height + 40 + summary_height
                     
-                    # 标题固定在背景上部15%位置
-                    title_start_y = int(img_height * 0.15)
+                    # 标题固定在配置的画布高度百分比位置
+                    title_start_y = int(img_height * (title_y_percent / 100.0))
                     current_y = title_start_y
                     
                     # 绘制标题背景（渐变毛玻璃效果）；上缘贴视频顶，下缘仍包住标题块（与 video_utils 主标题一致）
@@ -169,8 +182,8 @@ class VideoService:
                     # 标题和图片之间的间距
                     current_y += 30
                     
-                    # 计算摘要的起始位置（距离底部15%）
-                    summary_start_y = int(img_height * 0.85) - summary_height
+                    # 计算摘要的起始位置（配置的画布高度百分比，再减去摘要高度）
+                    summary_start_y = int(img_height * (summary_y_percent / 100.0)) - summary_height
                     
                     # 计算图片的位置（在标题下方和摘要上方之间居中）
                     available_space = summary_start_y - 40 - current_y  # 减去间距

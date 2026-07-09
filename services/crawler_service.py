@@ -1,4 +1,6 @@
 """爬虫服务 - 处理网页抓取相关业务逻辑"""
+import asyncio
+import sys
 from typing import Tuple, Dict, List
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -18,31 +20,58 @@ class CrawlerService:
     @staticmethod
     async def get_page_content(url: str) -> Tuple[str, str]:
         """使用Playwright获取页面内容"""
+        return await asyncio.to_thread(CrawlerService._get_page_content_blocking, url)
+
+    @staticmethod
+    def _get_page_content_blocking(url: str) -> Tuple[str, str]:
+        if sys.platform == 'win32' and hasattr(asyncio, 'ProactorEventLoop'):
+            loop = asyncio.ProactorEventLoop()
+        else:
+            loop = asyncio.new_event_loop()
+
+        try:
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(CrawlerService._get_page_content_async(url))
+        finally:
+            pending_tasks = asyncio.all_tasks(loop)
+            for task in pending_tasks:
+                task.cancel()
+            if pending_tasks:
+                loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            asyncio.set_event_loop(None)
+            loop.close()
+
+    @staticmethod
+    async def _get_page_content_async(url: str) -> Tuple[str, str]:
+        """使用Playwright获取页面内容"""
         try:
             from playwright.async_api import async_playwright
             
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
-                page = await browser.new_page()
-                
-                # 先尝试 networkidle（最完整），超时则降级到 domcontentloaded
                 try:
-                    await page.goto(url, wait_until='networkidle', timeout=30000)
-                except Exception:
-                    logger.warning(f"networkidle 超时，降级为 domcontentloaded: {url}")
+                    page = await browser.new_page()
+                    
+                    # 先尝试 networkidle（最完整），超时则降级到 domcontentloaded
                     try:
-                        await page.goto(url, wait_until='domcontentloaded', timeout=45000)
-                        # 额外等待一段时间让JS渲染完成
-                        await page.wait_for_timeout(5000)
+                        await page.goto(url, wait_until='networkidle', timeout=30000)
                     except Exception:
-                        logger.warning(f"domcontentloaded 也超时，使用 commit 策略: {url}")
-                        await page.goto(url, wait_until='commit', timeout=60000)
-                        await page.wait_for_timeout(8000)
-                
-                title = await page.title()
-                html = await page.content()
-                
-                await browser.close()
+                        logger.warning(f"networkidle 超时，降级为 domcontentloaded: {url}")
+                        try:
+                            await page.goto(url, wait_until='domcontentloaded', timeout=45000)
+                            # 额外等待一段时间让JS渲染完成
+                            await page.wait_for_timeout(5000)
+                        except Exception:
+                            logger.warning(f"domcontentloaded 也超时，使用 commit 策略: {url}")
+                            await page.goto(url, wait_until='commit', timeout=60000)
+                            await page.wait_for_timeout(8000)
+                    
+                    title = await page.title()
+                    html = await page.content()
+                finally:
+                    await browser.close()
+
                 logger.success(f"成功获取页面: {title}")
                 return html, title
         except Exception as e:

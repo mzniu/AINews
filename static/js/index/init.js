@@ -202,6 +202,7 @@
                 main_line1_color: (document.querySelector('input[name="mainLine1Color"]:checked') || {}).value || '#FFFFFF',
                 main_line2_color: (document.querySelector('input[name="mainLine2Color"]:checked') || {}).value || '#FFFFFF',
                 title_font_size: (() => { const v = parseInt(document.getElementById('titleFontSizeInput')?.value, 10); return (v >= 28 && v <= 120) ? v : null; })(),
+                ...getLayoutPositionPayload(),
                 subtitle: document.getElementById('editableSubTitle')?.value.trim() || ''
             };
         }

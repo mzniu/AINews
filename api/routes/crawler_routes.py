@@ -259,7 +259,11 @@ async def generate_image(request: GenerateImageRequest):
             main_line1=request.main_line1 or "",
             main_line2=request.main_line2 or "",
             subtitle=request.subtitle or "",
+            subtitle2=request.subtitle2 or "",
             title_font_key=request.title_font_key,
+            title_font_size=request.title_font_size,
+            title_y_percent=request.title_y_percent,
+            summary_y_percent=request.summary_y_percent,
         )
         return result
     except Exception as e:

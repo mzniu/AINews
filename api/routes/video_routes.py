@@ -3,7 +3,7 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
-from typing import List, Optional
+from typing import Any, List, Optional
 from pathlib import Path
 from datetime import datetime
 from loguru import logger
@@ -27,6 +27,16 @@ import cv2
 import numpy as np
 
 router = APIRouter(prefix="/api", tags=["视频"])
+
+
+def _clamp_percent(value: Any, default: float, min_value: float, max_value: float) -> float:
+    try:
+        if value is None:
+            return default
+        v = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(min_value, min(max_value, v))
 
 
 def _resolve_background_image_path(path_str: Optional[str]) -> Path:
@@ -357,8 +367,11 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
             sub_title_height + MAIN_SUBTITLE_GAP_PX if sub_title_height else 0
         )
         
-        # 标题起始位置（距离顶部 10%）
-        title_start_y = int(img_height * 0.1)
+        title_y_percent = _clamp_percent(getattr(request, "title_y_percent", None), 15.0, 0.0, 45.0)
+        summary_y_percent = _clamp_percent(getattr(request, "summary_y_percent", None), 80.0, 45.0, 95.0)
+
+        # 标题起始位置（占画布高度百分比）
+        title_start_y = int(img_height * (title_y_percent / 100.0))
         
         # 构建 title_info
         title_info = (title_font, subtitle_font, main_title_lines, sub_title_lines,
@@ -377,7 +390,7 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                 temp_draw.textbbox((0, 0), l, font=summary_font)[1] + 12
                 for l in summary_lines
             )
-            summary_start_y = int(img_height * 0.9) - summary_height
+            summary_start_y = int(img_height * (summary_y_percent / 100.0)) - summary_height
             hi_kw = resolve_highlight_keywords(
                 request.summary,
                 getattr(request, "tags", None) or "",
