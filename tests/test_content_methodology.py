@@ -15,3 +15,5 @@ def test_build_methodology_prompt_includes_forbidden_words_constraint():
     assert "领导人姓名" in prompt
     assert "集赞" in prompt
     assert "须同时遵守上方【禁限词与合规约束】" in prompt
+    assert "网友锐评" in prompt
+    assert "必须以「网友：」开头" in prompt

@@ -11,11 +11,19 @@ if sys.platform == 'win32':
         sys.stdout.reconfigure(encoding='utf-8')
         sys.stderr.reconfigure(encoding='utf-8')
 
+from dotenv import load_dotenv
+
+# 加载环境变量（须在日志配置前，以便读取 LOG_LEVEL / UVICORN_WORKERS）
+load_dotenv()
+
+# 统一日志配置（须在路由导入前，避免多 handler / 多进程抢同一日志文件）
+from src.utils.logger import configure_logging, logger
+
+configure_logging()
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from loguru import logger
-from dotenv import load_dotenv
 
 # 导入路由模块
 from api.routes.main_routes import router as main_router
@@ -31,12 +39,6 @@ from api.routes.cover_image_routes import router as cover_image_router
 from api.routes.related_image_routes import router as related_image_router
 from api.routes.digital_human_routes import router as digital_human_router
 from api.routes.pip_routes import router as pip_router
-
-# 加载环境变量
-load_dotenv()
-
-# 配置日志
-logger.add("logs/web_server_{time}.log", rotation="10 MB")
 
 # 创建FastAPI应用
 app = FastAPI(
