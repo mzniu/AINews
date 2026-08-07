@@ -1,35 +1,39 @@
-# Web框架
+# Web framework
 fastapi>=0.104.0
 uvicorn>=0.24.0
 
-# 网页爬取
+# Web scraping
 requests>=2.31.0
 beautifulsoup4>=4.12.3
 lxml>=5.1.0
 playwright>=1.40.0
 
-# AI集成（DeepSeek API - OpenAI兼容）
+# AI integration (DeepSeek API - OpenAI compatible)
 openai>=1.10.0
 
-# 视频处理（注意：需要 MoviePy 2.x）
+# Video processing (requires MoviePy 2.x)
 moviepy>=2.0.0
 pillow>=10.2.0
 cairosvg>=2.7.1
 
-# 图片去水印（LaMa模型）
+# Image inpainting / watermark removal (LaMa model)
 simple-lama-inpainting>=0.1.0
 opencv-python-headless>=4.8.0
 
-# 工具库
+# Utilities
 python-dotenv>=1.0.0
 pydantic>=2.5.0
 loguru>=0.7.2
 numpy>=2.1.0
 fonttools>=4.0.0
+PyYAML>=6.0.0
 
-# TTS / 音频（GitHub 第五步配音，语音合成由外部 IndexTTS 项目提供）
+# TTS / audio (IndexTTS for voice synthesis)
 pydub>=0.25.1
-# Python 3.13+ 已移除 stdlib audioop；pydub 需要此兼容包，否则报 No module named 'pyaudioop'
+# Python 3.13+ removed stdlib audioop; pydub needs this compatibility package
 audioop-lts>=0.2.0; python_version>='3.13'
-# redis>=5.0.0           # 缓存去重（可选）
-# sqlalchemy>=2.0.0      # 数据库存储（可选）
+# redis>=5.0.0           # optional: cache deduplication
+# sqlalchemy>=2.0.0      # optional: database storage
+sqlalchemy>=2.0.0
+APScheduler>=3.10.0
+cryptography>=42.0.0

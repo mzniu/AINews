@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>
+
+5050亿参数！余承东开源盘古新模型openPangu-2.0-Pro，距离“世界第一”还有差距
+
+</title>
+<link rel="canonical" href="https://www.aitntnews.com/newDetail.html?newId=27818">
+<link rel="alternate" media="only screen and (max-width: 640px)" href="https://m.aitntnews.com/newDetail.html?newId=27818">
+<meta name="description"
+content="今日，华为开源基于昇腾NPU训练的盘古MoE模型openPangu-2.0-Pro。该模型是openPangu-2.0系列的最新开源模型，总参数规模5050亿，激活参数规模180亿，支持512K上下文长度，训练数据总量约34T tokens。另一轻量化模型openPangu-2.0-Flash已于6月12日开源，参数92亿，其中6亿为激活参数。">
+<meta name="keywords" content="AI,AI资讯,AI新闻,AI门户,AGI，LLM，大模型，提示词,openai,chatGPT,人工智能,claude,AI日报,Prompt,AI变现">
+<meta name="baidu-site-verification" content="codeva-vV1yqoocmW">
+<link rel="stylesheet" type="text/css" href='/static/css/bootstrap.min.css?v=aedfd2ad0e143486867c3c845d9b4d7325af41e3aad102f280796e1507128da181d382315a16a5ef5b4abb33fa2bc7985d807abc9578a47917726146190d7fd3'>
+<link rel="stylesheet" type="text/css" href='/static/css/common.css?v=d726c7499bd1a98a0143dcff731028346f5168565415f45518e43afad84381cf9b5e5fd2685481a4fed9a8e0969b3f8b0df5636e2c347b64d9f60abbd0e324f8'>
+<link rel="icon" href='/static/image/search_logo.png?v=f72f5b893535ca9d1322070ec5873ea1ffd18cc004f8f47df62de384f516751a5da4332900031087f9340e4cc79714babc252db4b420b6315d0fd3d531804d54'>
+<style type="text/css">
+.row > * {
+margin: 0px;
+padding: 0px;
+padding-right: 0px;
+padding-left: 0px;
+}
+@keyframes blink {
+0% { opacity: 1; }
+50% { opacity: 0.2; }
+100% { opacity: 1; }
+}
+.newTag{
+align-self: flex-start;
+display: inline-block;
+background-color: rgba(239, 68, 68, 0.8);
+color: white;border-radius: 5px;
+font-size: 10px;
+padding: 2px 5px 2px 5px;
+animation: blink 1s infinite;
+}
+.translateSelectLanguage{
+width:100px;
+}
+</style>
+
+
+<meta property="og:url" content="https://www.aitntnews.com/newDetail.html?newId=27818">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"NewsArticle","@id":"https://www.aitntnews.com/newDetail.html?newId=27818","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.aitntnews.com/newDetail.html?newId=27818"},"url":"https://www.aitntnews.com/newDetail.html?newId=27818","headline":"5050亿参数！余承东开源盘古新模型openPangu-2.0-Pro，距离“世界第一”还有差距","description":"今日，华为开源基于昇腾NPU训练的盘古MoE模型openPangu-2.0-Pro。该模型是openPangu-2.0系列的最新开源模型，总参数规模5050亿，激活参数规模180亿，支持512K上下文长度，训练数据总量约34T tokens。另一轻量化模型openPangu-2.0-Flash已于6月12日开源，参数92亿，其中6亿为激活参数。","datePublished":"2026-07-31 21:54","dateModified":"2026-07-31 21:54","author":{"@type":"Organization","name":"AITNT","url":"https://www.aitntnews.com"},"publisher":{"@type":"Organization","name":"AITNT","url":"https://www.aitntnews.com","logo":{"@type":"ImageObject","url":"https://www.aitntnews.com/staticfile/image/search_logo.png"}},"inLanguage":"zh-CN","isAccessibleForFree":true,"image":["https://www.aitntnews.com/pictures/2026/7/31/6facd5a3-8ce7-11f1-88b2-fa163e47d677.webp"],"keywords":["AI新闻","盘古大模型","openPangu-2.0-Pro","华为AI"]}</script>
+<link rel="stylesheet" type="text/css" href='/static/css/edit.css?v=56416506f256689bcd790729450f1324b0fcec52c9f80eca15784eff709e17690c4d2a551be6e3ac5a133d3b2e0af3bd22dbdbf29e995728c415aefe9b22587d'>
+
+<link rel="preload" as="image" href="https://www.aitntnews.com/pictures/2026/7/31/60762952-8ce7-11f1-8f25-fa163e47d677.webp" fetchpriority="high">
+
+
+</head>
+<body>
+<h1 class="h_tag">5050亿参数！余承东开源盘古新模型openPangu-2.0-Pro，距离“世界第一”还有差距</h1>
+<div class="zhezhao">
+<div class="zhezhaobox" style="width: 100%;height: 100%;display: flex;justify-content: center">
+<div class="searchzhezhaocontent" style="width: 700px;top:100px;height: 500px;">
+<div style="width:100%;text-align: right;padding-top: 10px">
+<img src='/static/image/icon/x-lg.svg?v=039da4020a466048509740509d74befa351ee81c6ccc1a3c2d88d98580f3a996a4d9b841bf1ff8d88e44fc9718c3e5fe9d903b8c6d86fa1599397c8c68c2d49c' style="height: 30px;width: 30px;cursor: pointer"
+class="searchzhezhaoclose" alt="AITNT-国内领先的一站式人工智能新闻资讯网站"/>
+</div>
+<div style="width: 100%;text-align: center;margin-top: 50px">
+<input id="searchwordInput" type="text" class="form-control" placeholder="请输入关键词,并回车"
+aria-label="请输入关键词,并回车"
+aria-describedby="basic-addon1">
+</div>
+<div style="margin-top: 50px">
+# 热门搜索 #
+</div>
+<div style="margin-top: 15px">
+<div class="hot-search">大模型</div>
+<div class="hot-search">人工智能</div>
+<div class="hot-search">openai</div>
+<div class="hot-search">融资</div>
+<div class="hot-search">chatGPT</div>
+</div>
+</div>
+</div>
+</div>
+<!-- PC端登录弹窗 -->
+<div id="pcLoginModal" style="display:none;position: fixed;width: 100%;height: 100%;background: rgba(0,0,0,0.4);z-index: 99991;top: 0;left: 0;align-items: center;justify-content: center;">
+<div style="background: white;border-radius: 8px;padding: 30px;width: 400px;max-width: 90%;">
+<div style="display: flex;justify-content: space-between;align-items: center;margin-bottom: 20px;">
+<span style="font-size: 18px;font-weight: 600;">验证码登录</span>
+<span id="pcLoginModalClose" style="cursor: pointer;font-size: 24px;color: #999;">&times;</span>
+</div>
+<input id="pcLoginPhone" type="tel" class="form-control" placeholder="请输入手机号" maxlength="11" style="margin-bottom: 12px;" />
+<div style="display: flex;gap: 10px;margin-bottom: 12px;">
+<input id="pcLoginCode" type="text" class="form-control" placeholder="请输入验证码" maxlength="6" style="flex: 1;" />
+<button id="pcSendCodeBtn" type="button" class="btn btn-outline-primary" style="white-space: nowrap;">发送</button>
+</div>
+<div style="font-size: 12px;color: #666;margin-bottom: 16px;">
+<input type="checkbox" id="pcLoginCheckXieyi" style="margin-right: 6px;" />
+登录即代表您已同意AITNT<a href="/xieyi.html" target="_blank" style="color: #3A73FF;">用户协议</a>和<a href="/yinsi.html" target="_blank" style="color: #3A73FF;">隐私政策</a>
+</div>
+<div>
+<button id="pcLoginSubmitBtn" type="button" class="btn btn-primary" style="width: 100%;">登录</button>
+<p style="font-size: 12px; color: #94a3b8; margin-top: 10px; margin-bottom: 0;">登录成功后会自动刷新界面</p>
+</div>
+</div>
+</div>
+
+<div style="display: flex;justify-content: center;padding-bottom: 20px">
+<div style="flex-grow: 1" class="header"></div>
+<div style="width: 1250px;min-width: 1200px;display: flex;justify-content: flex-start;align-items: flex-start;flex-direction: column">
+<div class="header" style="width: 100%;display: flex;justify-content: flex-start;">
+<div style="width: 144px;display: flex;justify-content: flex-end;align-items: center">
+</div>
+<div style="width: 1106px;color:white;padding-left: 36px;display: flex;justify-content: space-between;align-items: center">
+<div style="display: flex;align-items: center">
+<div style="margin-right: 50px"><a href="/official.html?newId=14863" target="_blank" style="color: white" class="nav-link-top">AITNT公众号</a></div>
+<div style="margin-right: 50px"><a href="/newDetail.html?newId=91" target="_blank" style="color: white" class="nav-link-top">AITNT APP</a></div>
+<div style="margin-right: 50px"><a href="/newDetail.html?newId=92" target="_blank" style="color: white" class="nav-link-top">AITNT交流群</a></div>
+</div>
+<div style="display: flex;justify-content: flex-end;align-items: center">
+<div class="header-translate-container">
+<svg t="1754237496325" class="icon header-translate-icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5996"><path d="M899.968 512.192c0-9.6-4.736-22.656-21.504-38.592-16.896-16-43.392-32.128-79.36-46.464-71.616-28.672-173.248-47.232-287.36-47.232-114.24 0-215.872 18.56-287.488 47.232-35.904 14.336-62.4 30.528-79.36 46.464-16.768 15.936-21.504 28.992-21.504 38.592 0 9.6 4.736 22.592 21.568 38.464 16.896 16 43.392 32.192 79.296 46.528 71.68 28.672 173.248 47.232 287.424 47.232 114.176 0 215.808-18.56 287.424-47.232 35.904-14.336 62.464-30.528 79.36-46.528 16.768-15.872 21.44-28.864 21.44-38.464z m76.8 0c0 37.504-19.2 69.376-45.568 94.336-26.304 24.832-62.272 45.44-103.552 61.952-82.816 33.152-194.56 52.8-315.968 52.8-121.472 0-233.216-19.648-315.968-52.8-41.28-16.512-77.312-37.12-103.616-61.952-26.304-24.96-45.44-56.832-45.44-94.336s19.072-69.44 45.44-94.4c26.304-24.832 62.336-45.44 103.616-61.952 82.752-33.152 194.56-52.736 315.968-52.736 121.472 0 233.152 19.584 315.968 52.736 41.28 16.512 77.248 37.12 103.552 61.952 26.368 24.96 45.568 56.896 45.568 94.4z" p-id="5997" fill="#ffffff"></path><path d="M643.968 512.192c0-114.176-18.624-215.808-47.296-287.424-14.336-35.968-30.528-62.464-46.464-79.36-15.872-16.768-28.928-21.504-38.528-21.504-9.6 0-22.656 4.736-38.528 21.504-16 16.896-32.192 43.456-46.528 79.36-28.672 71.68-47.232 173.248-47.232 287.36 0 114.24 18.56 215.872 47.232 287.488 14.4 35.904 30.528 62.464 46.528 79.36 15.872 16.768 28.928 21.44 38.528 21.44 9.6 0 22.656-4.672 38.528-21.504 16-16.832 32.128-43.392 46.464-79.296 28.672-71.68 47.296-173.248 47.296-287.424z m76.8 0c0 121.472-19.648 233.152-52.8 315.968-16.448 41.28-37.12 77.248-61.952 103.552-24.96 26.368-56.832 45.504-94.336 45.568-37.504 0-69.44-19.2-94.336-45.568-24.896-26.304-45.504-62.336-62.08-103.552-33.088-82.816-52.608-194.56-52.608-315.968 0-121.472 19.52-233.216 52.672-316.032 16.512-41.28 37.12-77.248 62.016-103.552 24.96-26.368 56.832-45.44 94.336-45.44s69.376 19.072 94.336 45.44c24.832 26.304 45.44 62.272 62.016 103.552 33.088 82.816 52.736 194.56 52.736 316.032z" p-id="5998" fill="#ffffff"></path><path d="M899.968 512.192a388.288 388.288 0 1 0-776.64 0 388.288 388.288 0 0 0 776.64 0z m76.8 0A465.088 465.088 0 1 1 46.592 512.128a465.088 465.088 0 0 1 930.176 0z" p-id="5999" fill="#ffffff"></path></svg>
+<div id="translate" class="header-translate-widget"></div>
+</div>
+<div style="display: flex;justify-content: flex-end;align-items: center;cursor: pointer" class="searchButton">
+<img src='/static/image/search.png?v=3fca957b750ab44a6c33dc6b626485fe6efc2ca24cf51383ad3af5dd34593075fb40b6df6203137d10deb46645fa59c4074daddd90c6c8b884f76b789b7f09be' alt="AITNT-国内领先的一站式人工智能新闻资讯网站" style="height: 20px;width: 20px;"/>
+<span style="margin-left: 10px">搜索</span>
+</div>
+<div id="pcUserWidget" style="margin-left: 24px;display: flex;align-items: center;gap: 8px;">
+<span class="pc-user-logo-wrap" title="AITNT AGENT"><svg class="pc-user-logo-svg" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M512 512m-512 0a512 512 0 1 0 1024 0 512 512 0 1 0-1024 0Z" fill="#F3DFBC"></path><path d="M653.443072 286.424064h-97.913856l178.556928 451.150848H832L653.443072 286.424064z m-282.886144 0L192 737.575936h99.84512l36.514816-94.741504h186.805248l36.514816 94.741504h99.84512L472.968192 286.424064H370.556928z m-9.89696 272.622592l61.103104-158.55104 61.103104 158.55104H360.659968z" fill="#934B31"></path></svg></span>
+<span class="pc-user-divider"></span>
+<span id="pcUserLoggedOut" class="pcUserLoginBtn" style="display: flex;align-items: center;cursor: pointer;gap: 8px;" title="点击登录">
+<span style="width: 28px;height: 28px;border-radius: 50%;background: rgba(255,255,255,0.3);display: flex;align-items: center;justify-content: center;flex-shrink: 0;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+</span>
+<span style="color: white;font-size: 14px;">未登录</span>
+</span>
+<span id="pcUserLoggedIn" class="pc-user-logged-in" style="display: none;align-items: center;gap: 8px;color: white;font-size: 14px;">
+<div class="pc-user-hover-wrap">
+<span style="width: 28px;height: 28px;border-radius: 50%;background: rgba(255,255,255,0.3);display: flex;align-items: center;justify-content: center;flex-shrink: 0;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+</span>
+<span class="pc-user-phone"></span>
+<div class="pc-user-dropdown">
+<a href="/">首页</a>
+<a href="/personalCenter.html">AI中心</a>
+<a id="pcUserLogoutBtn" href="javascript:void(0);">退出</a>
+</div>
+</div>
+</span>
+</div>
+
+</div>
+</div>
+</div>
+<div style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<div style="width: 144px;"></div>
+<div style="width: 144px;display: flex;justify-content: flex-end;align-items: flex-start;position: fixed">
+<nav style="text-align: right;padding-top: 15px;">
+<div style="margin-bottom: 24px;text-align: right;margin-top: 10px">
+<img src='/static/image/logo4.png?v=9f4c51fedd39f33feb93add12f930b5f99b9bca51b46f6288de8dddd092deb2611be53932b7764ea0b8cec9fd361bc7f70a0ca16b5b127bff06f624cfe597edc' alt="AITNT-国内领先的一站式人工智能新闻资讯网站" style="width: 50px;">
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626;">
+<a href="/" class="nav-link ">首页</a>
+</div>
+<!-- 语法修正 START -->
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=1" class="nav-link active">AI资讯</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=2" class="nav-link ">AI技术研报</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=3" class="nav-link ">AI监管政策</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=4" class="nav-link ">AI产品测评</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=5" class="nav-link ">AI商业项目</a>
+</div>
+<!-- 语法修正 END -->
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626;display: flex;justify-content: flex-end;align-items: center">
+<a href="/aiProduct/all/1.html" class="nav-link producturl ">AI产品热榜</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626;display: flex;justify-content: flex-end;align-items: center">
+<a href="/aiMarket/1.html" class="nav-link aimarketurl ">AI 源力市场</a>
+</div>
+<!-- [重构] 寻求报道按钮 - START -->
+<!-- 父 div 的内联样式被移除，间距将由 common.css 统一控制 -->
+<div>
+<!-- a 标签的内联样式被移除，并添加了 'nav-button-report' class -->
+<a href="/official.html?newId=14871" target="_blank" class="nav-button-report">
+<img src='/static/image/xunqiubaodao.png?v=24851757d523bf12f2608f9a8da75d894da75843ce399ed51f901a3f1bee0975ad9ce4726710eebc0cad893a6d59af135db55765af9292f6f88fcbb1b1a50c8e' style="height: 12px; width: 12px; margin-right: 6px;"/>
+<span>寻求报道</span>
+</a>
+</div>
+<!-- [重构] 寻求报道按钮 - END -->
+</nav>
+</div>
+<!-- 样式修复 -->
+<div style="max-width: 1106px;width: 1106px;padding-top: 50px;padding-left:50px;box-sizing: border-box">
+
+<div style="width: 100%;display: flex;justify-content: flex-start;align-items: stretch">
+<div style="width: 700px;max-width: 700px;min-width: 700px;margin-bottom: 10px;">
+
+<div style="width: 100%;text-align: center;font-size: 30px;font-weight: 600;text-align: left">
+5050亿参数！余承东开源盘古新模型openPangu-2.0-Pro，距离“世界第一”还有差距
+</div>
+<div style="text-align: left; font-size:14px;color: #A7A7A7;margin-top:20px">
+8706点击&nbsp;&nbsp;&nbsp;&nbsp;2026-07-31 21:54
+</div>
+<div class="new-content">
+<p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/60762952-8ce7-11f1-8f25-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" fetchpriority="high" decoding="async"></p><p><br></p><p><strong><strong style="color: rgb(0, 0, 0)"><span>专为长上下文智能体任务打造。</span></strong></strong></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">智东西7月31日消息，今日，华为开源基于</span><strong style="color: rgb(15, 89, 164);">昇腾NPU</strong><span style="color: rgba(0, 0, 0, 0.9);">训练的盘古MoE模型</span><strong style="color: rgb(15, 89, 164);">openPangu-2.0-Pro</strong><span style="color: rgba(0, 0, 0, 0.9);">。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">该模型是openPangu-2.0系列的最新开源模型，总参数规模</span><strong style="color: rgb(15, 89, 164);">5050亿</strong><span style="color: rgba(0, 0, 0, 0.9);">，激活参数规模</span><strong style="color: rgb(15, 89, 164);">180亿</strong><span style="color: rgba(0, 0, 0, 0.9);">，支持</span><strong style="color: rgb(15, 89, 164);">512K</strong><span style="color: rgba(0, 0, 0, 0.9);">上下文长度，训练数据总量约</span><strong style="color: rgb(15, 89, 164);">34T tokens</strong><span style="color: rgba(0, 0, 0, 0.9);">。另一轻量化模型openPangu-2.0-Flash已于6月12日开源，参数92亿，其中6亿为激活参数。</span></p><p><br></p><p>今年6月12日，在华为开发者大会现场，华为常务董事、产品投资评审委员会主任、终端BG董事长余承东发布openPangu-2.0-Flash、预告openPangu-2.0-Pro，并喊话要把盘古大模型做到世界第一。此次openPangu-2.0-Pro的开源，便是<strong><span style="color: #0f59a4">余承东放狠话后的首次重磅发布</span></strong>。</p><p><br></p><p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/60dd0015-8ce7-11f1-84aa-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" loading="lazy" decoding="async"></p><p><br></p><p>技术报告仅披露openPangu-2.0两款模型的数据，未附上第三方模型对照结果。技术报告提到，openPangu-2.0系列模型在通用能力、逻辑推理、智能体相关主流评测基准中均具备出众的对标实力。</p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">openPangu-2.0-Pro在模型架构上实现全面升级：</span></p><p><br></p><p><strong style="color: rgb(15, 89, 164);">Attention架构</strong><span style="color: rgba(0, 0, 0, 0.9);">：沿用高效MLA，并采用DSA+SWA独立分层混合架构，层配比为1:2；SWA层负责局部窗口建模，DSA层负责稀疏全局聚合，在保持精度的同时显著降低长序列推理的计算、显存与访存开销。</span></p><p><br></p><p><strong style="color: rgb(15, 89, 164);">拓扑架构</strong><span style="color: rgba(0, 0, 0, 0.9);">：将传统残差连接升级为4支流mHC架构，提升表征多样性与泛化能力。</span></p><p><br></p><p><strong style="color: rgb(15, 89, 164);">自投机模块</strong><span style="color: rgba(0, 0, 0, 0.9);">：采用3头MTP架构，一次额外预测3个token，提升模型的推理速度。</span></p><p><br></p><p><strong style="color: rgb(15, 89, 164);">Muon优化器</strong><span style="color: rgba(0, 0, 0, 0.9);">：训练中采用Muon优化器，获得更快收敛速度。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">该研究还发现一套正向协同反馈机制：底层性能强劲的基础推理能力能够直接支撑复杂智能体行为运行，而智能体的持续运行又会反向迭代优化模型的多阶任务规划能力与长轨迹上下文处理水平。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">openPangu-2.0-Pro模型的模型权重、基础推理代码及技术报告已正式开源上线。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9); line-height: 1.6; font-weight: normal"><span style="color: rgb(15, 89, 164)">开源地址：</span></span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9); line-height: 1.6; font-weight: normal"><span style="color: rgb(15, 89, 164)">Hugging Face：</span></span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9); line-height: 1.6; font-weight: normal"><span style="color: rgb(15, 89, 164)">https://huggingface.co/openpangu/openPangu-2.0-Pro</span></span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9); line-height: 1.6; font-weight: normal"><span style="color: rgb(15, 89, 164)">AtomGit：</span></span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9); line-height: 1.6; font-weight: normal"><span style="color: rgb(15, 89, 164)">https://gitcode.com/ascend-tribe</span></span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9); line-height: 1.6; font-weight: normal"><span style="color: rgb(15, 89, 164)">技术报告：</span></span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9); line-height: 1.6; font-weight: normal"><span style="color: rgb(15, 89, 164)">https://huggingface.co/openpangu/openPangu-2.0-Pro/blob/main/openPangu-2.0%20Tech%20Report.pdf</span></span></p><p><br></p><p><strong style="color: rgb(0, 0, 0)">专为长上下文智能体任务打造</strong></p><p><br></p><p><strong style="color: rgb(0, 0, 0)">复杂软件工程任务与顶尖模型存在差距</strong></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">智能体应用要求模型可以执行长程任务、精准调用外部工具、在长时间运行时保持认知一致性。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">但模型在部署时会暴露出不少问题，如现有通用框架会带来不必要的推理资源损耗，拉长上下文长度会拖累模型表现；另外传统对齐手段稳定性不足，运行长周期任务时常出现时间逻辑、层级结构方面的推理问题。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">基于此，openPangu-2.0系列模型融合</span><strong style="color: rgb(15, 89, 164);">自研硬件内核、整机系统架构、训推一体化智能体强化学习算法</strong><span style="color: rgba(0, 0, 0, 0.9);">，搭配专属推理加速方案，搭建了一套完备的软硬件协同设计体系，是专门针对长上下文智能体任务打造。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">该系列模型包含此次新开源的openPangu-2.0-Pro；6月12日开源的轻量化模型openPangu-2.0-Flash，参数92亿，其中6亿为激活参数。</span></p><p><br></p><p>在发布openPangu-2.0-Flash时，余承东提到，从算法架构到训练推理，此次盘古模型重点针对昇腾算力进行了优化，并且更深度地开源。昇腾原生训练的训练效率提升了30%，并且这是<strong><span style="color: #0f59a4">业界首个采用DSA+SWA独立分层混合架构的模型</span>。</strong>余承东特别提到，这也是首个开源预训练代码、后训练代码、训推算子的模型。</p><p><br></p><p>Hugging Face的数据显示，本地离线模型openPangu-2.0-Flash GGUF上月下载量达到<strong style="color: rgb(15, 89, 164);">39935次</strong>。</p><p><br></p><p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/61438a3b-8ce7-11f1-864f-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" loading="lazy" decoding="async"></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">华为还推出一种专为资源有限环境优化设计的30亿参数模型，2亿为激活参数。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">研究人员基于多个公开基准测试评估了openPangu-2.0模型的性能。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">技术报告中未公开openPangu-2.0与第三方模型的对比结果，其提到，在通用能力测试、推理任务、智能体等测试中，openPangu-2.0的表现出色，但在处理复杂现实世界软件工程任务时，仍与顶尖模型存在明显差距。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">通用能力方面，openPangu-2.0-Flash和openPangu-2.0-Pro在多种通用测试中都表现优异，包括上下文学习、指令遵循以及多轮理解能力等方面。在世界知识及事实可靠性测试中，openPangu-2.0-Pro的表现远远超过openPangu-2.0-Flash。</span></p><p><br></p><p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/61a86d80-8ce7-11f1-8f10-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" loading="lazy" decoding="async"></p><p><br></p><p>华为内部实验中，研究人员发现，为模型建立扎实的基础知识及推理能力有助于学习更复杂的智能体行为和编程技能。反过来，在复杂的智能体环境中进行训练能够明显提升模型基本能力，包括指令遵循、长轨迹上下文处理、多步推理以及程序规划等。</p><p><br></p><p>此外在训练过程中及训练结束后，持续提供高质量、多样化的长轨迹智能体数据以及互动环境是非常有优势的，这成为未来模型升级的核心策略之一。</p><p><br></p><p><strong style="color: rgb(0, 0, 0)">核心是采用分层混合注意力机制</strong></p><p><br></p><p><strong style="color: rgb(0, 0, 0)">预训练语料34T tokens</strong></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">openPangu-2.0系列模型的核心架构是采用</span><strong style="color: rgb(15, 89, 164);">分层混合注意力机制</strong><span style="color: rgba(0, 0, 0, 0.9);">完成上下文计算解耦：将滑动窗口注意力机制（SWA）用于稠密局部上下文的处理，将深度稀疏注意力机制用于全局稀疏信息检索。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">同时为实现推理加速，模型额外搭载了一个三头多Token预测（MTP）模块，还将流形约束超连接（mHC）与Muon优化器相结合，能够在固定数据投入量的前提下提升模型收敛速度。</span></p><p><br></p><p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/6219cd37-8ce7-11f1-b05d-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" loading="lazy" decoding="async"></p><p><br></p><p style="line-height: 1.75em" class="ql-align-center"><span style="color: rgb(136, 136, 136)"><span>▲openPangu-2.0模型架构</span></span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">研究人员针对MoE负载均衡、mHC结构稳定性、MTP训练策略以及Muon参数分组分别设计专属优化方案，以此保障端到端训练全过程的稳定性。</span></p><p><br></p><p><strong style="color: rgb(15, 89, 164);">训练基础设施方面，</strong><span style="color: rgba(0, 0, 0, 0.9);">当模型拓展至512K上下文窗口，同时叠加mHC、Muon、MTP等多重复杂基础架构单元，会带来更高通信开销与显存占用瓶颈。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">基于此，研发人员搭建了一套系统化协同优化框架：融合无冗余混合上下文并行（CP）、面向MTP的轻量化点对点数据传输、适配Muon优化器的分布式计算通信重叠机制以及混合重计算策略；依托Ascend C专用编程语言定制融合内核，对mHC、参数化注意力汇点（PAS）、模块化注意力（ModAttn）模块进行深度加速。</span></p><p><br></p><p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/627cb8e8-8ce7-11f1-9607-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" loading="lazy" decoding="async"></p><p><br></p><p style="line-height: 1.75em" class="ql-align-center"><span style="color: rgb(136, 136, 136)"><span>▲Muon通信与计算重叠情况</span></span></p><p><br></p><p>为释放CloudMatrix 384超节点集群的整体算力，其落地了一套精简且感知网络拓扑的硬件亲和调度策略，将高带宽数据流约束在超节点内部交互，最大限度减少跨节点数据传输开销，破除集群运行瓶颈，实现硬件资源利用率最大化。</p><p><br></p><p><strong style="color: rgb(15, 89, 164);">预训练阶段，</strong><span style="color: rgba(0, 0, 0, 0.9);">openPangu-2.0预训练语料库包含约34T tokens，为了优化学习过程，预训练过程被划分为三个阶段，每个阶段都采用特定的数据配方和选择策略来逐步提升模型的能力：</span></p><p><br></p><p>第一阶段是通用领域（25T tokens），重点在于建立扎实的通用知识和广泛的语言能力基础。</p><p><br></p><p>第二阶段是推理能力培养（8T tokens），提升深度推理能力、逻辑思维能力以及高级编程技能。</p><p><br></p><p>第三阶段是退火处理（1.4T tokens），优化模型行为和智能体的能力，研究人员特意保留了较长的文档和复杂的轨迹数据，以便在这一阶段最大限度提升模型的自主任务处理能力。</p><p><br></p><p>其预训练语料库汇集了网页、书籍、PDF文件、多语言文本、代码库等数据。</p><p><br></p><p><strong style="color: rgb(15, 89, 164);">后训练阶段</strong><span style="color: rgba(0, 0, 0, 0.9);">分为三级流水线：监督微调（SFT）、并行强化学习专家训练、多专家在线策略蒸馏（OPD）。</span></p><p><br></p><p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/62ded512-8ce7-11f1-85cf-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" loading="lazy" decoding="async"></p><p><br></p><p style="line-height: 1.75em" class="ql-align-center"><span style="color: rgb(136, 136, 136)"><span>▲监督式微调</span></span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">完成统一监督微调后，系统并行训练多组强化学习专家模型；各组专家依托独立数据集与专属奖励函数，分别针对逻辑推理、通用问答、智能体交互、代码生成四大领域优化策略，消除强化学习过程中的跨领域任务干扰。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">最后借助在线策略蒸馏完成各路专家能力的融合聚合。</span></p><p><br></p><p><strong style="color: rgb(15, 89, 164);">推理加速方面</strong><span style="color: rgba(0, 0, 0, 0.9);">，华为自研了昇腾原生推理框架，实现硬件执行逻辑与模型运行时动态行为耦合。</span></p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">该架构自研多款融合算子，包含面向推理场景优化的mHC算子、专用集合通信原语，同时配套Felix上下文并行、单核多流执行等并行策略。</span></p><p><br></p><p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/634bebb5-8ce7-11f1-9c24-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" loading="lazy" decoding="async"></p><p><br></p><p style="line-height: 1.75em" class="ql-align-center"><span style="color: rgb(136, 136, 136)"><span>▲Felix流水并行（CP）方案完整前向计算流程</span></span></p><p><br></p><p>为提升推理吞吐，该框架搭配了定制量化方案与算子感知式保精度量化机制；并且集成混合KV缓存管理、无损并行分词（LoPT），基于模块化注意力（ModAttn）原生适配自动前缀缓存（APC）与MTP技术。</p><p><br></p><p><span style="color: rgba(0, 0, 0, 0.9);">在128K上下文长度下，这套框架在昇腾NPU硬件的长上下文推理性能为：openPangu-2.0-Flash版本最低TPOT时延可达5.63ms，在TPOT为15ms的工况下单卡NPU生成吞吐1846 token/s；openPangu-2.0-Pro版本最低TPOT时延9.55ms，TPOT 20ms条件下单卡吞吐1326 token/s。</span></p><p><br></p><p style="text-align: center;"><img src="https://www.aitntnews.com/pictures/2026/7/31/63ab4e8a-8ce7-11f1-b19e-fa163e47d677.webp" alt="5050亿参数！余承东开源盘古新模型，“世界第一”还有些距离" loading="lazy" decoding="async"></p><p><br></p><p><strong style="color: rgb(0, 0, 0)">结语：华为要借openPangu</strong></p><p><br></p><p><strong style="color: rgb(0, 0, 0)">打造端侧智能体生态</strong></p><p><br></p><p>基于Ascend平台的硬件与软件协同设计方法，openPangu-2.0模型解决了大模型训练、长上下文对齐以及推理效率方面的关键瓶颈。</p><p><br></p><p>此外，华为在技术报告中提到，他们的目标不仅仅停留在静态基准测试的性能上，而是更注重实际系统的实用性。openPangu在战略上处于有利地位，有望成为智能设备、汽车等领域智能体应用的核心竞争力。</p><p><br></p><p>华为也在积极扩展基于边缘计算的能力，利用麒麟处理器架构来突破设备智能化的极限。为了实现这一变革，其将以昇腾硬件生态系统为基础，进一步扩展基于沙盒的仿真流程，以在复杂且开放性的场景中生成大量高保真度的执行数据集。</p><p><br></p><p>未来几个月，研究人员将不断迭代该模型，目标是在编程和复杂智能体任务方面，系统地提升openPangu的核心能力。</p><p><br></p><p>文章来自于微信公众号 “智东西”，作者 “智东西”</p>
+</div>
+
+<div style="text-align: left; font-size:14px;color:red;font-weight: 600;" v-if="newDetail.keyWord!=''">
+<span>关键词:</span>
+
+<a href="/searchList/AI新闻/1.html" style="cursor: pointer;color:red" target="_blank">AI新闻</a>
+,
+
+<a href="/searchList/盘古大模型/1.html" style="cursor: pointer;color:red" target="_blank">盘古大模型</a>
+,
+
+<a href="/searchList/openPangu-2.0-Pro/1.html" style="cursor: pointer;color:red" target="_blank">openPangu-2.0-Pro</a>
+,
+
+<a href="/searchList/华为AI/1.html" style="cursor: pointer;color:red" target="_blank">华为AI</a>
+
+
+</div>
+
+
+<div style="width: 100%;margin-top: 10px">
+<a href='https://www.aitntnews.com/newDetail.html?newId=20520' target="_blank">
+<img alt='添加客服微信openai178，进AITNT官方交流群' src='https://www.aitntnews.com/pictures/2025/6/11/be04f845-4615-11f0-b017-fa163e47d677.jpg' loading="lazy" decoding="async" style="width: 100%;">
+</a>
+</div>
+
+
+</div>
+<div style="margin-left: 36px;margin-right:15px;width: 1px;background-color: #E3E5EC"></div>
+<div style="width: 310px;display: flex;justify-content: flex-start;align-items: flex-start;flex-direction:column;">
+<a href="/newDetail.html?newId=92" target="_blank"><img loading="lazy" alt="AI转型,免费服务,就找AITNT"
+src='/static/image/homeRotationRightTop2.png?v=de3337403962334206ad62a3ce711eff7717e887c29fb8da94664d6d898857d875cd37949282bab2556294ef773ef34f7c5f7ba17f0ccc2a78ff0bc00ebb7753' style="width:310px;height: 150px"></a>
+<!-- <a href="/newDetail.html?newId=91" style="margin-top: 11px;" target="_blank"><img loading="lazy" alt="AITNT APP上线"
+src='/static/image/newdetail1.png?v=c19bd3f9d222b8ccda4c67f5f37c28bfc17763bbb75d329ccc388605e9c20a57b8ba44e52a45ac1a965af7755b7c090352c6ae13d94b0e602cc2f013f32d173e' style="width:310px;height: 150px"></a> -->
+
+<div style="font-size: 14px;color:#54BCBD;font-weight: 700;margin-top: 75px">AITNT资源拓展</div>
+<div style="font-size: 14px;color:#54BCBD;font-weight: 700">根据文章内容,系统为您匹配了更有价值的资源信息。内容由AI生成,仅供参考</div>
+
+<div style="width: 100%;font-size: 14px;font-weight: 700;margin-top: 15px">
+<div style="display: -webkit-box;overflow: hidden;text-overflow: ellipsis;-webkit-line-clamp: 2;-webkit-box-orient: vertical;">
+<div style="font-size: 14px;font-weight: 700;display: inline-block;padding: 0px 7px 0px 7px;background-color: #4095e5;border-radius: 10px;color:white;margin-right: 5px">1</div>
+<span style="font-size: 14px;font-weight: 700;color:#4095e5;">AI代理</span>
+</div>
+
+<div style="width: 300px;white-space: pre-wrap;text-align: left;font-size: 14px;word-break:break-all;">
+<p><span style="color: rgb(102, 163, 224);">【开源免费】</span><strong>Browser-use</strong> 是一个用户AI代理直接可以控制浏览器的工具。它能够让AI 自动执行浏览器中的各种任务，如比较价格、添加购物车、回复各种社交媒体等。</p><p><strong style="color: rgb(102, 163, 224);">项目地址：</strong>https://github.com/browser-use/browser-use</p><p><br></p>
+</div>
+
+</div>
+
+<div style="width: 100%;font-size: 14px;font-weight: 700;margin-top: 15px">
+<div style="display: -webkit-box;overflow: hidden;text-overflow: ellipsis;-webkit-line-clamp: 2;-webkit-box-orient: vertical;">
+<div style="font-size: 14px;font-weight: 700;display: inline-block;padding: 0px 7px 0px 7px;background-color: #4095e5;border-radius: 10px;color:white;margin-right: 5px">2</div>
+<span style="font-size: 14px;font-weight: 700;color:#4095e5;">智能体</span>
+</div>
+
+<div style="width: 300px;white-space: pre-wrap;text-align: left;font-size: 14px;word-break:break-all;">
+<p><span style="color: rgb(102, 163, 224);">【开源免费】</span>AutoGPT是一个允许用户创建和运行智能体的（AI Agents）项目。用户创建的智能体能够自动执行各种任务，从而让AI有步骤的去解决实际问题。</p><p>项目地址：<strong style="color: rgb(102, 163, 224);">https://github.com/Significant-Gravitas/AutoGPT</strong></p><p><br></p><p><strong style="color: rgb(102, 163, 224);"><span class="ql-cursor">﻿</span>【开源免费】</strong>MetaGPT是一个“软件开发公司”的智能体项目，只需要输入一句话的老板需求，MetaGPT即可输出用户故事 / 竞品分析 / 需求 / 数据结构 / APIs / 文件等软件开发的相关内容。MetaGPT内置了各种AI角色，包括产品经理 / 架构师 / 项目经理 / 工程师，MetaGPT提供了一个精心调配的软件公司研发全过程的SOP。</p><p>项目地址：<strong style="color: rgb(102, 163, 224);">https://github.com/geekan/MetaGPT/blob/main/docs/README_CN.md</strong></p>
+</div>
+
+</div>
+
+<div style="width: 100%;font-size: 14px;font-weight: 700;margin-top: 15px">
+<div style="display: -webkit-box;overflow: hidden;text-overflow: ellipsis;-webkit-line-clamp: 2;-webkit-box-orient: vertical;">
+<div style="font-size: 14px;font-weight: 700;display: inline-block;padding: 0px 7px 0px 7px;background-color: #4095e5;border-radius: 10px;color:white;margin-right: 5px">3</div>
+<span style="font-size: 14px;font-weight: 700;color:#4095e5;">RAG</span>
+</div>
+
+<div style="width: 300px;white-space: pre-wrap;text-align: left;font-size: 14px;word-break:break-all;">
+<p><strong style="color: rgb(102, 163, 224);">【开源免费】</strong>graphrag是微软推出的RAG项目，与传统的通过 RAG 方法使用向量相似性作为搜索技术不同，<em>GraphRAG是</em>使用知识图谱在推理复杂信息时大幅提高问答性能。</p><p>项目地址：<strong style="color: rgb(102, 163, 224);">https://github.com/microsoft/graphrag</strong></p>
+</div>
+
+<div style="width: 300px;white-space: pre-wrap;text-align: left;font-size: 14px;word-break:break-all;">
+<p><strong style="color: rgb(102, 163, 224);">【开源免费】</strong>Dify是最早一批实现RAG，Agent，模型管理等一站式AI开发的工具平台，并且项目方一直持续维护。其中在任务编排方面相对领先对手，可以帮助研发实现像字节扣子那样的功能。</p><p>项目地址：<strong style="color: rgb(102, 163, 224);">https://github.com/langgenius/dify</strong></p><p><br></p><p><strong style="color: rgb(102, 163, 224);">【开源免费】</strong>RAGFlow是和Dify类似的开源项目，该项目在大文件解析方面做的更出色，拓展编排方面相对弱一些。</p><p>项目地址：<strong style="color: rgb(102, 163, 224);">https://github.com/infiniflow/ragflow/tree/main</strong></p><p><br></p><p><strong style="color: rgb(102, 163, 224);">【开源免费】</strong>phidata是一个可以实现将数据转化成向量存储，并通过AI实现RAG功能的项目</p><p>项目地址：<strong style="color: rgb(102, 163, 224);">https://github.com/phidatahq/phidata</strong></p><p><br></p><p><strong style="color: rgb(102, 163, 224);">【开源免费】</strong>TaskingAI 是一个提供RAG，Agent，大模型管理等AI项目开发的工具平台，比LangChain更强大的中间件AI平台工具。</p><p>项目地址：<strong style="color: rgb(102, 163, 224);">https://github.com/TaskingAI/TaskingAI</strong></p>
+</div>
+
+</div>
+
+<div style="width: 100%;font-size: 14px;font-weight: 700;margin-top: 15px">
+<div style="display: -webkit-box;overflow: hidden;text-overflow: ellipsis;-webkit-line-clamp: 2;-webkit-box-orient: vertical;">
+<div style="font-size: 14px;font-weight: 700;display: inline-block;padding: 0px 7px 0px 7px;background-color: #4095e5;border-radius: 10px;color:white;margin-right: 5px">4</div>
+<span style="font-size: 14px;font-weight: 700;color:#4095e5;">微调</span>
+</div>
+
+<div style="width: 300px;white-space: pre-wrap;text-align: left;font-size: 14px;word-break:break-all;">
+<p><strong style="color: rgb(102, 163, 224);">【开源免费】</strong>XTuner 是一个高效、灵活、全能的轻量化大模型微调工具库。它帮助开发者提供一个简单易用的平台，可以对大语言模型（LLM）和多模态图文模型（VLM）进行预训练和轻量级微调。XTuner 支持多种微调算法，如 QLoRA、LoRA 和全量参数微调。</p><p>项目地址：<strong style="color: rgb(102, 163, 224);">https://github.com/InternLM/xtuner</strong></p>
+</div>
+
+</div>
+
+
+</div>
+</div>
+
+</div>
+</div>
+<div style="height: 50px;width: 1px"></div>
+</div>
+<div style="flex-grow: 1;" class="header"> </div>
+</div>
+<footer class="footer">
+<div style="flex-grow: 1" class="header"></div>
+<div style="width: 1250px;min-width: 1200px;display: flex;justify-content: flex-start;align-items: flex-start;flex-direction: column;">
+<div style="height: 290px;justify-content: flex-start;display: flex">
+<div style="width: 180px;display: flex;justify-content: flex-end;align-items: center;">
+</div>
+<div style="display: flex;justify-content: flex-start;align-items: flex-start;flex-direction: column">
+<div style="margin-top: 40px;display: flex;justify-content: flex-start;align-items: center">
+<div style="margin-right: 200px;font-size: 18px;font-weight: 500">关于AITNT</div>
+<div style="margin-right: 200px;font-size: 18px;font-weight: 500">AITNT 公众号</div>
+<div style="margin-right: 30px;font-size: 18px;font-weight: 500">AITNT APP下载</div>
+</div>
+<div style="margin-top: 25px;display: flex;justify-content: flex-start;align-items: flex-start;">
+<div style="display: flex;flex-direction: column;justify-content: flex-start;align-items: flex-start;margin-right: 120px">
+<div style="display: flex;font-size: 16px">
+<div style="margin-right: 40px"><a href="/official.html?newId=14871" style="color: white" target="_blank">寻求报道</a></div>
+<div><a href="/official.html?newId=14873" style="color: white" target="_blank">关于我们</a></div>
+</div>
+<div style="display: flex;font-size: 16px;margin-top: 15px">
+<div style="margin-right: 40px"><a href="/official.html?newId=14872" style="color: white" target="_blank">商务合作</a></div>
+<div><a href="/official.html?newId=14874" style="color: white" target="_blank">联系我们</a></div>
+</div>
+<div style="display: flex;font-size: 16px;margin-top: 15px">
+<div style="margin-right: 27px"><a href="/aidemand/home.html" style="color: white" target="_blank">AI需求对接</a></div>
+<div><a href="/aiPatent/all/1.html" style="color: white" target="_blank">AI专利库</a></div>
+</div>
+</div>
+<div style="margin-right: 135px">
+<img src='/static/image/AITNT_gongzhonghao.jpg?v=d1ca8d92b96e440d81d11bb51c8cc2ede4f50241d8b0977d70aa8fa527659a201586e8a44fe35640a1fced814102c3b95072402cdbcc6f8fb2c31473af2372f9' style="width: 110px;height: 110px" alt="AITNT公众号二维码"/>
+</div>
+<div style="display: flex;justify-content: flex-start;align-items: flex-start;font-size: 16px">
+<div style="margin-right: 20px;display: flex;justify-content: flex-start;align-items: center;;flex-direction: column">
+<div><img src='/static/image/AITNT_iosdownload.png?v=4cb4e5e99ba690882e7e869a294f14924ed7fb1df91866d20603216e3ec81c962d698940fd0c4633771887b8220d4ac40d6b8168f32a8a57e7eade64ed6687fa' style="width: 110px;height: 110px" alt="AITNT APP iOS下载二维码"/></div>
+<div style="margin-top: 10px">ios下载</div>
+</div>
+<div style="display: flex;justify-content: flex-start;align-items: center;flex-direction: column">
+<div><img src='/static/image/AITNT_anzhuodownload.png?v=edb4850bdbf0a2401bec3c5d22eeca98ec1379feeb14736effcdfc6e49357c86857eda6c2d864bdeaeec6f2b74eab5f567fdcbc92aed0debb8ffed5cbd9788c7' style="width: 110px;height: 110px" alt="AITNT APP 安卓下载二维码"/></div>
+<div style="margin-top: 10px">安卓下载</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div style="height: 50px;width: 100%;display: flex;justify-content: center;align-items: center;background: black">
+<a href="https://beian.miit.gov.cn/" style="color: white;" target="_blank">沪ICP备2023015588号-2</a>
+</div>
+</div>
+<div style="flex-grow: 1" class="header"></div>
+</footer>
+<script src='/static/js/jquery.min.js?v=3dcae1ff6e98c64e3586be3eb14dd486c51f7d4e9fa1b8f9a628be4fbb6a9ab562f31f9b50e16d2e0c72b942bdbe84eee8e0ef87fa730db1428b199a59d88232'></script>
+<script src='/static/js/aitntToast.js?v=e5a250267f669ed5f241829852175266f959de5322cec0c959e6a5df801e625fd46a22e0525cd31f97224c841b02ce764509d9a70a5bc0020ccf9a01de6fdc68'></script>
+<script src='/static/js/bootstrap.min.js?v=eebbac93c9063c5ca7656bb6e8e29b4de23e40fa18721b71b263de06a9072045c9c5eba7e3227821261eec2eaccfdc1dc5e1351a4dd5c6c21680265373ebd7de'></script>
+<script src='/static/js/pcUserLogin.js?v=cc842bfd790e6c8c74baa7efc00d472ae69ea77fea0dbd7391ae7f87e486d6ce2e40fafd2840575248bf630ef206ceb9194abbf0ff87a3bf610fc1b65d2a0294'></script>
+<script src='/static/js/aitntTranslateInit.js?v=e323b0087ce181084e009ac854bd1eb725241c56895f99bc3d0478dc3bb0be269333cad2386ef85a9762387ed1ee4bd79712a458c96e18eb9cde847b0e3a341c' defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+var $ = window.jQuery;
+if (!$) return;
+$(".searchButton").on("click", function () {
+$(".zhezhao").show();
+});
+$(".searchzhezhaoclose").on("click", function () {
+$(".zhezhao").hide();
+});
+$(".hot-search").on("click", function () {
+var searchWord = $(this).text();
+location.href = "/searchList/" + encodeURIComponent(searchWord) + "/1.html"
+});
+$("#searchwordInput").on("keypress", function (e) {
+if (e.which === 13) {
+var searchWord = $(this).val();
+if (searchWord.trim() == "") {
+aitntToast("请正确填写搜索内容!");
+return
+}
+location.href = "/searchList/" + encodeURIComponent(searchWord) + "/1.html"
+}
+});
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+setTimeout(function () {
+let sendData = {
+"type": "1",
+"newId": 27818
+}
+$.ajax({
+url: '/api/web/v1/addClickNum',
+method: 'POST',
+contentType: "application/json",
+data: JSON.stringify(sendData),
+success: function (res) {
+}
+})
+}, 10000);
+});
+</script>
+
+<script>
+window.addEventListener('load', function () {
+var _hmt = window._hmt || (window._hmt = []);
+var hm = document.createElement('script');
+hm.async = true;
+hm.src = 'https://hm.baidu.com/hm.js?001c7ce1b86561e7ad97086c593f185d';
+document.head.appendChild(hm);
+});
+</script>
+</body>
+</html>

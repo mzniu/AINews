@@ -16,6 +16,9 @@
             <div class="nav-menu">
                 <a href="/" class="nav-link active">🏠 主页</a>
                 <a href="/video-maker" class="nav-link">📹 视频制作</a>
+                <a href="/ingestion-library" class="nav-link">📚 资讯库</a>
+                <a href="/publish-center" class="nav-link">📤 发布中心</a>
+                <a href="/settings" class="nav-link">⚙️ 系统配置</a>
                 <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
                 <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
             </div>
@@ -353,6 +356,7 @@
                         <details open class="ai-group" style="margin-top: 12px; padding: 10px 14px; background: #fafbff; border: 1px solid #e6e9ff; border-radius: 10px;">
                             <summary class="ai-group-summary" style="cursor:pointer; font-weight:600; color:#4c1d95; font-size:14px; list-style:none;">⚙️ 元数据与生成</summary>
                         <div style="margin-top: 10px; color: #666; font-size: 12px;" id="aiMeta"></div>
+                        <div id="aiComplianceWarning" style="display: none; margin-top: 10px; padding: 10px 12px; background: #fff8e1; border: 1px solid #f6d365; border-radius: 8px; color: #8a6d1d; font-size: 13px; line-height: 1.5;"></div>
                         <div id="aiMethodologyInsight" style="display: none; margin-top: 8px; padding: 10px 12px; background: linear-gradient(135deg, #f3e8ff 0%, #e0e7ff 100%); border-radius: 8px; border: 1px solid #c4b5fd; font-size: 13px; color: #4c1d95; line-height: 1.6;">
                             <div style="font-size: 11px; color: #6b7280; margin-bottom: 6px;">AI 推断的受众、夸赞点与流量钩子，用于指导标题写作；不可编辑，重新生成会刷新。</div>
                             <span style="font-weight: 600;">🎯 目标受众：</span><span id="aiTargetAudience" style="font-weight: 600; color: #5b21b6;"></span>
@@ -411,6 +415,9 @@
                                 <a id="downloadVideoBtn" download style="display: inline-block; padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">
                                     💾 下载视频
                                 </a>
+                                <button type="button" id="publishVideoBtn" style="display:none;margin-left:8px;padding:10px 20px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;">
+                                    📤 发布
+                                </button>
                             </div>
                         </div>
 
@@ -509,32 +516,50 @@
     </div>
 
     <!-- 图片查看器 & 去水印模态框 -->
-    <div class="image-modal-overlay" id="imageModalOverlay" onclick="if(event.target===this)closeImageModal()">
+    <div class="image-modal-overlay" id="imageModalOverlay">
         <div class="image-modal">
             <div class="image-modal-header">
                 <h3 id="modalTitle">🔍 图片查看器</h3>
                 <div class="modal-toolbar">
-                    <button class="modal-btn-zoom" onclick="zoomImage(-0.2)" title="缩小">➖ 缩小</button>
-                    <button class="modal-btn-zoom" onclick="zoomImage(0.2)" title="放大">➕ 放大</button>
-                    <button class="modal-btn-zoom" onclick="resetZoom()" title="适应">🔄 适应</button>
-                    <button class="modal-btn-zoom" onclick="toggleFullscreen()" title="切换全屏" id="fullscreenBtn">🔲 全屏</button>
+                    <button type="button" class="modal-btn-zoom" id="zoomOutBtn" title="缩小">➖ 缩小</button>
+                    <button type="button" class="modal-btn-zoom" id="zoomInBtn" title="放大">➕ 放大</button>
+                    <button type="button" class="modal-btn-zoom" id="resetZoomBtn" title="适应">🔄 适应</button>
+                    <button type="button" class="modal-btn-zoom" id="fullscreenBtn" title="切换全屏">🔲 全屏</button>
                                     
                     <!-- 编辑模式分隔线和按钮 -->
                     <span style="color:#555; margin: 0 8px;">|</span>
-                    <button class="modal-btn-draw" id="editModeBtn" onclick="toggleEditMode()" title="进入编辑模式">✏️ 编辑图片</button>
+                    <button type="button" class="modal-btn-draw" id="editModeBtn" title="进入编辑模式">✏️ 编辑图片</button>
                                     
                     <!-- 编辑工具栏（默认隐藏） -->
                     <div id="editTools" style="display: none; align-items: center; gap: 6px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #ddd;">
-                        <button class="modal-btn-draw" id="drawModeBtn" onclick="toggleDrawMode()" title="框选水印区域">✏️ 框选水印</button>
-                        <button class="modal-btn-action" id="removeWatermarkBtn" onclick="removeWatermark()" disabled title="去除水印">🧹 去除水印</button>
+                        <button type="button" class="modal-btn-draw" id="drawModeBtn" title="框选水印区域">✏️ 框选水印</button>
+                        <button type="button" class="modal-btn-draw" id="cropModeBtn" title="框选裁剪区域">✂️ 剪裁</button>
+                        <button type="button" class="modal-btn-action" id="applyCropBtn" style="display:none;" title="应用裁剪">✅ 应用剪裁</button>
+                        <button type="button" class="modal-btn-action" id="removeWatermarkBtn" disabled title="去除水印">🧹 去除水印</button>
                         <span style="color:#555;">|</span>
-                        <button class="modal-btn-zoom" onclick="rotateImage(90)" title="顺时针旋转 90°">🔄 旋转</button>
-                        <button class="modal-btn-zoom" onclick="flipImage('horizontal')" title="水平翻转">↔️ 翻转</button>
-                        <button class="modal-btn-action" id="saveEditBtn" onclick="saveImageEdit()" disabled title="保存编辑" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">💾 保存修改</button>
+                        <button type="button" class="modal-btn-draw" id="textModeBtn" title="在图片上添加文字">🅰️ 添加文字</button>
+                        <div id="textToolOptions" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <input id="imageTextInput" type="text" placeholder="输入文字" maxlength="200"
+                                   style="width:130px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
+                            <select id="imageTextFontSelect" title="字体"
+                                    style="padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px; max-width:120px;">
+                                <option value="msyhbd">微软雅黑 粗体</option>
+                            </select>
+                            <input id="imageTextColorPicker" type="color" value="#ffffff" title="文字颜色"
+                                   style="width:32px; height:28px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;">
+                            <input id="imageTextSizeInput" type="number" min="12" max="200" value="48" title="字号"
+                                   style="width:52px; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
+                        </div>
+                        <button type="button" class="modal-btn-action" id="applyTextBtn" style="display:none;" title="将文字烧录到图片">✅ 应用文字</button>
+                        <button type="button" class="modal-btn-zoom" id="undoTextBtn" style="display:none;" title="撤销上一条">↩️ 撤销</button>
+                        <span style="color:#555;">|</span>
+                        <button type="button" class="modal-btn-zoom" id="rotateImageBtn" title="顺时针旋转 90°">🔄 旋转</button>
+                        <button type="button" class="modal-btn-zoom" id="flipImageBtn" title="水平翻转">↔️ 翻转</button>
+                        <button type="button" class="modal-btn-action" id="saveEditBtn" disabled title="保存编辑" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">💾 保存修改</button>
                     </div>
                                     
                     <span style="color:#555;">|</span>
-                    <button class="modal-btn-close" onclick="closeImageModal()">✕</button>
+                    <button type="button" class="modal-btn-close" id="closeImageModalBtn">✕</button>
                 </div>
             </div>
             <div class="image-modal-body" id="modalBody">
@@ -544,13 +569,13 @@
                 <div class="region-list-panel" id="regionListPanel">
                     <div class="region-list-header">
                         <span>📋 检测区域</span>
-                        <button class="panel-close" onclick="toggleRegionPanel(false)" title="关闭面板">✕</button>
+                        <button type="button" class="panel-close" id="closeRegionPanelBtn" title="关闭面板">✕</button>
                     </div>
                     <div class="region-list-body" id="regionListBody">
                         <div class="region-list-empty">暂无检测区域</div>
                     </div>
                     <div class="region-list-footer" id="regionListFooter" style="display:none;">
-                        <button onclick="clearRegions()">🗑️ 清除全部区域</button>
+                        <button type="button" id="clearRegionsBtn">🗑️ 清除全部区域</button>
                     </div>
                 </div>
             </div>
@@ -590,10 +615,12 @@
     </div>
 </div>
 
-    <script src="/static/js/index/state.js"></script>
-    <script src="/static/js/index/main.js"></script>
-    <script src="/static/js/index/modal.js"></script>
-    <script src="/static/js/index/init.js"></script>
+    <script src="/static/js/index/state.js?v=20260801f"></script>
+    <script src="/static/js/shared/publish_modal.js?v=20260806a"></script>
+    <script src="/static/js/index/image_scores.js?v=20260801g"></script>
+    <script src="/static/js/index/main.js?v=20260801g"></script>
+    <script src="/static/js/index/modal.js?v=20260718"></script>
+    <script src="/static/js/index/init.js?v=20260801g"></script>
     <script src="/static/js/common/back-to-top.js"></script>
 </body>
 </html>

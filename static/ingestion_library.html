@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资讯库 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/ingestion_library.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">🎬 AINews</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">🏠 主页</a>
+                <a href="/video-maker" class="nav-link">📹 视频制作</a>
+                <a href="/ingestion-library" class="nav-link active">📚 资讯库</a>
+                <a href="/publish-center" class="nav-link">📤 发布中心</a>
+                <a href="/settings" class="nav-link">⚙️ 系统配置</a>
+                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
+                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-hero">
+            <h1>📚 资讯库</h1>
+            <p>定时抓取入库 · 选题后跳转主页生成视频（补充手动粘贴 URL 流程）</p>
+        </div>
+
+        <div id="ingestionWorkerBanner" class="card" style="display:none;background:#fef3c7;color:#92400e;padding:12px 16px;margin-bottom:16px;">
+            ⚠️ 爬取 Worker 未运行。默认应内嵌在 web_server 中；请重启服务，或在 <code>.env</code> 设置 <code>INGESTION_WORKER_MODE=separate</code> 后运行 <code>python -m services.ingestion.worker</code>。
+        </div>
+
+        <div class="card toolbar">
+            <div class="toolbar-grid">
+                <div>
+                    <label class="field-label" for="sourceSelect">数据源</label>
+                    <select id="sourceSelect" class="form-control"></select>
+                </div>
+                <div>
+                    <label class="field-label" for="sortSelect">排序</label>
+                    <select id="sortSelect" class="form-control">
+                        <option value="published_desc">发布时间</option>
+                        <option value="score_desc">评分优先</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="searchInput">搜索标题</label>
+                    <input id="searchInput" class="form-control" placeholder="关键词">
+                </div>
+                <div class="toolbar-actions">
+                    <button class="btn btn-primary" id="refreshBtn" type="button">刷新列表</button>
+                    <button class="btn btn-outline-primary" id="runSourceBtn" type="button">立即抓取</button>
+                    <button class="btn btn-outline-secondary" id="scoreBatchBtn" type="button">批量规则评分</button>
+                    <button class="btn btn-success" id="useOnHomeBtn" type="button" disabled>用于主页生成</button>
+                </div>
+            </div>
+            <div id="statusBar" class="small text-muted mt-2"></div>
+        </div>
+
+        <div class="ingestion-grid">
+            <div class="card">
+                <h2 class="mb-3">文章列表 <span id="articleCount" class="badge badge-secondary">0</span></h2>
+                <div id="articleList"></div>
+            </div>
+            <div class="card" id="articleDetail">
+                <p class="text-muted">选择一篇文章查看详情</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/shared/publish_modal.js?v=20260806a"></script>
+    <script src="/static/js/ingestion_library.js?v=20260804a"></script>
+</body>
+</html>

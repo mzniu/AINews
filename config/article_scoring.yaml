@@ -1,0 +1,212 @@
+# 快讯向选题评分配置（规则分 0-100，各维度 0-10 后乘权重）
+profile: flash_news
+
+weights:
+  timeliness: 0.20
+  prominence: 0.18
+  breakthrough: 0.18
+  product_heat: 0.15
+  hook: 0.12
+  relevance: 0.10
+  data_signal: 0.05
+  creatability: 0.02
+
+grades:
+  S: 85
+  A: 70
+  B: 55
+  C: 40
+
+bonuses:
+  multi_source_story:
+    min_articles: 2
+    points: 3
+  view_count_tier1: 5000
+  view_count_tier1_points: 2
+  view_count_tier2: 10000
+  view_count_tier2_points: 4
+
+penalties:
+  marketing_only: -8
+  rehash: -3
+  insufficient_images:
+    min_images: 3
+    points: -6
+
+tier1_companies:
+  - OpenAI
+  - Anthropic
+  - Google
+  - Meta
+  - Microsoft
+  - NVIDIA
+  - Apple
+  - 华为
+  - 字节跳动
+  - 字节
+  - 阿里巴巴
+  - 阿里
+  - 腾讯
+  - 百度
+  - DeepSeek
+  - 深度求索
+  - 月之暗面
+  - 米哈游
+  - 商汤
+  - 智谱
+  - 科大讯飞
+  - 英伟达
+
+tier2_companies:
+  - 36氪
+  - 雷锋网
+  - 量子位
+  - MiniMax
+  - 阶跃星辰
+  - 零一万物
+  - 百川智能
+  - 昆仑万维
+  - 快手
+  - 美团
+  - 京东
+  - 小米
+  - 理想
+  - 蔚来
+  - 小鹏
+  - 特斯拉
+  - Tesla
+  - Amazon
+  - 亚马逊
+
+celebrities:
+  - 马斯克
+  - Musk
+  - 山姆·奥特曼
+  - Altman
+  - 黄仁勋
+  - 余承东
+  - 蔡浩宇
+  - 李开复
+  - 李飞飞
+  - 雷军
+  - 周鸿祎
+  - 张一鸣
+
+hot_products:
+  - ChatGPT
+  - GPT-5
+  - GPT-4
+  - Claude
+  - Gemini
+  - Kimi
+  - DeepSeek
+  - Sora
+  - Agent
+  - 智能体
+  - 大模型
+  - 开源模型
+  - 具身智能
+  - 世界模型
+  - MoE
+  - Copilot
+  - Midjourney
+  - Stable Diffusion
+  - 盘古
+  - openPangu
+
+breakthrough_signals:
+  - 首发
+  - 首次
+  - 突破
+  - 超越
+  - SOTA
+  - 开源
+  - 重磅
+  - 里程碑
+  - 融资
+  - 收购
+  - 上市
+  - 禁令
+  - 监管
+  - 停运
+  - 关停
+  - 爆火
+  - 登顶
+  - 登顶
+  - 参数
+  - 亿
+  - 万亿
+
+hook_patterns:
+  - 首次
+  - 突发
+  - 刚刚
+  - 重磅
+  - 暴涨
+  - 暴跌
+  - 超越
+  - 碾压
+  - 免费
+  - 开源
+  - 泄露
+  - 官宣
+  - 官宣
+  - vs
+  - 对比
+
+ai_relevance_keywords:
+  - AI
+  - 人工智能
+  - 大模型
+  - LLM
+  - 机器学习
+  - 深度学习
+  - 神经网络
+  - 算力
+  - GPU
+  - 芯片
+  - 机器人
+  - 自动驾驶
+  - Agent
+  - 智能体
+
+marketing_signals:
+  - 限时优惠
+  - 扫码领取
+  - 加微信
+  - 免费领取课程
+
+# S 级或 ≥80 分：异步媒体流水线（配图+文案+出片）
+post_score_automation:
+  enabled: true
+  skip_if_done: true
+  include_story_images: true
+  voiceover_min_chars: 40
+  voiceover_max_chars: 90
+  auto_llm:
+    enabled: true
+    min_grade: A
+  media_pipeline:
+    enabled: true
+    trigger:
+      min_grade: S
+      min_score: 80
+      logic: or
+    score_images: true
+    generate_content: true
+    prepare_video: true
+    render_video: true
+    max_selected_images: 4
+    random_bgm: true
+    bgm_dir: static/music
+    background_image: static/imgs/bg.png
+    clip_duration_sec: 2.5
+    render_cover: true
+    prepend_cover_intro: true
+    cover_intro_duration_sec: 1.0
+    cover_width: 1080
+    cover_height: 1440
+  # 出片成功后自动为所有已登录平台创建发布任务
+  auto_publish:
+    enabled: true
+    skip_if_exists: true

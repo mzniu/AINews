@@ -1,0 +1,90 @@
+# 文章配图相关度评分（规则 + 视觉模型）
+# 场景：8–12 秒短视频，通常仅选 3–4 张主画面，优先动图
+profile: short_video_clip
+scorer_version: "1.2"
+
+weights:
+  topic_relevance: 0.30
+  info_value: 0.18
+  visual_quality: 0.12
+  flash_fit: 0.18
+  cover_fit: 0.05
+  figure_prominence: 0.10
+  compliance: 0.07
+
+grades:
+  A: 80
+  B: 60
+  C: 40
+
+penalties:
+  watermark: 15
+  logo_only: 20
+  ad_banner: 15
+  off_topic: 10
+  duplicate: 15
+  extreme_aspect: 10
+  portrait: 5
+  chapter_title: 25
+  transition_decor: 20
+
+bonuses:
+  landscape: 5
+  animated: 8
+
+orientation:
+  landscape_min_ratio: 1.25
+  portrait_max_ratio: 1.0
+
+prefilter:
+  min_width: 220
+  min_height: 140
+  forced_d_score: 20
+  watermark_detect: true
+  watermark_min_regions: 1
+  bad_url_hints:
+    - logo
+    - icon
+    - avatar
+    - qrcode
+    - qr
+    - sprite
+    - favicon
+    - placeholder
+    - advert
+    - banner-ad
+    - share
+    - button
+    - chapter
+    - section
+    - heading
+    - title-card
+    - title_card
+    - divider
+    - transition
+    - separator
+    - toc
+    - 目录
+    - 标题图
+    - 章节
+
+vl:
+  batch_size: 2
+  fallback_to_single: true
+  max_retries: 1
+  max_images: 20
+  max_edge_px: 960
+  content_excerpt_chars: 800
+  request_timeout_sec: 60
+  batch_timeout_sec: 120
+  single_timeout_sec: 60
+  max_tokens_per_image: 700
+  min_max_tokens: 2048
+  max_max_tokens: 8192
+
+auto_select:
+  min_grade: A
+  fallback_grade: B
+  max_count: 4
+  min_count: 2
+  supplement_grade: C

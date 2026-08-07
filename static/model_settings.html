@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型配置 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/model_settings.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">🎬 AINews</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">🏠 主页</a>
+                <a href="/video-maker" class="nav-link">📹 视频制作</a>
+                <a href="/ingestion-library" class="nav-link">📚 资讯库</a>
+                <a href="/publish-center" class="nav-link">📤 发布中心</a>
+                <a href="/model-settings" class="nav-link active">⚙️ 模型配置</a>
+                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
+                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-hero">
+            <h1>⚙️ 模型配置</h1>
+            <p>管理语言模型与视觉模型，为摘要生成、评分评语与后续图片分析做准备。配置保存在 <code>config/models.local.yaml</code>（不提交 Git）。</p>
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>🗣️ 语言模型</h2>
+                <div class="toolbar-row">
+                    <select id="languagePresetSelect" class="form-control" style="width:auto;min-width:200px;"></select>
+                    <button type="button" class="btn btn-outline btn-sm" id="addLanguagePresetBtn">从预设添加</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="addLanguageBtn">+ 自定义</button>
+                </div>
+            </div>
+            <p class="section-desc">用于文章摘要、评分 AI 评语、搜索词生成等文本任务。</p>
+            <div id="languageProfiles"></div>
+            <div class="footer-actions">
+                <button type="button" class="btn btn-outline" id="testLanguageBtn">测试语言模型</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>👁️ 视觉模型</h2>
+                <div class="toolbar-row">
+                    <select id="visionPresetSelect" class="form-control" style="width:auto;min-width:200px;"></select>
+                    <button type="button" class="btn btn-outline btn-sm" id="addVisionPresetBtn">从预设添加</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="addVisionBtn">+ 自定义</button>
+                </div>
+            </div>
+            <p class="section-desc">用于后续图片内容理解、配图筛选与水印检测等视觉分析（OpenAI 兼容接口）。</p>
+            <div id="visionProfiles"></div>
+            <div class="footer-actions">
+                <button type="button" class="btn btn-outline" id="testVisionBtn">测试视觉模型</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="footer-actions">
+                <button type="button" class="btn" id="saveBtn">保存配置</button>
+                <button type="button" class="btn btn-outline" id="reloadBtn">重新加载</button>
+            </div>
+            <div id="statusBar" class="status-bar"></div>
+            <p class="hint">留空 API Key 时保留已保存的密钥；首次使用可从 <code>.env</code> 的 DEEPSEEK 配置自动迁移。</p>
+        </div>
+    </div>
+
+    <script src="/static/js/model_settings.js?v=20260801b"></script>
+</body>
+</html>

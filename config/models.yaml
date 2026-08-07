@@ -1,0 +1,66 @@
+# 模型配置模板（提交到仓库）
+# 实际密钥与选用项保存在 config/models.local.yaml（不提交）
+
+version: 1
+
+defaults:
+  language:
+    max_tokens: 8192
+    temperature: 0.7
+  vision:
+    max_tokens: 2048
+    temperature: 0.3
+
+providers:
+  deepseek:
+    label: DeepSeek
+    default_base_url: https://api.deepseek.com
+  openai:
+    label: OpenAI
+    default_base_url: https://api.openai.com/v1
+  qwen:
+    label: 通义千问
+    default_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  volcengine:
+    label: 火山引擎
+    default_base_url: https://ark.cn-beijing.volces.com/api/v3
+
+language_presets:
+  - id: deepseek_chat
+    display_name: DeepSeek Chat
+    provider: deepseek
+    model: deepseek-chat
+  - id: deepseek_v4_pro
+    display_name: DeepSeek V4 Pro
+    provider: deepseek
+    model: deepseek-v4-pro
+  - id: deepseek_v4_flash
+    display_name: DeepSeek V4 Flash
+    provider: deepseek
+    model: deepseek-v4-flash
+  - id: gpt4o_mini
+    display_name: GPT-4o Mini
+    provider: openai
+    model: gpt-4o-mini
+  - id: qwen_plus
+    display_name: 通义千问 Plus
+    provider: qwen
+    model: qwen-plus
+
+vision_presets:
+  - id: qwen_vl_max
+    display_name: 通义千问 VL Max
+    provider: qwen
+    model: qwen-vl-max
+  - id: qwen_vl_plus
+    display_name: 通义千问 VL Plus
+    provider: qwen
+    model: qwen-vl-plus
+  - id: gpt4o
+    display_name: GPT-4o（视觉）
+    provider: openai
+    model: gpt-4o
+  - id: doubao_vision
+    display_name: 豆包视觉
+    provider: volcengine
+    model: doubao-vision-pro-32k

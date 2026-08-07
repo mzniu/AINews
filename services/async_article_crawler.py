@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass
 from datetime import datetime
 from loguru import logger
+from utils.image_format import resolve_image_ext
 
 @dataclass
 class AsyncArticleData:
@@ -190,23 +191,17 @@ class AsyncVentureBeatCrawler:
                             if not content_type.startswith('image/'):
                                 logger.warning(f"非图片内容类型: {content_type}, 尝试继续处理")
                             
-                            # 生成文件名
-                            parsed_url = urlparse(img_url)
-                            filename = f"article_image_{i+1:03d}_{os.path.basename(parsed_url.path)}"
-                            
-                            # 如果没有扩展名，根据内容类型添加
-                            if not any(filename.endswith(ext) for ext in ['.jpg', '.png', '.gif', '.webp', '.jpeg']):
-                                if 'png' in content_type:
-                                    filename += '.png'
-                                elif 'webp' in content_type:
-                                    filename += '.webp'
-                                else:
-                                    filename += '.jpg'
-                            
-                            filepath = images_dir / filename
-                            
-                            # 保存图片
                             content = await response.read()
+                            content_type = response.headers.get('content-type', '').lower()
+
+                            parsed_url = urlparse(img_url)
+                            stem = Path(
+                                os.path.basename(parsed_url.path) or f"article_image_{i+1:03d}"
+                            ).stem
+                            ext = resolve_image_ext(content, content_type=content_type, url=img_url)
+                            filename = f"{stem}{ext}"
+                            filepath = images_dir / filename
+
                             with open(filepath, 'wb') as f:
                                 f.write(content)
                             

@@ -132,7 +132,7 @@ async def generate_summary(request: GenerateSummaryRequest):
   "target_audience": "推断的目标受众（≤12个汉字）",
   "praise_tags": ["夸赞标签1", "夸赞标签2", "夸赞标签3"],
   "traffic_hook": "流量钩子类型中文名（如「观众想看结果」），可空字符串",
-  "main_line1": "主标题第一行（9~12汉字当量，话题引入，不含emoji）",
+  "main_line1": "主标题第一行（9~12汉字当量，必须以感叹词如突发！/炸裂！/爽了！等开头+话题引入，不含emoji）",
   "main_line2": "主标题第二行（9~12汉字当量，必须以「网友：」开头的尖锐锐评，可空字符串）",
   "sub_title": "副标题第一行（11~15汉字当量，轻观点收尾，不含emoji）",
   "sub_title2": "副标题第二行（11~15汉字当量，七种流量钩子之一，可空字符串）",
@@ -151,28 +151,28 @@ async def generate_summary(request: GenerateSummaryRequest):
         prompt = build_methodology_prompt_section(
             vmin=vmin, vmax=vmax, json_template=json_template
         )
+        from utils.content_compliance import invoke_json_llm_with_compliance
 
-        response = await asyncio.to_thread(
-            client.chat.completions.create,
-            model=model,
-            messages=[
-                {"role": "system", "content": "你是顶级自媒体爆款文案大师，精通微信视频号的「社交货币 / 夸赞」方法论：通过高情商夸赞目标受众、帮用户立人设来触发社交裂变点赞；同时熟练掌握「制造悬念、列举数字、提出疑问、强调时效、引发争议（中立可讨论）、指向明确」六种辅助标题技法，能在方法论为主、技法为辅的前提下综合运用。你的文案在合规前提下引发点赞与传播，信息密度高。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
-                + "我是小牛，一个专业的AI技术专家，对AI行业有深度的见解，请你根据正文为我生成标题、副标题、摘要、标签与口播稿。"},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.85,
-            max_tokens=int(os.getenv("DEEPSEEK_MAX_TOKENS", "8192")),
-            response_format={"type": "json_object"}
-        )
-
-        result_text = (response.choices[0].message.content or "").strip()
-        if not result_text:
-            finish = response.choices[0].finish_reason if response.choices else None
-            usage = getattr(response, "usage", None)
-            logger.error(
-                f"LLM 返回空内容 | model={model} base_url={base_url} "
-                f"finish_reason={finish} usage={usage}"
+        messages = [
+            {
+                "role": "system",
+                "content": "你是顶级自媒体爆款文案大师，精通微信视频号的「社交货币 / 夸赞」方法论：通过高情商夸赞目标受众、帮用户立人设来触发社交裂变点赞；同时熟练掌握「制造悬念、列举数字、提出疑问、强调时效、引发争议（中立可讨论）、指向明确」六种辅助标题技法，能在方法论为主、技法为辅的前提下综合运用。主标题第一行必须以贴合正文的感叹词（如突发！、炸裂！、爽了！等）开头抓眼球。你的文案在合规前提下引发点赞与传播，信息密度高。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
+                + "我是小牛，一个专业的AI技术专家，对AI行业有深度的见解，请你根据正文为我生成标题、副标题、摘要、标签与口播稿。",
+            },
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            result, compliance = await asyncio.to_thread(
+                invoke_json_llm_with_compliance,
+                client=client,
+                model=model,
+                messages=messages,
+                temperature=0.85,
+                max_tokens=int(os.getenv("DEEPSEEK_MAX_TOKENS", "8192")),
+                response_format={"type": "json_object"},
             )
+        except ValueError as exc:
+            logger.error(f"LLM 返回空内容 | model={model} base_url={base_url} error={exc}")
             return {
                 "success": False,
                 "message": (
@@ -181,19 +181,13 @@ async def generate_summary(request: GenerateSummaryRequest):
                     "4) 余额/鉴权问题。请检查 .env 的 DEEPSEEK_MODEL / DEEPSEEK_BASE_URL / DEEPSEEK_API_KEY。"
                 ),
             }
-        try:
-            result = json.loads(result_text)
-        except json.JSONDecodeError as e:
-            logger.error(
-                f"LLM 返回非 JSON | model={model} error={e} "
-                f"head={result_text[:200]!r}"
-            )
+        except json.JSONDecodeError as exc:
+            logger.error(f"LLM 返回非 JSON | model={model} error={exc}")
             return {
                 "success": False,
                 "message": (
-                    f"LLM 返回非 JSON（model={model}，{e.msg}）。"
+                    f"LLM 返回非 JSON（model={model}，{exc.msg}）。"
                     "可能该模型不支持 response_format=json_object，或 prompt 被截断。"
-                    "返回内容前 200 字符已记录到日志。"
                 ),
             }
 
@@ -239,8 +233,9 @@ async def generate_summary(request: GenerateSummaryRequest):
             "target_audience": target_audience,
             "praise_tags": praise_tags,
             "traffic_hook": traffic_hook,
-            "tokens_used": response.usage.total_tokens,
-            "model": model
+            "tokens_used": compliance.tokens_used,
+            "model": model,
+            "compliance": compliance.to_dict(),
         }
     except Exception as e:
         logger.error(f"生成摘要失败: {e}")

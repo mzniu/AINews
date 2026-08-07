@@ -3,6 +3,7 @@
         const imageCatalog = new Map();
         let selectedImageItems = [];
         let generatedContent = null;
+        let lastCompliance = null;
         let ghDragSrcEl = null;
         let baseVideoPath = null;
         let finalVoiceoverUrl = null;
@@ -539,7 +540,9 @@
 
                 if (result.success) {
                     generatedContent = result.video_metadata;
+                    lastCompliance = result.processing_details?.compliance || null;
                     updateContentPreview();
+                    renderGithubComplianceWarning(lastCompliance);
                     showNotification('内容生成成功', 'success');
                 } else {
                     throw new Error(
@@ -552,6 +555,33 @@
                 showNotification(`生成内容失败: ${error.message}`, 'error');
                 console.error('重新生成内容失败:', error);
             }
+        }
+
+        function renderGithubComplianceWarning(compliance) {
+            const wrap = document.getElementById('github-compliance-warning');
+            if (!wrap) return;
+            const valueEl = wrap.querySelector('.value');
+            if (!compliance || compliance.ok !== false) {
+                wrap.style.display = 'none';
+                if (valueEl) valueEl.textContent = '';
+                return;
+            }
+            const violations = Array.isArray(compliance.violations) ? compliance.violations : [];
+            const errorItems = violations.filter((item) => (item.severity || 'error') === 'error');
+            const focus = errorItems.length ? errorItems : violations;
+            if (!focus.length || !valueEl) {
+                wrap.style.display = 'none';
+                return;
+            }
+            const lines = focus.map((item) => {
+                const field = item.field || 'unknown';
+                const matched = item.matched || '';
+                const category = item.category_name || item.category_id || '';
+                return `• ${field} 命中「${matched}」${category ? `（${category}）` : ''}`;
+            });
+            const retryNote = compliance.retried ? '（已自动重试 1 次，仍含禁限词，请手动修改）' : '';
+            valueEl.innerHTML = `<strong>⚠️ 合规提示${retryNote}</strong><br>${lines.join('<br>')}`;
+            wrap.style.display = 'block';
         }
 
         // 更新内容预览

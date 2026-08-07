@@ -24,6 +24,8 @@ except ImportError:
 
 import cv2
 
+from utils.image_format import sniff_file_kind
+
 logger = logging.getLogger(__name__)
 
 class GIFProcessor:
@@ -33,19 +35,32 @@ class GIFProcessor:
         self.supported_formats = ['.gif']
 
     def is_gif_file(self, file_path: str) -> bool:
-        """检查文件是否为GIF格式"""
+        """检查文件是否为 GIF（扩展名或文件头）。"""
         try:
             path = Path(file_path)
-            return path.suffix.lower() in self.supported_formats
+            if path.suffix.lower() in self.supported_formats:
+                return True
+            return sniff_file_kind(path) == "gif"
         except Exception:
             return False
 
     @staticmethod
     def is_webp_file(file_path: str) -> bool:
         try:
-            return Path(file_path).suffix.lower() == '.webp'
+            path = Path(file_path)
+            if path.suffix.lower() == ".webp":
+                return True
+            return sniff_file_kind(path) == "webp"
         except Exception:
             return False
+
+    def _animation_file_kind(self, file_path: str) -> Optional[str]:
+        """按实际内容识别动画轨格式：gif 或 webp。"""
+        if self.is_gif_file(file_path):
+            return "gif"
+        if self.is_webp_file(file_path):
+            return "webp"
+        return None
 
     def is_animated_webp_file(self, file_path: str) -> bool:
         """多帧动画 WebP（静态 WebP 为 False）。"""
@@ -70,10 +85,9 @@ class GIFProcessor:
         return self.is_animated_webp_file(file_path)
 
     def is_convertible_to_mp4_animation(self, file_path: str) -> bool:
-        """可批量转为 MP4 的素材：.gif 或 .webp（含静态 WebP，将生成短片段）。"""
+        """可批量转为 MP4 的素材：GIF 或 WebP（含静态 WebP，将生成短片段）。"""
         try:
-            suf = Path(file_path).suffix.lower()
-            return suf in ('.gif', '.webp')
+            return self._animation_file_kind(file_path) is not None
         except Exception:
             return False
 
@@ -113,13 +127,10 @@ class GIFProcessor:
     def extract_gif_frames(self, gif_path: str) -> Optional[List[np.ndarray]]:
         """提取 GIF 或 WebP 的帧（兼容旧名；WebP 含动画与单帧）。"""
         try:
-            suf = Path(gif_path).suffix.lower()
-            if suf == '.gif':
-                if not self.is_gif_file(gif_path):
-                    logger.warning(f"文件不是GIF格式: {gif_path}")
-                    return None
+            kind = self._animation_file_kind(gif_path)
+            if kind == "gif":
                 frames = self._extract_gif_frames_imageio(gif_path)
-            elif suf == '.webp':
+            elif kind == "webp":
                 frames = self.extract_webp_frames(gif_path)
             else:
                 logger.warning(f"不支持的动画格式: {gif_path}")
@@ -182,10 +193,10 @@ class GIFProcessor:
 
     def get_animation_properties(self, path: str) -> Dict:
         """GIF 或 WebP，用于估算帧率/时长。"""
-        suf = Path(path).suffix.lower()
-        if suf == '.gif':
+        kind = self._animation_file_kind(path)
+        if kind == "gif":
             return self.get_gif_properties(path)
-        if suf == '.webp':
+        if kind == "webp":
             return self.get_webp_properties(path)
         return {}
     

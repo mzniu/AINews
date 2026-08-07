@@ -23,7 +23,31 @@
             borders: [],           // [{x, y, width, height, color, lineWidth}]（图片原始坐标）
             borderColor: '#ff0000',
             borderLineWidth: 3,
+            // ---- 裁剪 ----
+            cropMode: false,
+            cropDrawing: false,
+            cropRegion: null,      // {x, y, width, height} 图片原始坐标
+            // ---- 文字标注 ----
+            textMode: false,
+            textOverlays: [],      // [{text, x, y, color, font_key, font_size}]
+            textFontsLoaded: false,
         };
+
+        const IMAGE_TEXT_FONT_FAMILY = {
+            msyhbd: '"Microsoft YaHei", "PingFang SC", sans-serif',
+            msyh: '"Microsoft YaHei", "PingFang SC", sans-serif',
+            simhei: 'SimHei, "Microsoft YaHei", sans-serif',
+            simsun: 'SimSun, serif',
+            kaiti: 'KaiTi, "STKaiti", serif',
+        };
+
+        function _setCanvasPointerEvents() {
+            const canvas = document.getElementById('modalCanvas');
+            if (!canvas) return;
+            const active = modalState.drawMode || modalState.borderMode || modalState.cropMode || modalState.textMode;
+            canvas.style.pointerEvents = active ? 'auto' : 'none';
+            canvas.style.cursor = modalState.textMode ? 'text' : (active ? 'crosshair' : 'default');
+        }
 
         function openImageModal(imgSrc, sourceEl) {
             modalState.currentPath = imgSrc;
@@ -37,6 +61,17 @@
             modalState.borderMode = false;
             modalState.borderDrawing = false;
             modalState.borders = [];
+            modalState.cropMode = false;
+            modalState.cropDrawing = false;
+            modalState.cropRegion = null;
+            modalState.textMode = false;
+            modalState.textOverlays = [];
+            if (typeof _exitTextMode === 'function') {
+                _exitTextMode(false);
+            }
+            if (typeof _updateTextUI === 'function') {
+                _updateTextUI();
+            }
 
             const overlay = document.getElementById('imageModalOverlay');
             const img = document.getElementById('modalImage');
@@ -127,6 +162,9 @@
             updateFullscreenButton();
             // 退出边框模式
             if (modalState.borderMode) _exitBorderMode();
+            // 退出裁剪模式
+            if (modalState.cropMode) _exitCropMode();
+            if (modalState.textMode) _exitTextMode(false);
             // 退出编辑模式
             exitEditMode();
         }
@@ -137,6 +175,7 @@
         function toggleEditMode() {
             const editTools = document.getElementById('editTools');
             const editModeBtn = document.getElementById('editModeBtn');
+            if (!editTools || !editModeBtn) return;
             const isEditing = editTools.style.display === 'flex';
             
             if (!isEditing) {
@@ -144,7 +183,7 @@
                 editTools.style.display = 'flex';
                 editModeBtn.textContent = '✅ 编辑中';
                 editModeBtn.classList.add('active');
-                showToast('💡 提示：使用“框选水印”工具框选水印区域，然后点击“去除水印”', 'info', 5000);
+                showToast('💡 提示：可用「剪裁」裁剪、「添加文字」标注，或用「框选水印」去水印', 'info', 5000);
             } else {
                 // 退出编辑模式
                 editTools.style.display = 'none';
@@ -234,8 +273,10 @@
         }
 
         function toggleDrawMode() {
-            // 互斥：关闭边框模式
+            // 互斥：关闭边框模式、裁剪模式、文字模式
             if (modalState.borderMode) toggleBorderMode();
+            if (modalState.cropMode) toggleCropMode();
+            if (modalState.textMode) toggleTextMode();
 
             modalState.drawMode = !modalState.drawMode;
             const btn = document.getElementById('drawModeBtn');
@@ -244,13 +285,13 @@
             if (modalState.drawMode) {
                 btn.classList.add('active');
                 btn.textContent = '✏️ 框选中...';
-                canvas.style.pointerEvents = 'auto';
+                _setCanvasPointerEvents();
                 // 重置缩放到100%方便框选
                 resetZoom();
             } else {
                 btn.classList.remove('active');
                 btn.textContent = '✏️ 框选水印';
-                canvas.style.pointerEvents = 'none';
+                _setCanvasPointerEvents();
             }
         }
 
@@ -300,6 +341,17 @@
             };
         }
 
+        function _canvasRectToImageRegion(cx, cy, cw, ch) {
+            const topLeft = canvasToImageCoords(cx, cy);
+            const bottomRight = canvasToImageCoords(cx + cw, cy + ch);
+            return {
+                x: Math.round(topLeft.x),
+                y: Math.round(topLeft.y),
+                width: Math.max(1, Math.round(bottomRight.x - topLeft.x)),
+                height: Math.max(1, Math.round(bottomRight.y - topLeft.y)),
+            };
+        }
+
         // 将图片原始像素坐标转换为canvas坐标
         function imageToCanvasCoords(ix, iy) {
             const scaleX = modalState.imgDisplayW / modalState.imgNaturalW;
@@ -339,8 +391,52 @@
                 ctx.fillText(`${idx + 1}`, topLeft.x + 4, topLeft.y + 16);
             });
 
-            // 同时绘制已保存的边框
+            // 同时绘制已保存的边框与裁剪框
             _drawBordersOnCanvas(ctx);
+            _drawCropRegionOnCanvas(ctx);
+            _drawTextOverlaysOnCanvas(ctx);
+        }
+
+        function _canvasFontSize(fontSize) {
+            const scale = modalState.imgDisplayW / Math.max(1, modalState.imgNaturalW);
+            return Math.max(10, fontSize * scale);
+        }
+
+        function _drawTextOverlaysOnCanvas(ctx) {
+            modalState.textOverlays.forEach((item) => {
+                const pos = imageToCanvasCoords(item.x, item.y);
+                const family = IMAGE_TEXT_FONT_FAMILY[item.font_key] || IMAGE_TEXT_FONT_FAMILY.msyhbd;
+                const weight = item.font_key === 'msyhbd' ? 'bold ' : '';
+                ctx.font = `${weight}${_canvasFontSize(item.font_size)}px ${family}`;
+                ctx.fillStyle = item.color || '#ffffff';
+                ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+                ctx.lineWidth = 2;
+                ctx.textBaseline = 'top';
+                ctx.strokeText(item.text, pos.x, pos.y);
+                ctx.fillText(item.text, pos.x, pos.y);
+            });
+        }
+
+        function _drawCropRegionOnCanvas(ctx, previewRect) {
+            const region = previewRect || modalState.cropRegion;
+            if (!region) return;
+
+            const topLeft = imageToCanvasCoords(region.x, region.y);
+            const bottomRight = imageToCanvasCoords(region.x + region.width, region.y + region.height);
+            const w = bottomRight.x - topLeft.x;
+            const h = bottomRight.y - topLeft.y;
+
+            ctx.fillStyle = 'rgba(46, 204, 113, 0.22)';
+            ctx.fillRect(topLeft.x, topLeft.y, w, h);
+            ctx.strokeStyle = '#2ecc71';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 3]);
+            ctx.strokeRect(topLeft.x, topLeft.y, w, h);
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#2ecc71';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(`${region.width} × ${region.height}`, topLeft.x + 4, topLeft.y + 14);
         }
 
         /**
@@ -499,6 +595,7 @@
 
         // Canvas事件：画框（水印框选 & 边框绘制 双模式）
         const modalCanvas = document.getElementById('modalCanvas');
+        if (modalCanvas) {
         modalCanvas.style.pointerEvents = 'none';
 
         modalCanvas.addEventListener('mousedown', function(e) {
@@ -511,6 +608,12 @@
                 modalState.borderDrawing = true;
                 modalState.startX = coords.x;
                 modalState.startY = coords.y;
+            } else if (modalState.cropMode) {
+                modalState.cropDrawing = true;
+                modalState.startX = coords.x;
+                modalState.startY = coords.y;
+            } else if (modalState.textMode) {
+                _placeTextAtCanvas(coords);
             }
         });
 
@@ -547,6 +650,15 @@
                 ctx.setLineDash([5, 3]);
                 ctx.strokeRect(x, y, w, h);
                 ctx.setLineDash([]);
+
+            } else if (modalState.cropDrawing && modalState.cropMode) {
+                redrawRegions();
+                const ctx = modalCanvas.getContext('2d');
+                const x = Math.min(modalState.startX, coords.x);
+                const y = Math.min(modalState.startY, coords.y);
+                const w = Math.abs(coords.x - modalState.startX);
+                const h = Math.abs(coords.y - modalState.startY);
+                _drawCropRegionOnCanvas(ctx, _canvasRectToImageRegion(x, y, w, h));
             }
         });
 
@@ -598,8 +710,20 @@
                 }
                 redrawRegions();
                 _updateBorderUI();
+
+            } else if (modalState.cropDrawing && modalState.cropMode) {
+                modalState.cropDrawing = false;
+                const cx = Math.min(modalState.startX, coords.x);
+                const cy = Math.min(modalState.startY, coords.y);
+                const cw = Math.abs(coords.x - modalState.startX);
+                const ch = Math.abs(coords.y - modalState.startY);
+                if (cw < 5 || ch < 5) { redrawRegions(); return; }
+                modalState.cropRegion = _canvasRectToImageRegion(cx, cy, cw, ch);
+                redrawRegions();
+                _updateCropUI();
             }
         });
+        }
 
         // 窗口大小变化时重新计算
         window.addEventListener('resize', function() {
@@ -876,8 +1000,10 @@
         // ===== 边框绘制功能 =====
 
         function toggleBorderMode() {
-            // 互斥：关闭水印框选模式
+            // 互斥：关闭水印框选模式、裁剪模式
             if (modalState.drawMode) toggleDrawMode();
+            if (modalState.cropMode) toggleCropMode();
+            if (modalState.textMode) toggleTextMode();
 
             modalState.borderMode = !modalState.borderMode;
             const btn = document.getElementById('borderModeBtn');
@@ -887,7 +1013,7 @@
             if (modalState.borderMode) {
                 btn.classList.add('active');
                 btn.textContent = '🔲 绘制中...';
-                canvas.style.pointerEvents = 'auto';
+                _setCanvasPointerEvents();
                 if (opts) opts.style.display = 'flex';
                 // 同步 UI 输入框到当前状态
                 const cp = document.getElementById('borderColorPicker');
@@ -909,9 +1035,7 @@
                 btn.classList.remove('active');
                 btn.textContent = '🔲 绘制边框';
             }
-            if (canvas && !modalState.drawMode) {
-                canvas.style.pointerEvents = 'none';
-            }
+            if (canvas) _setCanvasPointerEvents();
             if (opts) opts.style.display = 'none';
         }
 
@@ -938,6 +1062,304 @@
             redrawRegions();
             _updateBorderUI();
             showToast('已清除全部边框', 'info', 1500);
+        }
+
+        // ===== 图片裁剪功能 =====
+
+        function toggleCropMode() {
+            if (modalState.currentPath.startsWith('http')) {
+                showToast('外部图片无法裁剪，请先下载或本地上传', 'error');
+                return;
+            }
+
+            if (modalState.drawMode) toggleDrawMode();
+            if (modalState.borderMode) toggleBorderMode();
+            if (modalState.textMode) toggleTextMode();
+
+            modalState.cropMode = !modalState.cropMode;
+            const btn = document.getElementById('cropModeBtn');
+
+            if (modalState.cropMode) {
+                if (btn) {
+                    btn.classList.add('active');
+                    btn.textContent = '✂️ 框选中...';
+                }
+                _setCanvasPointerEvents();
+                resetZoom();
+                showToast('拖拽框选要保留的区域，然后点击「应用剪裁」', 'info', 4000);
+            } else {
+                _exitCropMode();
+            }
+        }
+
+        function _exitCropMode() {
+            modalState.cropMode = false;
+            modalState.cropDrawing = false;
+            const btn = document.getElementById('cropModeBtn');
+            if (btn) {
+                btn.classList.remove('active');
+                btn.textContent = '✂️ 剪裁';
+            }
+            _setCanvasPointerEvents();
+        }
+
+        // ===== 图片文字标注 =====
+
+        async function loadImageTextFonts() {
+            if (modalState.textFontsLoaded) return;
+            try {
+                const resp = await fetch('/api/list-title-fonts');
+                const data = await resp.json();
+                const sel = document.getElementById('imageTextFontSelect');
+                if (data.success && sel && Array.isArray(data.fonts) && data.fonts.length) {
+                    sel.innerHTML = data.fonts.map((f) =>
+                        `<option value="${f.key}">${f.label}</option>`
+                    ).join('');
+                }
+                modalState.textFontsLoaded = true;
+            } catch (e) {
+                console.warn('加载字体列表失败', e);
+            }
+        }
+
+        function _getTextToolValues() {
+            const text = (document.getElementById('imageTextInput')?.value || '').trim();
+            const font_key = document.getElementById('imageTextFontSelect')?.value || 'msyhbd';
+            const color = document.getElementById('imageTextColorPicker')?.value || '#ffffff';
+            const font_size = parseInt(document.getElementById('imageTextSizeInput')?.value, 10) || 48;
+            return {
+                text,
+                font_key,
+                color,
+                font_size: Math.min(200, Math.max(12, font_size)),
+            };
+        }
+
+        function toggleTextMode() {
+            if (modalState.currentPath.startsWith('http')) {
+                showToast('外部图片无法添加文字，请先下载或本地上传', 'error');
+                return;
+            }
+
+            if (modalState.drawMode) toggleDrawMode();
+            if (modalState.borderMode) toggleBorderMode();
+            if (modalState.cropMode) toggleCropMode();
+
+            modalState.textMode = !modalState.textMode;
+            if (modalState.textMode) {
+                loadImageTextFonts();
+                const btn = document.getElementById('textModeBtn');
+                if (btn) {
+                    btn.classList.add('active');
+                    btn.textContent = '🅰️ 点击放置';
+                }
+                const opts = document.getElementById('textToolOptions');
+                if (opts) opts.style.display = 'flex';
+                _setCanvasPointerEvents();
+                resetZoom();
+                showToast('输入文字后，在图片上点击要放置的位置', 'info', 4000);
+            } else {
+                _exitTextMode(true);
+            }
+        }
+
+        function _exitTextMode(keepOverlays) {
+            modalState.textMode = false;
+            const btn = document.getElementById('textModeBtn');
+            const opts = document.getElementById('textToolOptions');
+            if (btn) {
+                btn.classList.remove('active');
+                btn.textContent = '🅰️ 添加文字';
+            }
+            if (opts) opts.style.display = 'none';
+            if (!keepOverlays) {
+                modalState.textOverlays = [];
+            }
+            _setCanvasPointerEvents();
+            _updateTextUI();
+            redrawRegions();
+        }
+
+        function _placeTextAtCanvas(coords) {
+            const values = _getTextToolValues();
+            if (!values.text) {
+                showToast('请先在输入框中填写文字', 'info');
+                return;
+            }
+            const imgPos = canvasToImageCoords(coords.x, coords.y);
+            if (imgPos.x < 0 || imgPos.y < 0 ||
+                imgPos.x > modalState.imgNaturalW || imgPos.y > modalState.imgNaturalH) {
+                return;
+            }
+            modalState.textOverlays.push({
+                text: values.text,
+                x: Math.round(imgPos.x),
+                y: Math.round(imgPos.y),
+                color: values.color,
+                font_key: values.font_key,
+                font_size: values.font_size,
+            });
+            redrawRegions();
+            _updateTextUI();
+        }
+
+        function _updateTextUI() {
+            const count = modalState.textOverlays.length;
+            const applyBtn = document.getElementById('applyTextBtn');
+            const undoBtn = document.getElementById('undoTextBtn');
+            if (applyBtn) applyBtn.style.display = count > 0 ? 'inline-block' : 'none';
+            if (undoBtn) undoBtn.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+
+        function undoLastImageText() {
+            if (!modalState.textOverlays.length) return;
+            modalState.textOverlays.pop();
+            redrawRegions();
+            _updateTextUI();
+            showToast('已撤销上一条文字', 'info', 1500);
+        }
+
+        async function applyImageTexts() {
+            if (!modalState.textOverlays.length) {
+                showToast('请先点击图片放置文字', 'info');
+                return;
+            }
+            if (modalState.currentPath.startsWith('http')) {
+                showToast('外部图片无法添加文字，请先下载或本地上传', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('applyTextBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ 应用中...';
+            }
+
+            try {
+                const resp = await fetch('/api/draw-image-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: modalState.currentPath,
+                        texts: modalState.textOverlays.map((t) => ({
+                            text: t.text,
+                            x: t.x,
+                            y: t.y,
+                            color: t.color,
+                            font_key: t.font_key,
+                            font_size: t.font_size,
+                        })),
+                    }),
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    modalState.currentPath = data.result_path;
+                    modalState.cleanedPath = data.result_path;
+                    modalState.textOverlays = [];
+                    _exitTextMode(true);
+                    _updateTextUI();
+
+                    const img = document.getElementById('modalImage');
+                    img.onload = function() {
+                        modalState.imgNaturalW = img.naturalWidth;
+                        modalState.imgNaturalH = img.naturalHeight;
+                        document.getElementById('modalImageInfo').textContent =
+                            `${img.naturalWidth} × ${img.naturalHeight} px`;
+                        updateCanvasSize();
+                    };
+                    img.src = data.result_path + '?t=' + Date.now();
+                    redrawRegions();
+
+                    window.editModified = true;
+                    const saveBtn = document.getElementById('saveEditBtn');
+                    if (saveBtn) saveBtn.disabled = false;
+
+                    showToast('✅ 文字已添加到图片', 'success');
+                } else {
+                    showToast('添加文字失败: ' + (data.message || '未知错误'), 'error');
+                }
+            } catch (err) {
+                showToast('添加文字异常: ' + err.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '✅ 应用文字';
+                }
+            }
+        }
+
+        function _updateCropUI() {
+            const hasCrop = !!modalState.cropRegion;
+            const applyBtn = document.getElementById('applyCropBtn');
+            if (applyBtn) applyBtn.style.display = hasCrop ? 'inline-block' : 'none';
+        }
+
+        async function applyCrop() {
+            if (!modalState.cropRegion) {
+                showToast('请先框选裁剪区域', 'info');
+                return;
+            }
+            if (modalState.currentPath.startsWith('http')) {
+                showToast('外部图片无法裁剪，请先下载或本地上传', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('applyCropBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ 剪裁中...';
+            }
+
+            try {
+                const region = modalState.cropRegion;
+                const resp = await fetch('/api/crop-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: modalState.currentPath,
+                        x: region.x,
+                        y: region.y,
+                        width: region.width,
+                        height: region.height,
+                    }),
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    modalState.currentPath = data.result_path;
+                    modalState.cleanedPath = data.result_path;
+                    modalState.cropRegion = null;
+                    _exitCropMode();
+                    _updateCropUI();
+
+                    const img = document.getElementById('modalImage');
+                    img.onload = function() {
+                        modalState.imgNaturalW = img.naturalWidth;
+                        modalState.imgNaturalH = img.naturalHeight;
+                        document.getElementById('modalImageInfo').textContent =
+                            `${img.naturalWidth} × ${img.naturalHeight} px`;
+                        updateCanvasSize();
+                    };
+                    img.src = data.result_path + '?t=' + Date.now();
+                    redrawRegions();
+
+                    window.editModified = true;
+                    const saveBtn = document.getElementById('saveEditBtn');
+                    if (saveBtn) saveBtn.disabled = false;
+
+                    showToast(`✅ 剪裁完成：${data.width} × ${data.height} px`, 'success');
+                } else {
+                    showToast('剪裁失败: ' + (data.message || '未知错误'), 'error');
+                }
+            } catch (err) {
+                showToast('剪裁异常: ' + err.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '✅ 应用剪裁';
+                }
+            }
         }
 
         async function applyBorders() {
@@ -1051,5 +1473,125 @@
                 btn.disabled = false;
                 btn.textContent = '💾 保存修改';
             }
+        }
+
+        function _handleImageModalClick(event) {
+            const overlay = document.getElementById('imageModalOverlay');
+            if (!overlay) return;
+
+            if (event.target === overlay) {
+                closeImageModal();
+                return;
+            }
+
+            const btn = event.target.closest('button');
+            if (!btn || !overlay.contains(btn)) return;
+
+            switch (btn.id) {
+                case 'zoomOutBtn':
+                    zoomImage(-0.2);
+                    break;
+                case 'zoomInBtn':
+                    zoomImage(0.2);
+                    break;
+                case 'resetZoomBtn':
+                    resetZoom();
+                    break;
+                case 'fullscreenBtn':
+                    toggleFullscreen();
+                    break;
+                case 'editModeBtn':
+                    toggleEditMode();
+                    break;
+                case 'drawModeBtn':
+                    toggleDrawMode();
+                    break;
+                case 'cropModeBtn':
+                    toggleCropMode();
+                    break;
+                case 'applyCropBtn':
+                    applyCrop();
+                    break;
+                case 'removeWatermarkBtn':
+                    if (!btn.disabled) removeWatermark();
+                    break;
+                case 'textModeBtn':
+                    toggleTextMode();
+                    break;
+                case 'applyTextBtn':
+                    applyImageTexts();
+                    break;
+                case 'undoTextBtn':
+                    undoLastImageText();
+                    break;
+                case 'rotateImageBtn':
+                    rotateImage(90);
+                    break;
+                case 'flipImageBtn':
+                    flipImage('horizontal');
+                    break;
+                case 'saveEditBtn':
+                    if (!btn.disabled) saveImageEdit();
+                    break;
+                case 'closeImageModalBtn':
+                    closeImageModal();
+                    break;
+                case 'closeRegionPanelBtn':
+                    toggleRegionPanel(false);
+                    break;
+                case 'clearRegionsBtn':
+                    clearRegions();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        function _initImageModalInteractions() {
+            const overlay = document.getElementById('imageModalOverlay');
+            if (!overlay || overlay.dataset.modalBound === '1') return;
+            overlay.dataset.modalBound = '1';
+            overlay.addEventListener('click', _handleImageModalClick);
+            _exportImageModalApi();
+        }
+
+        function rotateImage(degrees) {
+            showToast(`旋转 ${degrees}° 功能即将上线`, 'info');
+        }
+
+        function flipImage(direction) {
+            showToast(`翻转（${direction}）功能即将上线`, 'info');
+        }
+
+        function _exportImageModalApi() {
+            const api = {
+                openImageModal,
+                closeImageModal,
+                zoomImage,
+                resetZoom,
+                toggleFullscreen,
+                toggleEditMode,
+                exitEditMode,
+                toggleDrawMode,
+                toggleCropMode,
+                applyCrop,
+                removeWatermark,
+                toggleTextMode,
+                applyImageTexts,
+                undoLastImageText,
+                saveImageEdit,
+                toggleRegionPanel,
+                clearRegions,
+                removeRegion,
+                rotateImage,
+                flipImage,
+            };
+            Object.assign(window, api);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _initImageModalInteractions);
+        } else {
+            _initImageModalInteractions();
         }
                 

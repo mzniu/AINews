@@ -929,6 +929,68 @@ body {
     display: block;
 }
 
+.image-score-legend {
+    grid-column: 1 / -1;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    background: #f0f4ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.image-score-legend .text-muted {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+.image-score-badges {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.image-score-badges .isb {
+    font-size: 10px;
+    line-height: 1.2;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-weight: 600;
+}
+
+.image-score-badges .isb-grade.isb-a { background: rgba(180, 83, 9, 0.92); }
+.image-score-badges .isb-grade.isb-b { background: rgba(37, 99, 235, 0.92); }
+.image-score-badges .isb-grade.isb-c { background: rgba(75, 85, 99, 0.88); }
+.image-score-badges .isb-grade.isb-d { background: rgba(107, 114, 128, 0.88); }
+.image-score-badges .isb-flash { background: rgba(37, 99, 235, 0.92); }
+.image-score-badges .isb-cover { background: rgba(109, 40, 217, 0.9); }
+.image-score-badges .isb-figure { background: rgba(190, 24, 93, 0.9); }
+.image-score-badges .isb-animated { background: rgba(217, 119, 6, 0.95); }
+.image-score-badges .isb-landscape { background: rgba(14, 116, 144, 0.9); }
+.image-score-badges .isb-portrait { background: rgba(100, 116, 139, 0.9); }
+
+.image-card .image-score-badges {
+    top: auto;
+    bottom: 36px;
+    left: 6px;
+    right: 6px;
+}
+
+.image-card {
+    position: relative;
+}
+
 .image-hover-preview {
     position: fixed;
     left: 0;

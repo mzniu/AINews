@@ -1,0 +1,20 @@
+# 复制为 ingestion.local.yaml 后修改（该文件已加入 .gitignore）
+version: 1
+
+worker:
+  poll_interval_sec: 5
+
+defaults:
+  schedule_cron: "0 * * * *"
+  request_delay_sec: 2
+  max_list_pages: 2
+  max_new_articles_per_run: 30
+  stop_after_existing: 5
+  download_images: true
+  max_images_per_article: 20
+
+sources:
+  kr36_ai:
+    enabled: true
+    schedule_cron: "15 * * * *"
+    max_list_pages: 1

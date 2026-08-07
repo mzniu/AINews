@@ -1100,19 +1100,30 @@
             imagesGrid.innerHTML = '';
 
             if (data.images && data.images.length > 0) {
-                data.images.forEach((img, index) => {
+                const previewImages = (typeof window.ImageScoreUI !== 'undefined')
+                    ? window.ImageScoreUI.sortImagesByRelevance(data.images.filter((img) => img.success !== false))
+                    : data.images;
+                previewImages.forEach((img, index) => {
                     const imageCard = document.createElement('div');
                     imageCard.className = 'image-card';
 
                     // 手动模式下，图片只有 url，没有 local_path
                     const imgSrc = img.local_path || img.url || '';
                     const isDownloaded = !!img.local_path;
+                    const scoreBadges = (typeof window.ImageScoreUI !== 'undefined')
+                        ? window.ImageScoreUI.buildImageScoreBadgesHtml(img)
+                        : '';
+                    const tip = (typeof window.ImageScoreUI !== 'undefined')
+                        ? window.ImageScoreUI.imageScoreTooltip(img)
+                        : '';
                     
                     imageCard.innerHTML = `
                         <img src="${imgSrc}" alt="${img.alt || '图片 ' + (index + 1)}" 
+                             title="${(tip || '').replace(/"/g, '&quot;')}"
                              style="cursor:pointer;" 
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'"
                              onclick="openImageModal(this.src, this)">
+                        ${scoreBadges}
                         <div class="status ${isDownloaded ? 'success' : 'info'}" style="background: ${isDownloaded ? 'rgba(76, 175, 80, 0.9)' : 'rgba(33, 150, 243, 0.9)'}">
                             ${isDownloaded ? '✓ 已下载' : '🔗 URL'}
                         </div>
@@ -1172,8 +1183,12 @@
         }
 
         function setupEditSection(data) {
-            // 检查是否为手动模式（没有 content_file 字段）
-            if (!data.content_file) {
+            const hasLocalMedia = Array.isArray(data.images) && data.images.some(
+                (img) => img.local_path && img.success !== false
+            );
+
+            // 手动模式：无 content_file 且仅有远程 URL 图（不可选）
+            if (!data.content_file && !hasLocalMedia) {
                 // 手动模式：直接设置内容
                 document.getElementById('contentEditor').value = data.content || '';
                 
@@ -1210,7 +1225,7 @@
                         imgCard.onmouseover = () => imgCard.style.transform = 'scale(1.05)';
                         imgCard.onmouseout = () => imgCard.style.transform = 'scale(1)';
                         
-                        const imgSrc = img.url || '';
+                        const imgSrc = img.local_path || img.url || '';
                         const imgAlt = img.alt || `图片 ${index + 1}`;
                         
                         imgCard.innerHTML = `
@@ -1247,34 +1262,46 @@
                 }
                 return;
             }
-            
-            // 自动模式：原有逻辑
-            fetch(data.content_file)
-                .then(response => response.text())
-                .then(content => {
-                    // 移除前面的元数据行
-                    const lines = content.split('\n');
-                    const contentStart = lines.findIndex(line => line.includes('===='));
-                    const actualContent = lines.slice(contentStart + 2).join('\n').trim();
-                    document.getElementById('contentEditor').value = actualContent;
-                })
-                .catch(err => console.error('加载内容失败:', err));
+
+            if (data.content_file) {
+                fetch(data.content_file)
+                    .then(response => response.text())
+                    .then(content => {
+                        const lines = content.split('\n');
+                        const contentStart = lines.findIndex(line => line.includes('===='));
+                        const actualContent = lines.slice(contentStart + 2).join('\n').trim();
+                        document.getElementById('contentEditor').value = actualContent;
+                    })
+                    .catch(err => console.error('加载内容失败:', err));
+            } else {
+                document.getElementById('contentEditor').value = data.content || '';
+            }
 
             // 创建可选择的图片和视频
             const imageSelector = document.getElementById('imageSelector');
             imageSelector.innerHTML = '';
 
+            const scoreUI = typeof window.ImageScoreUI !== 'undefined' ? window.ImageScoreUI : null;
+            let successImages = data.images.filter(img => img.success);
+            if (scoreUI && scoreUI.hasImageScores(successImages)) {
+                successImages = scoreUI.sortImagesByRelevance(successImages);
+                imageSelector.insertAdjacentHTML('beforeend', scoreUI.renderImageScoreLegend());
+            }
+
             // 处理图片
-            const successImages = data.images.filter(img => img.success);
             successImages.forEach((img, index) => {
                 const imgDiv = document.createElement('div');
                 imgDiv.className = 'selectable-image';
                 imgDiv.dataset.index = index;
                 imgDiv.dataset.path = img.local_path;
                 imgDiv.dataset.type = 'image';
+                const scoreBadges = scoreUI ? scoreUI.buildImageScoreBadgesHtml(img) : '';
+                const tip = scoreUI ? scoreUI.imageScoreTooltip(img) : '';
+                if (tip) imgDiv.title = tip;
                 
                 imgDiv.innerHTML = `
                     <img src="${img.local_path}" alt="图片 ${index + 1}">
+                    ${scoreBadges}
                     <div class="checkbox"></div>
                     <div class="image-order-number">${index + 1}</div>
                     ${img.local_path.toLowerCase().endsWith('.gif') ? '<div class="gif-badge">🎞️ GIF</div>' : ''}
@@ -1335,6 +1362,15 @@
             // 显示编辑区域
             document.getElementById('editSection').classList.add('active');
             document.getElementById('aiSummary').style.display = 'none';
+
+            // 自动勾选评估为 A/B 级的配图
+            successImages.forEach((img, index) => {
+                if (!img.auto_selected) return;
+                const imgDiv = imageSelector.querySelectorAll('.selectable-image')[index];
+                if (imgDiv && !imgDiv.classList.contains('selected')) {
+                    toggleMediaSelection(imgDiv);
+                }
+            });
         }
 
         function toggleMediaSelection(mediaDiv) {
@@ -2240,6 +2276,37 @@
             wrap.style.display = (aud || tags.length || hook) ? 'block' : 'none';
         }
 
+        function renderComplianceWarning(compliance) {
+            const wrap = document.getElementById('aiComplianceWarning');
+            if (!wrap) return;
+            if (!compliance || compliance.ok !== false) {
+                wrap.style.display = 'none';
+                wrap.textContent = '';
+                return;
+            }
+            const violations = Array.isArray(compliance.violations) ? compliance.violations : [];
+            const errorItems = violations.filter((item) => (item.severity || 'error') === 'error');
+            const focus = errorItems.length ? errorItems : violations;
+            if (!focus.length) {
+                wrap.style.display = 'none';
+                wrap.textContent = '';
+                return;
+            }
+            const lines = focus.map((item) => {
+                const field = item.field || 'unknown';
+                const matched = item.matched || '';
+                const category = item.category_name || item.category_id || '';
+                return `• ${field} 命中「${matched}」${category ? `（${category}）` : ''}`;
+            });
+            const retryNote = compliance.retried ? '（已自动重试 1 次，仍含禁限词，请手动修改）' : '';
+            wrap.innerHTML = `<strong>⚠️ 合规提示${retryNote}</strong><br>${lines.join('<br>')}`;
+            wrap.style.display = 'block';
+        }
+
+        function clearComplianceWarning() {
+            renderComplianceWarning({ ok: true, violations: [] });
+        }
+
         async function generateSummary() {
             const content = document.getElementById('contentEditor').value;
             
@@ -2271,6 +2338,7 @@
             if (aiVoiceoverEl) aiVoiceoverEl.value = '';
             if (aiTagsEl) aiTagsEl.value = '';
             if (aiMetaEl) aiMetaEl.textContent = '';
+            clearComplianceWarning();
             setAiMethodologyInsight('', [], '');
 
             try {
@@ -2306,6 +2374,15 @@
                     document.getElementById('editableMainLine2').value = line2;
                     document.getElementById('editableSubTitle').value = subT;
                     document.getElementById('editableSubTitle2').value = subT2;
+                    window.lastPublishDraft = {
+                        main_line1: line1,
+                        main_line2: line2,
+                        sub_title: subT,
+                        sub_title2: subT2,
+                        praise_tags: data.praise_tags || [],
+                        tags: data.tags || [],
+                        source_type: 'index',
+                    };
                     document.getElementById('editableAiSummary').value = data.summary;
                     const voText = data.voiceover_script != null ? data.voiceover_script : '';
                     if (document.getElementById('editableVoiceoverScript')) {
@@ -2318,6 +2395,7 @@
                     document.getElementById('aiMeta').textContent =
                         `主L1:${line1.length}字 L2:${line2.length}字 副1:${subT.length}字 副2:${subT2.length}字 | 摘要:${(data.summary || '').length}字 口播:${voText.length}字 高亮:${editedHighlightKeywords.length}词 | ${data.model} | tokens:${data.tokens_used}`;
                     setAiMethodologyInsight(data.target_audience, data.praise_tags, data.traffic_hook);
+                    renderComplianceWarning(data.compliance);
 
                     // 自动保存初始内容
                     saveEditedContent();
@@ -2333,6 +2411,7 @@
                     editedHighlightKeywords = [];
                     if (aiMetaEl) aiMetaEl.textContent = '';
                     setAiMethodologyInsight('', [], '');
+                    clearComplianceWarning();
                 }
             } catch (error) {
                 if (aiLoadingEl) aiLoadingEl.classList.remove('active');
@@ -2346,6 +2425,7 @@
                 editedHighlightKeywords = [];
                 if (aiMetaEl) aiMetaEl.textContent = '';
                 setAiMethodologyInsight('', [], '');
+                clearComplianceWarning();
             }
         }
 
@@ -2669,6 +2749,22 @@
                         downloadBtnEl.href = data.video_path;
                         downloadBtnEl.download = `video_${new Date().getTime()}.mp4`;
                     }
+                    const publishBtnEl = document.getElementById('publishVideoBtn');
+                    if (publishBtnEl && data.video_path) {
+                        publishBtnEl.style.display = 'inline-block';
+                        publishBtnEl.onclick = function () {
+                            if (typeof window.openPublishModal === 'function') {
+                                window.openPublishModal({
+                                    videoPath: data.video_path,
+                                    draft: window.lastPublishDraft || {
+                                        main_line1: document.getElementById('editableMainLine1')?.value || '',
+                                        main_line2: document.getElementById('editableMainLine2')?.value || '',
+                                        sub_title: document.getElementById('editableSubTitle')?.value || '',
+                                    },
+                                });
+                            }
+                        };
+                    }
                     
                     // 滚动到结果区域
                     if (videoResultEl) {
@@ -2990,6 +3086,7 @@
                 if (aiMetaEl) aiMetaEl.textContent =
                     `L1:${l1.length} L2:${l2.length} 副1:${subT2.length} 副2:${subT2Line2.length} | 摘要:${(summaryData.summary || '').length}字 口播:${voOne.length}字 高亮:${editedHighlightKeywords.length}词 | ${summaryData.model} | tokens:${summaryData.tokens_used}`;
                 setAiMethodologyInsight(summaryData.target_audience, summaryData.praise_tags, summaryData.traffic_hook);
+                renderComplianceWarning(summaryData.compliance);
                 
                 // 自动保存内容
                 saveEditedContent();

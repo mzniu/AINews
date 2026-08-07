@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发布中心 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <style>
+        body { font-family: var(--font-sans); background: var(--bg-body); margin: 0; padding-top: 80px; }
+        .navbar { background: rgba(255,255,255,.95); backdrop-filter: blur(10px); padding: 0 var(--space-6); box-shadow: var(--shadow-sm); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; height: 60px; }
+        .nav-brand { font-size: var(--fs-xl); font-weight: 700; color: var(--brand-1); text-decoration: none; }
+        .nav-menu { display: flex; gap: var(--space-1); }
+        .nav-link { padding: var(--space-3) var(--space-6); text-decoration: none; color: var(--text-secondary); border-radius: var(--radius-sm); }
+        .nav-link.active, .nav-link:hover { background: rgba(102,126,234,.1); color: var(--brand-1); }
+        .container { max-width: 1100px; margin: 0 auto; padding: var(--space-6); }
+        .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+        .banner { background: #fef3c7; color: #92400e; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: none; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+        .account-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
+        .status-active { color: #15803d; }
+        .status-expired { color: #b91c1c; }
+        .status-unknown { color: #b45309; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+        .btn { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; background: #667eea; color: #fff; }
+        .btn-secondary { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+        .qr-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 2000; align-items: center; justify-content: center; }
+        .qr-box { background: #fff; padding: 24px; border-radius: 12px; text-align: center; max-width: 360px; }
+        #qrImage { max-width: 280px; margin: 12px auto; display: block; }
+        .platform-section { margin-bottom: 20px; }
+        .platform-section h3 { font-size: 15px; color: #475569; margin: 0 0 10px; }
+        .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+        .badge-publish { background: #dcfce7; color: #15803d; }
+        .badge-account { background: #f1f5f9; color: #64748b; }
+        .add-account-wrap { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        input, select, textarea { width: 100%; padding: 8px; margin: 6px 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        #addPlatformSelect { width: auto; min-width: 180px; margin: 0; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">🎬 AINews</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">🏠 主页</a>
+                <a href="/video-maker" class="nav-link">📹 视频制作</a>
+                <a href="/ingestion-library" class="nav-link">📚 资讯库</a>
+                <a href="/publish-center" class="nav-link active">📤 发布中心</a>
+                <a href="/settings" class="nav-link">⚙️ 系统配置</a>
+                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
+                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>📤 发布中心</h1>
+        <p style="color:#64748b;">半自动发布：确认文案与账号后提交，由 publish-worker 完成上传。</p>
+        <div id="workerBanner" class="banner">⚠️ 发布 worker 未运行。若使用独立进程模式，请执行 <code>scripts/run_publish_worker.bat</code>；或于 <code>.env</code> 设置 <code>PUBLISH_WORKER_MODE=embedded</code>（默认）后仅启动 web_server。</div>
+
+        <div class="card">
+            <h2>账号管理</h2>
+            <div class="add-account-wrap">
+                <select id="addPlatformSelect"></select>
+                <button class="btn" id="addAccountBtn">+ 添加账号</button>
+            </div>
+            <div id="accountsGrid" style="margin-top:16px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>发布队列</h2>
+            <table>
+                <thead><tr><th>标题</th><th>平台</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+                <tbody id="jobsTable"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>快速发布</h2>
+            <label>选择视频</label>
+            <select id="quickVideo"></select>
+            <label>标题</label>
+            <input id="quickTitle" />
+            <label>描述</label>
+            <textarea id="quickDescription" rows="2"></textarea>
+            <label>标签（逗号分隔）</label>
+            <input id="quickTags" />
+            <label>发布账号</label>
+            <select id="quickAccount"></select>
+            <button class="btn" id="quickPublishBtn" style="margin-top:8px;">确认发布</button>
+        </div>
+    </div>
+
+    <div id="qrModal" class="qr-modal">
+        <div class="qr-box">
+            <h3 id="qrModalTitle">扫码登录</h3>
+            <p id="qrStatusText">等待扫码…</p>
+            <img id="qrImage" alt="二维码" />
+            <div style="margin-top:12px;">
+                <button class="btn-secondary btn" id="qrCloseBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let qrPollTimer = null;
+        let qrSessionId = null;
+        let platformCatalog = [];
+
+        async function checkHealth() {
+            const resp = await fetch('/api/publishing/health');
+            const data = await resp.json();
+            const banner = document.getElementById('workerBanner');
+            banner.style.display = data.worker_reachable ? 'none' : 'block';
+            if (!data.worker_reachable && data.worker_mode === 'embedded') {
+                banner.textContent = '⚠️ 内嵌发布 worker 未就绪，请重启 web_server 或查看日志。';
+            }
+        }
+
+        function statusLabel(status) {
+            const map = { active: '有效', expired: '已过期', unknown: '未知' };
+            return map[status] || status;
+        }
+
+        function statusClass(status) {
+            if (status === 'active') return 'status-active';
+            if (status === 'expired') return 'status-expired';
+            return 'status-unknown';
+        }
+
+        function platformName(platformId) {
+            const p = platformCatalog.find(x => x.id === platformId);
+            return (p && p.display_name) || platformId;
+        }
+
+        async function loadPlatformMenu() {
+            const resp = await fetch('/api/publishing/platforms');
+            const data = await resp.json();
+            platformCatalog = data.platforms || [];
+            const enabled = platformCatalog.filter(p => p.enabled && p.capabilities?.account_login);
+            const sel = document.getElementById('addPlatformSelect');
+            if (!enabled.length) {
+                sel.innerHTML = '<option value="">暂无可用平台</option>';
+                document.getElementById('addAccountBtn').disabled = true;
+                return;
+            }
+            document.getElementById('addAccountBtn').disabled = false;
+            sel.innerHTML = enabled.map(p => `<option value="${p.id}">${p.display_name}</option>`).join('');
+        }
+
+        function renderAccountsGrouped(accounts) {
+            const grid = document.getElementById('accountsGrid');
+            if (!accounts.length) {
+                grid.innerHTML = '<p style="color:#94a3b8;">暂无账号，选择平台后点击「添加账号」。</p>';
+                return;
+            }
+            const byPlatform = {};
+            accounts.forEach(a => {
+                (byPlatform[a.platform] ||= []).push(a);
+            });
+            const platformIds = Object.keys(byPlatform).sort((a, b) => platformName(a).localeCompare(platformName(b), 'zh'));
+            grid.innerHTML = platformIds.map(pid => {
+                const cards = byPlatform[pid].map(a => {
+                    const badge = a.can_publish
+                        ? '<span class="badge badge-publish">可发布</span>'
+                        : '<span class="badge badge-account">仅账号</span>';
+                    return `
+                <div class="account-card" id="account-card-${a.id}">
+                    <div><strong>${a.nickname || platformName(a.platform)}</strong>${badge}</div>
+                    <div style="font-size:12px;color:#64748b;">${a.platform_display_name || platformName(a.platform)}</div>
+                    <div class="status-line" style="font-size:13px;margin-top:4px;" data-account-id="${a.id}">
+                        状态：<span class="${statusClass(a.status)}">${statusLabel(a.status)}</span>
+                    </div>
+                    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                        <button class="btn-secondary btn" onclick="checkAccountStatus('${a.id}')">检查状态</button>
+                        <button class="btn-secondary btn" onclick="refreshAccount('${a.id}', '${a.platform}')">重新登录</button>
+                        <button class="btn-secondary btn" onclick="deleteAccount('${a.id}')">删除</button>
+                    </div>
+                </div>`;
+                }).join('');
+                return `<div class="platform-section"><h3>${platformName(pid)}</h3><div class="grid">${cards}</div></div>`;
+            }).join('');
+        }
+
+        async function loadAccounts() {
+            const resp = await fetch('/api/publishing/accounts');
+            const data = await resp.json();
+            const accounts = data.accounts || [];
+            renderAccountsGrouped(accounts);
+            const publishable = accounts.filter(a => a.status === 'active' && a.can_publish);
+            const quick = document.getElementById('quickAccount');
+            quick.innerHTML = publishable.length
+                ? publishable.map(a => `<option value="${a.id}">${a.nickname} (${a.platform_display_name || a.platform})</option>`).join('')
+                : '<option value="">暂无可发布账号</option>';
+        }
+
+        async function checkAccountStatus(id) {
+            const line = document.querySelector(`.status-line[data-account-id="${id}"]`);
+            if (line) line.innerHTML = '状态：<span style="color:#64748b;">检查中…</span>';
+            try {
+                const resp = await fetch(`/api/publishing/accounts/${id}/check-status`, { method: 'POST' });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    alert('检查失败: ' + (data.detail || resp.statusText));
+                    loadAccounts();
+                    return;
+                }
+                if (line) {
+                    line.innerHTML = `状态：<span class="${statusClass(data.status)}">${statusLabel(data.status)}</span>`;
+                }
+                alert(data.message || '检查完成');
+                loadAccounts();
+            } catch (e) {
+                alert('检查失败: ' + e.message);
+                loadAccounts();
+            }
+        }
+
+        async function loadJobs() {
+            const resp = await fetch('/api/publishing/jobs');
+            const data = await resp.json();
+            const tbody = document.getElementById('jobsTable');
+            const jobs = data.jobs || [];
+            tbody.innerHTML = jobs.length ? jobs.map(j => {
+                const scheduleNote = j.scheduled_at && j.status === 'pending'
+                    ? `<div class="small text-muted">定时 ${new Date(j.scheduled_at).toLocaleString()}</div>` : '';
+                const platformLabel = j.platform_display_name || platformName(j.platform) || '—';
+                const accountNote = j.account_nickname
+                    ? `<div style="font-size:12px;color:#64748b;">${j.account_nickname}</div>` : '';
+                return `
+                <tr>
+                    <td>${j.title}${scheduleNote}</td>
+                    <td>${platformLabel}${accountNote}</td>
+                    <td>${j.status}</td>
+                    <td>${j.created_at ? new Date(j.created_at).toLocaleString() : ''}</td>
+                    <td>
+                        ${['failed', 'uploading'].includes(j.status) ? `<button class="btn-secondary btn" onclick="retryJob('${j.id}')">重试</button>` : ''}
+                        ${['pending', 'uploading'].includes(j.status) ? `<button class="btn-secondary btn" onclick="cancelJob('${j.id}')">取消</button>` : ''}
+                    </td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="5">暂无任务</td></tr>';
+        }
+
+        async function loadVideos() {
+            const resp = await fetch('/api/list-videos');
+            const data = await resp.json();
+            const sel = document.getElementById('quickVideo');
+            const files = (data.videos || []).map(v => v.path || v.filename);
+            sel.innerHTML = files.map(p => `<option value="${p.startsWith('/') ? p : '/' + p}">${p}</option>`).join('');
+        }
+
+        async function startQr(platform, purpose, accountId) {
+            const displayName = platformName(platform);
+            document.getElementById('qrModalTitle').textContent = `扫码登录${displayName}`;
+            const resp = await fetch('/api/publishing/accounts/qr-start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform, purpose, account_id: accountId }),
+            });
+            const data = await resp.json();
+            qrSessionId = data.session_id;
+            document.getElementById('qrModal').style.display = 'flex';
+            document.getElementById('qrStatusText').textContent = '等待 worker 生成二维码…';
+            if (qrPollTimer) clearInterval(qrPollTimer);
+            qrPollTimer = setInterval(pollQr, 2000);
+            pollQr();
+        }
+
+        async function pollQr() {
+            if (!qrSessionId) return;
+            const resp = await fetch(`/api/publishing/accounts/qr-status/${qrSessionId}`);
+            const data = await resp.json();
+            const statusMap = { waiting_scan: '请使用 App 扫码', scanned: '已扫码，请在手机确认', confirmed: '登录成功', expired: '已过期', failed: '失败' };
+            let statusText = statusMap[data.status] || data.status;
+            if (data.status === 'failed' && data.error_message) {
+                statusText = `${statusText}：${data.error_message}`;
+            }
+            document.getElementById('qrStatusText').textContent = statusText;
+            if (data.qr_image_url) document.getElementById('qrImage').src = data.qr_image_url + '?t=' + Date.now();
+            if (['confirmed', 'expired', 'failed'].includes(data.status)) {
+                clearInterval(qrPollTimer);
+                if (data.status === 'confirmed') {
+                    setTimeout(() => { document.getElementById('qrModal').style.display = 'none'; loadAccounts(); }, 800);
+                }
+            }
+        }
+
+        window.refreshAccount = (id, platform) => startQr(platform, 'refresh', id);
+        window.deleteAccount = async (id) => {
+            if (!confirm('确定删除该账号？')) return;
+            await fetch(`/api/publishing/accounts/${id}`, { method: 'DELETE' });
+            loadAccounts();
+        };
+        window.retryJob = async (id) => { await fetch(`/api/publishing/jobs/${id}/retry`, { method: 'POST' }); loadJobs(); };
+        window.cancelJob = async (id) => { await fetch(`/api/publishing/jobs/${id}/cancel`, { method: 'POST' }); loadJobs(); };
+
+        document.getElementById('addAccountBtn').onclick = () => {
+            const platform = document.getElementById('addPlatformSelect').value;
+            if (!platform) return;
+            startQr(platform, 'create');
+        };
+        document.getElementById('qrCloseBtn').onclick = () => {
+            if (qrPollTimer) clearInterval(qrPollTimer);
+            document.getElementById('qrModal').style.display = 'none';
+        };
+        document.getElementById('quickPublishBtn').onclick = async () => {
+            const body = {
+                account_id: document.getElementById('quickAccount').value,
+                video_path: document.getElementById('quickVideo').value,
+                title: document.getElementById('quickTitle').value.trim(),
+                description: document.getElementById('quickDescription').value.trim(),
+                tags: document.getElementById('quickTags').value.split(/[,，]/).map(s => s.trim()).filter(Boolean),
+                source_type: 'manual',
+            };
+            const resp = await fetch('/api/publishing/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (resp.ok) { alert('已提交'); loadJobs(); } else { const e = await resp.json(); alert('失败: ' + JSON.stringify(e.detail)); }
+        };
+
+        checkHealth(); loadPlatformMenu(); loadAccounts(); loadJobs(); loadVideos();
+        setInterval(() => { checkHealth(); loadJobs(); }, 5000);
+    </script>
+</body>
+</html>

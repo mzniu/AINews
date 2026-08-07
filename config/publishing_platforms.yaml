@@ -1,0 +1,90 @@
+version: 2
+
+defaults:
+  qr_timeout_sec: 120
+  upload_timeout_sec: 600
+  stale_job_minutes: 15
+  stale_qr_minutes: 5
+  # 定期访问创作者中心刷新 Cookie，缓解视频号 8-12 小时掉线
+  session_keepalive:
+    enabled: true
+    interval_hours: 4
+    headless: true
+    platforms:
+      - wechat_channels
+
+platforms:
+  - id: wechat_channels
+    display_name: 微信视频号
+    enabled: true
+    adapter: wechat_channels
+    icon: wechat
+    login_url: https://channels.weixin.qq.com/login.html
+    creator_url: https://channels.weixin.qq.com/platform/post/create
+    capabilities:
+      account_login: true
+      video_publish: true
+    limits:
+      max_title_length: 30
+      max_description_length: 1000
+      max_tags: 10
+
+  - id: douyin
+    display_name: 抖音
+    enabled: true
+    adapter: douyin
+    icon: douyin
+    login_url: https://creator.douyin.com/
+    creator_url: https://creator.douyin.com/creator-micro/content/upload
+    capabilities:
+      account_login: true
+      video_publish: true
+    qr_profile:
+      success_url_excludes: ["login", "passport"]
+      qr_selector: null
+      post_login_url: https://creator.douyin.com/creator-micro/home
+      post_login_wait_ms: 4000
+      required_session_cookies: ["sessionid", "sessionid_ss", "sid_guard"]
+    limits:
+      max_title_length: 55
+      max_tags: 5
+
+  - id: kuaishou
+    display_name: 快手
+    enabled: true
+    adapter: kuaishou
+    icon: kuaishou
+    login_url: https://cp.kuaishou.com/
+    creator_url: https://cp.kuaishou.com/article/publish/video
+    capabilities:
+      account_login: true
+      video_publish: true
+    qr_profile:
+      success_url_excludes: ["login", "passport"]
+      qr_switch_selector: "text=扫码登录"
+      post_login_url: https://cp.kuaishou.com/profile
+      post_login_wait_ms: 6000
+      required_session_cookies: ["kwssectoken", "userId", "passToken", "kuaishou.server.web_st"]
+    limits:
+      max_title_length: 50
+      max_tags: 4
+
+  - id: xiaohongshu
+    display_name: 小红书
+    enabled: true
+    adapter: xiaohongshu
+    icon: xiaohongshu
+    login_url: https://creator.xiaohongshu.com/login
+    creator_url: https://creator.xiaohongshu.com/publish/publish
+    capabilities:
+      account_login: true
+      video_publish: true
+    qr_profile:
+      success_url_excludes: ["login", "passport"]
+      qr_switch_selector: ".login-box-container img"
+      post_login_url: https://creator.xiaohongshu.com/new/home
+      post_login_wait_ms: 6000
+      required_session_cookies: ["galaxy_creator_session_id", "access-token-creator.xiaohongshu.com", "web_session"]
+    limits:
+      max_title_length: 20
+      max_tags: 10

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统配置 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/model_settings.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">🎬 AINews</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">🏠 主页</a>
+                <a href="/video-maker" class="nav-link">📹 视频制作</a>
+                <a href="/ingestion-library" class="nav-link">📚 资讯库</a>
+                <a href="/publish-center" class="nav-link">📤 发布中心</a>
+                <a href="/settings" class="nav-link active">⚙️ 系统配置</a>
+                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
+                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-hero">
+            <h1>⚙️ 系统配置</h1>
+            <p>管理 AI 模型与资讯爬取参数。爬取 Worker 默认内嵌在 <code>web_server</code> 中运行（<code>INGESTION_WORKER_MODE=embedded</code>）。</p>
+        </div>
+
+        <div class="settings-tabs">
+            <button type="button" class="settings-tab active" data-tab="models">🗣️ 模型配置</button>
+            <button type="button" class="settings-tab" data-tab="ingestion">🕷️ 爬取设定</button>
+        </div>
+
+        <div id="panel-models" class="settings-panel">
+            <div class="card">
+                <div class="section-head">
+                    <h2>🗣️ 语言模型</h2>
+                    <div class="toolbar-row">
+                        <select id="languagePresetSelect" class="form-control" style="width:auto;min-width:200px;"></select>
+                        <button type="button" class="btn btn-outline btn-sm" id="addLanguagePresetBtn">从预设添加</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="addLanguageBtn">+ 自定义</button>
+                    </div>
+                </div>
+                <p class="section-desc">用于文章摘要、评分 AI 评语、搜索词生成等文本任务。</p>
+                <div id="languageProfiles"></div>
+                <div class="footer-actions">
+                    <button type="button" class="btn btn-outline" id="testLanguageBtn">测试语言模型</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-head">
+                    <h2>👁️ 视觉模型</h2>
+                    <div class="toolbar-row">
+                        <select id="visionPresetSelect" class="form-control" style="width:auto;min-width:200px;"></select>
+                        <button type="button" class="btn btn-outline btn-sm" id="addVisionPresetBtn">从预设添加</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="addVisionBtn">+ 自定义</button>
+                    </div>
+                </div>
+                <p class="section-desc">用于后续图片内容理解、配图筛选与水印检测等视觉分析。</p>
+                <div id="visionProfiles"></div>
+                <div class="footer-actions">
+                    <button type="button" class="btn btn-outline" id="testVisionBtn">测试视觉模型</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="footer-actions">
+                    <button type="button" class="btn" id="saveModelsBtn">保存模型配置</button>
+                    <button type="button" class="btn btn-outline" id="reloadModelsBtn">重新加载</button>
+                </div>
+                <div id="modelsStatusBar" class="status-bar"></div>
+                <p class="hint">模型配置保存在 <code>config/models.local.yaml</code>（不提交 Git）。</p>
+            </div>
+        </div>
+
+        <div id="panel-ingestion" class="settings-panel" hidden>
+            <div class="card">
+                <div class="section-head">
+                    <h2>Worker 状态</h2>
+                </div>
+                <div id="ingestionWorkerStatus" class="hint">检测中…</div>
+            </div>
+
+            <div class="card">
+                <h2>全局默认</h2>
+                <p class="section-desc">作用于所有数据源（可被单源配置覆盖）。</p>
+                <div class="form-grid">
+                    <div>
+                        <label class="field-label" for="defaultScheduleCron">默认定时 Cron</label>
+                        <input id="defaultScheduleCron" class="form-control" placeholder="0 * * * *">
+                    </div>
+                    <div>
+                        <label class="field-label" for="pollIntervalSec">Worker 轮询间隔（秒）</label>
+                        <input id="pollIntervalSec" class="form-control" type="number" min="3" max="120">
+                    </div>
+                    <div>
+                        <label class="field-label" for="requestDelaySec">请求间隔（秒）</label>
+                        <input id="requestDelaySec" class="form-control" type="number" min="0" step="0.5">
+                    </div>
+                    <div>
+                        <label class="field-label" for="maxListPages">列表最大翻页数</label>
+                        <input id="maxListPages" class="form-control" type="number" min="1" max="20">
+                    </div>
+                    <div>
+                        <label class="field-label" for="maxNewPerRun">单次最多新文章数</label>
+                        <input id="maxNewPerRun" class="form-control" type="number" min="1" max="200">
+                    </div>
+                    <div>
+                        <label class="field-label" for="stopAfterExisting">连续已存在 N 篇后停止</label>
+                        <input id="stopAfterExisting" class="form-control" type="number" min="1" max="50">
+                    </div>
+                    <div>
+                        <label class="field-label" for="maxImagesPerArticle">每篇最多下载图片数</label>
+                        <input id="maxImagesPerArticle" class="form-control" type="number" min="0" max="100">
+                    </div>
+                    <div>
+                        <label class="field-label" for="downloadImages">下载图片</label>
+                        <select id="downloadImages" class="form-control">
+                            <option value="true">是</option>
+                            <option value="false">否</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>数据源</h2>
+                <p class="section-desc">修改后保存会同步到数据库并刷新定时任务。基础模板见 <code>config/ingestion_sources.yaml</code>。</p>
+                <div id="ingestionSourcesList"></div>
+            </div>
+
+            <div class="card">
+                <div class="footer-actions">
+                    <button type="button" class="btn" id="saveIngestionBtn">保存爬取配置</button>
+                    <button type="button" class="btn btn-outline" id="reloadIngestionBtn">重新加载</button>
+                </div>
+                <div id="ingestionStatusBar" class="status-bar"></div>
+                <p class="hint">覆盖项保存在 <code>config/ingestion.local.yaml</code>（不提交 Git）。</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/model_settings.js?v=20260802a"></script>
+    <script src="/static/js/settings_ingestion.js?v=20260802a"></script>
+    <script src="/static/js/settings_tabs.js?v=20260802a"></script>
+</body>
+</html>

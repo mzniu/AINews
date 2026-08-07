@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AITNT-让一部分人先用AI实现商业化</title>
+<link rel="canonical" href="https://www.aitntnews.com">
+<meta name="description"
+content="AITNT 是一站式 AI 资讯平台，覆盖大模型、Agent、产品测评与商业落地，帮助从业者快速掌握行业动态。">
+<meta name="keywords" content="AITNT,AI资讯,AI新闻,大模型,AI Agent,AI技术,AI监管,AI工具测评,AI商业化,DeepSeek">
+<meta name="baidu-site-verification" content="codeva-vV1yqoocmW">
+<link rel="stylesheet" type="text/css" href='/static/css/bootstrap.min.css?v=aedfd2ad0e143486867c3c845d9b4d7325af41e3aad102f280796e1507128da181d382315a16a5ef5b4abb33fa2bc7985d807abc9578a47917726146190d7fd3'>
+<link rel="stylesheet" type="text/css" href='/static/css/common.css?v=d726c7499bd1a98a0143dcff731028346f5168565415f45518e43afad84381cf9b5e5fd2685481a4fed9a8e0969b3f8b0df5636e2c347b64d9f60abbd0e324f8'>
+<link rel="icon" href='/static/image/search_logo.png?v=f72f5b893535ca9d1322070ec5873ea1ffd18cc004f8f47df62de384f516751a5da4332900031087f9340e4cc79714babc252db4b420b6315d0fd3d531804d54'>
+<style type="text/css">
+.row > * {
+margin: 0px;
+padding: 0px;
+padding-right: 0px;
+padding-left: 0px;
+}
+@keyframes blink {
+0% { opacity: 1; }
+50% { opacity: 0.2; }
+100% { opacity: 1; }
+}
+.newTag{
+align-self: flex-start;
+display: inline-block;
+background-color: rgba(239, 68, 68, 0.8);
+color: white;border-radius: 5px;
+font-size: 10px;
+padding: 2px 5px 2px 5px;
+animation: blink 1s infinite;
+}
+.translateSelectLanguage{
+width:100px;
+}
+</style>
+
+
+<link rel="preload" as="image" href="https://www.aitntnews.com/pictures/2026/6/26/014679ca-7160-11f1-b582-fa163e47d677.webp" fetchpriority="high">
+
+<style>
+.carousel-item img {
+width: 100%;
+height: 335px;
+object-fit: cover;
+}
+</style>
+
+</head>
+<body>
+<h1 class="h_tag">AITNT-让一部分人先用AI实现商业化</h1>
+<h2 class="h_tag">AI资讯-这里有最及时全面的人工智能资讯报道</h2>
+<h2 class="h_tag">AI技术研报-这里有最前沿的人工智能技术解读</h2>
+<h2 class="h_tag">AI监管政策-这里有最深刻的人工智能政策解读</h2>
+<h2 class="h_tag">AI产品测评-这里有最详细的人工智能工具测评解析</h2>
+<h2 class="h_tag">AI商业项目-这里有洞察力最强的AI项目的商业逻辑解析</h2>
+<h2 class="h_tag">AI排行榜-这里有最新的AI产品,大模型等人工智能行业的排行榜单</h2>
+
+<div class="zhezhao">
+<div class="zhezhaobox" style="width: 100%;height: 100%;display: flex;justify-content: center">
+<div class="searchzhezhaocontent" style="width: 700px;top:100px;height: 500px;">
+<div style="width:100%;text-align: right;padding-top: 10px">
+<img src='/static/image/icon/x-lg.svg?v=039da4020a466048509740509d74befa351ee81c6ccc1a3c2d88d98580f3a996a4d9b841bf1ff8d88e44fc9718c3e5fe9d903b8c6d86fa1599397c8c68c2d49c' style="height: 30px;width: 30px;cursor: pointer"
+class="searchzhezhaoclose" alt="AITNT-国内领先的一站式人工智能新闻资讯网站"/>
+</div>
+<div style="width: 100%;text-align: center;margin-top: 50px">
+<input id="searchwordInput" type="text" class="form-control" placeholder="请输入关键词,并回车"
+aria-label="请输入关键词,并回车"
+aria-describedby="basic-addon1">
+</div>
+<div style="margin-top: 50px">
+# 热门搜索 #
+</div>
+<div style="margin-top: 15px">
+<div class="hot-search">大模型</div>
+<div class="hot-search">人工智能</div>
+<div class="hot-search">openai</div>
+<div class="hot-search">融资</div>
+<div class="hot-search">chatGPT</div>
+</div>
+</div>
+</div>
+</div>
+<!-- PC端登录弹窗 -->
+<div id="pcLoginModal" style="display:none;position: fixed;width: 100%;height: 100%;background: rgba(0,0,0,0.4);z-index: 99991;top: 0;left: 0;align-items: center;justify-content: center;">
+<div style="background: white;border-radius: 8px;padding: 30px;width: 400px;max-width: 90%;">
+<div style="display: flex;justify-content: space-between;align-items: center;margin-bottom: 20px;">
+<span style="font-size: 18px;font-weight: 600;">验证码登录</span>
+<span id="pcLoginModalClose" style="cursor: pointer;font-size: 24px;color: #999;">&times;</span>
+</div>
+<input id="pcLoginPhone" type="tel" class="form-control" placeholder="请输入手机号" maxlength="11" style="margin-bottom: 12px;" />
+<div style="display: flex;gap: 10px;margin-bottom: 12px;">
+<input id="pcLoginCode" type="text" class="form-control" placeholder="请输入验证码" maxlength="6" style="flex: 1;" />
+<button id="pcSendCodeBtn" type="button" class="btn btn-outline-primary" style="white-space: nowrap;">发送</button>
+</div>
+<div style="font-size: 12px;color: #666;margin-bottom: 16px;">
+<input type="checkbox" id="pcLoginCheckXieyi" style="margin-right: 6px;" />
+登录即代表您已同意AITNT<a href="/xieyi.html" target="_blank" style="color: #3A73FF;">用户协议</a>和<a href="/yinsi.html" target="_blank" style="color: #3A73FF;">隐私政策</a>
+</div>
+<div>
+<button id="pcLoginSubmitBtn" type="button" class="btn btn-primary" style="width: 100%;">登录</button>
+<p style="font-size: 12px; color: #94a3b8; margin-top: 10px; margin-bottom: 0;">登录成功后会自动刷新界面</p>
+</div>
+</div>
+</div>
+
+<div style="display: flex;justify-content: center;padding-bottom: 20px">
+<div style="flex-grow: 1" class="header"></div>
+<div style="width: 1250px;min-width: 1200px;display: flex;justify-content: flex-start;align-items: flex-start;flex-direction: column">
+<div class="header" style="width: 100%;display: flex;justify-content: flex-start;">
+<div style="width: 144px;display: flex;justify-content: flex-end;align-items: center">
+</div>
+<div style="width: 1106px;color:white;padding-left: 36px;display: flex;justify-content: space-between;align-items: center">
+<div style="display: flex;align-items: center">
+<div style="margin-right: 50px"><a href="https://www.aitntnews.com/ainews/" target="_blank" style="color: white" class="nav-link-top">AI新闻日报</a></div>
+<div style="margin-right: 50px"><a href="https://www.aitntnews.com/arena/" target="_blank" style="color: white" class="nav-link-top">arena全球大模型排行榜</a></div>
+<div style="margin-right: 50px"><a href="/official.html?newId=14863" target="_blank" style="color: white" class="nav-link-top">AITNT公众号</a></div>
+<div style="margin-right: 50px"><a href="/newDetail.html?newId=92" target="_blank" style="color: white" class="nav-link-top">AITNT交流群</a></div>
+</div>
+<div style="display: flex;justify-content: flex-end;align-items: center">
+<div class="header-translate-container">
+<svg t="1754237496325" class="icon header-translate-icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5996"><path d="M899.968 512.192c0-9.6-4.736-22.656-21.504-38.592-16.896-16-43.392-32.128-79.36-46.464-71.616-28.672-173.248-47.232-287.36-47.232-114.24 0-215.872 18.56-287.488 47.232-35.904 14.336-62.4 30.528-79.36 46.464-16.768 15.936-21.504 28.992-21.504 38.592 0 9.6 4.736 22.592 21.568 38.464 16.896 16 43.392 32.192 79.296 46.528 71.68 28.672 173.248 47.232 287.424 47.232 114.176 0 215.808-18.56 287.424-47.232 35.904-14.336 62.464-30.528 79.36-46.528 16.768-15.872 21.44-28.864 21.44-38.464z m76.8 0c0 37.504-19.2 69.376-45.568 94.336-26.304 24.832-62.272 45.44-103.552 61.952-82.816 33.152-194.56 52.8-315.968 52.8-121.472 0-233.216-19.648-315.968-52.8-41.28-16.512-77.312-37.12-103.616-61.952-26.304-24.96-45.44-56.832-45.44-94.336s19.072-69.44 45.44-94.4c26.304-24.832 62.336-45.44 103.616-61.952 82.752-33.152 194.56-52.736 315.968-52.736 121.472 0 233.152 19.584 315.968 52.736 41.28 16.512 77.248 37.12 103.552 61.952 26.368 24.96 45.568 56.896 45.568 94.4z" p-id="5997" fill="#ffffff"></path><path d="M643.968 512.192c0-114.176-18.624-215.808-47.296-287.424-14.336-35.968-30.528-62.464-46.464-79.36-15.872-16.768-28.928-21.504-38.528-21.504-9.6 0-22.656 4.736-38.528 21.504-16 16.896-32.192 43.456-46.528 79.36-28.672 71.68-47.232 173.248-47.232 287.36 0 114.24 18.56 215.872 47.232 287.488 14.4 35.904 30.528 62.464 46.528 79.36 15.872 16.768 28.928 21.44 38.528 21.44 9.6 0 22.656-4.672 38.528-21.504 16-16.832 32.128-43.392 46.464-79.296 28.672-71.68 47.296-173.248 47.296-287.424z m76.8 0c0 121.472-19.648 233.152-52.8 315.968-16.448 41.28-37.12 77.248-61.952 103.552-24.96 26.368-56.832 45.504-94.336 45.568-37.504 0-69.44-19.2-94.336-45.568-24.896-26.304-45.504-62.336-62.08-103.552-33.088-82.816-52.608-194.56-52.608-315.968 0-121.472 19.52-233.216 52.672-316.032 16.512-41.28 37.12-77.248 62.016-103.552 24.96-26.368 56.832-45.44 94.336-45.44s69.376 19.072 94.336 45.44c24.832 26.304 45.44 62.272 62.016 103.552 33.088 82.816 52.736 194.56 52.736 316.032z" p-id="5998" fill="#ffffff"></path><path d="M899.968 512.192a388.288 388.288 0 1 0-776.64 0 388.288 388.288 0 0 0 776.64 0z m76.8 0A465.088 465.088 0 1 1 46.592 512.128a465.088 465.088 0 0 1 930.176 0z" p-id="5999" fill="#ffffff"></path></svg>
+<div id="translate" class="header-translate-widget"></div>
+</div>
+<div style="display: flex;justify-content: flex-end;align-items: center;cursor: pointer" class="searchButton">
+<img src='/static/image/search.png?v=3fca957b750ab44a6c33dc6b626485fe6efc2ca24cf51383ad3af5dd34593075fb40b6df6203137d10deb46645fa59c4074daddd90c6c8b884f76b789b7f09be' alt="AITNT-国内领先的一站式人工智能新闻资讯网站" style="height: 20px;width: 20px;"/>
+<span style="margin-left: 10px">搜索</span>
+</div>
+<div id="pcUserWidget" style="margin-left: 24px;display: flex;align-items: center;gap: 8px;">
+<span class="pc-user-logo-wrap" title="AITNT AGENT"><svg class="pc-user-logo-svg" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M512 512m-512 0a512 512 0 1 0 1024 0 512 512 0 1 0-1024 0Z" fill="#F3DFBC"></path><path d="M653.443072 286.424064h-97.913856l178.556928 451.150848H832L653.443072 286.424064z m-282.886144 0L192 737.575936h99.84512l36.514816-94.741504h186.805248l36.514816 94.741504h99.84512L472.968192 286.424064H370.556928z m-9.89696 272.622592l61.103104-158.55104 61.103104 158.55104H360.659968z" fill="#934B31"></path></svg></span>
+<span class="pc-user-divider"></span>
+<span id="pcUserLoggedOut" class="pcUserLoginBtn" style="display: flex;align-items: center;cursor: pointer;gap: 8px;" title="点击登录">
+<span style="width: 28px;height: 28px;border-radius: 50%;background: rgba(255,255,255,0.3);display: flex;align-items: center;justify-content: center;flex-shrink: 0;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+</span>
+<span style="color: white;font-size: 14px;">未登录</span>
+</span>
+<span id="pcUserLoggedIn" class="pc-user-logged-in" style="display: none;align-items: center;gap: 8px;color: white;font-size: 14px;">
+<div class="pc-user-hover-wrap">
+<span style="width: 28px;height: 28px;border-radius: 50%;background: rgba(255,255,255,0.3);display: flex;align-items: center;justify-content: center;flex-shrink: 0;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+</span>
+<span class="pc-user-phone"></span>
+<div class="pc-user-dropdown">
+<a href="/">首页</a>
+<a href="/personalCenter.html">AI中心</a>
+<a id="pcUserLogoutBtn" href="javascript:void(0);">退出</a>
+</div>
+</div>
+</span>
+</div>
+
+</div>
+</div>
+</div>
+<div style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<div style="width: 144px;"></div>
+<div style="width: 144px;display: flex;justify-content: flex-end;align-items: flex-start;position: fixed">
+<nav style="text-align: right;padding-top: 15px;">
+<div style="margin-bottom: 24px;text-align: right;margin-top: 10px">
+<img src='/static/image/logo4.png?v=9f4c51fedd39f33feb93add12f930b5f99b9bca51b46f6288de8dddd092deb2611be53932b7764ea0b8cec9fd361bc7f70a0ca16b5b127bff06f624cfe597edc' alt="AITNT-国内领先的一站式人工智能新闻资讯网站" style="width: 50px;">
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626;">
+<a href="/" class="nav-link active">首页</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=1" class="nav-link ">AI资讯</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=2" class="nav-link ">AI技术研报</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=3" class="nav-link ">AI监管政策</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=4" class="nav-link ">AI产品测评</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626">
+<a href="/newList.html?typeId=5" class="nav-link ">AI商业项目</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626;display: flex;justify-content: flex-end;align-items: center">
+<a href="/aiProduct/all/1.html" class="nav-link producturl ">AI产品热榜</a>
+</div>
+<div style="margin-bottom: 10px;margin-top: 6px;font-weight: 400;font-size: 18px;color:#262626;display: flex;justify-content: flex-end;align-items: center">
+<a href="/aiMarket/1.html" class="nav-link aimarketurl ">AI 源力市场</a>
+</div>
+<div>
+<a href="/official.html?newId=14871" target="_blank" class="nav-button-report">
+<img src='/static/image/xunqiubaodao.png?v=24851757d523bf12f2608f9a8da75d894da75843ce399ed51f901a3f1bee0975ad9ce4726710eebc0cad893a6d59af135db55765af9292f6f88fcbb1b1a50c8e' style="height: 12px; width: 12px; margin-right: 6px;"/>
+<span>寻求报道</span>
+</a>
+</div>
+</nav>
+</div>
+<div style="max-width: 1106px;width: 1106px;padding-top: 15px;padding-left:36px;box-sizing: border-box">
+
+<div style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start">
+<div style="width: 760px;padding-right: 11px;box-sizing: border-box;display: flex;justify-content: flex-start;align-items: flex-start;flex-direction: column">
+<div style="width: 100%;height: 311px">
+<div id="homeCarousel" class="carousel slide home-carousel-custom" data-ride="carousel" data-interval="5000">
+<div class="carousel-inner">
+<div class="carousel-item active" >
+<a href='https://aitntnews.com/newDetail.html?newId=92' target="_blank"><img src='https://www.aitntnews.com/pictures/2026/6/26/014679ca-7160-11f1-b582-fa163e47d677.webp' alt='企业转型广告' fetchpriority="high" decoding="async" style="width: 100%;height: 311px"></a>
+</div>
+
+<div class="carousel-item" >
+<a href='https://aitntnews.com/newDetail.html?newId=25416' target="_blank"><img src='https://www.aitntnews.com/pictures/2026/5/24/11a9e7bc-571c-11f1-a939-fa163e47d677.webp' alt='AI四巨头内部报告首度公开：AI正在学会撒谎求生' loading="lazy" decoding="async" style="width: 100%;height: 311px"></a>
+</div>
+
+</div>
+<a class="carousel-control-prev" href="#homeCarousel" role="button" data-slide="prev">
+<div style="display: flex; align-items: center; justify-content: flex-start;">
+<span class="carousel-control-prev-icon" aria-hidden="true"></span>
+<span class="carousel-control-text" style="margin-left: 8px; color: white;">上一张</span>
+</div>
+</a>
+<a class="carousel-control-next" href="#homeCarousel" role="button" data-slide="next">
+<div style="display: flex; align-items: center; justify-content: flex-end;">
+<span class="carousel-control-text" style="margin-right: 8px; color: white;">下一张 ></span>
+<span class="carousel-control-next-icon" aria-hidden="true"></span>
+</div>
+</a>
+</div>
+</div>
+<div style="margin-top: 43px">
+<div style="font-size: 24px;color: black;font-weight: 500">最新文章</div>
+</div>
+<div style="margin-top: 20px;width: 100%;">
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/6facd5a3-8ce7-11f1-88b2-fa163e47d677.webp' class="news-image" alt="5050亿参数！余承东开源盘古新模型openPangu-2.0-Pro，距离“世界第一”还有差距"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">5050亿参数！余承东开源盘古新模型openPangu-2.0-Pro，距离“世界第一”还有差距</h3>
+<a href='/newDetail.html?newId=27818' target="_blank" style="font-size: 18px">5050亿参数！余承东开源盘古新模型openPangu-2.0-Pro，距离“世界第一”还有差距</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,盘古大模型,openPangu-2.0-Pro,华为AI</p>
+<p class="small text-muted news-description">今日，华为开源基于昇腾NPU训练的盘古MoE模型openPangu-2.0-Pro。该模型是openPangu-2.0系列的最新开源模型，总参数规模5050亿，激活参数规模180亿，支持512K上下文长度，训练数据总量约34T tokens。另一轻量化模型openPangu-2.0-Flash已于6月12日开源，参数92亿，其中6亿为激活参数。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8706 点击    2026-07-31 21:54
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/c55b2474-8ce3-11f1-ae06-fa163e47d677.webp' class="news-image" alt="1300 万月活、近 6000 万美元 ARR：OpenCode 如何在 Claude Code、Codex 夹缝中长出来？"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">1300 万月活、近 6000 万美元 ARR：OpenCode 如何在 Claude Code、Codex 夹缝中长出来？</h3>
+<a href='/newDetail.html?newId=27817' target="_blank" style="font-size: 18px">1300 万月活、近 6000 万美元 ARR：OpenCode 如何在 Claude Code、Codex 夹缝中长出来？</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,OpenCode,开源Claude Code,AI编程</p>
+<p class="small text-muted news-description">我们整理了最近半年来 OpenCode CEO Jay V 以及联合创始人 Dax Raad 近期在多档播客和访谈中的核心观点，试图还原一个完整的图景，一家开源公司究竟如何在巨头夹缝中找到自己的位置，以及他们怎么看待商业化和模型编排。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8948 点击    2026-07-31 21:25
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/a42bd272-8cbd-11f1-99eb-fa163e47d677.webp' class="news-image" alt="刚刚，DeepSeek-V4-Flash正式版API公测上线！"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">刚刚，DeepSeek-V4-Flash正式版API公测上线！</h3>
+<a href='/newDetail.html?newId=27816' target="_blank" style="font-size: 18px">刚刚，DeepSeek-V4-Flash正式版API公测上线！</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,DeepSeek-V4-Flash,DeepSeek-V4,DeepSeek-V4正式版</p>
+<p class="small text-muted news-description">7月31日，DeepSeek正式向公众开放V4-Flash正式版API公测。这一次，最亮眼的关键词是——Agent能力大幅跃升。9项基准测试成绩全面披露，多项指标远超此前发布的V4-Pro-Preview预览版，直接将“代码智能体”的天花板又顶高了一截。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8348 点击    2026-07-31 15:54
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/51898cdc-8cb5-11f1-b8ee-fa163e47d677.webp' class="news-image" alt="刚刚，即梦 Seedance 2.5来了！我狂测测测测..."
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">刚刚，即梦 Seedance 2.5来了！我狂测测测测...</h3>
+<a href='/newDetail.html?newId=27815' target="_blank" style="font-size: 18px">刚刚，即梦 Seedance 2.5来了！我狂测测测测...</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,Seedance 2.5,即梦,AI视频</p>
+<p class="small text-muted news-description">就在刚刚，字节跳动正式发布了自研视频模型Seedance 2.5，而我们熟悉的「即梦AI」作为模型的官方体验入口也第一时间妥妥接入。贴心的我呢，也直接帮友友们把这次新模型最夯夯夯夯的能力都扒好了，咱先一睹为快——</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8221 点击    2026-07-31 15:54
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/14ae82bc-8ca2-11f1-bde0-fa163e47d677.webp' class="news-image" alt="翁荔刚回OpenAI，Thinking Machines反手发布新模型Inkling-Small"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">翁荔刚回OpenAI，Thinking Machines反手发布新模型Inkling-Small</h3>
+<a href='/newDetail.html?newId=27814' target="_blank" style="font-size: 18px">翁荔刚回OpenAI，Thinking Machines反手发布新模型Inkling-Small</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,Thinking Machines,Inkling-Small,AI独角兽</p>
+<p class="small text-muted news-description">今天，Thinking Machines正式发布第二款重磅模型——Inkling-Small。276B总参数、12B激活参数，原生多模态，100万token上下文。半个月前，首个开源975B Inkling登场，曾在AI圈掀起了巨浪。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8352 点击    2026-07-31 13:35
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/be84b72b-8ca1-11f1-844c-fa163e47d677.webp' class="news-image" alt="AI 3D七大前沿模型同场竞技，竟被比特无限发布的4B模型 Arko-T拿下8项第一"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">AI 3D七大前沿模型同场竞技，竟被比特无限发布的4B模型 Arko-T拿下8项第一</h3>
+<a href='/newDetail.html?newId=27813' target="_blank" style="font-size: 18px">AI 3D七大前沿模型同场竞技，竟被比特无限发布的4B模型 Arko-T拿下8项第一</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI 3D,比特无限,Arko-T</p>
+<p class="small text-muted news-description">近日，比特无限发布的 Arko-T，是一款面向 Text-to-Structured 3D Generation 的 4B 参数基础模型。该模型由比特无限联创、首席科学家周平义博士带队完成。它接收自然语言描述，直接输出可执行的 Build123d 程序。程序经过 CAD 内核运行后，可以得到带有命名参数、结构特征和建模过程的 CAD 设计实体。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8430 点击    2026-07-31 13:34
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/4856c23a-8ca2-11f1-97de-fa163e47d677.webp' class="news-image" alt="重生之我在 Anthropic 做耗材"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">重生之我在 Anthropic 做耗材</h3>
+<a href='/newDetail.html?newId=27812' target="_blank" style="font-size: 18px">重生之我在 Anthropic 做耗材</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,Anthropic,AI训练物料,人工智能</p>
+<p class="small text-muted news-description">我重生了。 上一世，我是一本人工智能教材。学生在我的页边写满笔记，工程师折起其中几页，也有人把我放在书桌最显眼的位置。我一直相信，书存在的意义，就是把自己知道的事情交给更多人。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">7628 点击    2026-07-31 13:34
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/b2c1e200-8ca2-11f1-b89b-fa163e47d677.webp' class="news-image" alt="一夜爆仓450亿！25岁OpenAI神童拉全球股民陪葬"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">一夜爆仓450亿！25岁OpenAI神童拉全球股民陪葬</h3>
+<a href='/newDetail.html?newId=27811' target="_blank" style="font-size: 18px">一夜爆仓450亿！25岁OpenAI神童拉全球股民陪葬</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI基金,AI对冲基金,人工智能</p>
+<p class="small text-muted news-description">今天，全网都被这位25岁「AI先知」的故事刷屏了。 就在刚刚，华尔街上演了一场教科书级别的平仓。这场血雨腥风的主角，是被硅谷奉为「AI预言家」的Leopold Aschenbrenner，以及他那只439%逆天回报率的对冲基金——Situational Awareness（情境感知）。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">7466 点击    2026-07-31 13:33
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/eac12166-8ca2-11f1-9998-fa163e47d677.webp' class="news-image" alt="独家丨璨辰科技完成数千万天使系列融资，AI 虚拟器官仿真平台加速落地"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">独家丨璨辰科技完成数千万天使系列融资，AI 虚拟器官仿真平台加速落地</h3>
+<a href='/newDetail.html?newId=27810' target="_blank" style="font-size: 18px">独家丨璨辰科技完成数千万天使系列融资，AI 虚拟器官仿真平台加速落地</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,璨辰科技,CANCHEN TECH,AI虚拟器官仿真平台</p>
+<p class="small text-muted news-description">璨辰科技（CANCHEN TECH）已于近期完成种子轮、天使轮、天使+/++轮系列融资，累计金额达数千万人民币，投资方包括东方富海、松禾资本、零以创投、水木清华基金、启迪之星创投、启繁资本、南山战新投等。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8310 点击    2026-07-31 12:45
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/681711a6-8c90-11f1-9b0a-fa163e47d677.webp' class="news-image" alt="MiniMax H3：打破任务和模态边界的开放模型"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">MiniMax H3：打破任务和模态边界的开放模型</h3>
+<a href='/newDetail.html?newId=27809' target="_blank" style="font-size: 18px">MiniMax H3：打破任务和模态边界的开放模型</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,MiniMax H3,MiniMax,稀宇科技</p>
+<p class="small text-muted news-description">今天，我们正式发布 MiniMax H3。这是一款通用的全模态生成模型，支持对文本、图像、视频、声音组成的多模态上下文的统一理解能力、能够输出具备原生双声道的音视频，最高可支持 15s 2K 分辨率。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">5283 点击    2026-07-31 11:14
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/6c3eddb9-8c8f-11f1-b2b3-fa163e47d677.webp' class="news-image" alt="谷歌DeepMind发布机器人大脑Gemini Robotics 2，用VLA从头控到脚"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">谷歌DeepMind发布机器人大脑Gemini Robotics 2，用VLA从头控到脚</h3>
+<a href='/newDetail.html?newId=27808' target="_blank" style="font-size: 18px">谷歌DeepMind发布机器人大脑Gemini Robotics 2，用VLA从头控到脚</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,谷歌AI,Gemini Robotics 2,DeepMind</p>
+<p class="small text-muted news-description">谷歌：在LLM圈里我唯唯诺诺，在机器人圈里我直接大打出手！</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">5740 点击    2026-07-31 11:14
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/9ba3f33a-8c8e-11f1-9c01-fa163e47d677.webp' class="news-image" alt="首发 | 菜鸟CTO李强创业做Physical AI平台，获云启、商汤超亿元种子轮融资"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">首发 | 菜鸟CTO李强创业做Physical AI平台，获云启、商汤超亿元种子轮融资</h3>
+<a href='/newDetail.html?newId=27807' target="_blank" style="font-size: 18px">首发 | 菜鸟CTO李强创业做Physical AI平台，获云启、商汤超亿元种子轮融资</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,李强,Physical AI,昆腾动力,Quantum Dynamics</p>
+<p class="small text-muted news-description">硬氪获悉，Physical AI平台公司「昆腾动力（Quantum Dynamics）」近日完成超亿元种子轮融资，本轮由云启资本、商汤国香资本联合投资。资金将主要用于Physical AI核心技术研发、人才梯队建设及全球化市场拓展，加速其面向物理世界的智能系统从底层模型到场景化落地的全链路构建。多维资本参与项目孵化与团队组建。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">9127 点击    2026-07-31 11:14
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/6bd9c44f-8c8e-11f1-9bdd-fa163e47d677.webp' class="news-image" alt="谁在训练 Kimi K3 ? 深挖贡献者名单，这有一份最全档案"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">谁在训练 Kimi K3 ? 深挖贡献者名单，这有一份最全档案</h3>
+<a href='/newDetail.html?newId=27806' target="_blank" style="font-size: 18px">谁在训练 Kimi K3 ? 深挖贡献者名单，这有一份最全档案</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,kimi,kimi团队名单,kimi核心团队信息</p>
+<p class="small text-muted news-description">起底 K3 背后核心极客天团，人均扛起 7 亿估值！</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8108 点击    2026-07-31 11:14
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/c38abe77-8c8d-11f1-8325-fa163e47d677.webp' class="news-image" alt="NotebookLM的学习逻辑，被他做成了「全科版多邻国」"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">NotebookLM的学习逻辑，被他做成了「全科版多邻国」</h3>
+<a href='/newDetail.html?newId=27805' target="_blank" style="font-size: 18px">NotebookLM的学习逻辑，被他做成了「全科版多邻国」</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,NotebookLM,Wondering,AI教育</p>
+<p class="small text-muted news-description">把主题知识变成一门学习课程。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">6898 点击    2026-07-31 11:13
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/c79e30d4-8c8c-11f1-ab7e-fa163e47d677.webp' class="news-image" alt="AI语音创企Fish Audio完成5200万美元种子轮融资，用户超800万 丨News"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">AI语音创企Fish Audio完成5200万美元种子轮融资，用户超800万 丨News</h3>
+<a href='/newDetail.html?newId=27804' target="_blank" style="font-size: 18px">AI语音创企Fish Audio完成5200万美元种子轮融资，用户超800万 丨News</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI语音,Fish Audio,人工智能</p>
+<p class="small text-muted news-description">本周，Fish Audio宣布完成5200万美元种子轮融资，由Coreline Ventures和Capital Today领投。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">9370 点击    2026-07-31 10:42
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/8a76ab55-8c8c-11f1-8313-fa163e47d677.webp' class="news-image" alt="讯飞首发实时生成技术！像真人主播一样临场应变，表情动作实时刷新"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">讯飞首发实时生成技术！像真人主播一样临场应变，表情动作实时刷新</h3>
+<a href='/newDetail.html?newId=27803' target="_blank" style="font-size: 18px">讯飞首发实时生成技术！像真人主播一样临场应变，表情动作实时刷新</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI数字人,科大讯飞AI,AI虚拟人物</p>
+<p class="small text-muted news-description">数字人已成为企业新的交互入口。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">5448 点击    2026-07-31 10:41
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/14890c20-8c8c-11f1-b751-fa163e47d677.webp' class="news-image" alt="黄仁勋拿下整个日本，国运之战打响，豪赌物理AI工厂，部署1000万台机器人"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">黄仁勋拿下整个日本，国运之战打响，豪赌物理AI工厂，部署1000万台机器人</h3>
+<a href='/newDetail.html?newId=27802' target="_blank" style="font-size: 18px">黄仁勋拿下整个日本，国运之战打响，豪赌物理AI工厂，部署1000万台机器人</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,物理AI,日本AI,人工智能</p>
+<p class="small text-muted news-description">2026年7月16日，东京。  英伟达CEO黄仁勋拍了一个大大的马屁：&quot;日本发明了现代制造业。现在，它正在建设将驱动下一次工业革命的AI工厂。&quot;不过效果很明显，日本被彻底忽悠瘸了，在同一天，市场估算投资额接近3.4万亿日元的项目落地（约1408亿元人民币）。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8116 点击    2026-07-31 10:40
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/c97d80c1-8c8b-11f1-a7fd-fa163e47d677.webp' class="news-image" alt="深度访谈 | a16z最新重磅对话：物理AI将催生比今天大十倍的万亿巨头"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">深度访谈 | a16z最新重磅对话：物理AI将催生比今天大十倍的万亿巨头</h3>
+<a href='/newDetail.html?newId=27801' target="_blank" style="font-size: 18px">深度访谈 | a16z最新重磅对话：物理AI将催生比今天大十倍的万亿巨头</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI访谈,物理AI,Applied Intuition</p>
+<p class="small text-muted news-description">在生成式 AI、视频生成和各种数字营销工具铺天盖地时，硅谷最有影响力的物理 AI（Physical AI）独角兽 Applied Intuition 抛出了一个极其犀利的观点：未来 25 年，真正能重塑物理世界的 AI 公司，其规模和影响力很可能会远超今天主导数字世界的科技巨头。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">9032 点击    2026-07-31 10:40
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/7dbd1443-8c8b-11f1-b6b6-fa163e47d677.webp' class="news-image" alt="最近的大厂人，恨透了AI"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">最近的大厂人，恨透了AI</h3>
+<a href='/newDetail.html?newId=27800' target="_blank" style="font-size: 18px">最近的大厂人，恨透了AI</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI职场,人工智能,AI</p>
+<p class="small text-muted news-description">打工人职业发展的理想终点，要么是在岗位稳定、社会地位高的体制内，要么是在薪资高、资源好的大厂。而后者在大城市的打工人心中，简直成了成功天花板的存在。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">9744 点击    2026-07-31 10:39
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/364b8981-8c88-11f1-9ce7-fa163e47d677.webp' class="news-image" alt="AI 公司为什么突然开始卖咖啡了？Cursor 10个月办了 176 场，Corgi 准备开 100 家"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">AI 公司为什么突然开始卖咖啡了？Cursor 10个月办了 176 场，Corgi 准备开 100 家</h3>
+<a href='/newDetail.html?newId=27799' target="_blank" style="font-size: 18px">AI 公司为什么突然开始卖咖啡了？Cursor 10个月办了 176 场，Corgi 准备开 100 家</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI咖啡馆,AI公司开咖啡馆,AI品牌推广</p>
+<p class="small text-muted news-description">旧金山市中心有一条很窄的小巷，名字叫 Claude Lane，巷子里开着一家全年无休的咖啡馆。凌晨两点，顾客仍然可以进来买咖啡、连无线网络、打开电脑工作。到了工作日下午，店里的桌子经常全部坐满，有人只能把电脑放在膝盖上。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8338 点击    2026-07-31 10:32
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/fa18ae1e-8c88-11f1-a7f4-fa163e47d677.webp' class="news-image" alt="ChatGPT突发封杀令！全球AI写手一夜断粮"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">ChatGPT突发封杀令！全球AI写手一夜断粮</h3>
+<a href='/newDetail.html?newId=27798' target="_blank" style="font-size: 18px">ChatGPT突发封杀令！全球AI写手一夜断粮</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI写作,openai,ChatGPT</p>
+<p class="small text-muted news-description">AI写作的黄金时代，正在崩塌！</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">9035 点击    2026-07-31 10:19
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/b6d86bea-8c88-11f1-89c7-fa163e47d677.webp' class="news-image" alt="独家 | 哈啰推出AI减脂APP“Calio”，AI能否成为哈啰新叙事？"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">独家 | 哈啰推出AI减脂APP“Calio”，AI能否成为哈啰新叙事？</h3>
+<a href='/newDetail.html?newId=27797' target="_blank" style="font-size: 18px">独家 | 哈啰推出AI减脂APP“Calio”，AI能否成为哈啰新叙事？</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,哈啰AI,AI减脂,Calio</p>
+<p class="small text-muted news-description">《读佳》获知，哈啰做了一个AI减脂APP“Calio”，产品定位轻量化日常健康减脂平台，核心面向想要温和管控体重、讨厌复杂操作的普通用户。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">9855 点击    2026-07-31 10:19
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/70f69a15-8c88-11f1-bc8f-fa163e47d677.webp' class="news-image" alt="学术科研工作者必装的十个 Skill！"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">学术科研工作者必装的十个 Skill！</h3>
+<a href='/newDetail.html?newId=27796' target="_blank" style="font-size: 18px">学术科研工作者必装的十个 Skill！</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI科研,科研skill,AI学术skill</p>
+<p class="small text-muted news-description">先说一句让我自己都觉得有点过分的话：  做科研这件事，前 80% 的时间都花在了&quot;非创造性&quot;环节——找文献、抄引用、改格式、查统计、回复审稿人、做答辩 PPT。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">6354 点击    2026-07-31 10:17
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/12058ecf-8c87-11f1-acfb-fa163e47d677.webp' class="news-image" alt="WorkBuddy的这个新功能，我觉得就是Agent时代的Office。"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">WorkBuddy的这个新功能，我觉得就是Agent时代的Office。</h3>
+<a href='/newDetail.html?newId=27795' target="_blank" style="font-size: 18px">WorkBuddy的这个新功能，我觉得就是Agent时代的Office。</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI办公,WorkBuddy,腾讯AI</p>
+<p class="small text-muted news-description">今天，WorkBuddy发布了一个新版本。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">7024 点击    2026-07-31 10:17
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/a151ab1e-8c86-11f1-aeda-fa163e47d677.webp' class="news-image" alt="推荐系统只会「猜你喜欢」，却未必「听你的」？我们用多智能体给黑盒推荐做了一次外部可控性体检"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">推荐系统只会「猜你喜欢」，却未必「听你的」？我们用多智能体给黑盒推荐做了一次外部可控性体检</h3>
+<a href='/newDetail.html?newId=27794' target="_blank" style="font-size: 18px">推荐系统只会「猜你喜欢」，却未必「听你的」？我们用多智能体给黑盒推荐做了一次外部可控性体检</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,模型训练,CtrlBench-Rec,人工智能</p>
+<p class="small text-muted news-description">打开视听平台，系统决定你接下来看到什么；进入购物软件，系统预测你可能购买什么。过去几十年，推荐系统主要关注 “能否更准确地预测用户下一步喜欢什么”。但当用户希望探索小众内容、调整兴趣结构或摆脱热门推荐时，系统是否会响应？</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=2" title="AI技术研报 - 这里有最前沿的人工智能技术解读" target="_blank" style="color:#4285F4; text-decoration: none;">AI技术研报</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8348 点击    2026-07-31 10:16
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/58670755-8c80-11f1-aeb2-fa163e47d677.webp' class="news-image" alt="OpenAI突然宣布：GPT-5.6大幅降价，2折起售"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">OpenAI突然宣布：GPT-5.6大幅降价，2折起售</h3>
+<a href='/newDetail.html?newId=27793' target="_blank" style="font-size: 18px">OpenAI突然宣布：GPT-5.6大幅降价，2折起售</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,OpenAI,GPT-5.6降价,GPT-5.6 Luna</p>
+<p class="small text-muted news-description">今日，OpenAI宣布下调GPT-5.6系列模型API价格。其中，GPT-5.6 Luna价格下调80%，GPT-5.6 Terra价格下调20%，GPT-5.6 Sol则新增Fast模式，在保持模型能力不变的情况下，最高可实现2.5倍推理速度。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8333 点击    2026-07-31 09:36
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/763cb37b-8c3c-11f1-aa3b-fa163e47d677.webp' class="news-image" alt="ESP-GMF v1.0 正式发布：一站式构建音视频与 AI 应用"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">ESP-GMF v1.0 正式发布：一站式构建音视频与 AI 应用</h3>
+<a href='/newDetail.html?newId=27792' target="_blank" style="font-size: 18px">ESP-GMF v1.0 正式发布：一站式构建音视频与 AI 应用</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,ESP-GMF v1.0,ESP-GMF,乐鑫AI</p>
+<p class="small text-muted news-description">ESP-GMF 是一套面向乐鑫 SoC 的统一多媒体开发框架，通过统一的数据流模型、组件体系和开发架构，将音频、视频及 AI 多媒体能力整合到同一平台，为开发者提供更加高效、灵活且易扩展的开发体验。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">7643 点击    2026-07-31 01:30
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/8468457c-8c35-11f1-a06a-fa163e47d677.webp' class="news-image" alt="对话词元无限：字节系团队、数亿元天使轮，ToB Coding、靠 FDE 拿下数十家大客户"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">对话词元无限：字节系团队、数亿元天使轮，ToB Coding、靠 FDE 拿下数十家大客户</h3>
+<a href='/newDetail.html?newId=27791' target="_blank" style="font-size: 18px">对话词元无限：字节系团队、数亿元天使轮，ToB Coding、靠 FDE 拿下数十家大客户</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,词元无限,杨萍,AI访谈</p>
+<p class="small text-muted news-description">词元无限的创业赛道很明确，ToB Coding。做 Coding 是因为创始人杨萍之前在字节内部的 Coding 项目经历，一个好的 Coding 产品+内部的数据，就能很好在字节内部落地，真正解决问题。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">8732 点击    2026-07-31 00:39
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/31/090306a8-8c35-11f1-814a-fa163e47d677.webp' class="news-image" alt="蔡浩宇更新领英，宣布成为独立大模型Agent开发者"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">蔡浩宇更新领英，宣布成为独立大模型Agent开发者</h3>
+<a href='/newDetail.html?newId=27790' target="_blank" style="font-size: 18px">蔡浩宇更新领英，宣布成为独立大模型Agent开发者</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,蔡浩宇,人工智能,AI八卦</p>
+<p class="small text-muted news-description">近日，米哈游创始人蔡浩宇久违地更新了自己的个人领英，新增了一条独立大模型+智能体开发者（Independent LLM+Agent Developer）的职业经历，时间从2026年7月开始，在新加坡混合办公。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">9150 点击    2026-07-31 00:36
+</div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="news-item"
+style="width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;">
+<img loading="lazy" src='https://www.aitntnews.com/pictures/2026/7/30/79b1096b-8c15-11f1-9179-fa163e47d677.webp' class="news-image" alt="抢完互联网数据，AI公司开始抢绝版纸质书"
+style="width: 226px;height: 155px;min-width: 226px">
+<div style="flex-grow: 1;display: flex;flex-direction: column;justify-content: space-between;height: 155px;">
+<div>
+<div class="new-head" style="font-size: 22px">
+<h3 class="h_tag">抢完互联网数据，AI公司开始抢绝版纸质书</h3>
+<a href='/newDetail.html?newId=27789' target="_blank" style="font-size: 18px">抢完互联网数据，AI公司开始抢绝版纸质书</a>
+</div>
+<p class="small text-danger mb-2" style="font-size:13px;margin-bottom: 10px;display: none">关键词:
+AI新闻,AI训练数据,AI训练物料,人工智能</p>
+<p class="small text-muted news-description">2026 年 4 月起，一位专营稀有书和低流通量图书的美国书商遇到了怪事：他店里的生意向来不算火爆，一周卖出二十本已经算不错，但最近，订单突然像洪水一样涌来，每周能卖几百本。最费解的是，买家只列出一份用国际标准书号（ISBN）索引的书籍清单，却从不询问品相，也不砍价。</p>
+</div>
+<div style="display: flex;justify-content: flex-end;flex-direction: column">
+<div style="display: flex;justify-content: space-between;align-items: flex-end">
+<!-- === 样式修复最终版 START === -->
+<div style="font-size:13px;color: #A7A7A7;">
+
+来自主题:
+
+
+<!-- 步骤1: 拼接完整的 a 标签 HTML 字符串 -->
+
+<!-- 步骤2: 使用 Ellipsis 指令输出原始 HTML，防止被转义 -->
+<a href="/newList.html?typeId=1" title="AI资讯 - 这里有最及时全面的人工智能资讯报道" target="_blank" style="color:#4285F4; text-decoration: none;">AI资讯</a>
+
+</div>
+<!-- === 样式修复最终版 END === -->
+<div style="text-align: right; font-size:14px;color: #A7A7A7;">9359 点击    2026-07-30 20:50
+</div>
+</div>
+</div>
+</div>
+</article>
+
+</div>
+<div class="pagination"
+style="display: flex;justify-content: flex-end;width: 100%;font-size: 14px;color:#A7A7A7">
+<a href='/?index=1' style="margin-right: 10px;color:#A7A7A7">上一页</a>
+当前第1页,共916页
+<a href='/?index=2' style="margin-left: 10px;color:#A7A7A7">下一页</a>
+</div>
+</div>
+<div style="width: 310px;display: flex;justify-content: flex-start;align-items: flex-start;flex-direction:column;">
+<a href="/newDetail.html?newId=92" target="_blank"><img alt="AITNT官方交流群" loading="lazy" src='/static/image/homeRotationRightTop.png?v=c39310c9ed8d17340516667ba045d3391ffdc2f6afda9eef4fafe5cf773a638653ef58f3a164ae196aef5b895dd01723940e2240a3928989308ef38d76b30252'
+style="width:310px;height: 150px"></a>
+<a href="/newDetail.html?newId=91" style="margin-top: 11px;" target="_blank"><img loading="lazy" alt="AITNT APP上线"
+src='/static/image/homeRotationRightBottom.png?v=216e46228bb5a76b3f32924a7cd7f8e4a698fafb6539f57f9f505669c4fb91d12b3468c599d517de4f5d84f8c2f0dc89e47e1d2d998fa9c91d59c2d4e52f4dc1' style="width:310px;height: 150px"></a>
+</div>
+</div>
+
+</div>
+</div>
+<div style="height: 50px;width: 1px"></div>
+</div>
+<div style="flex-grow: 1;" class="header"> </div>
+</div>
+
+<footer class="footer">
+<div style="flex-grow: 1" class="header"></div>
+<div style="width: 1250px;min-width: 1200px;display: flex;justify-content: flex-start;align-items: flex-start;flex-direction: column;">
+<div style="height: 290px;justify-content: flex-start;display: flex">
+<div style="width: 180px;display: flex;justify-content: flex-end;align-items: center;">
+</div>
+<div style="display: flex;justify-content: flex-start;align-items: flex-start;flex-direction: column">
+<div style="margin-top: 40px;display: flex;justify-content: flex-start;align-items: center">
+<div style="margin-right: 200px;font-size: 18px;font-weight: 500">关于AITNT</div>
+<div style="margin-right: 200px;font-size: 18px;font-weight: 500">AITNT 公众号</div>
+<div style="margin-right: 30px;font-size: 18px;font-weight: 500">AITNT APP下载</div>
+</div>
+<div style="margin-top: 25px;display: flex;justify-content: flex-start;align-items: flex-start;">
+<div style="display: flex;flex-direction: column;justify-content: flex-start;align-items: flex-start;margin-right: 120px">
+<div style="display: flex;font-size: 16px">
+<div style="margin-right: 40px"><a href="/official.html?newId=14871" style="color: white" target="_blank">寻求报道</a></div>
+<div><a href="/official.html?newId=14873" style="color: white" target="_blank">关于我们</a></div>
+</div>
+<div style="display: flex;font-size: 16px;margin-top: 15px">
+<div style="margin-right: 40px"><a href="/official.html?newId=14872" style="color: white" target="_blank">商务合作</a></div>
+<div><a href="/official.html?newId=14874" style="color: white" target="_blank">联系我们</a></div>
+</div>
+<div style="display: flex;font-size: 16px;margin-top: 15px">
+<div style="margin-right: 27px"><a href="/aidemand/home.html" style="color: white" target="_blank">AI需求对接</a></div>
+<div><a href="/aiPatent/all/1.html" style="color: white" target="_blank">AI专利库</a></div>
+</div>
+</div>
+<div style="margin-right: 135px">
+<img src='/static/image/AITNT_gongzhonghao.jpg?v=d1ca8d92b96e440d81d11bb51c8cc2ede4f50241d8b0977d70aa8fa527659a201586e8a44fe35640a1fced814102c3b95072402cdbcc6f8fb2c31473af2372f9' style="width: 110px;height: 110px" alt="AITNT公众号二维码"/>
+</div>
+<div style="display: flex;justify-content: flex-start;align-items: flex-start;font-size: 16px">
+<div style="margin-right: 20px;display: flex;justify-content: flex-start;align-items: center;;flex-direction: column">
+<div><img src='/static/image/AITNT_iosdownload.png?v=4cb4e5e99ba690882e7e869a294f14924ed7fb1df91866d20603216e3ec81c962d698940fd0c4633771887b8220d4ac40d6b8168f32a8a57e7eade64ed6687fa' style="width: 110px;height: 110px" alt="AITNT APP iOS下载二维码"/></div>
+<div style="margin-top: 10px">ios下载</div>
+</div>
+<div style="display: flex;justify-content: flex-start;align-items: center;flex-direction: column">
+<div><img src='/static/image/AITNT_anzhuodownload.png?v=edb4850bdbf0a2401bec3c5d22eeca98ec1379feeb14736effcdfc6e49357c86857eda6c2d864bdeaeec6f2b74eab5f567fdcbc92aed0debb8ffed5cbd9788c7' style="width: 110px;height: 110px" alt="AITNT APP 安卓下载二维码"/></div>
+<div style="margin-top: 10px">安卓下载</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div style="height: 50px;width: 100%;display: flex;justify-content: center;align-items: center;background: black">
+<a href="https://beian.miit.gov.cn/" style="color: white;" target="_blank">沪ICP备2023015588号-2</a>
+</div>
+</div>
+<div style="flex-grow: 1" class="header"></div>
+</footer>
+
+<script src='/static/js/jquery.min.js?v=3dcae1ff6e98c64e3586be3eb14dd486c51f7d4e9fa1b8f9a628be4fbb6a9ab562f31f9b50e16d2e0c72b942bdbe84eee8e0ef87fa730db1428b199a59d88232'></script>
+<script src='/static/js/aitntToast.js?v=e5a250267f669ed5f241829852175266f959de5322cec0c959e6a5df801e625fd46a22e0525cd31f97224c841b02ce764509d9a70a5bc0020ccf9a01de6fdc68'></script>
+<script src='/static/js/bootstrap.min.js?v=eebbac93c9063c5ca7656bb6e8e29b4de23e40fa18721b71b263de06a9072045c9c5eba7e3227821261eec2eaccfdc1dc5e1351a4dd5c6c21680265373ebd7de'></script>
+<script src='/static/js/pcUserLogin.js?v=cc842bfd790e6c8c74baa7efc00d472ae69ea77fea0dbd7391ae7f87e486d6ce2e40fafd2840575248bf630ef206ceb9194abbf0ff87a3bf610fc1b65d2a0294'></script>
+<script src='/static/js/aitntTranslateInit.js?v=e323b0087ce181084e009ac854bd1eb725241c56895f99bc3d0478dc3bb0be269333cad2386ef85a9762387ed1ee4bd79712a458c96e18eb9cde847b0e3a341c' defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+var $ = window.jQuery;
+if (!$) return;
+$(".searchButton").on("click", function () {
+$(".zhezhao").show();
+});
+$(".searchzhezhaoclose").on("click", function () {
+$(".zhezhao").hide();
+});
+$(".hot-search").on("click", function () {
+var searchWord = $(this).text();
+location.href = "/searchList/" + encodeURIComponent(searchWord) + "/1.html"
+});
+$("#searchwordInput").on("keypress", function (e) {
+if (e.which === 13) {
+var searchWord = $(this).val();
+if (searchWord.trim() == "") {
+aitntToast("请正确填写搜索内容!");
+return
+}
+location.href = "/searchList/" + encodeURIComponent(searchWord) + "/1.html"
+}
+});
+});
+</script>
+
+<script>
+window.addEventListener('load', function () {
+var _hmt = window._hmt || (window._hmt = []);
+var hm = document.createElement('script');
+hm.async = true;
+hm.src = 'https://hm.baidu.com/hm.js?001c7ce1b86561e7ad97086c593f185d';
+document.head.appendChild(hm);
+});
+</script>
+</body>
+</html>

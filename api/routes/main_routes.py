@@ -41,6 +41,31 @@ async def digital_human_page():
     with open(os.path.join("static", "digital_human.html"), "r", encoding="utf-8") as f:
         return f.read()
 
+@router.get("/ingestion-library", response_class=HTMLResponse)
+async def ingestion_library_page():
+    """资讯库：定时抓取入库文章的浏览与选题"""
+    with open(os.path.join("static", "ingestion_library.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page():
+    """系统配置：模型 + 爬取设定"""
+    with open(os.path.join("static", "settings.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@router.get("/model-settings", response_class=HTMLResponse)
+async def model_settings_page():
+    """兼容旧链接 → 系统配置"""
+    with open(os.path.join("static", "settings.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+@router.get("/publish-center", response_class=HTMLResponse)
+async def publish_center_page():
+    """发布中心：自媒体账号管理与半自动发布"""
+    with open(os.path.join("static", "publish_center.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
 @router.get("/health")
 async def health():
     """健康检查"""

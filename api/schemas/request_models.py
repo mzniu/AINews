@@ -100,6 +100,31 @@ class DrawBordersRequest(BaseModel):
     borders: List[BorderItem]
 
 
+class CropImageRequest(BaseModel):
+    """裁剪图片请求"""
+    image_path: str
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+
+
+class ImageTextItem(BaseModel):
+    """图片上的单条文字"""
+    text: str = Field(min_length=1, max_length=200)
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    color: str = "#ffffff"
+    font_key: str = "msyhbd"
+    font_size: int = Field(default=48, ge=12, le=200)
+
+
+class DrawImageTextRequest(BaseModel):
+    """在图片上绘制文字"""
+    image_path: str
+    texts: List[ImageTextItem]
+
+
 class CreateAnimatedVideoRequest(BaseModel):
     """创建带动画视频请求"""
     summary: str

@@ -21,6 +21,7 @@ class ContentAnalyzer:
     
     def __init__(self):
         self.client = None
+        self.last_compliance: Optional[Dict] = None
         api_key = os.getenv('DEEPSEEK_API_KEY') or os.getenv('OPENAI_API_KEY')
         if api_key:
             self.client = OpenAI(
@@ -58,7 +59,7 @@ class ContentAnalyzer:
   "target_audience": "推断的目标受众（≤12个汉字）",
   "praise_tags": ["夸赞标签1", "夸赞标签2", "夸赞标签3"],
   "traffic_hook": "流量钩子类型中文名（如「观众想看结果」），可空字符串",
-  "main_line1": "主标题第一行（9~12汉字当量，话题引入，不含emoji）",
+  "main_line1": "主标题第一行（9~12汉字当量，必须以感叹词如突发！/炸裂！/爽了！等开头+话题引入，不含emoji）",
   "main_line2": "主标题第二行（9~12汉字当量，必须以「网友：」开头的尖锐锐评，可空字符串）",
   "sub_title": "副标题第一行（11~15汉字当量，轻观点收尾，不含emoji）",
   "sub_title2": "副标题第二行（11~15汉字当量，七种流量钩子之一，可空字符串）",
@@ -81,20 +82,25 @@ Star数: {info['stars']}
             vmin=vmin, vmax=vmax, json_template=json_template
         )
 
-        response = self.client.chat.completions.create(
+        from utils.content_compliance import invoke_json_llm_with_compliance
+
+        messages = [
+            {
+                "role": "system",
+                "content": "你是顶级自媒体爆款文案大师，精通微信视频号的「社交货币 / 夸赞」方法论：通过高情商夸赞目标受众、帮用户立人设来触发社交裂变点赞；同时熟练掌握「制造悬念、列举数字、提出疑问、强调时效、引发争议（中立可讨论）、指向明确」六种辅助标题技法，能在方法论为主、技法为辅的前提下综合运用。主标题第一行必须以贴合正文的感叹词（如突发！、炸裂！、爽了！等）开头抓眼球。你的文案在合规前提下引发点赞与传播，信息密度高。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
+                + "我是小牛，一个专业的AI技术专家，对AI行业有深度的见解，请你根据项目信息为我生成标题、副标题、摘要、标签与口播稿。",
+            },
+            {"role": "user", "content": prompt},
+        ]
+        result, compliance = invoke_json_llm_with_compliance(
+            client=self.client,
             model=self.model,
-            messages=[
-                {"role": "system", "content": "你是顶级自媒体爆款文案大师，精通微信视频号的「社交货币 / 夸赞」方法论：通过高情商夸赞目标受众、帮用户立人设来触发社交裂变点赞；同时熟练掌握「制造悬念、列举数字、提出疑问、强调时效、引发争议（中立可讨论）、指向明确」六种辅助标题技法，能在方法论为主、技法为辅的前提下综合运用。你的文案在合规前提下引发点赞与传播，信息密度高。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
-                + "我是小牛，一个专业的AI技术专家，对AI行业有深度的见解，请你根据项目信息为我生成标题、副标题、摘要、标签与口播稿。"},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.85,
             max_tokens=int(os.getenv("DEEPSEEK_MAX_TOKENS", "8192")),
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
-
-        result_text = response.choices[0].message.content.strip()
-        result = json.loads(result_text)
+        self.last_compliance = compliance.to_dict()
 
         main_line1 = (result.get('main_line1') or '').strip()
         main_line2 = (result.get('main_line2') or '').strip()
@@ -237,15 +243,15 @@ Star数: {info['stars']}
         tech_part = f"[{info['language']}]" if info['language'] else ""
 
         if info['stars'] >= 10000:
-            hook = "星标狂飙的宝藏仓库"
+            hook = "炸裂！星标狂飙的宝藏仓库"
         elif info['stars'] >= 5000:
-            hook = "社区都在盯的黑马项目"
+            hook = "来了！社区都在盯的黑马"
         elif info['stars'] >= 1000:
-            hook = "值得收藏的硬核开源"
+            hook = "重磅！值得收藏的硬核开源"
         elif info['stars'] >= 500:
-            hook = "最近很香的开源项目"
+            hook = "绝了！最近很香的开源项目"
         else:
-            hook = "挖到的宝藏级开源"
+            hook = "爽了！挖到的宝藏级开源"
 
         # 两行：\n 便于后续与 index 一致拆行展示
         return f"{hook}\n{info['name']}{tech_part}"

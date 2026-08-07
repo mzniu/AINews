@@ -1,0 +1,73 @@
+version: 1
+
+defaults:
+  schedule_cron: "0 * * * *"
+  timezone: Asia/Shanghai
+  max_list_pages: 2
+  max_new_articles_per_run: 30
+  request_delay_sec: 2
+  use_playwright: false
+  download_images: true
+  max_images_per_article: 20
+  max_image_bytes: 10485760
+  stop_after_existing: 5
+  story_cluster:
+    enabled: true
+    title_threshold: 0.72
+    hours_window: 72
+
+sources:
+  - id: aitnt_travel
+    slug: aitnt_travel
+    display_name: AITNT Travel 资讯
+    enabled: true
+    adapter: aitnt_news
+    base_url: http://travel.aitntnews.com
+    list_url: http://travel.aitntnews.com/?index=1
+    list_pagination:
+      type: query_index
+      param: index
+      start: 1
+    schedule_cron: "0 * * * *"
+    requires_playwright: false
+
+  - id: kr36_ai
+    slug: kr36_ai
+    display_name: 36氪 AI 频道
+    enabled: true
+    adapter: kr36_news
+    base_url: https://www.36kr.com
+    list_url: https://www.36kr.com/information/AI/
+    list_pagination:
+      type: single_page
+    schedule_cron: "15 * * * *"
+    requires_playwright: false
+    max_list_pages: 1
+
+  - id: qbitai
+    slug: qbitai
+    display_name: 量子位
+    enabled: true
+    adapter: qbitai_news
+    base_url: https://www.qbitai.com
+    list_url: https://www.qbitai.com/
+    list_pagination:
+      type: query_paged
+      param: paged
+      start: 1
+    schedule_cron: "30 * * * *"
+    requires_playwright: false
+    max_list_pages: 2
+
+  - id: leiphone_ai
+    slug: leiphone_ai
+    display_name: 雷锋网 AI
+    enabled: true
+    adapter: leiphone_news
+    base_url: https://www.leiphone.com
+    list_url: https://www.leiphone.com/category/ai
+    list_pagination:
+      type: single_page
+    schedule_cron: "45 * * * *"
+    requires_playwright: false
+    max_list_pages: 1

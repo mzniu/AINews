@@ -1,0 +1,112 @@
+version: 1
+
+settings:
+  hot_reload: true
+  default_severity: error
+  on_violation: retry_once
+  max_retry: 1
+  inject_to_prompt: true
+  post_check: true
+
+policy:
+  - 若正文原文含禁限词，生成时须转述为合规表述，不得原样照抄进标题/摘要/口播稿/标签。
+  - 夸赞与钩子必须用具体事实、数字、场景、对比表达，禁止用「最/第一/独家/100%」等空泛背书凑感染力。
+  - 输出前自检：逐字段扫描禁限词；若有冲突，优先合规，宁可略平淡也不可违规。
+  - 政治敏感：不得出现领导人姓名、政策评论、时政立场表达（须结合语境判断，勿硬套无关表述）。
+  - 平台违规：全文不得导向低俗内容、危险动作、封建迷信。
+
+categories:
+  - id: absolute_superlative
+    name: 绝对化/极限/夸大用语
+    enabled: true
+    severity: error
+    match: substring
+    words:
+      - 最
+      - 最近
+      - 第一
+      - 顶级
+      - 终极
+      - 最佳
+      - 最优秀
+      - 销量第一
+      - 世界级
+      - 全网第一
+      - 独家
+      - 绝无仅有
+      - 史无前例
+      - 万能
+      - 最好
+      - 第一名
+      - 顶尖
+      - 首次
+    notes: 技术描述可用具体数字/对比替代空泛最高级。
+
+  - id: false_promise
+    name: 承诺保证/虚假承诺
+    enabled: true
+    severity: error
+    match: substring
+    words:
+      - 100%有效
+      - 无效退款
+      - 零风险
+      - 包过
+      - 一次通过
+      - 投资回报
+      - 收益率
+      - 升值
+
+  - id: authority_endorsement
+    name: 权威背书类
+    enabled: true
+    severity: error
+    match: substring
+    words:
+      - 特供
+      - 专供
+      - 老字号
+
+  - id: superstition
+    name: 封建迷信
+    enabled: true
+    severity: error
+    match: substring
+    words:
+      - 招财进宝
+      - 提升运气
+      - 化解小人
+
+  - id: fraud_inducement
+    name: 欺诈诱导
+    enabled: true
+    severity: error
+    match: substring
+    words:
+      - 点击领奖
+      - 恭喜获奖
+      - 全民免单
+
+  - id: platform_abuse
+    name: 平台违规/诱导行为
+    enabled: true
+    severity: error
+    match: substring
+    words:
+      - 低俗内容
+      - 危险动作
+      - 封建迷信
+      - 集赞
+      - 诱导分享
+      - 诱导关注
+      - 拉票
+      - 加微信
+      - 私信领福利
+      - 汇款信息
+      - 银行卡号
+      - 收款码
+      - 减肥
+      - 丰胸
+      - 壮阳
+      - 增高
+      - 治病

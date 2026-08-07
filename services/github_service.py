@@ -588,7 +588,8 @@ class GitHubProcessingService:
                 video_metadata=video_metadata,
                 processing_details={
                     "generated_fields": ["title", "subtitle", "summary", "tags"],
-                    "ai_generated": video_metadata.ai_generated
+                    "ai_generated": video_metadata.ai_generated,
+                    "compliance": self.content_analyzer.last_compliance,
                 }
             )
             

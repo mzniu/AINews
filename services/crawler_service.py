@@ -12,6 +12,7 @@ from datetime import datetime
 import json
 from loguru import logger
 from services.video_thumbnail_service import video_thumbnail_service
+from utils.image_format import resolve_image_ext
 
 
 class CrawlerService:
@@ -468,29 +469,7 @@ class CrawlerService:
                         return CrawlerService._handle_gif_data_uri(image_url, save_dir, index)
                     return {'url': image_url[:50], 'success': False, 'error': 'data URI, skipped'}
                 
-                # 发送HEAD请求获取真实内容类型
-                try:
-                    head_response = requests.head(image_url, timeout=10, allow_redirects=True)
-                    content_type = head_response.headers.get('content-type', '').lower()
-                    
-                    # 根据Content-Type确定扩展名
-                    if 'gif' in content_type:
-                        ext = '.gif'
-                    elif 'png' in content_type:
-                        ext = '.png'
-                    elif 'jpeg' in content_type or 'jpg' in content_type:
-                        ext = '.jpg'
-                    else:
-                        # 回退到URL路径提取
-                        ext = Path(urlparse(image_url).path).suffix or '.jpg'
-                except:
-                    # HEAD请求失败时回退到默认逻辑
-                    ext = Path(urlparse(image_url).path).suffix or '.jpg'
-                
-                filename = f"image_{index:03d}{ext}"
-                filepath = save_dir / filename
-                
-                # 构造完整请求头，带 Referer 绕过防盗链
+                # 发送 GET 并依文件头 / Content-Type 确定扩展名（部分 CDN 的 HEAD 会 404）
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
@@ -498,15 +477,23 @@ class CrawlerService:
                 }
                 if page_url:
                     headers['Referer'] = page_url
-                    # 设置 Origin 为源站域名
                     parsed = urlparse(page_url)
                     headers['Origin'] = f"{parsed.scheme}://{parsed.netloc}"
-                
+
                 response = requests.get(image_url, headers=headers, timeout=15)
                 response.raise_for_status()
-                
+
+                content = response.content
+                ext = resolve_image_ext(
+                    content,
+                    content_type=response.headers.get('content-type'),
+                    url=image_url,
+                )
+                filename = f"image_{index:03d}{ext}"
+                filepath = save_dir / filename
+
                 with open(filepath, 'wb') as f:
-                    f.write(response.content)
+                    f.write(content)
                 
                 # 验证文件是否为有效的图片
                 try:

@@ -6,50 +6,13 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 from datetime import datetime
+from services.image_watermark_detect import detect_watermark_regions, merge_regions
 from ..schemas.request_models import (
-    RemoveWatermarkRequest, DetectWatermarkRequest, DrawBordersRequest
+    RemoveWatermarkRequest, DetectWatermarkRequest, DrawBordersRequest, CropImageRequest,
+    DrawImageTextRequest,
 )
 
 router = APIRouter(prefix="/api", tags=["去水印"])
-
-def merge_regions(regions):
-    """合并重叠的水印区域"""
-    if not regions:
-        return []
-    
-    merged = []
-    for region in regions:
-        merged.append(region.copy())
-    
-    i = 0
-    while i < len(merged):
-        j = i + 1
-        while j < len(merged):
-            r1, r2 = merged[i], merged[j]
-            # 检查是否重叠
-            if (r1['x'] < r2['x'] + r2['width'] and 
-                r1['x'] + r1['width'] > r2['x'] and
-                r1['y'] < r2['y'] + r2['height'] and
-                r1['y'] + r1['height'] > r2['y']):
-                # 合并区域
-                x1 = min(r1['x'], r2['x'])
-                y1 = min(r1['y'], r2['y'])
-                x2 = max(r1['x'] + r1['width'], r2['x'] + r2['width'])
-                y2 = max(r1['y'] + r1['height'], r2['y'] + r2['height'])
-                
-                merged[i] = {
-                    'x': x1,
-                    'y': y1,
-                    'width': x2 - x1,
-                    'height': y2 - y1
-                }
-                merged.pop(j)
-                j = i + 1  # 重新检查
-            else:
-                j += 1
-        i += 1
-    
-    return merged
 
 def _make_mock_lama():
     class MockLamaModel:
@@ -110,78 +73,17 @@ async def detect_watermark(request: DetectWatermarkRequest):
         image_path = Path(request.image_path.lstrip('/'))
         if not image_path.exists():
             raise HTTPException(status_code=404, detail="图片不存在")
-        
-        img = cv2.imread(str(image_path))
-        if img is None:
-            return {"success": False, "message": "无法读取图片"}
-        
-        h, w = img.shape[:2]
-        regions = []
-        
-        # 策略1: 扫描四个角落区域（水印最常出现的位置）
-        corner_regions = [
-            (int(w * 0.65), int(h * 0.90), int(w * 0.35), int(h * 0.10)),  # 右下角
-            (0, int(h * 0.90), int(w * 0.35), int(h * 0.10)),              # 左下角
-            (int(w * 0.65), 0, int(w * 0.35), int(h * 0.08)),              # 右上角
-            (0, 0, int(w * 0.35), int(h * 0.08)),                          # 左上角
-        ]
-        
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        for rx, ry, rw, rh in corner_regions:
-            roi = gray[ry:ry+rh, rx:rx+rw]
-            if roi.size == 0:
-                continue
-            
-            # 使用Canny边缘检测 + 形态学操作找文字/Logo区域
-            edges = cv2.Canny(roi, 50, 150)
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 5))
-            dilated = cv2.dilate(edges, kernel, iterations=2)
-            
-            contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            for cnt in contours:
-                cx, cy, cw, ch = cv2.boundingRect(cnt)
-                area = cw * ch
-                roi_area = rw * rh
-                # 过滤: 面积合理（不能太小也不能占满整个角落）
-                if area < roi_area * 0.01 or area > roi_area * 0.9:
-                    continue
-                if cw < 20 or ch < 8:
-                    continue
-                
-                # 转换为全图坐标，并适当扩展边界
-                pad = 8
-                abs_x = max(0, rx + cx - pad)
-                abs_y = max(0, ry + cy - pad)
-                abs_w = min(w - abs_x, cw + pad * 2)
-                abs_h = min(h - abs_y, ch + pad * 2)
-                regions.append({'x': abs_x, 'y': abs_y, 'width': abs_w, 'height': abs_h})
-        
-        # 合并重叠区域
-        regions = merge_regions(regions)
-        
-        # 策略2: 如果角落没检测到，尝试查找半透明文字水印（全图高亮区域）
-        if len(regions) == 0:
-            # 查找接近白色的大面积文字（常见半透明水印）
-            _, bright = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
-            kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 10))
-            bright_dilated = cv2.dilate(bright, kernel2, iterations=2)
-            
-            contours2, _ = cv2.findContours(bright_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            for cnt in contours2:
-                x, y, w, h = cv2.boundingRect(cnt)
-                area = w * h
-                if area > 500 and w > 30 and h > 15:  # 面积和尺寸过滤
-                    regions.append({'x': x, 'y': y, 'width': w, 'height': h})
-        
+
+        regions = detect_watermark_regions(image_path)
         logger.info(f"检测到 {len(regions)} 个潜在水印区域")
         return {
             "success": True,
             "regions": regions,
             "message": f"检测完成，发现 {len(regions)} 个区域"
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"水印检测失败: {e}")
         return {"success": False, "message": f"检测失败: {str(e)}"}
@@ -380,3 +282,179 @@ async def draw_borders(request: DrawBordersRequest):
         import traceback
         traceback.print_exc()
         return {"success": False, "message": f"绘制边框失败：{str(e)}"}
+
+
+def _save_cropped_image(src_path: Path, out_path: Path, box: tuple[int, int, int, int]) -> None:
+    """按像素框裁剪并保存；支持静态图与 GIF 多帧。"""
+    x1, y1, x2, y2 = box
+    with Image.open(src_path) as im:
+        n_frames = int(getattr(im, "n_frames", 1) or 1)
+        is_animated = bool(getattr(im, "is_animated", False)) and n_frames > 1
+
+        if is_animated:
+            frames = []
+            durations = []
+            for i in range(n_frames):
+                im.seek(i)
+                frame = im.convert("RGBA").crop((x1, y1, x2, y2))
+                frames.append(frame)
+                durations.append(im.info.get("duration", 100))
+            save_kwargs = {
+                "save_all": True,
+                "append_images": frames[1:],
+                "duration": durations,
+                "loop": im.info.get("loop", 0),
+                "disposal": im.info.get("disposal", 2),
+            }
+            frames[0].save(out_path, **save_kwargs)
+            return
+
+        cropped = im.crop((x1, y1, x2, y2))
+        suffix = out_path.suffix.lower()
+        if suffix in (".jpg", ".jpeg"):
+            cropped.convert("RGB").save(out_path, quality=95)
+        elif suffix == ".png" and cropped.mode in ("RGBA", "LA", "P"):
+            cropped.save(out_path)
+        elif suffix == ".webp":
+            cropped.save(out_path, quality=95)
+        elif suffix == ".gif":
+            cropped.save(out_path)
+        else:
+            cropped.convert("RGB").save(out_path, quality=95)
+
+
+@router.post("/crop-image")
+async def crop_image(request: CropImageRequest):
+    """按框选区域裁剪图片并保存为新文件"""
+    try:
+        image_path = Path(request.image_path.lstrip("/"))
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="图片不存在")
+
+        with Image.open(image_path) as im:
+            img_w, img_h = im.size
+
+        x1 = max(0, min(request.x, img_w - 1))
+        y1 = max(0, min(request.y, img_h - 1))
+        x2 = max(x1 + 1, min(request.x + request.width, img_w))
+        y2 = max(y1 + 1, min(request.y + request.height, img_h))
+        if (x2 - x1) < 8 or (y2 - y1) < 8:
+            return {"success": False, "message": "裁剪区域过小，请重新框选"}
+
+        output_dir = image_path.parent / "watermark_removed"
+        output_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%H%M%S")
+        output_path = output_dir / f"{image_path.stem}_cropped_{timestamp}{image_path.suffix}"
+
+        _save_cropped_image(image_path, output_path, (x1, y1, x2, y2))
+
+        relative_path = str(output_path.relative_to(Path("."))).replace("\\", "/")
+        logger.success(f"图片裁剪成功: {output_path} ({x2 - x1}x{y2 - y1})")
+        return {
+            "success": True,
+            "message": f"已裁剪为 {x2 - x1} × {y2 - y1} px",
+            "result_path": f"/{relative_path}",
+            "width": x2 - x1,
+            "height": y2 - y1,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"裁剪图片失败：{e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"裁剪图片失败：{str(e)}"}
+
+
+def _parse_hex_color(color: str, default: str = "#ffffff") -> tuple[int, int, int]:
+    c = (color or default).strip()
+    if not c.startswith("#") or len(c) not in (4, 7):
+        c = default
+    if len(c) == 4:
+        r = int(c[1] * 2, 16)
+        g = int(c[2] * 2, 16)
+        b = int(c[3] * 2, 16)
+        return r, g, b
+    return int(c[1:3], 16), int(c[3:5], 16), int(c[5:7], 16)
+
+
+def _draw_texts_on_rgba(img: Image.Image, texts: list) -> Image.Image:
+    from utils.video_utils import _load_title_font_truetype
+
+    base = img.convert("RGBA")
+    draw = ImageDraw.Draw(base)
+    for item in texts:
+        font = _load_title_font_truetype(item.font_key, item.font_size)
+        fill = _parse_hex_color(item.color)
+        try:
+            draw.text((item.x, item.y), item.text, font=font, fill=fill, anchor="lt")
+        except TypeError:
+            draw.text((item.x, item.y), item.text, font=font, fill=fill)
+    return base
+
+
+def _save_image_with_texts(src_path: Path, out_path: Path, texts: list) -> None:
+    with Image.open(src_path) as im:
+        n_frames = int(getattr(im, "n_frames", 1) or 1)
+        is_animated = bool(getattr(im, "is_animated", False)) and n_frames > 1
+
+        if is_animated:
+            frames = []
+            durations = []
+            for i in range(n_frames):
+                im.seek(i)
+                frames.append(_draw_texts_on_rgba(im, texts))
+                durations.append(im.info.get("duration", 100))
+            frames[0].save(
+                out_path,
+                save_all=True,
+                append_images=frames[1:],
+                duration=durations,
+                loop=im.info.get("loop", 0),
+                disposal=im.info.get("disposal", 2),
+            )
+            return
+
+        result = _draw_texts_on_rgba(im, texts)
+        suffix = out_path.suffix.lower()
+        if suffix in (".jpg", ".jpeg"):
+            result.convert("RGB").save(out_path, quality=95)
+        elif suffix == ".webp":
+            result.save(out_path, quality=95)
+        else:
+            result.save(out_path)
+
+
+@router.post("/draw-image-text")
+async def draw_image_text(request: DrawImageTextRequest):
+    """在图片上烧录文字（支持选字体与颜色）"""
+    try:
+        image_path = Path(request.image_path.lstrip("/"))
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="图片不存在")
+        if not request.texts:
+            return {"success": False, "message": "请至少添加一条文字"}
+
+        output_dir = image_path.parent / "watermark_removed"
+        output_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%H%M%S")
+        output_path = output_dir / f"{image_path.stem}_text_{timestamp}{image_path.suffix}"
+
+        _save_image_with_texts(image_path, output_path, request.texts)
+
+        relative_path = str(output_path.relative_to(Path("."))).replace("\\", "/")
+        logger.success(f"图片文字绘制成功: {output_path} ({len(request.texts)} 条)")
+        return {
+            "success": True,
+            "message": f"已添加 {len(request.texts)} 条文字",
+            "result_path": f"/{relative_path}",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"绘制图片文字失败：{e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"绘制图片文字失败：{str(e)}"}

@@ -14,6 +14,7 @@ from loguru import logger
 
 from api.schemas.request_models import ImportRemoteImageRequest, SearchImagesRequest
 from services.image_search_scrape import BAIDU_REFERER, DEFAULT_UA, search_images
+from utils.image_format import resolve_image_ext
 
 router = APIRouter(prefix="/api", tags=["搜图"])
 
@@ -26,30 +27,6 @@ _EXT = {
     "image/bmp": ".bmp",
     "image/x-ms-bmp": ".bmp",
 }
-
-
-def _sniff_image_ext(data: bytes) -> Optional[str]:
-    if len(data) < 12:
-        return None
-    if data[:3] == b"\xff\xd8\xff":
-        return ".jpg"
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return ".png"
-    if data[:6] in (b"GIF87a", b"GIF89a"):
-        return ".gif"
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return ".webp"
-    if data[:2] == b"BM":
-        return ".bmp"
-    return None
-
-
-def _guess_ext_from_url(url: str) -> Optional[str]:
-    p = urlparse(url)
-    suf = Path(p.path).suffix.lower()
-    if suf in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}:
-        return ".jpg" if suf == ".jpeg" else suf
-    return None
 
 
 @router.post("/search-images")
@@ -111,14 +88,8 @@ async def api_import_remote_image(body: ImportRemoteImageRequest) -> Dict[str, A
             raise HTTPException(status_code=400, detail="文件过小或为空")
 
         ext: Optional[str] = _EXT.get(ct) if ct in _EXT else None
-        if not ext and ct in ("", "application/octet-stream"):
-            ext = _sniff_image_ext(content)
         if not ext:
-            ext = _guess_ext_from_url(raw)
-        if not ext and ct and ct.startswith("image/"):
-            ext = _sniff_image_ext(content)
-        if not ext:
-            ext = _sniff_image_ext(content)
+            ext = resolve_image_ext(content, content_type=ct, url=raw, fallback="")
         if not ext:
             if ct and not ct.startswith("image/") and ct != "application/octet-stream":
                 raise HTTPException(status_code=400, detail=f"无法识别为图片: {ct}")
