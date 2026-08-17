@@ -59,6 +59,10 @@ Thumbs.db
 config/forbidden_words.local.yaml
 config/models.local.yaml
 config/ingestion.local.yaml
+config/article_scoring.local.yaml
+config/image_scoring.local.yaml
+config/render_templates.local.yaml
+config/content_prompts.local.yaml
 
 # LaMa 模型缓存
 .cache/

@@ -1,4 +1,4 @@
-"""Render 3:4 video cover image with video-like layout."""
+"""Render a video-sized cover image with the same layout, minus summary."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -21,7 +21,7 @@ from src.utils.config import Config
 from utils.video_utils import _render_frame_animated
 
 DEFAULT_COVER_WIDTH = 1080
-DEFAULT_COVER_HEIGHT = 1440
+DEFAULT_COVER_HEIGHT = 1920
 COVER_TITLE_FONT_SIZE = 72
 COVER_SUBTITLE_FONT_SIZE = 68
 
@@ -54,7 +54,22 @@ def render_article_cover(
     background_image: str = "static/imgs/bg.png",
     width: int = DEFAULT_COVER_WIDTH,
     height: int = DEFAULT_COVER_HEIGHT,
+    template: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    canvas = (template or {}).get("canvas") or {}
+    if canvas.get("width"):
+        width = int(canvas["width"])
+    if canvas.get("height"):
+        height = int(canvas["height"])
+    if (template or {}).get("layout_kind") == "chronicle_frame":
+        from services.ingestion.chronicle_render import render_chronicle_cover
+
+        return render_chronicle_cover(
+            article_id=article_id,
+            draft=draft,
+            image_path=image_path,
+            template=template or {},
+        )
     asset_path = _resolve_asset_path(image_path)
     if not asset_path.is_file():
         return {"success": False, "error": f"cover_source_missing: {image_path}"}
@@ -77,15 +92,18 @@ def render_article_cover(
         tags=draft.get("tags") or "",
         summary_highlight_keywords=draft.get("highlight_keywords") or [],
         show_summary=False,
-        title_y_percent=12.0,
+        title_y_percent=float(((template or {}).get("typography") or {}).get("title_y_percent") or 12.0),
+        main_line1_color=str(((template or {}).get("typography") or {}).get("main_line1_color") or "#FFFFFF"),
+        main_line2_color=str(((template or {}).get("typography") or {}).get("main_line2_color") or "#FFFFFF"),
     )
 
     img_width, img_height = bg_template.size
     temp_draw = ImageDraw.Draw(bg_template.copy())
+    typo = (template or {}).get("typography") or {}
     title_font, subtitle_font, _ = _load_fonts(
         None,
-        COVER_TITLE_FONT_SIZE,
-        subtitle_font_size=COVER_SUBTITLE_FONT_SIZE,
+        int(typo.get("title_font_size") or COVER_TITLE_FONT_SIZE),
+        subtitle_font_size=int(typo.get("subtitle_font_size") or COVER_SUBTITLE_FONT_SIZE),
     )
     margin = int(img_width * 0.08)
     text_width = img_width - 2 * margin

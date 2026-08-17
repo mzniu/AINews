@@ -41,6 +41,7 @@ from api.routes.digital_human_routes import router as digital_human_router
 from api.routes.pip_routes import router as pip_router
 from api.routes.compliance_routes import router as compliance_router
 from api.routes.ingestion_routes import router as ingestion_router
+from api.routes.render_template_routes import router as render_template_router
 from api.routes.publishing_routes import router as publishing_router
 from api.routes.model_config_routes import router as model_config_router
 from src.utils.uvicorn_workers import effective_uvicorn_workers
@@ -83,6 +84,7 @@ app.include_router(digital_human_router)
 app.include_router(pip_router)
 app.include_router(compliance_router)
 app.include_router(ingestion_router)
+app.include_router(render_template_router)
 app.include_router(publishing_router)
 app.include_router(model_config_router)
 # main_routes 放在最后，避免被其他路由覆盖，并添加 API 前缀

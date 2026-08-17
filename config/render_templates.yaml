@@ -1,0 +1,217 @@
+version: 1
+default_template_id: flash_news_portrait
+templates:
+  - id: flash_news_portrait
+    label: 快讯竖屏（默认）
+    builtin: true
+    layout_kind: classic_overlay
+    canvas:
+      width: 1080
+      height: 1920
+      fps: 24
+    background_image: static/imgs/bg.png
+    typography:
+      title_font_size: 72
+      subtitle_font_size: 68
+      main_line1_color: "#FFFFFF"
+      main_line2_color: "#FFFFFF"
+      title_y_percent: 12
+    video:
+      show_summary: true
+      summary_scroll_mode: line_uniform
+      max_selected_images: 4
+      random_bgm: true
+      bgm_dir: static/music
+      prepend_cover_intro: true
+      cover_intro_frames: 1
+      clip_durations_by_count:
+        1: [7.0]
+        2: [3.5, 3.5]
+        3: [2.5, 3.0, 3.0]
+      clip_sec_when_at_least:
+        count: 4
+        sec: 2.0
+      fallback_clip_sec: 2.5
+    cover:
+      enabled: true
+      width: 1080
+      height: 1920
+  - id: chronicle_archive_tech_blue
+    label: 小牛聊AI档案（科技蓝）
+    builtin: true
+    layout_kind: chronicle_frame
+    canvas:
+      width: 1080
+      height: 1920
+      fps: 24
+    background_image: static/imgs/templates/chronicle_tech_blue/bg.png
+    palette:
+      bg: "#070B10"
+      bg_glow: "#165A82"
+      accent: "#3DDCFF"
+      accent_dim: "#1A6A8A"
+      text: "#F4F7FA"
+      text_muted: "#8B96A8"
+      card: "#FFFFFF"
+      card_tab: "#070B10"
+      frame: "#1A6A8A"
+    chrome:
+      brand: 小牛聊AI
+      mark_glyph: 牛
+      mark_path: static/imgs/templates/chronicle_tech_blue/mark_niu.png
+      eyebrow: AI CHRONICLE / ARCHIVE RECORD
+      brand_sub: 粉碎AI信息差 / 消除AI焦虑
+      footer_left: AI 快讯
+      card_keyword_fallback: 快讯
+      footer_strip_prefixes:
+        - 小牛说：
+    typography:
+      title_font_size: 64
+      subtitle_font_size: 47
+      brand_sub_font_size: 28
+      footer_font_size: 40
+      summary_y_percent: 70.2
+      footer_y_percent: 85.2
+      top_pad_percent: 5
+      title_highlight_color: "#FFEC30"
+      main_line1_color: "#F4F7FA"
+      main_line2_color: "#F4F7FA"
+      subtitle2_color: "#3DDCFF"
+      title_y_percent: 12
+    layout:
+      card_top_percent: 35
+      card_bottom_percent: 71
+      card_left_percent: 8
+      card_right_percent: 92
+      card_inset_px: 16
+    video:
+      show_summary: false
+      max_selected_images: 4
+      random_bgm: true
+      bgm_dir: static/music
+      prepend_cover_intro: true
+      cover_intro_frames: 1
+      card_ken_burns: true
+      ken_burns_end_scale: 1.22
+      card_motion:
+        enabled: true
+        random: true
+        end_scale: 1.22
+        pan_percent: 70
+        effects:
+          - zoom_in
+          - zoom_out
+          - pan_left
+          - pan_right
+          - pan_up
+          - pan_down
+          - zoom_in_left
+          - zoom_in_right
+          - zoom_in_up
+          - zoom_in_down
+      clip_durations_by_count:
+        1: [7.0]
+        2: [3.5, 3.5]
+        3: [2.5, 3.0, 3.0]
+      clip_sec_when_at_least:
+        count: 4
+        sec: 2.0
+      fallback_clip_sec: 2.5
+    cover:
+      enabled: true
+      width: 1080
+      height: 1920
+      crop: none
+      card_images: 1
+  - id: chronicle_evidence_stack
+    label: 小牛聊AI证据卡
+    builtin: true
+    layout_kind: chronicle_frame
+    canvas:
+      width: 1080
+      height: 1920
+      fps: 24
+    background_image: static/imgs/templates/chronicle_tech_blue/bg.png
+    palette:
+      bg: "#070B10"
+      bg_glow: "#165A82"
+      accent: "#3DDCFF"
+      accent_dim: "#1A6A8A"
+      text: "#F4F7FA"
+      text_muted: "#8B96A8"
+      card: "#FFFFFF"
+      card_tab: "#070B10"
+      frame: "#1A6A8A"
+    chrome:
+      brand: 小牛聊AI
+      mark_glyph: 牛
+      mark_path: static/imgs/templates/chronicle_tech_blue/mark_niu.png
+      eyebrow: AI CHRONICLE / ARCHIVE RECORD
+      brand_sub: 粉碎AI信息差 / 消除AI焦虑
+      footer_left: AI 快讯
+      card_keyword_fallback: 快讯
+      footer_strip_prefixes:
+        - 小牛说：
+    typography:
+      title_font_size: 64
+      subtitle_font_size: 47
+      brand_sub_font_size: 28
+      footer_font_size: 40
+      summary_y_percent: 75.0
+      footer_y_percent: 85.2
+      top_pad_percent: 5
+      title_highlight_color: "#FFEC30"
+      main_line1_color: "#F4F7FA"
+      main_line2_color: "#F4F7FA"
+      subtitle2_color: "#3DDCFF"
+      title_y_percent: 12
+      summary_color: "#9EC9D8"
+    layout:
+      title_placement: below_card
+      card_top_percent: 18
+      card_bottom_percent: 52
+      card_left_percent: 8
+      card_right_percent: 92
+      card_inset_px: 16
+      title_top_percent: 55
+      title_rule: true
+      title_rule_width_px: 4
+    video:
+      show_summary: false
+      max_selected_images: 4
+      random_bgm: true
+      bgm_dir: static/music
+      prepend_cover_intro: true
+      cover_intro_frames: 1
+      card_ken_burns: true
+      ken_burns_end_scale: 1.22
+      card_motion:
+        enabled: true
+        random: true
+        end_scale: 1.22
+        pan_percent: 70
+        effects:
+          - zoom_in
+          - zoom_out
+          - pan_left
+          - pan_right
+          - pan_up
+          - pan_down
+          - zoom_in_left
+          - zoom_in_right
+          - zoom_in_up
+          - zoom_in_down
+      clip_durations_by_count:
+        1: [7.0]
+        2: [3.5, 3.5]
+        3: [2.5, 3.0, 3.0]
+      clip_sec_when_at_least:
+        count: 4
+        sec: 2.0
+      fallback_clip_sec: 2.5
+    cover:
+      enabled: true
+      width: 1080
+      height: 1920
+      crop: none
+      card_images: 1
