@@ -96,12 +96,66 @@ def _ensure_sqlite_columns(engine) -> None:
         pub_columns = {row[1] for row in pub_rows}
         if pub_columns and "scheduled_at" not in pub_columns:
             conn.execute(text("ALTER TABLE publish_jobs ADD COLUMN scheduled_at DATETIME"))
+        pub_migrations = {
+            "platform_post_url": "VARCHAR(1024)",
+            "metrics_match_status": "VARCHAR(32)",
+            "metrics_last_synced_at": "DATETIME",
+            "first_comment_text": "TEXT",
+            "comment_status": "VARCHAR(16) DEFAULT 'none'",
+            "comment_posted_at": "DATETIME",
+            "comment_error_message": "TEXT",
+            "comment_retry_count": "INTEGER DEFAULT 0",
+        }
+        for name, col_type in pub_migrations.items():
+            if pub_columns and name not in pub_columns:
+                conn.execute(text(f"ALTER TABLE publish_jobs ADD COLUMN {name} {col_type}"))
+
+        story_rows = conn.execute(text("PRAGMA table_info(stories)")).fetchall()
+        story_columns = {row[1] for row in story_rows}
+        if story_columns and "primary_article_id" not in story_columns:
+            conn.execute(text("ALTER TABLE stories ADD COLUMN primary_article_id VARCHAR(32)"))
+
+        pub_acct_rows = conn.execute(text("PRAGMA table_info(publisher_accounts)")).fetchall()
+        pub_acct_columns = {row[1] for row in pub_acct_rows}
+        pub_acct_migrations = {
+            "browser_profile_path": "VARCHAR(512)",
+            "browser_profile_version": "INTEGER DEFAULT 1",
+            "last_fingerprint_probe": "TEXT",
+        }
+        for name, col_type in pub_acct_migrations.items():
+            if pub_acct_columns and name not in pub_acct_columns:
+                conn.execute(
+                    text(f"ALTER TABLE publisher_accounts ADD COLUMN {name} {col_type}")
+                )
+
+        eval_rows = conn.execute(text("PRAGMA table_info(image_relevance_evaluations)")).fetchall()
+        eval_columns = {row[1] for row in eval_rows}
+        if eval_columns and "content_description" not in eval_columns:
+            conn.execute(
+                text("ALTER TABLE image_relevance_evaluations ADD COLUMN content_description TEXT")
+            )
+
+        snap_rows = conn.execute(text("PRAGMA table_info(publish_post_metric_snapshots)")).fetchall()
+        snap_columns = {row[1] for row in snap_rows}
+        snap_migrations = {
+            "play_3s_rate": "REAL",
+            "completion_rate": "REAL",
+            "avg_watch_sec": "REAL",
+            "profile_click_count": "INTEGER",
+        }
+        for name, col_type in snap_migrations.items():
+            if snap_columns and name not in snap_columns:
+                conn.execute(
+                    text(f"ALTER TABLE publish_post_metric_snapshots ADD COLUMN {name} {col_type}")
+                )
 
 
 def init_db(database_url: str | None = None) -> None:
     global _engine, _SessionLocal
     import src.db.models.ingestion  # noqa: F401 — register ORM tables
     import src.db.models.publishing  # noqa: F401 — register ORM tables
+    import src.db.models.publishing_metrics  # noqa: F401 — register ORM tables
+    import src.db.models.llm_usage  # noqa: F401 — register ORM tables
 
     _engine = create_app_engine(database_url)
     _SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False)

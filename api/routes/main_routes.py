@@ -47,6 +47,13 @@ async def ingestion_library_page():
     with open(os.path.join("static", "ingestion_library.html"), "r", encoding="utf-8") as f:
         return f.read()
 
+
+@router.get("/hot-radar", response_class=HTMLResponse)
+async def hot_radar_page():
+    """热榜雷达：新浪 AI 热榜快照与文章命中详情"""
+    with open(os.path.join("static", "hot_radar.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page():
     """系统配置：模型 + 爬取设定"""
@@ -59,6 +66,13 @@ async def model_settings_page():
     """兼容旧链接 → 系统配置"""
     with open(os.path.join("static", "settings.html"), "r", encoding="utf-8") as f:
         return f.read()
+
+@router.get("/publish-queue", response_class=HTMLResponse)
+async def publish_queue_page():
+    """发布队列：仅查看待发布任务与改期"""
+    with open(os.path.join("static", "publish_queue.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
 
 @router.get("/publish-center", response_class=HTMLResponse)
 async def publish_center_page():

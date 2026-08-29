@@ -6,10 +6,10 @@ from datetime import datetime
 from typing import List
 from urllib.parse import urljoin
 
-import requests
 from bs4 import BeautifulSoup
 
 from services.ingestion.adapters.base import ArticleDetail, ArticleRef
+from services.ingestion.http_client import get_text
 from services.ingestion.url_utils import canonicalize_url
 from services.ingestion.view_count import parse_view_count
 from src.utils.config import Config
@@ -25,14 +25,7 @@ class Kr36NewsAdapter:
         self.base_url = base_url.rstrip("/")
 
     def fetch_html(self, url: str) -> str:
-        response = requests.get(
-            url,
-            timeout=Config.CRAWLER_TIMEOUT,
-            headers={"User-Agent": Config.USER_AGENT},
-        )
-        response.raise_for_status()
-        response.encoding = response.apparent_encoding or "utf-8"
-        return response.text
+        return get_text(url, headers={"User-Agent": Config.USER_AGENT})
 
     def discover_list(self, list_url: str) -> List[ArticleRef]:
         return self.parse_list_html(self.fetch_html(list_url))

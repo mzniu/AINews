@@ -14,6 +14,13 @@ from src.db.engine import init_db
 from src.db.models.ingestion import IngestedArticle, IngestionSource
 from src.db.models.publishing import PublishJob, PublisherAccount
 
+_AUTO_PUBLISH_CFG = {
+    "post_score_automation": {
+        "auto_publish": {"enabled": True, "skip_if_exists": True, "min_grade": "S"},
+        "story_gate": {"enabled": False},
+    }
+}
+
 
 @pytest.fixture
 def db_session(tmp_path, monkeypatch):
@@ -73,6 +80,7 @@ def test_load_auto_publish_config_defaults_enabled():
     cfg = load_auto_publish_config({"post_score_automation": {"auto_publish": {}}})
     assert cfg["enabled"] is True
     assert cfg["skip_if_exists"] is True
+    assert cfg["min_grade"] == "S"
 
 
 def test_auto_publish_enqueues_all_platform_accounts(db_session, tmp_path):
@@ -81,11 +89,14 @@ def test_auto_publish_enqueues_all_platform_accounts(db_session, tmp_path):
         source_id="src1",
         canonical_url="https://example.com/a",
         title="DeepSeek 发布新模型",
+        score_grade="S",
+        score_total=88.0,
         generated_video_path=_seed_video(tmp_path, "art_auto"),
         generated_cover_path=_seed_cover(tmp_path, "art_auto"),
         video_draft_json=json.dumps(
             {
                 "main_line1": "突发！DeepSeek 发布",
+                "short_title": "DeepSeek发布",
                 "main_line2": "副标题",
                 "summary": "摘要内容",
                 "tags": "AI,大模型",
@@ -100,7 +111,7 @@ def test_auto_publish_enqueues_all_platform_accounts(db_session, tmp_path):
     _add_account(db_session, account_id="acc_xhs", platform="xiaohongshu")
     db_session.commit()
 
-    result = maybe_enqueue_auto_publish_jobs(db_session, article)
+    result = maybe_enqueue_auto_publish_jobs(db_session, article, config=_AUTO_PUBLISH_CFG)
     db_session.commit()
 
     assert result["enqueued"] is True
@@ -109,6 +120,9 @@ def test_auto_publish_enqueues_all_platform_accounts(db_session, tmp_path):
     assert len(jobs) == 4
     assert {job.source_type for job in jobs} == {SOURCE_TYPE}
     assert all(job.status == "pending" for job in jobs)
+    titles = {job.account_id: job.title for job in jobs}
+    assert titles["acc_wx"] == "DeepSeek发布"
+    assert titles["acc_dy"] == "突发！DeepSeek 发布"
 
 
 def test_auto_publish_skips_when_disabled(db_session, tmp_path):
@@ -117,6 +131,8 @@ def test_auto_publish_skips_when_disabled(db_session, tmp_path):
         source_id="src1",
         canonical_url="https://example.com/b",
         title="标题",
+        score_grade="S",
+        score_total=90.0,
         generated_video_path=_seed_video(tmp_path, "art_off"),
     )
     db_session.add(article)
@@ -139,6 +155,8 @@ def test_auto_publish_skips_duplicate_jobs(db_session, tmp_path):
         source_id="src1",
         canonical_url="https://example.com/c",
         title="标题",
+        score_grade="S",
+        score_total=90.0,
         generated_video_path=_seed_video(tmp_path, "art_dup"),
         video_draft_json=json.dumps({"main_line1": "标题"}, ensure_ascii=False),
     )
@@ -146,11 +164,60 @@ def test_auto_publish_skips_duplicate_jobs(db_session, tmp_path):
     _add_account(db_session, account_id="acc_dy", platform="douyin")
     db_session.commit()
 
-    first = maybe_enqueue_auto_publish_jobs(db_session, article)
+    first = maybe_enqueue_auto_publish_jobs(db_session, article, config=_AUTO_PUBLISH_CFG)
     db_session.commit()
-    second = maybe_enqueue_auto_publish_jobs(db_session, article)
+    second = maybe_enqueue_auto_publish_jobs(db_session, article, config=_AUTO_PUBLISH_CFG)
     db_session.commit()
 
     assert first["enqueued"] is True
     assert second["skipped"] is True
+    assert db_session.query(PublishJob).count() == 1
+
+
+def test_auto_publish_skips_below_min_grade(db_session, tmp_path):
+    article = IngestedArticle(
+        id="art_b",
+        source_id="src1",
+        canonical_url="https://example.com/d",
+        title="B级文章",
+        score_grade="B",
+        score_total=60.0,
+        generated_video_path=_seed_video(tmp_path, "art_b"),
+        video_draft_json=json.dumps({"main_line1": "标题"}, ensure_ascii=False),
+    )
+    db_session.add(article)
+    _add_account(db_session, account_id="acc_dy", platform="douyin")
+    db_session.commit()
+
+    result = maybe_enqueue_auto_publish_jobs(
+        db_session,
+        article,
+        config={"post_score_automation": {"auto_publish": {"enabled": True, "min_grade": "A"}}},
+    )
+    assert result["skipped"] is True
+    assert result["reason"] == "grade_below_threshold"
+    assert db_session.query(PublishJob).count() == 0
+
+
+def test_auto_publish_allows_grade_at_threshold(db_session, tmp_path):
+    article = IngestedArticle(
+        id="art_a",
+        source_id="src1",
+        canonical_url="https://example.com/e",
+        title="A级文章",
+        score_grade="A",
+        score_total=75.0,
+        generated_video_path=_seed_video(tmp_path, "art_a"),
+        video_draft_json=json.dumps({"main_line1": "标题"}, ensure_ascii=False),
+    )
+    db_session.add(article)
+    _add_account(db_session, account_id="acc_dy", platform="douyin")
+    db_session.commit()
+
+    result = maybe_enqueue_auto_publish_jobs(
+        db_session,
+        article,
+        config={"post_score_automation": {"auto_publish": {"enabled": True, "min_grade": "A"}}},
+    )
+    assert result["enqueued"] is True
     assert db_session.query(PublishJob).count() == 1

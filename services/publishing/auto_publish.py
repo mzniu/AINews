@@ -7,7 +7,8 @@ from typing import Any
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from services.ingestion.article_scorer import load_scoring_config
+from services.ingestion.article_scorer import VALID_GRADES, grade_meets_minimum, load_scoring_config
+from services.ingestion.story_primary import check_story_media_pipeline_gate
 from services.publishing.compliance import validate_publish_payload
 from services.publishing.metadata_bridge import draft_from_video_draft, draft_to_publish_fields
 from services.publishing.path_guard import PathGuardError, resolve_cover_path, resolve_video_path, to_relative_posix
@@ -27,6 +28,7 @@ def load_auto_publish_config(cfg: dict[str, Any] | None = None) -> dict[str, Any
     return {
         "enabled": bool(publish_cfg.get("enabled", True)),
         "skip_if_exists": bool(publish_cfg.get("skip_if_exists", True)),
+        "min_grade": str(publish_cfg.get("min_grade", "S")).upper(),
     }
 
 
@@ -38,7 +40,8 @@ def _parse_video_draft(article: IngestedArticle) -> dict[str, Any]:
                 return data
         except json.JSONDecodeError:
             pass
-    return {"main_line1": (article.title or "未命名").strip()}
+    title = (article.title or "未命名").strip()
+    return {"main_line1": title, "short_title": title}
 
 
 def _select_accounts_for_auto_publish(session: Session) -> list[PublisherAccount]:
@@ -121,6 +124,22 @@ def maybe_enqueue_auto_publish_jobs(
     if not article.generated_video_path:
         return {"skipped": True, "reason": "no_video"}
 
+    min_grade = str(cfg.get("min_grade", "S")).upper()
+    article_grade = str(article.score_grade or "").upper()
+    if not article_grade:
+        return {"skipped": True, "reason": "no_score", "min_grade": min_grade}
+    if not grade_meets_minimum(article_grade, min_grade):
+        return {
+            "skipped": True,
+            "reason": "grade_below_threshold",
+            "article_grade": article_grade,
+            "min_grade": min_grade,
+        }
+
+    gate = check_story_media_pipeline_gate(session, article, config=config)
+    if gate:
+        return gate
+
     try:
         video_path, cover_path = _resolve_media_paths(article)
     except PathGuardError as exc:
@@ -131,8 +150,24 @@ def maybe_enqueue_auto_publish_jobs(
     if not accounts:
         return {"skipped": True, "reason": "no_active_accounts"}
 
+    from services.publishing.schedule import (
+        existing_article_slot,
+        load_spacing_config,
+        next_auto_slot,
+    )
+
+    spacing = load_spacing_config(config)
+    try:
+        slot = existing_article_slot(session, article_id=article.id)
+        if slot is None:
+            slot = next_auto_slot(session, config=spacing)
+    except Exception as exc:
+        logger.error("auto_publish schedule failed article=%s: {}", article.id, exc)
+        return {"skipped": True, "reason": "schedule_failed", "error": str(exc)}
+
     created: list[dict[str, str]] = []
     skipped: list[dict[str, str]] = []
+    draft = draft_from_video_draft(_parse_video_draft(article))
     for account in accounts:
         if cfg.get("skip_if_exists", True) and _has_existing_job(
             session,
@@ -171,16 +206,23 @@ def maybe_enqueue_auto_publish_jobs(
             )
             continue
 
+        job_cover_path = cover_path
+        if account.platform == "douyin":
+            job_cover_path = None
+
         job = PublishJob(
             account_id=account.id,
             video_path=video_path,
             title=title,
             description=description,
             tags_json=json.dumps(tags, ensure_ascii=False),
-            cover_path=cover_path,
+            cover_path=job_cover_path,
             source_type=SOURCE_TYPE,
             source_id=article.id,
             status="pending",
+            scheduled_at=slot,
+            first_comment_text=(draft.first_comment or "").strip() or None,
+            comment_status="none",
         )
         session.add(job)
         session.flush()
@@ -192,10 +234,11 @@ def maybe_enqueue_auto_publish_jobs(
             }
         )
         logger.info(
-            "auto_publish enqueued job=%s article=%s platform=%s",
+            "auto_publish enqueued job=%s article=%s platform=%s scheduled_at=%s",
             job.id,
             article.id,
             account.platform,
+            slot.isoformat(),
         )
 
     if created:

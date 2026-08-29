@@ -30,3 +30,17 @@
 
 **PASS (code)** — 启用 `kuaishou.enabled: true` 与 `video_publish: true`。  
 **手动 E2E** — 运行 `python scripts/spike_kuaishou_publish.py --login-only` 绑定账号后，用 `--video` 验证上传填表。
+
+## 首评（First Comment，P2）
+
+| Field | Value |
+|-------|-------|
+| probe_script | `scripts/probe_creator_first_comment.py --platform kuaishou` |
+| list_url | `https://cp.kuaishou.com/article/manage/video` |
+| detail_url | `.../article/manage/video/detail?photoId={photo_id}` |
+| comment_input | `textarea[placeholder*="评论"]` 等通用选择器 |
+| comment_submit | `button:has-text("发送")` |
+| mode | **deferred**（发布完成后独立会话发评） |
+| report | `data/publish/probe_kuaishou_first_comment_report.json` |
+
+**Gate: PENDING** — 运行 probe dry-run + `--post` 验证后改为 PASS。

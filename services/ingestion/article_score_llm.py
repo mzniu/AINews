@@ -10,18 +10,19 @@ from openai import OpenAI
 from services.ingestion.article_scorer import ArticleScoreResult, VALID_GRADES
 
 
-def _build_client() -> OpenAI | None:
+def _build_client() -> tuple[OpenAI | None, dict[str, Any] | None]:
     from services.model_config.registry import get_language_client
+    from services.model_config.token_usage import env_language_profile
 
-    client, _profile = get_language_client()
+    client, profile = get_language_client()
     if client is not None:
-        return client
+        return client, profile
 
     api_key = os.getenv("DEEPSEEK_API_KEY", "")
     if not api_key or api_key == "your_deepseek_api_key_here":
-        return None
+        return None, None
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-    return OpenAI(api_key=api_key, base_url=base_url)
+    return OpenAI(api_key=api_key, base_url=base_url), env_language_profile()
 
 
 def _resolve_language_model() -> str:
@@ -42,7 +43,7 @@ def generate_score_review(
     content_excerpt: str | None = None,
 ) -> dict[str, Any] | None:
     """Return LLM JSON with commentary and optional grade adjustment."""
-    client = _build_client()
+    client, profile = _build_client()
     if client is None:
         return None
 
@@ -81,7 +82,13 @@ def generate_score_review(
 }}"""
 
     try:
-        response = client.chat.completions.create(
+        from services.model_config.token_usage import complete_chat
+
+        response = complete_chat(
+            client,
+            kind="language",
+            profile=profile,
+            task="article_score",
             model=model,
             messages=[
                 {

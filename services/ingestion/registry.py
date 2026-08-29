@@ -8,17 +8,33 @@ from typing import Any, Dict, Type
 import yaml
 
 from services.ingestion.adapters.aitnt_news import AitntNewsAdapter
+from services.ingestion.adapters.aibase_news import AibaseNewsAdapter
+from services.ingestion.adapters.ifeng_news import IfengNewsAdapter
+from services.ingestion.adapters.ithome_news import IthomeNewsAdapter
 from services.ingestion.adapters.kr36_news import Kr36NewsAdapter
 from services.ingestion.adapters.leiphone_news import LeiphoneNewsAdapter
 from services.ingestion.adapters.qbitai_news import QbitaiNewsAdapter
+from services.ingestion.adapters.qq_news import QqNewsAdapter
+from services.ingestion.adapters.readhub_news import ReadhubNewsAdapter
+from services.ingestion.adapters.sina_tech_news import SinaTechNewsAdapter
+from services.ingestion.adapters.techcrunch_news import TechcrunchNewsAdapter
+from services.ingestion.adapters.venturebeat_news import VenturebeatNewsAdapter
 from src.db.models.ingestion import IngestionSource
 from src.utils.config import Config
 
 ADAPTER_CLASSES: Dict[str, Type] = {
     "aitnt_news": AitntNewsAdapter,
+    "aibase_news": AibaseNewsAdapter,
+    "ifeng_news": IfengNewsAdapter,
+    "ithome_news": IthomeNewsAdapter,
     "kr36_news": Kr36NewsAdapter,
     "leiphone_news": LeiphoneNewsAdapter,
     "qbitai_news": QbitaiNewsAdapter,
+    "qq_news": QqNewsAdapter,
+    "readhub_news": ReadhubNewsAdapter,
+    "sina_tech_news": SinaTechNewsAdapter,
+    "techcrunch_news": TechcrunchNewsAdapter,
+    "venturebeat_news": VenturebeatNewsAdapter,
 }
 
 INGESTION_CONFIG_PATH = Config.ROOT_DIR / "config" / "ingestion_sources.yaml"
@@ -71,6 +87,9 @@ def build_adapter(source: IngestionSource):
     return cls(
         source_id=source.id,
         base_url=cfg.get("base_url", ""),
+        channel_id=cfg.get("channel_id"),
+        category_id=cfg.get("category_id"),
+        list_referer=cfg.get("list_url"),
     )
 
 

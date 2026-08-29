@@ -49,6 +49,12 @@ class CreatePublishJobRequest(BaseModel):
     source_type: Optional[str] = None
     source_id: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    first_comment_text: Optional[str] = None
+
+
+class ReschedulePublishJobRequest(BaseModel):
+    scheduled_at: datetime
+    cascade: bool = True
 
 
 class PublishJobResponse(BaseModel):
@@ -73,6 +79,11 @@ class PublishJobResponse(BaseModel):
     finished_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
     scheduled_at: Optional[datetime] = None
+    first_comment_text: Optional[str] = None
+    comment_status: Optional[str] = None
+    comment_posted_at: Optional[datetime] = None
+    comment_error_message: Optional[str] = None
+    comment_retry_count: int = 0
 
 
 class ExtractCoverRequest(BaseModel):
@@ -84,3 +95,90 @@ class PublishingHealthResponse(BaseModel):
     worker_reachable: bool
     pending_jobs_count: int
     oldest_pending_seconds: Optional[float] = None
+
+
+class PublishedPostMetrics(BaseModel):
+    view_count: Optional[int] = None
+    like_count: Optional[int] = None
+    comment_count: Optional[int] = None
+    share_count: Optional[int] = None
+    favorite_count: Optional[int] = None
+    follow_count: Optional[int] = None
+    play_3s_rate: Optional[float] = None
+    completion_rate: Optional[float] = None
+    avg_watch_sec: Optional[float] = None
+    profile_click_count: Optional[int] = None
+    snapshot_date: Optional[str] = None
+    fetched_at: Optional[str] = None
+
+
+class PublishedPostResponse(BaseModel):
+    job_id: str
+    title: str
+    platform: str
+    platform_display_name: Optional[str] = None
+    account_id: str
+    account_nickname: Optional[str] = None
+    published_at: Optional[str] = None
+    platform_post_id: Optional[str] = None
+    platform_post_url: Optional[str] = None
+    metrics_match_status: str = "pending"
+    metrics_last_synced_at: Optional[str] = None
+    metrics: Optional[PublishedPostMetrics] = None
+
+
+class MetricsSyncStatusResponse(BaseModel):
+    success: bool = True
+    status: Optional[str] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    accounts_total: int = 0
+    posts_synced: int = 0
+    posts_unmatched: int = 0
+    posts_failed: int = 0
+    error_summary: Optional[str] = None
+
+
+class MetricsSummaryTotals(BaseModel):
+    posts_total: int = 0
+    posts_with_metrics: int = 0
+    view_count: int = 0
+    like_count: int = 0
+    comment_count: int = 0
+    share_count: int = 0
+    favorite_count: int = 0
+
+
+class MetricsSummaryPlatformRow(MetricsSummaryTotals):
+    platform: str
+    platform_display_name: Optional[str] = None
+
+
+class MetricsSummaryResponse(BaseModel):
+    success: bool = True
+    totals: MetricsSummaryTotals
+    by_platform: List[MetricsSummaryPlatformRow] = Field(default_factory=list)
+
+
+class BindPublishedPostRequest(BaseModel):
+    platform_post_id: str
+    platform_post_url: Optional[str] = None
+
+
+class ViewDropAlert(BaseModel):
+    job_id: str
+    title: str = ""
+    platform: Optional[str] = None
+    platform_display_name: Optional[str] = None
+    account_nickname: Optional[str] = None
+    previous_snapshot_date: str
+    current_snapshot_date: str
+    previous_view_count: int
+    current_view_count: int
+    drop_count: int
+    drop_pct: float
+
+
+class MetricsAlertsResponse(BaseModel):
+    success: bool = True
+    alerts: List[ViewDropAlert] = Field(default_factory=list)

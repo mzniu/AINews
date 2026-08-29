@@ -30,3 +30,16 @@ def test_storage_state_accepts_any_required_cookie():
     required = ("galaxy_creator_session_id", "web_session")
     assert storage_state_has_session_cookies(storage, required)
     assert not storage_state_has_session_cookies({"cookies": []}, required)
+
+
+def test_build_qr_login_profile_includes_stealth_defaults():
+    from services.publishing.adapters.qr_helpers import build_qr_login_profile
+
+    profile = build_qr_login_profile(
+        platform_id="wechat_channels",
+        login_url="https://channels.weixin.qq.com/login.html",
+        creator_url="https://channels.weixin.qq.com/platform/post/create",
+        qr_profile={"post_login_wait_ms": 6000},
+    )
+    assert profile.use_stealth_browser is True
+    assert profile.cookie_settle_attempts == 15

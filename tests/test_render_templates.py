@@ -152,7 +152,7 @@ def test_repo_builtin_yaml_loads_three_templates():
     assert layout["card_top_percent"] == 35
     assert layout["card_bottom_percent"] == 71
     assert layout.get("title_placement") in (None, "above_card")
-    assert typo["summary_y_percent"] == 70.2
+    assert typo["summary_y_percent"] == 73.2
     motion = (chronicle.get("video") or {}).get("card_motion") or {}
     assert motion["enabled"] is True
     assert motion["random"] is True
@@ -166,7 +166,8 @@ def test_repo_builtin_yaml_loads_three_templates():
     assert evidence["layout_kind"] == "chronicle_frame"
     elayout = evidence["layout"]
     assert elayout["title_placement"] == "below_card"
-    assert elayout["card_top_percent"] == 18
+    assert elayout["chrome_placement"] == "footer"
+    assert elayout["card_top_percent"] == 5
     assert elayout["card_bottom_percent"] == 52
     assert elayout["card_left_percent"] == 8
     assert elayout["card_right_percent"] == 92

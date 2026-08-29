@@ -52,7 +52,7 @@ def test_load_image_scoring_config_has_weights(cfg):
     assert abs(sum(cfg["weights"].values()) - 1.0) < 0.01
     assert cfg["grades"]["A"] == 80
     assert cfg["auto_select"]["max_count"] == 4
-    assert cfg["scorer_version"] == "1.2"
+    assert cfg["scorer_version"] == "1.3"
 
 
 def test_prefilter_skips_failed_download(cfg):
@@ -179,106 +179,107 @@ def test_grade_from_total_boundaries(cfg):
     assert grade_from_total(39, cfg) == "D"
 
 
+def _eval(source_id: str, grade: str, total: float, sort_order: int = 0) -> ImageScoreResult:
+    return ImageScoreResult(
+        source_type="article_image",
+        source_id=source_id,
+        original_url=f"u-{source_id}",
+        total=total,
+        grade=grade,
+        rank=sort_order + 1,
+        sort_order=sort_order,
+        origin="article_body",
+    )
+
+
+def _auto_cfg(**overrides):
+    return {
+        "auto_select": {
+            "min_grade": "A",
+            "fallback_grade": "B",
+            "max_count": 4,
+            "min_count": 3,
+            "preferred_count": 4,
+            "supplement_grade": "D",
+            **overrides,
+        }
+    }
+
+
 def test_pick_auto_selected_prefers_a_grade(cfg):
     evaluations = [
-        ImageScoreResult(
-            source_type="article_image",
-            source_id="a1",
-            original_url="u1",
-            total=85,
-            grade="A",
-            rank=1,
-            sort_order=0,
-            origin="cover",
-        ),
-        ImageScoreResult(
-            source_type="article_image",
-            source_id="b1",
-            original_url="u2",
-            total=70,
-            grade="B",
-            rank=2,
-            sort_order=1,
-            origin="article_body",
-        ),
+        _eval("a1", "A", 85, 0),
+        _eval("b1", "B", 70, 1),
     ]
     picked = pick_auto_selected(evaluations, config=cfg)
-    assert len(picked) == 1
-    assert picked[0].source_id == "a1"
+    assert [e.source_id for e in picked] == ["a1", "b1"]
+    assert picked[0].grade == "A"
+    assert picked[1].grade == "B"
 
 
 def test_pick_auto_selected_falls_back_to_b_when_no_a(cfg):
     evaluations = [
-        ImageScoreResult(
-            source_type="article_image",
-            source_id="b1",
-            original_url="u1",
-            total=70,
-            grade="B",
-            rank=1,
-            sort_order=0,
-            origin="cover",
-        ),
-        ImageScoreResult(
-            source_type="article_image",
-            source_id="b2",
-            original_url="u2",
-            total=65,
-            grade="B",
-            rank=2,
-            sort_order=1,
-            origin="article_body",
-        ),
+        _eval("b1", "B", 70, 0),
+        _eval("b2", "B", 65, 1),
     ]
     picked = pick_auto_selected(evaluations, config=cfg)
     assert len(picked) == 2
     assert all(e.grade == "B" for e in picked)
 
 
-def test_pick_auto_selected_supplements_with_c_when_below_min(cfg):
-    cfg = dict(cfg)
-    cfg["auto_select"] = {
-        **(cfg.get("auto_select") or {}),
-        "min_count": 2,
-        "supplement_grade": "C",
-        "max_count": 4,
-    }
-    evaluations = [
-        ImageScoreResult(
-            source_type="article_image",
-            source_id="b1",
-            original_url="u1",
-            total=72.6,
-            grade="B",
-            rank=1,
-            sort_order=0,
-            origin="cover",
-        ),
-        ImageScoreResult(
-            source_type="article_image",
-            source_id="c1",
-            original_url="u2",
-            total=54.6,
-            grade="C",
-            rank=2,
-            sort_order=1,
-            origin="article_body",
-        ),
-        ImageScoreResult(
-            source_type="article_image",
-            source_id="c2",
-            original_url="u3",
-            total=52.0,
-            grade="C",
-            rank=3,
-            sort_order=2,
-            origin="article_body",
-        ),
-    ]
-    picked = pick_auto_selected(evaluations, config=cfg)
-    assert len(picked) == 2
-    assert picked[0].source_id == "b1"
-    assert picked[1].source_id == "c1"
+def test_pick_auto_selected_takes_four_when_ab_enough():
+    picked = pick_auto_selected(
+        [
+            _eval("a1", "A", 88, 0),
+            _eval("a2", "A", 84, 1),
+            _eval("b1", "B", 72, 2),
+            _eval("b2", "B", 68, 3),
+            _eval("c1", "C", 50, 4),
+        ],
+        config=_auto_cfg(),
+    )
+    assert [e.source_id for e in picked] == ["a1", "a2", "b1", "b2"]
+    assert all(e.grade in {"A", "B"} for e in picked)
+
+
+def test_pick_auto_selected_keeps_three_ab_without_cd():
+    picked = pick_auto_selected(
+        [
+            _eval("a1", "A", 88, 0),
+            _eval("b1", "B", 72, 1),
+            _eval("b2", "B", 66, 2),
+            _eval("c1", "C", 50, 3),
+            _eval("d1", "D", 20, 4),
+        ],
+        config=_auto_cfg(),
+    )
+    assert [e.source_id for e in picked] == ["a1", "b1", "b2"]
+
+
+def test_pick_auto_selected_supplements_with_c_and_d_to_reach_three():
+    picked = pick_auto_selected(
+        [
+            _eval("b1", "B", 72, 0),
+            _eval("c1", "C", 54, 1),
+            _eval("c2", "C", 52, 2),
+            _eval("d1", "D", 22, 3),
+        ],
+        config=_auto_cfg(),
+    )
+    assert [e.source_id for e in picked] == ["b1", "c1", "c2"]
+    assert len(picked) == 3
+
+
+def test_pick_auto_selected_can_use_d_when_ab_short():
+    picked = pick_auto_selected(
+        [
+            _eval("a1", "A", 88, 0),
+            _eval("d1", "D", 20, 1),
+            _eval("d2", "D", 18, 2),
+        ],
+        config=_auto_cfg(),
+    )
+    assert [e.source_id for e in picked] == ["a1", "d1", "d2"]
 
 
 def test_rank_evaluations_orders_by_score_then_source(cfg):
@@ -355,6 +356,49 @@ def test_compute_media_bonuses_for_gif(cfg, tmp_path):
     bonuses = compute_media_bonuses(gif_path, config=cfg)
     assert any(b.get("reason") == "animated" for b in bonuses)
     assert bonuses[0]["points"] == cfg["bonuses"]["animated"]
+
+
+def test_compute_media_bonuses_gif_boost_when_enabled(tmp_path):
+    gif_path = tmp_path / "clip.gif"
+    jpg_path = tmp_path / "still.jpg"
+    from PIL import Image
+
+    Image.new("RGB", (200, 200), color="blue").save(gif_path)
+    Image.new("RGB", (200, 200), color="blue").save(jpg_path)
+    cfg = {
+        "prefer_gif_boost": True,
+        "bonuses": {"animated": 8, "gif_boost": 25},
+    }
+    gif_bonuses = compute_media_bonuses(gif_path, config=cfg)
+    jpg_bonuses = compute_media_bonuses(jpg_path, config=cfg)
+    assert gif_bonuses[0]["reason"] == "gif_boost"
+    assert gif_bonuses[0]["points"] == 25
+    assert jpg_bonuses == []
+
+
+def test_compute_final_score_gif_boost_marks_animated(cfg):
+    vl_payload = {
+        "dimensions": {
+            "topic_relevance": {"score": 8, "signals": []},
+            "info_value": {"score": 8, "signals": []},
+            "visual_quality": {"score": 8, "signals": []},
+            "flash_fit": {"score": 8, "signals": []},
+            "cover_fit": {"score": 7, "signals": []},
+            "figure_prominence": {"score": 7, "signals": []},
+            "compliance": {"score": 9, "signals": []},
+        },
+        "penalties": [],
+        "reject": False,
+    }
+    result = compute_final_score(
+        vl_payload,
+        extra_bonuses=[{"reason": "gif_boost", "points": 25}],
+        config=cfg,
+        width=1280,
+        height=720,
+    )
+    assert result.breakdown.get("is_animated") is True
+    assert result.total >= 25
 
 
 def test_compute_final_score_applies_animated_bonus(cfg):

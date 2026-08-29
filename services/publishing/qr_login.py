@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from loguru import logger
 from sqlalchemy.orm import Session, sessionmaker
 
+from services.publishing.browser_lock import BrowserLockTimeout
 from services.publishing.adapters.base import QrLoginContext
 from services.publishing.registry import get_adapter, get_platform_config, load_publishing_yaml
 from src.db.models.publishing import PublisherAccount, QrLoginSession
@@ -34,6 +35,7 @@ def process_qr_session(session_factory: sessionmaker, session_id: str) -> None:
             login_url=cfg.get("login_url", ""),
             qr_dir=qr_dir,
             qr_timeout_sec=int(defaults.get("qr_timeout_sec", 120)),
+            account_id=account_id,
         )
         result = adapter.run_qr_login_flow(ctx)
 
@@ -50,6 +52,7 @@ def process_qr_session(session_factory: sessionmaker, session_id: str) -> None:
                     existing_account_id=account_id,
                     account_info=result.account_info,
                     storage_state_json=result.storage_state_json,
+                    qr_session_id=session_id,
                 )
                 row.status = "confirmed"
                 row.account_id = account.id
@@ -59,6 +62,15 @@ def process_qr_session(session_factory: sessionmaker, session_id: str) -> None:
                 row.error_message = result.error_message
                 row.finished_at = datetime.utcnow()
             session.commit()
+    except BrowserLockTimeout:
+        logger.warning("QR session %s: browser lock timeout", session_id)
+        with session_factory() as session:
+            row = session.get(QrLoginSession, session_id)
+            if row:
+                row.status = "failed"
+                row.error_message = "浏览器正忙（发布或检测任务进行中），请结束后再试或稍后重试"
+                row.finished_at = datetime.utcnow()
+                session.commit()
     except Exception as exc:
         logger.exception(f"QR session {session_id} failed: {exc}")
         with session_factory() as session:
@@ -78,7 +90,15 @@ def _upsert_account(
     existing_account_id: str | None,
     account_info,
     storage_state_json: bytes,
+    qr_session_id: str | None = None,
 ) -> PublisherAccount:
+    from services.publishing.browser_profile import (
+        BROWSER_PROFILE_VERSION,
+        pending_profile_key,
+        profile_path_for_account,
+        promote_pending_profile,
+    )
+
     now = datetime.utcnow()
     account: PublisherAccount | None = None
     if purpose == "refresh" and existing_account_id:
@@ -89,6 +109,7 @@ def _upsert_account(
             .filter_by(platform=platform, platform_uid=account_info.platform_uid)
             .first()
         )
+    is_new = account is None
     if account is None:
         account = PublisherAccount(
             platform=platform,
@@ -104,6 +125,10 @@ def _upsert_account(
     adapter = get_adapter(platform)
     adapter.persist_storage_state(session_path, storage_state_json)
     account.session_path = f"data/publish/sessions/{account.id}.enc"
+    if qr_session_id and is_new:
+        promote_pending_profile(pending_profile_key(qr_session_id), account.id)
+    account.browser_profile_path = profile_path_for_account(account.id)
+    account.browser_profile_version = BROWSER_PROFILE_VERSION
     account.nickname = account_info.nickname
     account.avatar_url = account_info.avatar_url
     account.platform_uid = account_info.platform_uid

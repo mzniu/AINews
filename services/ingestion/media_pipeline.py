@@ -13,11 +13,14 @@ from services.ingestion.bgm_picker import pick_random_bgm
 from services.ingestion.cover_picker import pick_best_cover_image
 from services.ingestion.cover_render_service import render_article_cover
 from services.ingestion.cover_video_utils import prepend_cover_intro_to_video
-from services.ingestion.bridge import prepare_video_metadata
+from services.ingestion.bridge import dedupe_image_entries, prepare_video_metadata
+from services.ingestion.image_scorer import load_image_scoring_config
 from services.ingestion.image_score_service import score_article_images
 from services.ingestion.media_pipeline_trigger import load_media_pipeline_config
 from services.ingestion.video_render_service import render_ingested_video, resolve_ingested_clip_durations
+from services.ingestion.media_paths import restore_generated_media_paths
 from src.db.models.ingestion import IngestedArticle
+from utils.title_units import resolve_short_title, truncate_han_equiv, MAIN_LINE1_MAX_UNITS
 
 
 def _normalize_local_path(path: str | None) -> str:
@@ -30,6 +33,35 @@ def _normalize_local_path(path: str | None) -> str:
 def _checkpoint(session: Session) -> None:
     """Commit progress so long-running steps do not hold SQLite write locks."""
     session.commit()
+
+
+def _parse_existing_draft(article: IngestedArticle) -> dict[str, Any] | None:
+    raw = article.video_draft_json
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(data, dict) and (data.get("main_line1") or data.get("title")):
+        return data
+    return None
+
+
+def _fallback_draft(article: IngestedArticle) -> dict[str, Any]:
+    title = (article.title or "未命名").strip()
+    main_line1 = truncate_han_equiv(title, MAIN_LINE1_MAX_UNITS)
+    return {
+        "main_line1": main_line1,
+        "short_title": resolve_short_title("", main_line1),
+        "main_line2": "",
+        "sub_title": "",
+        "sub_title2": "",
+        "summary": ((article.summary or title)[:80]),
+        "tags": "",
+        "highlight_keywords": [],
+        "fallback": True,
+    }
 
 
 def run_media_pipeline(
@@ -54,13 +86,14 @@ def run_media_pipeline(
     selected_images: list[dict[str, Any]] = []
     bgm_path: str | None = None
     video_path: str | None = None
+    cover_path: str | None = None
 
     if cfg.get("score_images", True):
         try:
             img_result = score_article_images(
                 session,
                 article.id,
-                force=False,
+                force=bool(cfg.get("force_score_images", False)),
                 include_story_images=bool(cfg.get("include_story_images", True)),
             )
             steps["score_images"] = {
@@ -92,8 +125,18 @@ def run_media_pipeline(
             logger.warning(f"media_pipeline generate_content failed: {exc}")
             errors.append(f"generate_content: {exc}")
             steps["generate_content"] = {"error": str(exc)}
+            draft = _parse_existing_draft(article)
+            if draft:
+                steps["generate_content"]["reused_existing_draft"] = True
+            else:
+                draft = _fallback_draft(article)
+                steps["generate_content"]["used_fallback_draft"] = True
         else:
             _checkpoint(session)
+    else:
+        draft = _parse_existing_draft(article)
+        if draft:
+            steps["generate_content"] = {"skipped": True, "reused_existing_draft": True}
 
     if cfg.get("prepare_video", True):
         try:
@@ -104,11 +147,26 @@ def run_media_pipeline(
                 sort_by_relevance=True,
                 auto_select=True,
             )
-            selected_images = prep.get("auto_selected_images") or []
             max_n = int(cfg.get("max_selected_images", 4))
-            selected_images = selected_images[:max_n]
+            if cfg.get("select_top_by_rank"):
+                sorted_imgs = dedupe_image_entries(
+                    prep.get("images") or [],
+                    config=load_image_scoring_config(),
+                )
+                selected_images = [
+                    img
+                    for img in sorted_imgs
+                    if img.get("local_path") and img.get("success", True)
+                ][:max_n]
+            else:
+                selected_images = dedupe_image_entries(
+                    prep.get("auto_selected_images") or [],
+                    config=load_image_scoring_config(),
+                )
+                selected_images = selected_images[:max_n]
             steps["prepare_video"] = {
                 "auto_selected_count": len(selected_images),
+                "selection_mode": "top_rank" if cfg.get("select_top_by_rank") else "auto_grade",
                 "metadata_path": prep.get("metadata_path"),
             }
             article.selected_images_json = json.dumps(selected_images, ensure_ascii=False)
@@ -119,13 +177,16 @@ def run_media_pipeline(
         else:
             _checkpoint(session)
 
-    image_paths = [
-        _normalize_local_path(img.get("local_path"))
-        for img in selected_images
-        if img.get("local_path")
-    ]
+    seen_render_paths: set[str] = set()
+    image_paths: list[str] = []
+    for img in selected_images:
+        path = _normalize_local_path(img.get("local_path"))
+        if not path or path in seen_render_paths:
+            continue
+        seen_render_paths.add(path)
+        image_paths.append(path)
 
-    if cfg.get("render_video", True) and draft and len(image_paths) >= 2:
+    if cfg.get("render_video", True) and draft and image_paths:
         if cfg.get("random_bgm", True):
             bgm_path = pick_random_bgm(cfg.get("bgm_dir", "static/music"))
             article.selected_bgm_path = bgm_path
@@ -137,6 +198,7 @@ def run_media_pipeline(
                 bgm_path=bgm_path or "static/music/background.mp3",
                 background_image=str(cfg.get("background_image", "static/imgs/bg.png")),
                 clip_duration_sec=float(cfg.get("clip_duration_sec", 2.5)),
+                template=cfg.get("render_template"),
             )
             if render_result.get("success"):
                 video_path = render_result.get("video_path")
@@ -157,8 +219,13 @@ def run_media_pipeline(
         else:
             _checkpoint(session)
     elif cfg.get("render_video", True):
-        errors.append("render_video: skipped (missing draft or images)")
-        steps["render_video"] = {"skipped": True, "image_count": len(image_paths)}
+        reason = "missing_draft" if not draft else "missing_images"
+        errors.append(f"render_video: skipped ({reason})")
+        steps["render_video"] = {
+            "skipped": True,
+            "image_count": len(image_paths),
+            "reason": reason,
+        }
 
     if cfg.get("render_cover", True) and draft:
         try:
@@ -170,10 +237,12 @@ def run_media_pipeline(
                     image_path=cover_source["local_path"],
                     background_image=str(cfg.get("background_image", "static/imgs/bg.png")),
                     width=int(cfg.get("cover_width", 1080)),
-                    height=int(cfg.get("cover_height", 1440)),
+                    height=int(cfg.get("cover_height", 1920)),
+                    template=cfg.get("render_template"),
                 )
                 if cover_result.get("success"):
-                    article.generated_cover_path = cover_result.get("cover_path")
+                    cover_path = cover_result.get("cover_path")
+                    article.generated_cover_path = cover_path
                     steps["render_cover"] = cover_result
                 else:
                     errors.append(f"render_cover: {cover_result.get('error')}")
@@ -190,13 +259,13 @@ def run_media_pipeline(
     if (
         cfg.get("prepend_cover_intro", True)
         and video_path
-        and article.generated_cover_path
+        and cover_path
     ):
         try:
             intro_result = prepend_cover_intro_to_video(
                 video_path=video_path,
-                cover_path=article.generated_cover_path,
-                intro_duration=float(cfg.get("cover_intro_duration_sec", 1.0)),
+                cover_path=cover_path,
+                intro_duration=float(cfg.get("cover_intro_duration_sec", 1.0 / 24)),
             )
             if intro_result.get("success"):
                 video_path = str(intro_result.get("video_path") or video_path)
@@ -210,6 +279,13 @@ def run_media_pipeline(
             errors.append(f"prepend_cover_intro: {exc}")
             steps["prepend_cover_intro"] = {"error": str(exc)}
 
+    if video_path:
+        article.generated_video_path = video_path
+        if article.generated_video_at is None:
+            article.generated_video_at = datetime.utcnow()
+    if cover_path:
+        article.generated_cover_path = cover_path
+
     video_ok = bool(video_path)
     partial_ok = bool(draft) and not video_ok
     success = video_ok or (partial_ok and not errors)
@@ -221,8 +297,13 @@ def run_media_pipeline(
         "finished_at": datetime.utcnow().isoformat(),
         "steps": steps,
         "errors": errors,
+        "render_template_id": cfg.get("render_template_id"),
+        "layout_kind": cfg.get("layout_kind"),
+        "canvas": (cfg.get("render_template") or {}).get("canvas"),
+        "default_template_id": cfg.get("render_template_id"),
     }
     article.video_prep_status_json = json.dumps(status_payload, ensure_ascii=False)
+    restore_generated_media_paths(article)
     if video_ok:
         article.video_prep_at = datetime.utcnow()
         article.media_pipeline_status = "succeeded"

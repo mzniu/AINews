@@ -35,10 +35,13 @@ def truncate_han_equiv(s: str, max_units: float) -> str:
     return "".join(out)
 
 
-# 主标题第一行：上限 12 汉字当量（产品「9～12」由 AI 控制，服务端防超长）
-MAIN_LINE1_MAX_UNITS = 12.0
+# 主标题第一行：上限 20 汉字当量（产品「12～16」由 AI 控制，服务端防超长）
+MAIN_LINE1_MAX_UNITS = 20.0
 # 主标题第二行：上限 12 汉字当量（产品「9～12」）
 MAIN_LINE2_MAX_UNITS = 12.0
+# 视频号短标题：最多 16 个字符（含空格），不含标点
+SHORT_TITLE_MAX_CHARS = 16
+SHORT_TITLE_MAX_UNITS = float(SHORT_TITLE_MAX_CHARS)
 # 兼容旧代码：曾统一用 14；新逻辑请用 MAIN_LINE1_MAX_UNITS / MAIN_LINE2_MAX_UNITS
 MAIN_LINE_MAX_UNITS = MAIN_LINE1_MAX_UNITS
 # 副标题第一行上限 15 汉字当量（产品「11～15」）
@@ -82,6 +85,35 @@ def split_main_title_to_two_lines(title: str) -> tuple[str, str]:
     line1 = truncate_han_equiv(title[:break_idx].strip(), MAIN_LINE1_MAX_UNITS)
     line2 = truncate_han_equiv(title[break_idx:].strip(), MAIN_LINE2_MAX_UNITS)
     return line1, line2
+
+
+def sanitize_short_title(text: str, *, max_chars: int = SHORT_TITLE_MAX_CHARS) -> str:
+    """Keep letters, digits, CJK and spaces; turn '.' into 点; drop other punctuation."""
+    kept: list[str] = []
+    for ch in text or "":
+        if ch in ".-．。":
+            if ch in ".．。":
+                kept.append("点")
+            continue
+        if ch == " " or ch.isalnum():
+            kept.append(ch)
+    cleaned = " ".join("".join(kept).split())
+    return cleaned[: max(0, int(max_chars))]
+
+
+def resolve_short_title(
+    short_title: str,
+    main_line1: str = "",
+    *,
+    max_units: float = SHORT_TITLE_MAX_UNITS,
+    max_chars: int | None = None,
+) -> str:
+    """Prefer an explicit short title; otherwise compress the on-video main title."""
+    limit = SHORT_TITLE_MAX_CHARS if max_chars is None else int(max_chars)
+    if max_chars is None and max_units != SHORT_TITLE_MAX_UNITS:
+        limit = int(max_units)
+    text = (short_title or "").strip() or (main_line1 or "").strip()
+    return sanitize_short_title(text, max_chars=limit)
 
 
 def format_main_title_two_lines(title: str) -> str:

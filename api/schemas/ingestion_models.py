@@ -29,12 +29,16 @@ class ArticleImageOut(BaseModel):
     relevance_grade: Optional[str] = None
     relevance_rank: Optional[int] = None
     caption: Optional[str] = None
+    content_description: Optional[str] = None
     verdict: Optional[str] = None
     cover_fit_score: Optional[float] = None
     figure_prominence_score: Optional[float] = None
     flash_fit_score: Optional[float] = None
     orientation: Optional[str] = None
     is_animated: Optional[bool] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    score_breakdown: Optional[Dict[str, Any]] = None
 
 
 class IngestedArticleOut(BaseModel):
@@ -94,6 +98,88 @@ class BatchSelectRequest(BaseModel):
     article_ids: List[str]
 
 
+class HotRadarItemOut(BaseModel):
+    rank: int
+    title: str
+    url: str
+    heat_label: Optional[str] = None
+    heat_value: Optional[int] = None
+    external_id: Optional[str] = None
+    board_id: Optional[str] = None
+    board_hashid: Optional[str] = None
+    board_label: Optional[str] = None
+
+
+class HotRadarBoardSnapshotOut(BaseModel):
+    board_id: Optional[str] = None
+    hashid: Optional[str] = None
+    name: Optional[str] = None
+    display: Optional[str] = None
+    snapshot_id: Optional[str] = None
+    fetched_at: Optional[datetime] = None
+    item_count: int = 0
+    error_message: Optional[str] = None
+    status: str = "empty"
+    items: List[HotRadarItemOut] = Field(default_factory=list)
+
+
+class HotRadarSnapshotOut(BaseModel):
+    snapshot_id: Optional[str] = None
+    source: str
+    board: str
+    fetched_at: Optional[datetime] = None
+    item_count: int = 0
+    error_message: Optional[str] = None
+    status: str = "empty"
+    items: List[HotRadarItemOut] = Field(default_factory=list)
+    boards: List[HotRadarBoardSnapshotOut] = Field(default_factory=list)
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+
+class HotRadarDiscoveryJobOut(BaseModel):
+    job_id: str
+    status: str
+    source_id: str
+    url: Optional[str] = None
+    title: Optional[str] = None
+    board_id: Optional[str] = None
+    board_label: Optional[str] = None
+    rank: Optional[int] = None
+    heat_label: Optional[str] = None
+    article_id: Optional[str] = None
+    outcome: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+
+
+class HotRadarDiscoveryQueueOut(BaseModel):
+    items: List[HotRadarDiscoveryJobOut] = Field(default_factory=list)
+    summary: Dict[str, int] = Field(default_factory=dict)
+    limit: int = 50
+    hours: int = 72
+
+
+class HotRadarArticleMatchOut(BaseModel):
+    article_id: str
+    article_title: str
+    article_url: str
+    score_total: Optional[float] = None
+    score_grade: Optional[str] = None
+    scored_at: Optional[datetime] = None
+    matched: bool
+    match: Optional[Dict[str, Any]] = None
+    stored_match: Optional[Dict[str, Any]] = None
+    hot_radar_dimension: Optional[Dict[str, Any]] = None
+    snapshot: Dict[str, Any] = Field(default_factory=dict)
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PatchVideoDraftRequest(BaseModel):
+    first_comment: Optional[str] = None
+
+
 class PrepareVideoResponse(BaseModel):
     success: bool
     article_id: str
@@ -125,6 +211,7 @@ class ImageRelevanceOut(BaseModel):
     relevance_grade: Optional[str] = None
     relevance_rank: Optional[int] = None
     caption: Optional[str] = None
+    content_description: Optional[str] = None
     verdict: Optional[str] = None
     auto_selected: bool = False
     breakdown: Optional[Dict[str, Any]] = None
@@ -148,6 +235,7 @@ class StoryOut(BaseModel):
     id: str
     canonical_title: str
     article_count: int
+    primary_article_id: Optional[str] = None
     cluster_method: str
     cluster_score: float
     created_at: datetime

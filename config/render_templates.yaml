@@ -70,7 +70,7 @@ templates:
       subtitle_font_size: 47
       brand_sub_font_size: 28
       footer_font_size: 40
-      summary_y_percent: 70.2
+      summary_y_percent: 73.2
       footer_y_percent: 85.2
       top_pad_percent: 5
       title_highlight_color: "#FFEC30"
@@ -148,7 +148,7 @@ templates:
       mark_path: static/imgs/templates/chronicle_tech_blue/mark_niu.png
       eyebrow: AI CHRONICLE / ARCHIVE RECORD
       brand_sub: 粉碎AI信息差 / 消除AI焦虑
-      footer_left: AI 快讯
+      footer_left: ""
       card_keyword_fallback: 快讯
       footer_strip_prefixes:
         - 小牛说：
@@ -168,7 +168,8 @@ templates:
       summary_color: "#9EC9D8"
     layout:
       title_placement: below_card
-      card_top_percent: 18
+      chrome_placement: footer
+      card_top_percent: 5
       card_bottom_percent: 52
       card_left_percent: 8
       card_right_percent: 92

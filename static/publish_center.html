@@ -5,59 +5,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>发布中心 - AINews</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815a">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260828a" defer></script>
     <style>
-        body { font-family: var(--font-sans); background: var(--bg-body); margin: 0; padding-top: 80px; }
-        .navbar { background: rgba(255,255,255,.95); backdrop-filter: blur(10px); padding: 0 var(--space-6); box-shadow: var(--shadow-sm); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
-        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; height: 60px; }
-        .nav-brand { font-size: var(--fs-xl); font-weight: 700; color: var(--brand-1); text-decoration: none; }
-        .nav-menu { display: flex; gap: var(--space-1); }
-        .nav-link { padding: var(--space-3) var(--space-6); text-decoration: none; color: var(--text-secondary); border-radius: var(--radius-sm); }
-        .nav-link.active, .nav-link:hover { background: rgba(102,126,234,.1); color: var(--brand-1); }
-        .container { max-width: 1100px; margin: 0 auto; padding: var(--space-6); }
-        .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
-        .banner { background: #fef3c7; color: #92400e; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: none; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-        .account-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
-        .status-active { color: #15803d; }
-        .status-expired { color: #b91c1c; }
-        .status-unknown { color: #b45309; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .banner { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: none; }
+        .accounts-flex {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: stretch;
+        }
+        .account-card {
+            flex: 1 1 220px;
+            min-width: 220px;
+            max-width: 300px;
+            border-radius: 8px;
+            padding: 14px;
+        }
+        .status-active { color: #6ee7b7; }
+        .status-expired { color: #fca5a5; }
+        .status-unknown { color: #fcd34d; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-        .btn { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; background: #667eea; color: #fff; }
-        .btn-secondary { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+        th, td { padding: 10px; text-align: left; }
+        .btn-secondary { background: transparent; border: 1px solid var(--app-border); }
         .qr-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 2000; align-items: center; justify-content: center; }
-        .qr-box { background: #fff; padding: 24px; border-radius: 12px; text-align: center; max-width: 360px; }
+        .qr-box { padding: 24px; border-radius: 12px; text-align: center; max-width: 360px; }
         #qrImage { max-width: 280px; margin: 12px auto; display: block; }
         .platform-section { margin-bottom: 20px; }
-        .platform-section h3 { font-size: 15px; color: #475569; margin: 0 0 10px; }
+        .platform-section h3 { font-size: 15px; margin: 0 0 10px; }
         .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
-        .badge-publish { background: #dcfce7; color: #15803d; }
-        .badge-account { background: #f1f5f9; color: #64748b; }
         .add-account-wrap { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-        input, select, textarea { width: 100%; padding: 8px; margin: 6px 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
         #addPlatformSelect { width: auto; min-width: 180px; margin: 0; }
+        .auto-publish-toggle { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; user-select: none; }
+        .auto-publish-toggle input { width: 18px; height: 18px; cursor: pointer; }
+        .auto-publish-grade { margin-top: 14px; max-width: 420px; }
+        .auto-publish-grade label { display: block; font-size: 14px; margin-bottom: 4px; }
+        .auto-publish-grade select, .auto-publish-grade input[type="number"], .auto-publish-grade input[type="time"] { width: 100%; margin: 0; }
+        .auto-publish-spacing { margin-top: 14px; max-width: 420px; display: grid; gap: 12px; }
+        .quiet-hours-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .quiet-hours-row input[type="time"] { width: auto; min-width: 120px; }
+        #publishQueueSummary { font-size: 13px; color: #64748b; margin: 0 0 12px; }
+        .schedule-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 2050; align-items: center; justify-content: center; padding: 20px; }
+        .schedule-box { border-radius: 12px; padding: 20px; width: min(420px, 92vw); }
+        .schedule-box label { display: block; font-size: 13px; margin-top: 10px; }
+        .schedule-box input { width: 100%; margin-top: 4px; }
+        .schedule-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+        .publish-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .publish-tab-panel { display: none; }
+        .publish-tab-panel.active { display: block; }
+        .metrics-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+        #metricsPlatformFilter, #metricsAccountFilter, #metricsDaysFilter { width: auto; min-width: 140px; margin: 0; }
+        .metrics-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .metrics-platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 16px; }
+        .metrics-trend-modal, .metrics-bind-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 2100; align-items: center; justify-content: center; padding: 20px; }
+        .metrics-bind-modal { z-index: 2200; }
+        .metrics-trend-box, .metrics-bind-box { border-radius: 12px; padding: 20px; width: min(720px, 96vw); max-height: 90vh; overflow: auto; }
+        .metrics-bind-box { width: min(420px, 92vw); }
+        .metrics-trend-meta { font-size: 13px; margin-bottom: 12px; }
+        #metricsTrendCanvas { width: 100%; height: 280px; display: block; }
+        .metrics-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; }
+        .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+        .metrics-alerts { border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; display: none; }
+        .metrics-alerts h4 { margin: 0 0 8px; font-size: 14px; }
+        .metrics-alerts ul { margin: 0; padding-left: 18px; font-size: 13px; }
+        .metrics-bind-box label { display: block; font-size: 13px; margin-top: 10px; }
+        .metrics-bind-box input { width: 100%; margin-top: 4px; }
+        .metrics-pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; font-size: 13px; }
     </style>
 </head>
-<body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-brand">🎬 AINews</a>
-            <div class="nav-menu">
-                <a href="/" class="nav-link">🏠 主页</a>
-                <a href="/video-maker" class="nav-link">📹 视频制作</a>
-                <a href="/ingestion-library" class="nav-link">📚 资讯库</a>
-                <a href="/publish-center" class="nav-link active">📤 发布中心</a>
-                <a href="/settings" class="nav-link">⚙️ 系统配置</a>
-                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
-                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
-            </div>
-        </div>
-    </nav>
+<body class="app-page">
+    <div id="app-nav-root"></div>
 
     <div class="container">
         <h1>📤 发布中心</h1>
-        <p style="color:#64748b;">半自动发布：确认文案与账号后提交，由 publish-worker 完成上传。</p>
-        <div id="workerBanner" class="banner">⚠️ 发布 worker 未运行。若使用独立进程模式，请执行 <code>scripts/run_publish_worker.bat</code>；或于 <code>.env</code> 设置 <code>PUBLISH_WORKER_MODE=embedded</code>（默认）后仅启动 web_server。</div>
+        <p>半自动发布：确认文案与账号后提交，由 publish-worker 完成上传。</p>
+        <div id="workerBanner" class="banner soft-banner-warn">⚠️ 发布 worker 未运行。若使用独立进程模式，请执行 <code>scripts/run_publish_worker.bat</code>；或于 <code>.env</code> 设置 <code>PUBLISH_WORKER_MODE=embedded</code>（默认）后仅启动 web_server。</div>
+
+        <div class="publish-tabs">
+            <button type="button" class="publish-tab-btn active" data-tab="main">发布管理</button>
+            <button type="button" class="publish-tab-btn" data-tab="metrics">已发布数据</button>
+        </div>
+
+        <div id="tab-main" class="publish-tab-panel active">
+        <div class="card">
+            <h2>自动发布</h2>
+            <label class="auto-publish-toggle">
+                <input type="checkbox" id="autoPublishEnabled">
+                <span>出片成功后自动为所有已登录平台创建发布任务</span>
+            </label>
+            <div class="auto-publish-grade">
+                <label for="autoPublishMinGrade">最低评分等级</label>
+                <select id="autoPublishMinGrade" class="form-control">
+                    <option value="S">S 级及以上（仅 S）</option>
+                    <option value="A">A 级及以上（S、A）</option>
+                    <option value="B">B 级及以上（S、A、B）</option>
+                    <option value="C">C 级及以上（S、A、B、C）</option>
+                </select>
+            </div>
+            <div class="auto-publish-spacing">
+                <div>
+                    <label for="autoPublishInterval">发布间隔（分钟，按文章）</label>
+                    <input type="number" id="autoPublishInterval" class="form-control" min="15" max="240" step="15" value="60">
+                </div>
+                <label class="auto-publish-toggle">
+                    <input type="checkbox" id="quietHoursEnabled">
+                    <span>启用禁发时段（北京时间，仅自动发布）</span>
+                </label>
+                <div class="quiet-hours-row">
+                    <label for="quietHoursStart">开始</label>
+                    <input type="time" id="quietHoursStart" value="23:00">
+                    <label for="quietHoursEnd">结束</label>
+                    <input type="time" id="quietHoursEnd" value="07:00">
+                </div>
+            </div>
+            <p id="autoPublishHint" class="hint" style="margin-top:8px;">
+                关闭开关后仍会出片，但不会自动入发布队列。等级门槛仅对自动发布生效。间隔按<strong>文章</strong>计算，同篇各平台共用档期；改间隔仅影响之后新入队的任务。禁发时段内自动任务会顺延，手动发布不受限。
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>发布后首评</h2>
+            <label class="auto-publish-toggle">
+                <input type="checkbox" id="firstCommentEnabled">
+                <span>发布成功后自动发首评（作者账号，支持抖音/快手/视频号/小红书）</span>
+            </label>
+            <p class="hint" style="margin-top:8px;">
+                首评文案在出片时由 AI 生成并随任务快照；发评失败不影响「已发布」状态。抖音为同会话发评，其他平台在发布完成后独立会话发评；作品入库可能有延迟，系统会等待后再发评。
+            </p>
+        </div>
 
         <div class="card">
             <h2>账号管理</h2>
@@ -69,9 +146,13 @@
         </div>
 
         <div class="card">
-            <h2>发布队列</h2>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
+                <h2 style="margin:0;">发布队列</h2>
+                <a class="btn-secondary btn" href="/publish-queue" style="text-decoration:none;">独立页面查看</a>
+            </div>
+            <p id="publishQueueSummary"></p>
             <table>
-                <thead><tr><th>标题</th><th>平台</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+                <thead><tr><th>标题</th><th>平台</th><th>状态</th><th>首评</th><th>定时</th><th>创建时间</th><th>操作</th></tr></thead>
                 <tbody id="jobsTable"></tbody>
             </table>
         </div>
@@ -86,9 +167,105 @@
             <textarea id="quickDescription" rows="2"></textarea>
             <label>标签（逗号分隔）</label>
             <input id="quickTags" />
+            <label>首评（可选）</label>
+            <textarea id="quickFirstComment" rows="2" maxlength="50" placeholder="15~50字，问句优先"></textarea>
             <label>发布账号</label>
             <select id="quickAccount"></select>
             <button class="btn" id="quickPublishBtn" style="margin-top:8px;">确认发布</button>
+        </div>
+        </div>
+
+        <div id="tab-metrics" class="publish-tab-panel">
+            <div class="card">
+                <h2>已发布数据</h2>
+                <div class="metrics-toolbar">
+                    <select id="metricsPlatformFilter" class="form-control">
+                        <option value="">全部平台</option>
+                    </select>
+                    <select id="metricsAccountFilter" class="form-control">
+                        <option value="">全部账号</option>
+                    </select>
+                    <select id="metricsDaysFilter" class="form-control">
+                        <option value="7">近 7 天</option>
+                        <option value="30" selected>近 30 天</option>
+                        <option value="90">近 90 天</option>
+                    </select>
+                    <span id="metricsSyncStatus" style="font-size:13px;">加载中…</span>
+                    <button type="button" class="btn-secondary btn" id="metricsExportBtn">导出 CSV</button>
+                    <button type="button" class="btn-secondary btn" id="metricsSyncBtn">立即同步</button>
+                </div>
+                <div id="metricsAlerts" class="metrics-alerts soft-banner-warn"></div>
+                <div id="metricsSummaryCards" class="metrics-summary-grid"></div>
+                <div id="metricsPlatformBreakdown" class="metrics-platform-grid"></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>平台/账号</th>
+                            <th>播放</th>
+                            <th>点赞</th>
+                            <th>评论</th>
+                            <th>收藏</th>
+                            <th>关注</th>
+                            <th>3秒%</th>
+                            <th>完播%</th>
+                            <th>发布时间</th>
+                            <th>匹配</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="publishedPostsTable"></tbody>
+                </table>
+                <div id="publishedPostsPager" class="metrics-pager"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="metricsBindModal" class="metrics-bind-modal">
+        <div class="metrics-bind-box">
+            <h3 style="margin:0 0 8px;">手动绑定平台作品</h3>
+            <p id="metricsBindTitle" style="font-size:13px;margin:0 0 8px;"></p>
+            <label>平台作品 ID</label>
+            <input id="metricsBindPostId" class="form-control" placeholder="如 noteId / aweme_id">
+            <label>作品链接（可选）</label>
+            <input id="metricsBindPostUrl" class="form-control" placeholder="https://...">
+            <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn-secondary btn" id="metricsBindCancelBtn">取消</button>
+                <button type="button" class="btn" id="metricsBindSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="metricsTrendModal" class="metrics-trend-modal">
+        <div class="metrics-trend-box">
+            <h3 id="metricsTrendTitle">作品趋势</h3>
+            <div id="metricsTrendMeta" class="metrics-trend-meta"></div>
+            <canvas id="metricsTrendCanvas" width="680" height="280"></canvas>
+            <div class="metrics-legend">
+                <span><span class="legend-dot" style="background:#667eea;"></span>播放</span>
+                <span><span class="legend-dot" style="background:#f59e0b;"></span>点赞</span>
+                <span><span class="legend-dot" style="background:#10b981;"></span>评论</span>
+            </div>
+            <div style="margin-top:14px;text-align:right;">
+                <button type="button" class="btn-secondary btn" id="metricsTrendCloseBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scheduleModal" class="schedule-modal">
+        <div class="schedule-box card">
+            <h3>改期</h3>
+            <p id="scheduleModalTitle" class="hint" style="margin:0;"></p>
+            <label for="scheduleDatetime">发布时间（北京时间）</label>
+            <input type="datetime-local" id="scheduleDatetime" />
+            <label class="auto-publish-toggle" style="margin-top:12px;">
+                <input type="checkbox" id="scheduleCascade" checked>
+                <span>顺延后续自动发布任务</span>
+            </label>
+            <div class="schedule-actions">
+                <button type="button" class="btn-secondary btn" id="scheduleCancelBtn">取消</button>
+                <button type="button" class="btn" id="scheduleSaveBtn">保存</button>
+            </div>
         </div>
     </div>
 
@@ -107,6 +284,15 @@
         let qrPollTimer = null;
         let qrSessionId = null;
         let platformCatalog = [];
+        let scheduleJobId = null;
+
+        function quietTimeToInput(value) {
+            const text = String(value || '').trim();
+            if (!text) return '23:00';
+            const match = text.match(/^(\d{1,2}):(\d{2})$/);
+            if (!match) return text;
+            return `${match[1].padStart(2, '0')}:${match[2]}`;
+        }
 
         async function checkHealth() {
             const resp = await fetch('/api/publishing/health');
@@ -147,6 +333,72 @@
             }
             document.getElementById('addAccountBtn').disabled = false;
             sel.innerHTML = enabled.map(p => `<option value="${p.id}">${p.display_name}</option>`).join('');
+            const metricsFilter = document.getElementById('metricsPlatformFilter');
+            if (metricsFilter) {
+                metricsFilter.innerHTML = '<option value="">全部平台</option>'
+                    + enabled.map(p => `<option value="${p.id}">${p.display_name}</option>`).join('');
+            }
+        }
+
+        async function loadFirstCommentSettings() {
+            const resp = await fetch('/api/publishing/first-comment/settings');
+            const data = await resp.json();
+            const checkbox = document.getElementById('firstCommentEnabled');
+            if (checkbox) checkbox.checked = !!data.enabled;
+        }
+
+        async function saveFirstCommentSettings(payload) {
+            const resp = await fetch('/api/publishing/first-comment/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || data.message || '保存失败');
+            return data;
+        }
+
+        async function loadAutoPublishSettings() {
+            const resp = await fetch('/api/publishing/auto-publish/settings');
+            const data = await resp.json();
+            const checkbox = document.getElementById('autoPublishEnabled');
+            if (checkbox) checkbox.checked = !!data.enabled;
+            const gradeSelect = document.getElementById('autoPublishMinGrade');
+            if (gradeSelect && data.min_grade) {
+                gradeSelect.value = data.min_grade;
+                gradeSelect.dataset.lastValue = data.min_grade;
+            }
+            const intervalInput = document.getElementById('autoPublishInterval');
+            if (intervalInput) {
+                intervalInput.value = data.interval_minutes ?? 60;
+                intervalInput.dataset.lastValue = String(intervalInput.value);
+            }
+            const quietEnabled = document.getElementById('quietHoursEnabled');
+            if (quietEnabled) {
+                quietEnabled.checked = !!data.quiet_hours_enabled;
+                quietEnabled.dataset.lastValue = quietEnabled.checked ? '1' : '0';
+            }
+            const quietStart = document.getElementById('quietHoursStart');
+            const quietEnd = document.getElementById('quietHoursEnd');
+            if (quietStart) {
+                quietStart.value = quietTimeToInput(data.quiet_hours_start || '23:00');
+                quietStart.dataset.lastValue = quietStart.value;
+            }
+            if (quietEnd) {
+                quietEnd.value = quietTimeToInput(data.quiet_hours_end || '07:00');
+                quietEnd.dataset.lastValue = quietEnd.value;
+            }
+        }
+
+        async function saveAutoPublishSettings(payload) {
+            const resp = await fetch('/api/publishing/auto-publish/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || data.message || '保存失败');
+            return data;
         }
 
         function renderAccountsGrouped(accounts) {
@@ -155,17 +407,16 @@
                 grid.innerHTML = '<p style="color:#94a3b8;">暂无账号，选择平台后点击「添加账号」。</p>';
                 return;
             }
-            const byPlatform = {};
-            accounts.forEach(a => {
-                (byPlatform[a.platform] ||= []).push(a);
+            const sorted = accounts.slice().sort((a, b) => {
+                const platformCmp = platformName(a.platform).localeCompare(platformName(b.platform), 'zh');
+                if (platformCmp !== 0) return platformCmp;
+                return (a.nickname || '').localeCompare(b.nickname || '', 'zh');
             });
-            const platformIds = Object.keys(byPlatform).sort((a, b) => platformName(a).localeCompare(platformName(b), 'zh'));
-            grid.innerHTML = platformIds.map(pid => {
-                const cards = byPlatform[pid].map(a => {
-                    const badge = a.can_publish
-                        ? '<span class="badge badge-publish">可发布</span>'
-                        : '<span class="badge badge-account">仅账号</span>';
-                    return `
+            grid.innerHTML = `<div class="accounts-flex">${sorted.map((a) => {
+                const badge = a.can_publish
+                    ? '<span class="badge badge-publish">可发布</span>'
+                    : '<span class="badge badge-account">仅账号</span>';
+                return `
                 <div class="account-card" id="account-card-${a.id}">
                     <div><strong>${a.nickname || platformName(a.platform)}</strong>${badge}</div>
                     <div style="font-size:12px;color:#64748b;">${a.platform_display_name || platformName(a.platform)}</div>
@@ -178,9 +429,7 @@
                         <button class="btn-secondary btn" onclick="deleteAccount('${a.id}')">删除</button>
                     </div>
                 </div>`;
-                }).join('');
-                return `<div class="platform-section"><h3>${platformName(pid)}</h3><div class="grid">${cards}</div></div>`;
-            }).join('');
+            }).join('')}</div>`;
         }
 
         async function loadAccounts() {
@@ -217,29 +466,109 @@
             }
         }
 
+        function commentStatusLabel(status) {
+            const map = {
+                none: '—',
+                pending: '待发',
+                posted: '已发',
+                failed: '失败',
+                skipped: '已跳过',
+                unsupported: '不支持',
+            };
+            return map[status] || status || '—';
+        }
+
         async function loadJobs() {
             const resp = await fetch('/api/publishing/jobs');
             const data = await resp.json();
             const tbody = document.getElementById('jobsTable');
-            const jobs = data.jobs || [];
+            const jobs = (data.jobs || []).slice().sort((a, b) => {
+                const aPending = a.status === 'pending';
+                const bPending = b.status === 'pending';
+                if (aPending && bPending) {
+                    const aSlot = a.scheduled_at ? new Date(`${String(a.scheduled_at).replace(' ', 'T')}Z`).getTime() : Infinity;
+                    const bSlot = b.scheduled_at ? new Date(`${String(b.scheduled_at).replace(' ', 'T')}Z`).getTime() : Infinity;
+                    if (aSlot !== bSlot) return aSlot - bSlot;
+                }
+                const aCreated = a.created_at ? new Date(`${String(a.created_at).replace(' ', 'T')}Z`).getTime() : 0;
+                const bCreated = b.created_at ? new Date(`${String(b.created_at).replace(' ', 'T')}Z`).getTime() : 0;
+                return bCreated - aCreated;
+            });
+            const nextPending = jobs.find(j => j.status === 'pending' && j.scheduled_at);
+            const summary = document.getElementById('publishQueueSummary');
+            if (summary) {
+                summary.textContent = nextPending
+                    ? `下一篇定时发布：${formatBeijingDateTime(nextPending.scheduled_at)}（${nextPending.title}）`
+                    : '';
+            }
             tbody.innerHTML = jobs.length ? jobs.map(j => {
-                const scheduleNote = j.scheduled_at && j.status === 'pending'
-                    ? `<div class="small text-muted">定时 ${new Date(j.scheduled_at).toLocaleString()}</div>` : '';
+                const scheduleCell = j.status === 'pending' && j.scheduled_at
+                    ? formatBeijingDateTime(j.scheduled_at)
+                    : (j.status === 'pending' ? '尽快' : '—');
                 const platformLabel = j.platform_display_name || platformName(j.platform) || '—';
                 const accountNote = j.account_nickname
                     ? `<div style="font-size:12px;color:#64748b;">${j.account_nickname}</div>` : '';
+                const rescheduleBtn = j.status === 'pending'
+                    ? `<button class="btn-secondary btn" onclick="openReschedule('${j.id}', '${encodeURIComponent(j.title || '')}', '${j.scheduled_at || ''}')">改期</button>`
+                    : '';
+                const commentCell = commentStatusLabel(j.comment_status);
+                const commentRetryBtn = j.status === 'published' && j.comment_status === 'failed'
+                    ? `<button class="btn-secondary btn" onclick="retryComment('${j.id}')">重试首评</button>`
+                    : '';
                 return `
                 <tr>
-                    <td>${j.title}${scheduleNote}</td>
+                    <td>${j.title}</td>
                     <td>${platformLabel}${accountNote}</td>
                     <td>${j.status}</td>
-                    <td>${j.created_at ? new Date(j.created_at).toLocaleString() : ''}</td>
+                    <td>${commentCell}</td>
+                    <td>${scheduleCell}</td>
+                    <td>${j.created_at ? formatBeijingDateTime(j.created_at) : ''}</td>
                     <td>
+                        ${rescheduleBtn}
+                        ${commentRetryBtn}
                         ${['failed', 'uploading'].includes(j.status) ? `<button class="btn-secondary btn" onclick="retryJob('${j.id}')">重试</button>` : ''}
                         ${['pending', 'uploading'].includes(j.status) ? `<button class="btn-secondary btn" onclick="cancelJob('${j.id}')">取消</button>` : ''}
                     </td>
                 </tr>`;
-            }).join('') : '<tr><td colspan="5">暂无任务</td></tr>';
+            }).join('') : '<tr><td colspan="7">暂无任务</td></tr>';
+        }
+
+        window.openReschedule = (jobId, encodedTitle, scheduledAt) => {
+            scheduleJobId = jobId;
+            document.getElementById('scheduleModalTitle').textContent = decodeURIComponent(encodedTitle || '');
+            const input = document.getElementById('scheduleDatetime');
+            input.value = scheduledAt
+                ? toBeijingDatetimeLocalValue(scheduledAt)
+                : toBeijingDatetimeLocalValue(beijingNowPlusMinutes(60));
+            document.getElementById('scheduleCascade').checked = true;
+            document.getElementById('scheduleModal').style.display = 'flex';
+        };
+
+        async function saveReschedule() {
+            if (!scheduleJobId) return;
+            const localValue = document.getElementById('scheduleDatetime').value;
+            const parsed = parseBeijingDatetimeLocal(localValue);
+            if (!parsed) {
+                alert('请选择有效的发布时间');
+                return;
+            }
+            const body = {
+                scheduled_at: parsed.toISOString().replace('.000Z', 'Z'),
+                cascade: document.getElementById('scheduleCascade').checked,
+            };
+            const resp = await fetch(`/api/publishing/jobs/${scheduleJobId}/schedule`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                alert('改期失败: ' + (data.detail || data.message || resp.statusText));
+                return;
+            }
+            document.getElementById('scheduleModal').style.display = 'none';
+            scheduleJobId = null;
+            loadJobs();
         }
 
         async function loadVideos() {
@@ -293,6 +622,18 @@
             loadAccounts();
         };
         window.retryJob = async (id) => { await fetch(`/api/publishing/jobs/${id}/retry`, { method: 'POST' }); loadJobs(); };
+        window.retryComment = async (id) => {
+            const resp = await fetch(`/api/publishing/jobs/${id}/retry-comment`, { method: 'POST' });
+            const data = await resp.json();
+            if (!resp.ok) {
+                alert('首评重试失败: ' + (data.detail || data.error || resp.statusText));
+                return;
+            }
+            if (!data.success) {
+                alert('首评仍未成功: ' + (data.error || '未知错误'));
+            }
+            loadJobs();
+        };
         window.cancelJob = async (id) => { await fetch(`/api/publishing/jobs/${id}/cancel`, { method: 'POST' }); loadJobs(); };
 
         document.getElementById('addAccountBtn').onclick = () => {
@@ -313,12 +654,118 @@
                 tags: document.getElementById('quickTags').value.split(/[,，]/).map(s => s.trim()).filter(Boolean),
                 source_type: 'manual',
             };
+            const firstComment = document.getElementById('quickFirstComment').value.trim();
+            if (firstComment) body.first_comment_text = firstComment;
             const resp = await fetch('/api/publishing/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             if (resp.ok) { alert('已提交'); loadJobs(); } else { const e = await resp.json(); alert('失败: ' + JSON.stringify(e.detail)); }
         };
 
-        checkHealth(); loadPlatformMenu(); loadAccounts(); loadJobs(); loadVideos();
+        document.getElementById('firstCommentEnabled')?.addEventListener('change', async (event) => {
+            const enabled = event.target.checked;
+            try {
+                await saveFirstCommentSettings({ enabled });
+            } catch (err) {
+                event.target.checked = !enabled;
+                alert('保存首评开关失败: ' + err.message);
+            }
+        });
+
+        document.getElementById('autoPublishEnabled')?.addEventListener('change', async (event) => {
+            const enabled = event.target.checked;
+            try {
+                await saveAutoPublishSettings({ enabled });
+            } catch (err) {
+                event.target.checked = !enabled;
+                alert('保存自动发布开关失败: ' + err.message);
+            }
+        });
+
+        document.getElementById('autoPublishMinGrade')?.addEventListener('change', async (event) => {
+            const minGrade = event.target.value;
+            const previous = event.target.dataset.lastValue || 'S';
+            try {
+                await saveAutoPublishSettings({ min_grade: minGrade });
+                event.target.dataset.lastValue = minGrade;
+            } catch (err) {
+                event.target.value = previous;
+                alert('保存自动发布等级失败: ' + err.message);
+            }
+        });
+
+        document.getElementById('autoPublishInterval')?.addEventListener('change', async (event) => {
+            const value = Number(event.target.value);
+            const previous = Number(event.target.dataset.lastValue || '60');
+            if (!Number.isFinite(value) || value < 15 || value > 240) {
+                event.target.value = previous;
+                alert('间隔须在 15–240 分钟之间');
+                return;
+            }
+            try {
+                await saveAutoPublishSettings({ interval_minutes: value });
+                event.target.dataset.lastValue = String(value);
+                alert('间隔已保存，仅影响之后新入队的任务');
+            } catch (err) {
+                event.target.value = previous;
+                alert('保存发布间隔失败: ' + err.message);
+            }
+        });
+
+        async function saveQuietHours() {
+            const enabled = document.getElementById('quietHoursEnabled').checked;
+            const start = document.getElementById('quietHoursStart').value;
+            const end = document.getElementById('quietHoursEnd').value;
+            await saveAutoPublishSettings({
+                quiet_hours_enabled: enabled,
+                quiet_hours_start: start,
+                quiet_hours_end: end,
+            });
+            document.getElementById('quietHoursEnabled').dataset.lastValue = enabled ? '1' : '0';
+            document.getElementById('quietHoursStart').dataset.lastValue = start;
+            document.getElementById('quietHoursEnd').dataset.lastValue = end;
+        }
+
+        document.getElementById('quietHoursEnabled')?.addEventListener('change', async (event) => {
+            const enabled = event.target.checked;
+            const previous = event.target.dataset.lastValue === '1';
+            try {
+                await saveQuietHours();
+            } catch (err) {
+                event.target.checked = previous;
+                alert('保存禁发时段失败: ' + err.message);
+            }
+        });
+
+        document.getElementById('quietHoursStart')?.addEventListener('change', async (event) => {
+            const previous = event.target.dataset.lastValue || '23:00';
+            try {
+                await saveQuietHours();
+            } catch (err) {
+                event.target.value = previous;
+                alert('保存禁发开始时间失败: ' + err.message);
+            }
+        });
+
+        document.getElementById('quietHoursEnd')?.addEventListener('change', async (event) => {
+            const previous = event.target.dataset.lastValue || '07:00';
+            try {
+                await saveQuietHours();
+            } catch (err) {
+                event.target.value = previous;
+                alert('保存禁发结束时间失败: ' + err.message);
+            }
+        });
+
+        document.getElementById('scheduleCancelBtn')?.addEventListener('click', () => {
+            document.getElementById('scheduleModal').style.display = 'none';
+            scheduleJobId = null;
+        });
+        document.getElementById('scheduleSaveBtn')?.addEventListener('click', () => {
+            saveReschedule().catch(err => alert('改期失败: ' + err.message));
+        });
+
+        checkHealth(); loadAutoPublishSettings(); loadFirstCommentSettings(); loadPlatformMenu(); loadAccounts(); loadJobs(); loadVideos();
         setInterval(() => { checkHealth(); loadJobs(); }, 5000);
     </script>
+    <script src="/static/js/publish_center_metrics.js?v=20260821a"></script>
 </body>
 </html>

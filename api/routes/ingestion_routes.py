@@ -8,6 +8,8 @@ from typing import Generator, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
+from src.utils.beijing_time import as_beijing_wallclock
+
 from api.schemas.ingestion_models import (
     BatchSelectRequest,
     BatchScoreRequest,
@@ -15,6 +17,7 @@ from api.schemas.ingestion_models import (
     IngestionSourceOut,
     JobOut,
     MergeStoriesRequest,
+    PatchVideoDraftRequest,
     PrepareVideoResponse,
     ArticleImageOut,
     ScoreArticleRequest,
@@ -24,8 +27,11 @@ from api.schemas.ingestion_models import (
     StoryOut,
 )
 from services.ingestion.bridge import prepare_video_metadata
-from services.ingestion.media_job_service import enqueue_media_job
+from services.ingestion.cover_retry import render_cover_for_article
+from services.ingestion.media_job_service import enqueue_media_job, has_active_media_job
 from services.ingestion.media_pipeline import run_media_pipeline
+from services.ingestion.media_paths import restore_generated_media_paths
+from services.ingestion.publish_status import published_ingestion_ids
 from services.ingestion.image_score_service import score_article_images
 from services.ingestion.score_service import apply_score_to_article, score_article_by_id
 from services.ingestion.job_enqueue import enqueue_ingestion_job, find_active_ingestion_job
@@ -37,6 +43,7 @@ from services.ingestion.settings import (
     save_ingestion_local,
 )
 from services.ingestion.story_cluster import expand_story_assets, merge_articles_into_story
+from api.routes.hot_radar_routes import router as hot_radar_router
 from src.db.engine import get_session_factory
 from src.db.models.ingestion import (
     ArticleImage,
@@ -51,6 +58,7 @@ from src.db.models.ingestion import (
 )
 
 router = APIRouter(prefix="/api/ingestion", tags=["资讯入库"])
+router.include_router(hot_radar_router)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -138,6 +146,79 @@ def update_ingestion_settings(body: dict, request: Request, db: Session = Depend
         return {"success": True, "message": "爬取配置已保存并同步", **public_ingestion_settings()}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/media-pipeline/settings")
+def get_media_pipeline_settings_route():
+    from services.ingestion.scoring_settings import get_media_pipeline_settings
+
+    return {"success": True, **get_media_pipeline_settings()}
+
+
+@router.put("/media-pipeline/settings")
+def update_media_pipeline_settings_route(body: dict):
+    from services.ingestion.scoring_settings import save_media_pipeline_settings
+
+    if not any(key in body for key in ("min_grade", "min_score", "logic")):
+        raise HTTPException(status_code=400, detail="min_grade、min_score 或 logic 至少提供一个")
+    try:
+        settings = save_media_pipeline_settings(
+            min_grade=body.get("min_grade") if "min_grade" in body else None,
+            min_score=body.get("min_score") if "min_score" in body else None,
+            logic=body.get("logic") if "logic" in body else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"success": True, **settings}
+
+
+@router.get("/scoring/settings")
+def get_scoring_criteria_settings_route():
+    from services.ingestion.scoring_settings import get_scoring_criteria_settings
+
+    return {"success": True, **get_scoring_criteria_settings()}
+
+
+@router.put("/scoring/settings")
+def update_scoring_criteria_settings_route(body: dict):
+    from services.ingestion.scoring_settings import save_scoring_criteria_settings
+
+    if not any(key in body for key in ("profile", "weights", "grades")):
+        raise HTTPException(status_code=400, detail="profile、weights 或 grades 至少提供一个")
+    try:
+        settings = save_scoring_criteria_settings(
+            profile=body.get("profile") if "profile" in body else None,
+            weights=body.get("weights") if "weights" in body else None,
+            grades=body.get("grades") if "grades" in body else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"success": True, "message": "评分配置已保存", **settings}
+
+
+@router.get("/image-scoring/settings")
+def get_image_scoring_criteria_settings_route():
+    from services.ingestion.image_scoring_settings import get_image_scoring_criteria_settings
+
+    return {"success": True, **get_image_scoring_criteria_settings()}
+
+
+@router.put("/image-scoring/settings")
+def update_image_scoring_criteria_settings_route(body: dict):
+    from services.ingestion.image_scoring_settings import save_image_scoring_criteria_settings
+
+    if not any(key in body for key in ("profile", "weights", "grades", "prefer_gif_boost")):
+        raise HTTPException(status_code=400, detail="profile、weights、grades 或 prefer_gif_boost 至少提供一个")
+    try:
+        settings = save_image_scoring_criteria_settings(
+            profile=body.get("profile") if "profile" in body else None,
+            weights=body.get("weights") if "weights" in body else None,
+            grades=body.get("grades") if "grades" in body else None,
+            prefer_gif_boost=body.get("prefer_gif_boost") if "prefer_gif_boost" in body else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"success": True, "message": "配图评分配置已保存", **settings}
 
 
 @router.post("/sources/run-all")
@@ -272,7 +353,7 @@ def list_articles(
     status: Optional[str] = None,
     q: Optional[str] = None,
     sort: Optional[str] = Query(None, description="score_desc | published_desc"),
-    min_grade: Optional[str] = Query(None, description="S|A|B|C|D"),
+    min_grade: Optional[str] = Query(None, description="S|A|B|C|D|unscored"),
     limit: int = Query(30, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -289,16 +370,30 @@ def list_articles(
     if status:
         query = query.filter_by(status=status)
     if min_grade:
-        query = query.filter_by(score_grade=min_grade.upper())
+        if min_grade.lower() == "unscored":
+            query = query.filter(IngestedArticle.score_grade.is_(None))
+        else:
+            query = query.filter_by(score_grade=min_grade.upper())
     if q:
         like = f"%{q}%"
         query = query.filter(IngestedArticle.title.like(like))
     total = query.count()
     rows = query.offset(offset).limit(limit).all()
+    story_ids = {row.story_id for row in rows if row.story_id}
+    primary_map = _story_primary_map(db, story_ids)
+    published_ids = published_ingestion_ids(db, [r.id for r in rows])
     return {
         "success": True,
         "total": total,
-        "articles": [_article_brief(r, db) for r in rows],
+        "articles": [
+            _article_brief(
+                r,
+                db,
+                story_primary_map=primary_map,
+                has_published=r.id in published_ids,
+            )
+            for r in rows
+        ],
     }
 
 
@@ -307,6 +402,40 @@ def get_article(article_id: str, db: Session = Depends(get_db)):
     row = db.get(IngestedArticle, article_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Article not found")
+    return _article_full(row, db)
+
+
+@router.patch("/articles/{article_id}/video-draft", response_model=IngestedArticleOut)
+def patch_video_draft(
+    article_id: str,
+    body: PatchVideoDraftRequest,
+    db: Session = Depends(get_db),
+):
+    from services.publishing.first_comment import validate_first_comment
+
+    row = db.get(IngestedArticle, article_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    if not row.video_draft_json:
+        raise HTTPException(status_code=400, detail="该文章尚无出片文案")
+    try:
+        draft = json.loads(row.video_draft_json)
+        if not isinstance(draft, dict):
+            raise ValueError("invalid draft")
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="出片文案格式无效") from exc
+    if body.first_comment is not None:
+        cleaned = body.first_comment.strip()
+        if cleaned:
+            ok, err = validate_first_comment(cleaned)
+            if not ok:
+                raise HTTPException(status_code=400, detail=err)
+            draft["first_comment"] = cleaned
+        else:
+            draft.pop("first_comment", None)
+    row.video_draft_json = json.dumps(draft, ensure_ascii=False)
+    db.commit()
+    db.refresh(row)
     return _article_full(row, db)
 
 
@@ -410,13 +539,39 @@ def prepare_video(
 
 
 @router.post("/articles/{article_id}/media-pipeline/retry")
-def retry_media_pipeline(article_id: str, db: Session = Depends(get_db)):
+def retry_media_pipeline(
+    article_id: str,
+    include_story_images: bool = Query(False),
+    force_score_images: bool = Query(False),
+    template_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    from services.ingestion.media_pipeline_trigger import build_manual_media_retry_config
+
     row = db.get(IngestedArticle, article_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Article not found")
-    row.media_pipeline_status = None
-    row.generated_video_path = None
-    row.video_prep_at = None
+    if include_story_images and not row.story_id:
+        raise HTTPException(status_code=400, detail="该文章无同题聚类，无法使用同题图片出片")
+
+    pipeline_config = build_manual_media_retry_config(
+        include_story_images=include_story_images,
+        has_video_draft=bool(row.video_draft_json),
+        force_score_images=force_score_images,
+    )
+    if template_id:
+        pipeline_config["render_template_id"] = template_id
+        pipeline_config["post_score_automation"] = {
+            "media_pipeline": {"render_template_id": template_id}
+        }
+    if has_active_media_job(db, article_id):
+        return {
+            "success": True,
+            "enqueued": True,
+            "already_running": True,
+            "include_story_images": include_story_images,
+            "force_score_images": force_score_images,
+        }
     if row.score_grade and row.score_total is not None:
         job = enqueue_media_job(
             db,
@@ -424,16 +579,45 @@ def retry_media_pipeline(article_id: str, db: Session = Depends(get_db)):
             trigger_reason="manual_retry",
             final_grade=row.score_grade,
             final_total=float(row.score_total),
+            pipeline_config=pipeline_config,
+            force=True,
         )
         if job:
             db.commit()
-            return {"success": True, "enqueued": True, "job_id": job.id}
+            return {
+                "success": True,
+                "enqueued": True,
+                "job_id": job.id,
+                "include_story_images": include_story_images,
+                "force_score_images": force_score_images,
+            }
     try:
-        result = run_media_pipeline(db, article_id)
+        result = run_media_pipeline(db, article_id, config=pipeline_config)
         db.commit()
-        return {"success": True, "enqueued": False, **result}
+        return {
+            "success": True,
+            "enqueued": False,
+            "include_story_images": include_story_images,
+            "force_score_images": force_score_images,
+            **result,
+        }
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/articles/{article_id}/cover/retry")
+def retry_article_cover(article_id: str, db: Session = Depends(get_db)):
+    try:
+        result = render_cover_for_article(db, article_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400,
+            detail=result.get("message") or result.get("error") or "封面生成失败",
+        )
+    db.commit()
+    return result
 
 
 @router.get("/stories")
@@ -465,17 +649,20 @@ def story_articles(story_id: str, db: Session = Depends(get_db)):
     if db.get(Story, story_id) is None:
         raise HTTPException(status_code=404, detail="Story not found")
     links = db.query(StoryArticle).filter_by(story_id=story_id).all()
-    articles = []
+    article_rows = []
     for link in links:
         article = db.get(IngestedArticle, link.article_id)
         if article:
-            articles.append(
-                {
-                    **_article_brief(article, db),
-                    "role": link.role,
-                    "similarity_score": link.similarity_score,
-                }
-            )
+            article_rows.append((article, link))
+    published_ids = published_ingestion_ids(db, [article.id for article, _ in article_rows])
+    articles = [
+        {
+            **_article_brief(article, db, has_published=article.id in published_ids),
+            "role": link.role,
+            "similarity_score": link.similarity_score,
+        }
+        for article, link in article_rows
+    ]
     return {"success": True, "story_id": story_id, "articles": articles}
 
 
@@ -515,6 +702,28 @@ def merge_stories(body: MergeStoriesRequest, db: Session = Depends(get_db)):
     return {"success": True, "story_id": story_id}
 
 
+@router.post("/stories/ai-review")
+def ai_review_stories(
+    limit: int = Query(30, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    from services.ingestion.story_cluster_review import run_cluster_review
+
+    result = run_cluster_review(db, limit=limit)
+    return {"success": True, **result}
+
+
+@router.post("/stories/{story_id}/ai-review")
+def ai_review_story(story_id: str, db: Session = Depends(get_db)):
+    from services.ingestion.story_cluster_review import review_single_story
+
+    try:
+        result = review_single_story(db, story_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"success": True, **result}
+
+
 @router.get("/articles/{article_id}/related")
 def related_articles(article_id: str, db: Session = Depends(get_db)):
     article = db.get(IngestedArticle, article_id)
@@ -528,11 +737,19 @@ def related_articles(article_id: str, db: Session = Depends(get_db)):
         .filter(StoryArticle.article_id != article_id)
         .all()
     )
-    articles = []
+    others = []
     for link in links:
         other = db.get(IngestedArticle, link.article_id)
         if other:
-            articles.append({**_article_brief(other, db), "role": link.role})
+            others.append((other, link))
+    published_ids = published_ingestion_ids(db, [other.id for other, _ in others])
+    articles = [
+        {
+            **_article_brief(other, db, has_published=other.id in published_ids),
+            "role": link.role,
+        }
+        for other, link in others
+    ]
     assets = (
         db.query(StoryAsset)
         .filter_by(story_id=article.story_id, asset_type="image")
@@ -605,16 +822,41 @@ def _parse_selected_images(row: IngestedArticle) -> list[dict]:
         return []
 
 
-def _article_brief(row: IngestedArticle, db: Session) -> dict:
+def _story_primary_map(db: Session, story_ids: set[str]) -> dict[str, str | None]:
+    if not story_ids:
+        return {}
+    rows = (
+        db.query(Story.id, Story.primary_article_id)
+        .filter(Story.id.in_(story_ids))
+        .all()
+    )
+    return {row.id: row.primary_article_id for row in rows}
+
+
+def _article_brief(
+    row: IngestedArticle,
+    db: Session,
+    *,
+    story_primary_map: dict[str, str | None] | None = None,
+    has_published: bool = False,
+) -> dict:
+    restore_generated_media_paths(row)
     img_count = db.query(ArticleImage).filter_by(article_id=row.id).count()
     cover_local = _cover_local_path(db, row.id)
+    primary_id = None
+    if row.story_id:
+        if story_primary_map is not None:
+            primary_id = story_primary_map.get(row.story_id)
+        else:
+            story = db.get(Story, row.story_id)
+            primary_id = story.primary_article_id if story else None
     return {
         "id": row.id,
         "source_id": row.source_id,
         "title": row.title,
         "summary": row.summary,
         "canonical_url": row.canonical_url,
-        "published_at": row.published_at,
+        "published_at": as_beijing_wallclock(row.published_at),
         "theme": row.theme,
         "status": row.status,
         "cover_image_url": row.cover_image_url,
@@ -626,6 +868,8 @@ def _article_brief(row: IngestedArticle, db: Session) -> dict:
         "scored_at": row.scored_at,
         "image_count": img_count,
         "story_id": row.story_id,
+        "story_primary_article_id": primary_id,
+        "is_story_primary": bool(primary_id and primary_id == row.id),
         "created_at": row.created_at,
         "video_draft_generated_at": row.video_draft_generated_at,
         "video_prep_at": row.video_prep_at,
@@ -634,7 +878,23 @@ def _article_brief(row: IngestedArticle, db: Session) -> dict:
         "generated_video_path": row.generated_video_path,
         "generated_cover_path": row.generated_cover_path,
         "has_generated_video": bool(row.generated_video_path),
+        "has_published": bool(has_published),
     }
+
+
+def _evaluation_content_description(ev: ImageRelevanceEvaluation | None) -> str | None:
+    if ev is None:
+        return None
+    if ev.content_description:
+        return ev.content_description
+    if ev.breakdown_json:
+        try:
+            value = json.loads(ev.breakdown_json).get("content_description")
+            if value:
+                return str(value)
+        except json.JSONDecodeError:
+            pass
+    return ev.caption
 
 
 def _evaluation_image_extra(ev: ImageRelevanceEvaluation | None) -> dict:
@@ -665,10 +925,14 @@ def _evaluation_image_extra(ev: ImageRelevanceEvaluation | None) -> dict:
         "flash_fit_score": flash.get("score"),
         "orientation": orientation,
         "is_animated": bool(breakdown.get("is_animated")),
+        "width": width or None,
+        "height": height or None,
+        "score_breakdown": breakdown,
     }
 
 
 def _article_full(row: IngestedArticle, db: Session) -> IngestedArticleOut:
+    restore_generated_media_paths(row)
     images = (
         db.query(ArticleImage)
         .filter_by(article_id=row.id)
@@ -685,7 +949,7 @@ def _article_full(row: IngestedArticle, db: Session) -> IngestedArticleOut:
         canonical_url=row.canonical_url,
         title=row.title,
         summary=row.summary,
-        published_at=row.published_at,
+        published_at=as_beijing_wallclock(row.published_at),
         theme=row.theme,
         status=row.status,
         created_at=row.created_at,
@@ -718,6 +982,7 @@ def _article_full(row: IngestedArticle, db: Session) -> IngestedArticleOut:
                 relevance_grade=ev.relevance_grade if ev else None,
                 relevance_rank=ev.relevance_rank if ev else None,
                 caption=ev.caption if ev else None,
+                content_description=_evaluation_content_description(ev),
                 verdict=ev.verdict if ev else None,
                 **_evaluation_image_extra(ev if (ev := evals.get(("article_image", i.id))) else None),
             )
@@ -731,6 +996,7 @@ def _story_brief(row: Story) -> StoryOut:
         id=row.id,
         canonical_title=row.canonical_title,
         article_count=row.article_count,
+        primary_article_id=row.primary_article_id,
         cluster_method=row.cluster_method,
         cluster_score=row.cluster_score,
         created_at=row.created_at,

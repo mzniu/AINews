@@ -9,6 +9,7 @@ from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from loguru import logger
+from sqlalchemy import case
 from sqlalchemy.orm import Session
 
 from services.ingestion.db_retry import run_with_sqlite_retry
@@ -75,15 +76,45 @@ class IngestionWorker:
             )
             logger.info(f"Registered ingestion schedule for {source.id}: {cron}")
 
+    def _register_hot_radar_schedule(self) -> None:
+        from apscheduler.triggers.cron import CronTrigger
+
+        from services.ingestion.hot_radar_settings import load_hot_radar_config
+
+        cfg = load_hot_radar_config()
+        if not cfg.get("enabled", True):
+            return
+        cron = str(cfg.get("refresh_cron") or "0 8 * * *")
+        self.scheduler.add_job(
+            self._refresh_hot_radar,
+            CronTrigger.from_crontab(cron),
+            id="hot_radar_refresh",
+            replace_existing=True,
+            max_instances=1,
+        )
+        logger.info(f"Registered hot radar refresh: {cron}")
+
+    def _refresh_hot_radar(self) -> None:
+        from services.ingestion.hot_radar_service import refresh_hot_radar
+
+        try:
+            with self.session_factory() as session:
+                result = refresh_hot_radar(session, force=True)
+                if result.get("status") == "refreshed":
+                    logger.info(f"Hot radar refresh ok: {result.get('item_count')} items")
+        except Exception as exc:
+            logger.warning(f"Hot radar refresh job failed: {exc}")
+
     def refresh_schedules(self) -> None:
         if not self.scheduler.running:
             return
         for job in list(self.scheduler.get_jobs()):
-            if job.id.startswith("schedule_"):
+            if job.id.startswith("schedule_") or job.id == "hot_radar_refresh":
                 self.scheduler.remove_job(job.id)
         with self.session_factory() as session:
             sync_sources_to_db(session)
             self._register_schedules(session)
+        self._register_hot_radar_schedule()
         self._register_poll_job()
         self._touch_heartbeat()
         logger.info("Ingestion worker schedules refreshed")
@@ -98,6 +129,7 @@ class IngestionWorker:
             if recovered:
                 logger.warning(f"Recovered {recovered} stale ingestion job(s)")
             self._register_schedules(session)
+        self._register_hot_radar_schedule()
         self._register_poll_job()
         self.scheduler.start()
         _embedded_instance = self
@@ -120,6 +152,7 @@ class IngestionWorker:
             if recovered:
                 logger.warning(f"Recovered {recovered} stale ingestion job(s)")
             self._register_schedules(session)
+        self._register_hot_radar_schedule()
         self._register_poll_job()
         logger.info("Ingestion worker started (separate process)")
         try:
@@ -165,13 +198,16 @@ class IngestionWorker:
         job_id: str | None = None
         source_id: str | None = None
 
-        def claim_job() -> tuple[str, str] | None:
+        def claim_job() -> tuple[str, str, str, str] | None:
             with self.session_factory() as session:
                 recover_stale_jobs(session)
                 job = (
                     session.query(IngestionJob)
                     .filter_by(status="pending")
-                    .order_by(IngestionJob.created_at.asc())
+                    .order_by(
+                        case((IngestionJob.job_type == "hot_radar_discovery", 0), else_=1),
+                        IngestionJob.created_at.asc(),
+                    )
                     .first()
                 )
                 if not job:
@@ -179,27 +215,51 @@ class IngestionWorker:
                 job.status = "running"
                 job.started_at = datetime.utcnow()
                 session.commit()
-                return job.id, job.source_id
+                return job.id, job.source_id, job.job_type, job.payload_json
 
         claimed = run_with_sqlite_retry(claim_job)
         if not claimed:
             return
-        job_id, source_id = claimed
+        job_id, source_id, job_type, payload_json = claimed
 
         try:
             with self.session_factory() as session:
-                stats = IngestionOrchestrator(session).run_source(source_id, job_id=job_id)
+                if job_type == "hot_radar_discovery":
+                    payload = json.loads(payload_json or "{}")
+                    stats = IngestionOrchestrator(session).ingest_url(
+                        payload.get("source_id") or source_id,
+                        payload.get("url") or "",
+                        title=payload.get("title"),
+                        job_id=job_id,
+                    )
+                else:
+                    stats = IngestionOrchestrator(session).run_source(source_id, job_id=job_id)
 
-            def mark_succeeded() -> None:
+            def mark_finished() -> None:
                 with self.session_factory() as session:
                     job = session.get(IngestionJob, job_id)
                     if job:
-                        job.status = "succeeded"
+                        failed = job_type == "hot_radar_discovery" and bool(stats.get("failed"))
+                        job.status = "failed" if failed else "succeeded"
                         job.finished_at = datetime.utcnow()
-                        job.payload_json = json.dumps(stats, ensure_ascii=False)
+                        if failed:
+                            errors = stats.get("errors") or []
+                            if errors and isinstance(errors[0], dict):
+                                job.error_message = str(errors[0].get("error") or errors[0])
+                            elif errors:
+                                job.error_message = str(errors[0])
+                        try:
+                            original = json.loads(payload_json or "{}")
+                        except json.JSONDecodeError:
+                            original = {}
+                        if isinstance(original, dict):
+                            original["result"] = stats
+                            job.payload_json = json.dumps(original, ensure_ascii=False)
+                        else:
+                            job.payload_json = json.dumps(stats, ensure_ascii=False)
                         session.commit()
 
-            run_with_sqlite_retry(mark_succeeded)
+            run_with_sqlite_retry(mark_finished)
             logger.info(f"Ingestion job {job_id} done: {stats}")
         except Exception as exc:
             logger.exception(f"Ingestion job {job_id} failed: {exc}")

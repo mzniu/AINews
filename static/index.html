@@ -5,27 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>网页内容抓取工具</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815a">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260813c" defer></script>
+    <link rel="stylesheet" href="/static/css/index.css?v=20260815a">
     <!-- 引用截图功能扩展 -->
     <script src="/static/js/screenshot_extension.js"></script>
 </head>
-<body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-brand">🎬 AINews</a>
-            <div class="nav-menu">
-                <a href="/" class="nav-link active">🏠 主页</a>
-                <a href="/video-maker" class="nav-link">📹 视频制作</a>
-                <a href="/ingestion-library" class="nav-link">📚 资讯库</a>
-                <a href="/publish-center" class="nav-link">📤 发布中心</a>
-                <a href="/settings" class="nav-link">⚙️ 系统配置</a>
-                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
-                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
-            </div>
-        </div>
-    </nav>
-    
-    <div class="container">
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+<div class="container">
         <div class="header">
             <h1>🌐 网页内容抓取工具</h1>
             <p>输入任意网址，一键抓取内容和图片</p>
@@ -231,7 +221,7 @@
                     <div class="ai-summary" id="aiSummary" style="display: none;">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
                             <h4 style="margin:0;">🤖 AI生成内容</h4>
-                            <button class="copy-all-ai-btn" onclick="copyAllAiContent()" title="一键复制：标题第一行 + 第二行 + 副标题 + 口播稿 + 标签">📋 一键复制</button>
+                            <button class="copy-all-ai-btn" onclick="copyAllAiContent()" title="一键复制：主标题 + 短标题 + 第二行 + 副标题 + 口播稿 + 标签">📋 一键复制</button>
                         </div>
                         <div class="loading" id="aiSummaryLoading">
                             <div class="spinner"></div>
@@ -242,7 +232,7 @@
                             <summary class="ai-group-summary" style="cursor:pointer; font-weight:600; color:#4c1d95; font-size:14px; list-style:none;">🏷️ 标题</summary>
                             <div style="margin-bottom: 15px;">
                                 <strong style="color: #667eea;">主标题第一行</strong>
-                            <span style="font-size: 12px; color: #888;">（9～12汉字当量，英文数字计0.5）</span>
+                            <span style="font-size: 12px; color: #888;">（16～20汉字当量，英文数字计0.5，成片用）</span>
                             <div class="ai-field-row">
                                 <input type="text" id="editableMainLine1" class="ai-edit-input" placeholder="第一行主标题" maxlength="40" style="font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; flex: 1; min-width: 0;" />
                                 <button class="copy-btn" onclick="copyAiContent('editableMainLine1')" title="复制" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
@@ -261,6 +251,14 @@
                                 <label class="color-swatch-label" title="淡蓝"><input type="radio" name="mainLine1Color" value="#87CEEB"><span class="color-dot" style="background:#87CEEB;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
                                 </div>
                             </details>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">视频号短标题</strong>
+                            <span style="font-size: 12px; color: #888;">（最多16字含空格，不能有标点，专门给视频号投稿）</span>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableShortTitle" class="ai-edit-input" placeholder="视频号短标题" maxlength="16" style="font-size: 1.05em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; flex: 1; min-width: 0;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableShortTitle')" title="复制" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
                         </div>
                         <div style="margin-bottom: 15px;">
                             <strong style="color: #667eea;">主标题第二行</strong>
@@ -377,6 +375,9 @@
                             <button class="btn" onclick="generateVideoDirectly()">
                                 🎬 生成视频
                             </button>
+                            <select id="renderTemplateSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: var(--fs-md); cursor: pointer; min-width: 200px; max-width: 260px;">
+                                <option value="">成片模板（默认）</option>
+                            </select>
                             <select id="bgmSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: var(--fs-md); cursor: pointer; min-width: 200px; max-width: 240px; text-overflow: ellipsis;">
                                 <option value="static/music/background.mp3">🎵 默认 BGM</option>
                                 <!-- 其他 BGM 选项将动态加载 -->
@@ -527,38 +528,38 @@
                     <button type="button" class="modal-btn-zoom" id="fullscreenBtn" title="切换全屏">🔲 全屏</button>
                                     
                     <!-- 编辑模式分隔线和按钮 -->
-                    <span style="color:#555; margin: 0 8px;">|</span>
+                    <span class="modal-toolbar-sep" style="margin: 0 8px;">|</span>
                     <button type="button" class="modal-btn-draw" id="editModeBtn" title="进入编辑模式">✏️ 编辑图片</button>
                                     
                     <!-- 编辑工具栏（默认隐藏） -->
-                    <div id="editTools" style="display: none; align-items: center; gap: 6px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #ddd;">
+                    <div id="editTools" style="display: none; align-items: center; gap: 6px; margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--app-border);">
                         <button type="button" class="modal-btn-draw" id="drawModeBtn" title="框选水印区域">✏️ 框选水印</button>
                         <button type="button" class="modal-btn-draw" id="cropModeBtn" title="框选裁剪区域">✂️ 剪裁</button>
                         <button type="button" class="modal-btn-action" id="applyCropBtn" style="display:none;" title="应用裁剪">✅ 应用剪裁</button>
                         <button type="button" class="modal-btn-action" id="removeWatermarkBtn" disabled title="去除水印">🧹 去除水印</button>
-                        <span style="color:#555;">|</span>
+                        <span class="modal-toolbar-sep">|</span>
                         <button type="button" class="modal-btn-draw" id="textModeBtn" title="在图片上添加文字">🅰️ 添加文字</button>
                         <div id="textToolOptions" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;">
-                            <input id="imageTextInput" type="text" placeholder="输入文字" maxlength="200"
-                                   style="width:130px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
-                            <select id="imageTextFontSelect" title="字体"
-                                    style="padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px; max-width:120px;">
+                            <input id="imageTextInput" class="modal-tool-input" type="text" placeholder="输入文字" maxlength="200"
+                                   style="width:130px; padding:4px 8px; font-size:13px;">
+                            <select id="imageTextFontSelect" class="modal-tool-input" title="字体"
+                                    style="padding:4px 6px; font-size:13px; max-width:120px;">
                                 <option value="msyhbd">微软雅黑 粗体</option>
                             </select>
                             <input id="imageTextColorPicker" type="color" value="#ffffff" title="文字颜色"
-                                   style="width:32px; height:28px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;">
-                            <input id="imageTextSizeInput" type="number" min="12" max="200" value="48" title="字号"
-                                   style="width:52px; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
+                                   style="width:32px; height:28px; padding:0; cursor:pointer;">
+                            <input id="imageTextSizeInput" class="modal-tool-input" type="number" min="12" max="200" value="48" title="字号"
+                                   style="width:52px; padding:4px 6px; font-size:13px;">
                         </div>
                         <button type="button" class="modal-btn-action" id="applyTextBtn" style="display:none;" title="将文字烧录到图片">✅ 应用文字</button>
                         <button type="button" class="modal-btn-zoom" id="undoTextBtn" style="display:none;" title="撤销上一条">↩️ 撤销</button>
-                        <span style="color:#555;">|</span>
+                        <span class="modal-toolbar-sep">|</span>
                         <button type="button" class="modal-btn-zoom" id="rotateImageBtn" title="顺时针旋转 90°">🔄 旋转</button>
                         <button type="button" class="modal-btn-zoom" id="flipImageBtn" title="水平翻转">↔️ 翻转</button>
-                        <button type="button" class="modal-btn-action" id="saveEditBtn" disabled title="保存编辑" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">💾 保存修改</button>
+                        <button type="button" class="modal-btn-action" id="saveEditBtn" disabled title="保存编辑">💾 保存修改</button>
                     </div>
                                     
-                    <span style="color:#555;">|</span>
+                    <span class="modal-toolbar-sep">|</span>
                     <button type="button" class="modal-btn-close" id="closeImageModalBtn">✕</button>
                 </div>
             </div>
@@ -598,7 +599,7 @@
             <h3 id="videoModalTitle">🎬 视频预览</h3>
             <div class="modal-toolbar">
                 <button class="modal-btn-zoom" onclick="downloadCurrentVideo()" title="下载视频">📥 下载</button>
-                <span style="color:#555;">|</span>
+                <span class="modal-toolbar-sep">|</span>
                 <button class="modal-btn-close" onclick="closeVideoModal()">✕</button>
             </div>
         </div>
@@ -615,12 +616,12 @@
     </div>
 </div>
 
-    <script src="/static/js/index/state.js?v=20260801f"></script>
-    <script src="/static/js/shared/publish_modal.js?v=20260806a"></script>
+    <script src="/static/js/index/state.js?v=20260815b"></script>
+    <script src="/static/js/shared/publish_modal.js?v=20260816b"></script>
     <script src="/static/js/index/image_scores.js?v=20260801g"></script>
-    <script src="/static/js/index/main.js?v=20260801g"></script>
+    <script src="/static/js/index/main.js?v=20260815b"></script>
     <script src="/static/js/index/modal.js?v=20260718"></script>
-    <script src="/static/js/index/init.js?v=20260801g"></script>
+    <script src="/static/js/index/init.js?v=20260815b"></script>
     <script src="/static/js/common/back-to-top.js"></script>
 </body>
 </html>

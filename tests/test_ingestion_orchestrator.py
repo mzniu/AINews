@@ -86,3 +86,33 @@ def test_ingest_from_fixtures_dedupes(db_session, monkeypatch):
     assert stats2["new"] == 0
     assert stats2["skipped"] >= 1
     assert session.query(IngestedArticle).count() == count_after_first
+
+
+def test_ingest_url_returns_article_id_on_new_and_duplicate(db_session, monkeypatch):
+    session, _ingest_dir = db_session
+    list_html = (FIXTURE_DIR / "list_index1.html").read_text(encoding="utf-8")
+    detail_html = (FIXTURE_DIR / "detail_27818.html").read_text(encoding="utf-8")
+    article_url = "http://travel.aitntnews.com/newshow.asp?newsid=27818"
+
+    def fake_fetch(url: str) -> str:
+        if "index=" in url or url.endswith("?index=1") or "travel.aitntnews.com/?" in url:
+            return list_html
+        return detail_html
+
+    monkeypatch.setattr(
+        "services.ingestion.adapters.aitnt_news.AitntNewsAdapter.fetch_html",
+        lambda self, url: fake_fetch(url),
+    )
+    monkeypatch.setattr(
+        "services.ingestion.asset_downloader.download_image",
+        lambda *args, **kwargs: {"success": True, "local_path": "images/img_001.jpg"},
+    )
+
+    orch = IngestionOrchestrator(session)
+    stats1 = orch.ingest_url("aitnt_travel", article_url, title="fixture article")
+    assert stats1["new"] == 1
+    assert stats1.get("article_id")
+
+    stats2 = orch.ingest_url("aitnt_travel", article_url, title="fixture article")
+    assert stats2["skipped"] == 1
+    assert stats2.get("article_id") == stats1["article_id"]

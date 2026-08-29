@@ -143,6 +143,7 @@ def _load_cached_results(db: Session, article_id: str) -> list[ImageScoreResult]
                 relevance_rank=int(row.relevance_rank or 0),
                 rank=int(row.relevance_rank or 0),
                 caption=row.caption,
+                content_description=row.content_description,
                 verdict=row.verdict,
                 breakdown=breakdown,
                 is_animated=bool((breakdown or {}).get("is_animated")),
@@ -177,6 +178,7 @@ def _persist_evaluations(
                     if item.breakdown
                     else None,
                     caption=item.caption,
+                    content_description=item.content_description,
                     verdict=item.verdict,
                     vision_profile_id=vision_profile_id,
                     scorer_version=scorer_version,

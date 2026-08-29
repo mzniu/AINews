@@ -141,3 +141,254 @@ def test_pipeline_keeps_draft_when_video_fails(
     assert result["success"] is False
     assert article.media_pipeline_status == "failed"
     assert article.generated_video_path is None
+
+
+@patch("services.ingestion.media_pipeline.prepend_cover_intro_to_video")
+@patch("services.ingestion.media_pipeline.render_article_cover")
+@patch("services.ingestion.media_pipeline.render_ingested_video")
+@patch("services.ingestion.media_pipeline.pick_random_bgm")
+@patch("services.ingestion.media_pipeline.prepare_video_metadata")
+@patch("services.ingestion.media_pipeline.generate_video_content")
+@patch("services.ingestion.media_pipeline.score_article_images")
+def test_pipeline_renders_video_with_one_selected_image(
+    mock_score,
+    mock_content,
+    mock_prepare,
+    mock_bgm,
+    mock_render,
+    mock_cover,
+    mock_intro,
+    db_session,
+):
+    mock_score.return_value = {"scored_count": 28, "from_cache": True}
+    mock_content.return_value = {
+        "success": True,
+        "main_line1": "突发！单图也能出片",
+        "summary": "小牛说：x",
+        "tags": "#AI",
+        "model": "m",
+    }
+    mock_prepare.return_value = {
+        "auto_selected_images": [{"local_path": "/data/hero.jpg"}],
+        "images": [{"local_path": "/data/hero.jpg"}],
+    }
+    mock_bgm.return_value = "static/music/a.mp3"
+    mock_render.return_value = {"success": True, "video_path": "/data/videos/one.mp4"}
+    mock_cover.return_value = {"success": True, "cover_path": "/data/covers/one.jpg"}
+    mock_intro.return_value = {"success": True, "video_path": "/data/videos/one.mp4"}
+
+    result = run_media_pipeline(db_session, "art_pipe")
+
+    assert result["success"] is True
+    assert result["video_rendered"] is True
+    mock_render.assert_called_once()
+    article = db_session.get(IngestedArticle, "art_pipe")
+    assert article.generated_video_path == "/data/videos/one.mp4"
+
+
+@patch("services.ingestion.media_pipeline.prepend_cover_intro_to_video")
+@patch("services.ingestion.media_pipeline.render_article_cover")
+@patch("services.ingestion.media_pipeline.render_ingested_video")
+@patch("services.ingestion.media_pipeline.pick_random_bgm")
+@patch("services.ingestion.media_pipeline.prepare_video_metadata")
+@patch("services.ingestion.media_pipeline.generate_video_content")
+@patch("services.ingestion.media_pipeline.score_article_images")
+def test_pipeline_reuses_existing_draft_when_llm_empty(
+    mock_score,
+    mock_content,
+    mock_prepare,
+    mock_bgm,
+    mock_render,
+    mock_cover,
+    mock_intro,
+    db_session,
+):
+    article = db_session.get(IngestedArticle, "art_pipe")
+    article.video_draft_json = '{"main_line1": "已有标题", "summary": "小牛说：旧稿"}'
+    db_session.commit()
+
+    mock_score.return_value = {"scored_count": 2, "from_cache": True}
+    mock_content.side_effect = ValueError("LLM 返回空内容")
+    mock_prepare.return_value = {
+        "auto_selected_images": [
+            {"local_path": "/data/a.jpg"},
+            {"local_path": "/data/b.jpg"},
+        ],
+        "metadata_path": "/data/meta.json",
+    }
+    mock_bgm.return_value = "static/music/a.mp3"
+    mock_render.return_value = {"success": True, "video_path": "/data/videos/reused.mp4"}
+    mock_cover.return_value = {"success": True, "cover_path": "/data/covers/reused.jpg"}
+    mock_intro.return_value = {"success": True, "video_path": "/data/videos/reused.mp4"}
+
+    result = run_media_pipeline(db_session, "art_pipe")
+
+    assert result["success"] is True
+    assert any("generate_content" in e for e in result["errors"])
+    assert result["steps"]["generate_content"]["reused_existing_draft"] is True
+    mock_render.assert_called_once()
+    assert mock_render.call_args.kwargs["draft"]["main_line1"] == "已有标题"
+
+
+@patch("services.ingestion.media_pipeline.prepend_cover_intro_to_video")
+@patch("services.ingestion.media_pipeline.render_article_cover")
+@patch("services.ingestion.media_pipeline.render_ingested_video")
+@patch("services.ingestion.media_pipeline.pick_random_bgm")
+@patch("services.ingestion.media_pipeline.prepare_video_metadata")
+@patch("services.ingestion.media_pipeline.generate_video_content")
+@patch("services.ingestion.media_pipeline.score_article_images")
+def test_pipeline_falls_back_to_title_draft_when_llm_empty(
+    mock_score,
+    mock_content,
+    mock_prepare,
+    mock_bgm,
+    mock_render,
+    mock_cover,
+    mock_intro,
+    db_session,
+):
+    mock_score.return_value = {"scored_count": 2, "from_cache": True}
+    mock_content.side_effect = ValueError("LLM 返回空内容")
+    mock_prepare.return_value = {
+        "auto_selected_images": [
+            {"local_path": "/data/a.jpg"},
+            {"local_path": "/data/b.jpg"},
+        ],
+    }
+    mock_bgm.return_value = "static/music/a.mp3"
+    mock_render.return_value = {"success": True, "video_path": "/data/videos/fallback.mp4"}
+    mock_cover.return_value = {"success": True, "cover_path": "/data/covers/fallback.jpg"}
+    mock_intro.return_value = {"success": True, "video_path": "/data/videos/fallback.mp4"}
+
+    result = run_media_pipeline(db_session, "art_pipe")
+
+    assert result["success"] is True
+    assert result["steps"]["generate_content"]["used_fallback_draft"] is True
+    mock_render.assert_called_once()
+    draft = mock_render.call_args.kwargs["draft"]
+    assert "DeepSeek" in draft["main_line1"]
+    article = db_session.get(IngestedArticle, "art_pipe")
+    assert article.video_draft_json is None
+
+
+@patch("services.ingestion.media_pipeline.prepend_cover_intro_to_video")
+@patch("services.ingestion.media_pipeline.render_article_cover")
+@patch("services.ingestion.media_pipeline.render_ingested_video")
+@patch("services.ingestion.media_pipeline.pick_random_bgm")
+@patch("services.ingestion.media_pipeline.prepare_video_metadata")
+@patch("services.ingestion.media_pipeline.generate_video_content")
+@patch("services.ingestion.media_pipeline.score_article_images")
+def test_pipeline_skips_llm_and_uses_existing_draft(
+    mock_score,
+    mock_content,
+    mock_prepare,
+    mock_bgm,
+    mock_render,
+    mock_cover,
+    mock_intro,
+    db_session,
+):
+    article = db_session.get(IngestedArticle, "art_pipe")
+    article.video_draft_json = '{"main_line1": "跳过生成", "summary": "小牛说：旧稿"}'
+    db_session.commit()
+
+    mock_score.return_value = {"scored_count": 2}
+    mock_prepare.return_value = {
+        "auto_selected_images": [
+            {"local_path": "/data/a.jpg"},
+            {"local_path": "/data/b.jpg"},
+        ],
+    }
+    mock_bgm.return_value = "static/music/a.mp3"
+    mock_render.return_value = {"success": True, "video_path": "/data/videos/skip.mp4"}
+    mock_cover.return_value = {"success": True, "cover_path": "/data/covers/skip.jpg"}
+    mock_intro.return_value = {"success": True, "video_path": "/data/videos/skip.mp4"}
+
+    result = run_media_pipeline(
+        db_session,
+        "art_pipe",
+        config={"generate_content": False, "include_story_images": False},
+    )
+
+    mock_content.assert_not_called()
+    assert result["success"] is True
+    assert mock_render.call_args.kwargs["draft"]["main_line1"] == "跳过生成"
+
+
+def test_restore_generated_media_paths_from_prep_status(db_session):
+    from services.ingestion.media_paths import restore_generated_media_paths
+
+    article = db_session.get(IngestedArticle, "art_pipe")
+    article.media_pipeline_status = "succeeded"
+    article.generated_video_path = None
+    article.generated_cover_path = None
+    article.video_prep_status_json = (
+        '{"success": true, "video_rendered": true, "steps": {'
+        '"render_video": {"video_path": "/data/videos/animated_x.mp4"},'
+        '"render_cover": {"success": true, "cover_path": "data/publish/covers/art_pipe_cover.jpg"}'
+        "}}"
+    )
+    db_session.commit()
+
+    changed = restore_generated_media_paths(article)
+    assert changed is True
+    assert article.generated_video_path == "/data/videos/animated_x.mp4"
+    assert article.generated_cover_path == "data/publish/covers/art_pipe_cover.jpg"
+
+
+@patch("services.ingestion.media_pipeline.prepend_cover_intro_to_video")
+@patch("services.ingestion.media_pipeline.render_article_cover")
+@patch("services.ingestion.media_pipeline.pick_best_cover_image")
+@patch("services.ingestion.media_pipeline.render_ingested_video")
+@patch("services.ingestion.media_pipeline.pick_random_bgm")
+@patch("services.ingestion.media_pipeline.prepare_video_metadata")
+@patch("services.ingestion.media_pipeline.generate_video_content")
+@patch("services.ingestion.media_pipeline.score_article_images")
+def test_pipeline_rewrites_paths_if_cleared_after_checkpoint(
+    mock_score,
+    mock_content,
+    mock_prepare,
+    mock_bgm,
+    mock_render,
+    mock_pick_cover,
+    mock_cover,
+    mock_intro,
+    db_session,
+):
+    mock_score.return_value = {"scored_count": 1, "from_cache": True}
+    mock_content.return_value = {
+        "success": True,
+        "main_line1": "突发！",
+        "summary": "小牛说：x",
+        "tags": "#AI",
+        "model": "m",
+    }
+    mock_prepare.return_value = {
+        "auto_selected_images": [{"local_path": "/data/hero.jpg"}],
+        "images": [{"local_path": "/data/hero.jpg"}],
+    }
+    mock_bgm.return_value = "static/music/a.mp3"
+    mock_render.return_value = {"success": True, "video_path": "/data/videos/kept.mp4"}
+    mock_pick_cover.return_value = {"local_path": "/data/hero.jpg"}
+    mock_cover.return_value = {"success": True, "cover_path": "data/publish/covers/kept.jpg"}
+    mock_intro.return_value = {"success": True, "video_path": "/data/videos/kept.mp4"}
+
+    import services.ingestion.media_pipeline as media_pipeline
+
+    original_checkpoint = media_pipeline._checkpoint
+
+    def clear_paths_after_commit(session):
+        original_checkpoint(session)
+        article = session.get(IngestedArticle, "art_pipe")
+        if article is not None and (article.generated_video_path or article.generated_cover_path):
+            article.generated_video_path = None
+            article.generated_cover_path = None
+            session.commit()
+
+    with patch.object(media_pipeline, "_checkpoint", clear_paths_after_commit):
+        result = run_media_pipeline(db_session, "art_pipe")
+
+    assert result["success"] is True
+    article = db_session.get(IngestedArticle, "art_pipe")
+    assert article.generated_video_path == "/data/videos/kept.mp4"
+    assert article.generated_cover_path == "data/publish/covers/kept.jpg"

@@ -2,16 +2,52 @@ version: 2
 
 defaults:
   qr_timeout_sec: 120
+  qr_lock_timeout_sec: 90
   upload_timeout_sec: 600
   stale_job_minutes: 15
   stale_qr_minutes: 5
+  # 发布自动化操作节奏：步骤间随机等待，模拟真人操作（可用环境变量覆盖 multiplier）
+  human_pacing:
+    enabled: true
+    multiplier: 1.0
+  metrics_sync:
+    enabled: true
+    cron: "0 6 * * *"
+    since_days: 90
+    per_account_delay_sec: 8
+    max_posts_per_account: 100
+    fuzzy_match_hours: 24
+    alert_view_drop_pct: 30
+    alert_min_previous_views: 100
   # 定期访问创作者中心刷新 Cookie，缓解视频号 8-12 小时掉线
+  browser_profile:
+    enabled: true
+    channel: chrome
+    headless: false
+    profile_root: data/publish/profiles
+    backup_storage_state: true
+    migrate_from_storage_state: true
+    probe_on_open: false
+    fingerprint_shim:
+      enabled: true
+  publish_warmup:
+    enabled: true
+    idle_moves: [2, 4]
+    browse_home_first: true
+  first_comment:
+    enabled: false
+    comment_delay_sec: 15
+    comment_wait_max_sec: 60
+    retry_max: 3
   session_keepalive:
     enabled: true
     interval_hours: 4
-    headless: true
+    headless: false
     platforms:
       - wechat_channels
+      - douyin
+      - kuaishou
+      - xiaohongshu
 
 platforms:
   - id: wechat_channels
@@ -24,10 +60,24 @@ platforms:
     capabilities:
       account_login: true
       video_publish: true
+      first_comment: true
+    qr_profile:
+      success_url_excludes: ["login"]
+      post_login_url: https://channels.weixin.qq.com/platform/post/create
+      post_login_wait_ms: 6000
+      cookie_settle_attempts: 15
+      cookie_settle_interval_ms: 2000
+      use_stealth_browser: true
     limits:
       max_title_length: 30
       max_description_length: 1000
       max_tags: 10
+      max_comment_length: 100
+      comment_delay_sec: 20
+      comment_wait_max_sec: 90
+      first_comment_deferred: true
+    metrics:
+      list_url: https://channels.weixin.qq.com/platform/post/list
 
   - id: douyin
     display_name: 抖音
@@ -39,15 +89,24 @@ platforms:
     capabilities:
       account_login: true
       video_publish: true
+      first_comment: true
     qr_profile:
       success_url_excludes: ["login", "passport"]
       qr_selector: null
       post_login_url: https://creator.douyin.com/creator-micro/home
-      post_login_wait_ms: 4000
+      post_login_wait_ms: 8000
+      cookie_settle_attempts: 20
+      cookie_settle_interval_ms: 2000
+      use_stealth_browser: true
       required_session_cookies: ["sessionid", "sessionid_ss", "sid_guard"]
     limits:
       max_title_length: 55
       max_tags: 5
+      max_comment_length: 100
+      comment_delay_sec: 15
+      comment_wait_max_sec: 60
+    metrics:
+      list_url: https://creator.douyin.com/creator-micro/content/manage
 
   - id: kuaishou
     display_name: 快手
@@ -59,15 +118,25 @@ platforms:
     capabilities:
       account_login: true
       video_publish: true
+      first_comment: true
     qr_profile:
       success_url_excludes: ["login", "passport"]
       qr_switch_selector: "text=扫码登录"
       post_login_url: https://cp.kuaishou.com/profile
       post_login_wait_ms: 6000
+      cookie_settle_attempts: 15
+      cookie_settle_interval_ms: 2000
+      use_stealth_browser: true
       required_session_cookies: ["kwssectoken", "userId", "passToken", "kuaishou.server.web_st"]
     limits:
       max_title_length: 50
       max_tags: 4
+      max_comment_length: 100
+      comment_delay_sec: 15
+      comment_wait_max_sec: 60
+      first_comment_deferred: true
+    metrics:
+      list_url: https://cp.kuaishou.com/article/manage/video
 
   - id: xiaohongshu
     display_name: 小红书
@@ -79,12 +148,23 @@ platforms:
     capabilities:
       account_login: true
       video_publish: true
+      first_comment: true
     qr_profile:
       success_url_excludes: ["login", "passport"]
       qr_switch_selector: ".login-box-container img"
       post_login_url: https://creator.xiaohongshu.com/new/home
       post_login_wait_ms: 6000
+      cookie_settle_attempts: 15
+      cookie_settle_interval_ms: 2000
+      use_stealth_browser: true
       required_session_cookies: ["galaxy_creator_session_id", "access-token-creator.xiaohongshu.com", "web_session"]
     limits:
       max_title_length: 20
       max_tags: 10
+      manual_publish_wait_sec: 900
+      max_comment_length: 50
+      comment_delay_sec: 20
+      comment_wait_max_sec: 90
+      first_comment_deferred: true
+    metrics:
+      list_url: https://creator.xiaohongshu.com/new/note-manager

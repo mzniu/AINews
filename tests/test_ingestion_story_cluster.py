@@ -105,6 +105,28 @@ def test_assign_links_similar_articles(session):
     assert session.query(Story).count() == 1
 
 
+def test_assign_links_orphan_articles(session):
+    now = datetime.utcnow()
+    first = _article(
+        session,
+        title="OpenAI 发布 GPT-5 多模态模型",
+        keywords=["OpenAI", "GPT-5"],
+        published_at=now - timedelta(hours=1),
+        url_suffix="orphan-a",
+    )
+    second = _article(
+        session,
+        title="OpenAI发布GPT-5多模态模型详解",
+        keywords=["OpenAI", "GPT-5"],
+        published_at=now,
+        url_suffix="orphan-b",
+    )
+    story_id = assign_article_to_story(session, second)
+    session.commit()
+    assert story_id == first.story_id
+    assert session.query(Story).count() == 1
+
+
 def test_expand_story_assets_dedupes_images(session):
     a1 = _article(session, title="主文", url_suffix="x")
     a2 = _article(session, title="相关文", url_suffix="y")

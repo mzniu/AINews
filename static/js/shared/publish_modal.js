@@ -7,36 +7,42 @@
     function ensureModal() {
         if (document.getElementById(MODAL_ID)) return;
         const html = `
-        <div id="${MODAL_ID}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;align-items:center;justify-content:center;">
-          <div style="background:#fff;border-radius:12px;max-width:520px;width:92%;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.15);max-height:90vh;overflow:auto;">
-            <h3 style="margin:0 0 16px;">📤 发布短视频</h3>
+        <div id="${MODAL_ID}" class="app-modal-overlay" hidden>
+          <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="publishModalHeading">
+            <h3 id="publishModalHeading">📤 发布短视频</h3>
             <input type="hidden" id="publishModalVideoPath" />
             <input type="hidden" id="publishModalCoverPath" />
-            <div id="publishModalCoverPreview" style="display:none;margin-bottom:12px;">
-              <label style="display:block;font-size:13px;color:#475569;">封面预览</label>
-              <img id="publishModalCoverImg" alt="封面" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid #e2e8f0;margin-top:6px;" />
+            <div id="publishModalCoverPreview" class="app-modal-cover" hidden>
+              <label class="app-modal-label">封面预览</label>
+              <img id="publishModalCoverImg" alt="封面" />
             </div>
-            <label style="display:block;font-size:13px;color:#475569;">标题</label>
-            <input id="publishModalTitle" style="width:100%;margin:6px 0 12px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;" />
-            <label style="display:block;font-size:13px;color:#475569;">描述</label>
-            <textarea id="publishModalDescription" rows="3" style="width:100%;margin:6px 0 12px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;"></textarea>
-            <label style="display:block;font-size:13px;color:#475569;">标签（逗号分隔）</label>
-            <input id="publishModalTags" style="width:100%;margin:6px 0 12px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;" />
-            <label style="display:block;font-size:13px;color:#475569;">发布账号</label>
-            <select id="publishModalAccount" style="width:100%;margin:6px 0 12px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;"></select>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;margin:4px 0 8px;cursor:pointer;">
+            <label class="app-modal-label" for="publishModalTitle">标题（视频号短标题，最多16字，无标点）</label>
+            <input id="publishModalTitle" class="form-control" maxlength="16" />
+            <label class="app-modal-label" for="publishModalDescription">描述</label>
+            <textarea id="publishModalDescription" class="form-control" rows="3"></textarea>
+            <label class="app-modal-label" for="publishModalTags">标签（逗号分隔）</label>
+            <input id="publishModalTags" class="form-control" />
+            <label class="app-modal-label" for="publishModalFirstComment">首评（可选，15~50字）</label>
+            <textarea id="publishModalFirstComment" class="form-control" rows="2" maxlength="50" placeholder="问句优先，引导评论"></textarea>
+            <label class="app-modal-label">发布账号（可多选，将逐一提交）</label>
+            <div id="publishModalAccounts" class="app-modal-account-list"></div>
+            <div id="publishModalAccountActions" class="app-modal-account-actions" hidden>
+              <button type="button" id="publishModalSelectAll" class="btn btn-sm btn-secondary">全选</button>
+              <button type="button" id="publishModalClearAll" class="btn btn-sm btn-secondary">清空</button>
+            </div>
+            <label class="app-modal-check">
               <input type="checkbox" id="publishModalScheduleEnabled" />
               定时发布
             </label>
-            <div id="publishModalScheduleWrap" style="display:none;margin-bottom:12px;">
-              <label style="display:block;font-size:13px;color:#475569;">发布时间</label>
-              <input type="datetime-local" id="publishModalScheduleAt" style="width:100%;margin:6px 0 0;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;" />
-              <p style="font-size:12px;color:#64748b;margin:6px 0 0;">到达设定时间后由发布 worker 自动上传</p>
+            <div id="publishModalScheduleWrap" hidden>
+              <label class="app-modal-label" for="publishModalScheduleAt">发布时间</label>
+              <input type="datetime-local" id="publishModalScheduleAt" class="form-control" />
+              <p class="app-modal-hint">到达设定时间后由发布 worker 自动上传</p>
             </div>
-            <div id="publishModalError" style="color:#dc2626;font-size:13px;margin-bottom:8px;display:none;"></div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-              <button type="button" id="publishModalCancel" style="padding:8px 16px;border:1px solid #cbd5e1;background:#fff;border-radius:6px;cursor:pointer;">取消</button>
-              <button type="button" id="publishModalConfirm" style="padding:8px 16px;background:#667eea;color:#fff;border:none;border-radius:6px;cursor:pointer;">确认发布</button>
+            <div id="publishModalError" class="app-modal-error" hidden></div>
+            <div class="app-modal-actions">
+              <button type="button" id="publishModalCancel" class="btn btn-secondary">取消</button>
+              <button type="button" id="publishModalConfirm" class="btn btn-primary">确认发布</button>
             </div>
           </div>
         </div>`;
@@ -48,19 +54,55 @@
         };
         document.getElementById('publishModalScheduleEnabled').onchange = function () {
             const wrap = document.getElementById('publishModalScheduleWrap');
-            wrap.style.display = this.checked ? 'block' : 'none';
+            wrap.hidden = !this.checked;
             if (this.checked) {
                 setDefaultScheduleTime();
             }
         };
+        document.getElementById('publishModalSelectAll').onclick = function () {
+            document.querySelectorAll('.publish-modal-account').forEach((el) => {
+                el.checked = true;
+            });
+        };
+        document.getElementById('publishModalClearAll').onclick = function () {
+            document.querySelectorAll('.publish-modal-account').forEach((el) => {
+                el.checked = false;
+            });
+        };
+    }
+
+    function escapeHtml(text) {
+        return String(text || '').replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+        })[ch]);
+    }
+
+    function setAccountListMessage(message) {
+        const container = document.getElementById('publishModalAccounts');
+        const actions = document.getElementById('publishModalAccountActions');
+        container.innerHTML = `<p class="app-modal-hint">${escapeHtml(message)}</p>`;
+        if (actions) actions.hidden = true;
+    }
+
+    function getSelectedAccountIds() {
+        return [...document.querySelectorAll('.publish-modal-account:checked')]
+            .map((el) => el.value)
+            .filter(Boolean);
     }
 
     function setDefaultScheduleTime() {
         const input = document.getElementById('publishModalScheduleAt');
         if (!input || input.value) return;
-        const d = new Date(Date.now() + 60 * 60 * 1000);
-        d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
-        input.value = toDatetimeLocalValue(d);
+        const d = typeof beijingNowPlusMinutes === 'function'
+            ? beijingNowPlusMinutes(60)
+            : new Date(Date.now() + 60 * 60 * 1000);
+        input.value = typeof toBeijingDatetimeLocalValue === 'function'
+            ? toBeijingDatetimeLocalValue(d)
+            : toDatetimeLocalValue(d);
     }
 
     function toDatetimeLocalValue(date) {
@@ -93,8 +135,10 @@
     }
 
     async function loadAccounts() {
-        const select = document.getElementById('publishModalAccount');
-        select.innerHTML = '<option value="">加载中…</option>';
+        const container = document.getElementById('publishModalAccounts');
+        const actions = document.getElementById('publishModalAccountActions');
+        container.innerHTML = '<p class="app-modal-hint">加载中…</p>';
+        if (actions) actions.hidden = true;
         const resp = await fetch('/api/publishing/accounts');
         const data = await resp.json();
         const all = data.accounts || [];
@@ -105,21 +149,28 @@
                 const names = activeOnly
                     .map((a) => a.platform_display_name || a.platform)
                     .join('、');
-                select.innerHTML = `<option value="">以下账号仅支持登录，暂不可发布：${names}</option>`;
+                setAccountListMessage(`以下账号仅支持登录，暂不可发布：${names}`);
                 return;
             }
             const inactive = all.filter((a) => a.status !== 'active');
             if (inactive.length) {
-                select.innerHTML = '<option value="">有账号但会话已过期，请到发布中心重新登录</option>';
+                setAccountListMessage('有账号但会话已过期，请到发布中心重新登录');
                 return;
             }
-            select.innerHTML = '<option value="">请先在发布中心添加可发布平台账号</option>';
+            setAccountListMessage('请先在发布中心添加可发布平台账号');
             return;
         }
-        select.innerHTML = accounts.map((a) => {
+        container.innerHTML = accounts.map((a) => {
             const label = a.platform_display_name || a.platform;
-            return `<option value="${a.id}">${a.nickname || label} (${label})</option>`;
+            const nickname = a.nickname || label;
+            const display = `${nickname} (${label})`;
+            return `<label class="app-modal-account-row">
+                <input type="checkbox" class="publish-modal-account" value="${escapeHtml(a.id)}"
+                    data-label="${escapeHtml(display)}" data-platform="${escapeHtml(a.platform || '')}" checked />
+                <span>${escapeHtml(display)}</span>
+            </label>`;
         }).join('');
+        if (actions) actions.hidden = accounts.length <= 1;
     }
 
     function formatTagsForDescription(draft) {
@@ -131,9 +182,23 @@
         return tags.map((t) => (t.startsWith('#') ? t : `#${t}`)).join(' ');
     }
 
+    function sanitizeShortTitle(text) {
+        const kept = String(text || '').split('').map((ch) => {
+            if ('.．。'.includes(ch)) return '点';
+            if ('-－—–'.includes(ch)) return '';
+            return (ch === ' ' || /[\p{L}\p{N}]/u.test(ch)) ? ch : '';
+        }).join('');
+        return kept.replace(/\s+/g, ' ').trim().slice(0, 16);
+    }
+
+    function wechatTitleFromDraft(draft) {
+        const d = draft || {};
+        return sanitizeShortTitle(d.short_title || d.main_line1 || '');
+    }
+
     function buildDraftFields(draft) {
         const d = draft || {};
-        const title = String(d.main_line1 || '').trim().replace(/！/g, '？').slice(0, 30);
+        const title = wechatTitleFromDraft(d);
         const descParts = [
             d.main_line2,
             d.sub_title,
@@ -164,67 +229,74 @@
         const coverImg = document.getElementById('publishModalCoverImg');
         if (coverNormalized) {
             coverImg.src = mediaDisplayUrl(coverNormalized);
-            coverPreview.style.display = 'block';
+            coverPreview.hidden = false;
         } else {
             coverImg.removeAttribute('src');
-            coverPreview.style.display = 'none';
+            coverPreview.hidden = true;
         }
         document.getElementById('publishModalTitle').value = fields.title;
         document.getElementById('publishModalDescription').value = fields.description;
         document.getElementById('publishModalTags').value = fields.tags.join(', ');
-        document.getElementById('publishModalError').style.display = 'none';
+        document.getElementById('publishModalFirstComment').value = String((draft && draft.first_comment) || '').trim();
+        document.getElementById('publishModalError').hidden = true;
         document.getElementById('publishModalScheduleEnabled').checked = false;
-        document.getElementById('publishModalScheduleWrap').style.display = 'none';
+        document.getElementById('publishModalScheduleWrap').hidden = true;
         document.getElementById('publishModalScheduleAt').value = '';
         await loadAccounts();
         const overlay = document.getElementById(MODAL_ID);
-        overlay.style.display = 'flex';
+        overlay.hidden = false;
+        overlay.classList.add('is-open');
     };
 
     window.closePublishModal = function () {
         const overlay = document.getElementById(MODAL_ID);
-        if (overlay) overlay.style.display = 'none';
+        if (!overlay) return;
+        overlay.classList.remove('is-open');
+        overlay.hidden = true;
     };
 
     async function submitPublishModal() {
         const errEl = document.getElementById('publishModalError');
-        errEl.style.display = 'none';
-        const accountId = document.getElementById('publishModalAccount').value;
+        const confirmBtn = document.getElementById('publishModalConfirm');
+        errEl.hidden = true;
+        const accountIds = getSelectedAccountIds();
         const videoPath = document.getElementById('publishModalVideoPath').value;
         const coverPath = document.getElementById('publishModalCoverPath').value;
-        const title = document.getElementById('publishModalTitle').value.trim();
+        const title = sanitizeShortTitle(document.getElementById('publishModalTitle').value);
         const description = document.getElementById('publishModalDescription').value.trim();
         const tags = document.getElementById('publishModalTags').value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+        const firstComment = document.getElementById('publishModalFirstComment').value.trim();
         const scheduleEnabled = document.getElementById('publishModalScheduleEnabled').checked;
         const scheduleAtRaw = document.getElementById('publishModalScheduleAt').value;
-        if (!accountId) {
-            errEl.textContent = '请选择发布账号';
-            errEl.style.display = 'block';
+        if (!accountIds.length) {
+            errEl.textContent = '请至少选择一个发布账号';
+            errEl.hidden = false;
             return;
         }
         if (!videoPath || !title) {
             errEl.textContent = '视频路径或标题不能为空';
-            errEl.style.display = 'block';
+            errEl.hidden = false;
             return;
         }
         let scheduledAt = null;
         if (scheduleEnabled) {
             if (!scheduleAtRaw) {
                 errEl.textContent = '请选择定时发布时间';
-                errEl.style.display = 'block';
+                errEl.hidden = false;
                 return;
             }
-            const when = new Date(scheduleAtRaw);
+            const when = typeof parseBeijingDatetimeLocal === 'function'
+                ? parseBeijingDatetimeLocal(scheduleAtRaw)
+                : new Date(scheduleAtRaw);
             if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
                 errEl.textContent = '定时发布时间必须晚于当前时间';
-                errEl.style.display = 'block';
+                errEl.hidden = false;
                 return;
             }
             scheduledAt = when.toISOString();
         }
         const draft = window.lastPublishDraft || {};
-        const payload = {
-            account_id: accountId,
+        const basePayload = {
             video_path: videoPath,
             title,
             description,
@@ -236,32 +308,82 @@
             source_type: (window.lastPublishDraft && window.lastPublishDraft.source_type) || 'index',
             source_id: window.lastPublishDraft && window.lastPublishDraft.source_id,
         };
-        if (coverPath) {
-            payload.cover_path = coverPath;
-        }
         if (scheduledAt) {
-            payload.scheduled_at = scheduledAt;
+            basePayload.scheduled_at = scheduledAt;
         }
-        const resp = await fetch('/api/publishing/jobs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        const data = await resp.json();
-        if (!resp.ok) {
-            const msg = typeof data.detail === 'string' ? data.detail : (data.detail && data.detail.message) || '发布失败';
-            errEl.textContent = msg;
-            errEl.style.display = 'block';
+        if (firstComment) {
+            basePayload.first_comment_text = firstComment;
+        }
+
+        const originalLabel = confirmBtn.textContent;
+        confirmBtn.disabled = true;
+        const failures = [];
+        const accountLabels = Object.fromEntries(
+            [...document.querySelectorAll('.publish-modal-account')].map((el) => [
+                el.value,
+                el.dataset.label || el.value,
+            ])
+        );
+        const accountPlatforms = Object.fromEntries(
+            [...document.querySelectorAll('.publish-modal-account')].map((el) => [
+                el.value,
+                el.dataset.platform || '',
+            ])
+        );
+        try {
+            for (let index = 0; index < accountIds.length; index += 1) {
+                const accountId = accountIds[index];
+                confirmBtn.textContent = `提交中 ${index + 1}/${accountIds.length}…`;
+                const platform = accountPlatforms[accountId] || '';
+                const payload = { ...basePayload, account_id: accountId };
+                if (platform && platform !== 'wechat_channels') {
+                    const longTitle = String(draft.main_line1 || title).trim();
+                    if (longTitle) payload.title = longTitle.slice(0, 30);
+                }
+                if (coverPath && accountPlatforms[accountId] !== 'douyin') {
+                    payload.cover_path = coverPath;
+                }
+                const resp = await fetch('/api/publishing/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    const msg = typeof data.detail === 'string'
+                        ? data.detail
+                        : (data.detail && data.detail.message) || '发布失败';
+                    failures.push({
+                        label: accountLabels[accountId] || accountId,
+                        message: msg,
+                    });
+                }
+            }
+        } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalLabel;
+        }
+
+        if (failures.length === accountIds.length) {
+            const detail = failures.map((item) => `${item.label}: ${item.message}`).join('；');
+            errEl.textContent = `全部提交失败：${detail}`;
+            errEl.hidden = false;
             return;
         }
+
         closePublishModal();
-        const successMsg = scheduledAt
-            ? `已提交定时发布任务（${new Date(scheduledAt).toLocaleString()}），到达时间后将自动上传并发布`
-            : '已提交发布任务：将自动上传、填写文案并点击发布';
+        const successCount = accountIds.length - failures.length;
+        let successMsg = scheduledAt
+            ? `已为 ${successCount} 个账号提交定时发布任务（${formatBeijingDateTime(scheduledAt)}）`
+            : `已为 ${successCount} 个账号提交发布任务，将逐一自动上传并发布`;
+        if (failures.length) {
+            const detail = failures.map((item) => `${item.label}: ${item.message}`).join('；');
+            successMsg += `。失败 ${failures.length} 个：${detail}`;
+        }
         if (typeof window.showToast === 'function') {
-            window.showToast(successMsg, 'success', 4000);
+            window.showToast(successMsg, failures.length ? 'warning' : 'success', 4000);
         } else if (typeof window.setStatus === 'function') {
-            window.setStatus(successMsg, 'ok');
+            window.setStatus(successMsg, failures.length ? 'error' : 'ok');
         } else {
             alert(successMsg);
         }

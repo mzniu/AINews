@@ -1,4 +1,4 @@
-"""Story clustering: title similarity + keywords + time window."""
+"""Story clustering: title similarity + keywords + entities + content + time window."""
 from __future__ import annotations
 
 import json
@@ -10,6 +10,7 @@ from typing import Iterable, List, Optional, Set
 
 from sqlalchemy.orm import Session
 
+from services.ingestion.story_primary import refresh_story_primary
 from src.db.models.ingestion import (
     ArticleImage,
     IngestedArticle,
@@ -23,6 +24,8 @@ TITLE_NOISE = re.compile(
 )
 DEFAULT_THRESHOLD = 0.72
 DEFAULT_HOURS_WINDOW = 72
+CONTENT_SNIPPET_LEN = 500
+_ENTITY_NAMES: list[str] | None = None
 
 
 def normalize_title(title: str) -> str:
@@ -56,18 +59,104 @@ def load_keywords(article: IngestedArticle) -> List[str]:
         return []
 
 
+def load_entity_names() -> list[str]:
+    global _ENTITY_NAMES
+    if _ENTITY_NAMES is None:
+        from services.ingestion.article_scorer import load_scoring_config
+
+        cfg = load_scoring_config()
+        names = (cfg.get("tier1_companies") or []) + (cfg.get("tier2_companies") or [])
+        _ENTITY_NAMES = [str(name) for name in names if name]
+    return _ENTITY_NAMES
+
+
+def extract_entities(article: IngestedArticle) -> set[str]:
+    text = " ".join(
+        [
+            article.title or "",
+            article.summary or "",
+            " ".join(load_keywords(article)),
+        ]
+    ).lower()
+    found: set[str] = set()
+    for name in load_entity_names():
+        token = name.lower()
+        if token in text:
+            found.add(token)
+    return found
+
+
+def entities_jaccard(left: IngestedArticle, right: IngestedArticle) -> float:
+    a = extract_entities(left)
+    b = extract_entities(right)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def normalize_content_snippet(text: str) -> str:
+    cleaned = re.sub(r"\s+", "", (text or "").strip().lower())
+    return cleaned[:CONTENT_SNIPPET_LEN]
+
+
+def content_snippet_similarity(left: IngestedArticle, right: IngestedArticle) -> float:
+    left_text = normalize_content_snippet(
+        left.content_text or left.summary or left.title or ""
+    )
+    right_text = normalize_content_snippet(
+        right.content_text or right.summary or right.title or ""
+    )
+    if not left_text or not right_text:
+        return 0.0
+    return SequenceMatcher(None, left_text, right_text).ratio()
+
+
 @dataclass
 class ClusterMatch:
     story_id: str
     score: float
     article_id: str
+    cluster_method: str = "rule"
 
 
 def score_pair(article: IngestedArticle, other: IngestedArticle) -> float:
     t_score = title_similarity(article.title, other.title)
     k_score = keywords_jaccard(load_keywords(article), load_keywords(other))
-    theme_bonus = 0.1 if article.theme and article.theme == other.theme else 0.0
-    return t_score * 0.6 + k_score * 0.3 + theme_bonus
+    e_score = entities_jaccard(article, other)
+    c_score = content_snippet_similarity(article, other)
+    theme_bonus = 0.08 if article.theme and article.theme == other.theme else 0.0
+    return t_score * 0.45 + k_score * 0.2 + e_score * 0.2 + c_score * 0.15 + theme_bonus
+
+
+def _ensure_orphan_story(
+    session: Session,
+    orphan: IngestedArticle,
+    *,
+    score: float,
+) -> str:
+    if orphan.story_id:
+        return orphan.story_id
+    story = Story(
+        canonical_title=orphan.title,
+        topic_keywords_json=json.dumps(load_keywords(orphan), ensure_ascii=False),
+        cluster_method="rule",
+        cluster_score=score,
+        article_count=1,
+        primary_article_id=orphan.id,
+    )
+    session.add(story)
+    session.flush()
+    orphan.story_id = story.id
+    session.add(
+        StoryArticle(
+            story_id=story.id,
+            article_id=orphan.id,
+            role="primary",
+            similarity_score=score,
+        )
+    )
+    expand_story_assets(session, story.id)
+    return story.id
 
 
 def find_best_story_match(
@@ -76,37 +165,79 @@ def find_best_story_match(
     *,
     threshold: float = DEFAULT_THRESHOLD,
     hours_window: int = DEFAULT_HOURS_WINDOW,
+    config: dict | None = None,
 ) -> Optional[ClusterMatch]:
+    from services.ingestion.story_cluster_config import load_story_cluster_config
+    from services.ingestion.story_cluster_scoring import evaluate_pair_match
+
+    cfg = config or load_story_cluster_config()
+    if threshold != DEFAULT_THRESHOLD:
+        cfg = {**cfg, "title_threshold": threshold}
+    if hours_window != DEFAULT_HOURS_WINDOW:
+        cfg = {**cfg, "hours_window": hours_window}
+
     if article.story_id:
         return ClusterMatch(story_id=article.story_id, score=1.0, article_id=article.id)
 
     window_start = None
+    window_end = None
     if article.published_at:
         window_start = article.published_at - timedelta(hours=hours_window)
         window_end = article.published_at + timedelta(hours=hours_window)
     else:
-        window_end = None
+        window_end = datetime.utcnow() + timedelta(hours=1)
+        window_start = datetime.utcnow() - timedelta(hours=hours_window)
 
     q = session.query(IngestedArticle).filter(IngestedArticle.id != article.id)
-    if window_start and window_end:
+    if article.published_at:
         q = q.filter(
             IngestedArticle.published_at.isnot(None),
             IngestedArticle.published_at >= window_start,
             IngestedArticle.published_at <= window_end,
         )
-    candidates = q.order_by(IngestedArticle.published_at.desc()).limit(200).all()
+    else:
+        q = q.filter(
+            IngestedArticle.created_at >= window_start,
+            IngestedArticle.created_at <= window_end,
+        )
+    candidates = q.order_by(IngestedArticle.published_at.desc().nullslast()).limit(200).all()
 
-    best: Optional[ClusterMatch] = None
+    best_story: Optional[ClusterMatch] = None
+    best_orphan: Optional[ClusterMatch] = None
     for other in candidates:
-        score = score_pair(article, other)
-        if score < threshold:
+        result = evaluate_pair_match(article, other, config=cfg)
+        if not result.should_match:
             continue
-        story_id = other.story_id
-        if not story_id:
-            continue
-        if best is None or score > best.score:
-            best = ClusterMatch(story_id=story_id, score=score, article_id=other.id)
-    return best
+        score = result.final_score
+        if other.story_id:
+            if best_story is None or score > best_story.score:
+                best_story = ClusterMatch(
+                    story_id=other.story_id,
+                    score=score,
+                    article_id=other.id,
+                    cluster_method=result.cluster_method,
+                )
+        elif best_orphan is None or score > best_orphan.score:
+            best_orphan = ClusterMatch(
+                story_id="",
+                score=score,
+                article_id=other.id,
+                cluster_method=result.cluster_method,
+            )
+
+    if best_story is not None:
+        return best_story
+    if best_orphan is not None:
+        other = session.get(IngestedArticle, best_orphan.article_id)
+        if other is not None and not other.story_id:
+            story_id = _ensure_orphan_story(session, other, score=best_orphan.score)
+            return ClusterMatch(
+                story_id=story_id,
+                score=best_orphan.score,
+                article_id=other.id,
+                cluster_method=best_orphan.cluster_method,
+            )
+    return None
 
 
 def assign_article_to_story(
@@ -115,12 +246,17 @@ def assign_article_to_story(
     *,
     threshold: float = DEFAULT_THRESHOLD,
     hours_window: int = DEFAULT_HOURS_WINDOW,
+    config: dict | None = None,
 ) -> Optional[str]:
     if article.story_id:
         return article.story_id
 
     match = find_best_story_match(
-        session, article, threshold=threshold, hours_window=hours_window
+        session,
+        article,
+        threshold=threshold,
+        hours_window=hours_window,
+        config=config,
     )
     if match:
         story = session.get(Story, match.story_id)
@@ -143,8 +279,11 @@ def assign_article_to_story(
         )
         session.add(link)
         story.article_count = (story.article_count or 0) + 1
+        story.cluster_method = match.cluster_method
+        story.cluster_score = match.score
         story.updated_at = datetime.utcnow()
         expand_story_assets(session, story.id)
+        refresh_story_primary(session, story.id)
         return story.id
 
     story = Story(
@@ -157,6 +296,7 @@ def assign_article_to_story(
     session.add(story)
     session.flush()
     article.story_id = story.id
+    story.primary_article_id = article.id
     session.add(
         StoryArticle(
             story_id=story.id,
@@ -263,4 +403,5 @@ def merge_articles_into_story(session: Session, article_ids: List[str]) -> str:
     )
     story.updated_at = datetime.utcnow()
     expand_story_assets(session, story_id)
+    refresh_story_primary(session, story_id)
     return story_id

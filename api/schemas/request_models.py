@@ -132,7 +132,7 @@ class CreateAnimatedVideoRequest(BaseModel):
     images: List[Union[str, ImageWithDuration]] = []
     audio_path: str = ""
     title: str = ""  # 向后兼容：旧版 main|副标题，整段主标题会参与自动换行
-    main_line1: str = ""  # 主标题第一行，9～12 汉字当量，单行绘制
+    main_line1: str = ""  # 主标题第一行，12～16 汉字当量，成片用，单行绘制
     main_line2: str = ""  # 主标题第二行，9～12 汉字当量，单行绘制
     main_line1_color: str = "#FFFFFF"  # 第一行颜色，十六进制如 #FFFF00，默认白色
     main_line2_color: str = "#FFFFFF"  # 第二行颜色，十六进制如 #FFD700，默认白色
@@ -150,6 +150,7 @@ class CreateAnimatedVideoRequest(BaseModel):
     # 摘要高亮：在「标签」串中解析 #词；或直接使用下列词在摘要中匹配着色（长词优先；服务端会收束为每词≤5字）
     tags: Optional[str] = None
     summary_highlight_keywords: Optional[List[str]] = None
+    template_id: Optional[str] = None  # 成片模板；空则由调用方/默认模板决定
 
 
 class CreateUserVideoRequest(BaseModel):

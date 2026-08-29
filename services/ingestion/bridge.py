@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from services.ingestion.image_dedupe import dedupe_image_entries, normalize_image_url
 from services.ingestion.image_scorer import ImageScoreResult, load_image_scoring_config, pick_auto_selected
 from src.db.models.ingestion import ArticleImage, ImageRelevanceEvaluation, IngestedArticle, StoryAsset
 
@@ -43,6 +44,48 @@ def _evaluation_extra_fields(evaluation: ImageRelevanceEvaluation | None) -> dic
     }
 
 
+def _resolve_content_description(evaluation: ImageRelevanceEvaluation | None) -> str | None:
+    if evaluation is None:
+        return None
+    if evaluation.content_description:
+        return evaluation.content_description.strip()
+    if evaluation.caption:
+        return evaluation.caption.strip()
+    if evaluation.breakdown_json:
+        try:
+            breakdown = json.loads(evaluation.breakdown_json)
+            value = breakdown.get("content_description") or breakdown.get("caption")
+            return str(value).strip() if value else None
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
+def _evaluation_snapshot(evaluation: ImageRelevanceEvaluation | None) -> dict | None:
+    if evaluation is None:
+        return None
+    breakdown = None
+    if evaluation.breakdown_json:
+        try:
+            breakdown = json.loads(evaluation.breakdown_json)
+        except json.JSONDecodeError:
+            breakdown = None
+    return {
+        "source_type": evaluation.source_type,
+        "source_id": evaluation.source_id,
+        "relevance_score": evaluation.relevance_score,
+        "relevance_grade": evaluation.relevance_grade,
+        "relevance_rank": evaluation.relevance_rank,
+        "caption": evaluation.caption,
+        "content_description": _resolve_content_description(evaluation),
+        "verdict": evaluation.verdict,
+        "breakdown": breakdown,
+        "scored_at": evaluation.scored_at.isoformat() if evaluation.scored_at else None,
+        "scorer_version": evaluation.scorer_version,
+        "vision_profile_id": evaluation.vision_profile_id,
+    }
+
+
 def _image_entry(
     url: str,
     local_path: str | None,
@@ -65,6 +108,7 @@ def _image_entry(
     if source_id:
         entry["source_id"] = source_id
     if evaluation is not None:
+        content_description = _resolve_content_description(evaluation)
         entry.update(
             {
                 "source_type": evaluation.source_type,
@@ -73,7 +117,9 @@ def _image_entry(
                 "relevance_grade": evaluation.relevance_grade,
                 "relevance_rank": evaluation.relevance_rank,
                 "caption": evaluation.caption,
+                "content_description": content_description,
                 "verdict": evaluation.verdict,
+                "evaluation": _evaluation_snapshot(evaluation),
                 **_evaluation_extra_fields(evaluation),
             }
         )
@@ -96,17 +142,26 @@ def _article_images(
         .order_by(ArticleImage.sort_order)
         .all()
     )
-    return [
-        _image_entry(
-            img.original_url,
-            img.local_path,
-            source="article",
-            source_type="article_image",
-            source_id=img.id,
-            evaluation=evaluations.get(("article_image", img.id)),
+    images: list[dict] = []
+    seen_urls: set[str] = set()
+    for img in rows:
+        url = str(img.original_url or "").strip()
+        norm_url = normalize_image_url(url)
+        if norm_url and norm_url in seen_urls:
+            continue
+        if norm_url:
+            seen_urls.add(norm_url)
+        images.append(
+            _image_entry(
+                url,
+                img.local_path,
+                source="article",
+                source_type="article_image",
+                source_id=img.id,
+                evaluation=evaluations.get(("article_image", img.id)),
+            )
         )
-        for img in rows
-    ]
+    return images
 
 
 def _story_merged_images(
@@ -132,9 +187,10 @@ def _story_merged_images(
         except json.JSONDecodeError:
             continue
         url = str(payload.get("original_url") or "").strip()
-        if not url or url in seen_urls:
+        norm_url = normalize_image_url(url)
+        if not norm_url or norm_url in seen_urls:
             continue
-        seen_urls.add(url)
+        seen_urls.add(norm_url)
         merged.append(
             _image_entry(
                 url,
@@ -161,21 +217,22 @@ def _sort_images_by_relevance(images: list[dict]) -> list[dict]:
     return sorted(images, key=sort_key)
 
 
-def _evaluations_to_results(
-    evaluations: dict[tuple[str, str], ImageRelevanceEvaluation],
-) -> list[ImageScoreResult]:
+def _image_entries_to_results(images: list[dict]) -> list[ImageScoreResult]:
     results: list[ImageScoreResult] = []
-    for ev in evaluations.values():
+    for item in images:
+        source_id = str(item.get("source_id") or "").strip()
+        if not source_id or not item.get("local_path"):
+            continue
         results.append(
             ImageScoreResult(
-                source_type=ev.source_type,
-                source_id=ev.source_id,
-                original_url=ev.original_url,
-                local_path=ev.local_path,
-                total=float(ev.relevance_score or 0),
-                grade=str(ev.relevance_grade or "D"),
-                relevance_rank=int(ev.relevance_rank or 0),
-                rank=int(ev.relevance_rank or 0),
+                source_type=str(item.get("source_type") or "article_image"),
+                source_id=source_id,
+                original_url=str(item.get("url") or ""),
+                local_path=str(item.get("local_path") or ""),
+                total=float(item.get("relevance_score") or 0),
+                grade=str(item.get("relevance_grade") or "D"),
+                relevance_rank=int(item.get("relevance_rank") or 0),
+                rank=int(item.get("relevance_rank") or 0),
             )
         )
     return results
@@ -205,10 +262,12 @@ def prepare_video_metadata(
         )
         image_paths = image_paths + story_images
 
+    image_paths = dedupe_image_entries(image_paths, config=load_image_scoring_config())
+
     auto_selected_images: list[dict] = []
     if auto_select and evaluations:
         cfg = load_image_scoring_config()
-        picked = pick_auto_selected(_evaluations_to_results(evaluations), config=cfg)
+        picked = pick_auto_selected(_image_entries_to_results(image_paths), config=cfg)
         auto_ids = {(p.source_type, p.source_id) for p in picked}
         for item in image_paths:
             key = (item.get("source_type"), item.get("source_id"))

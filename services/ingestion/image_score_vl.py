@@ -117,6 +117,7 @@ def _build_prompt(
 - 仅输出一个 JSON 对象，不要 Markdown、不要解释文字
 - 键名与字符串一律使用双引号，禁止尾随逗号
 - caption / verdict 中如有引号请转义
+- content_description 用于去重：需客观描述画面主体、场景、可见文字，避免主观评价
 
 只输出 JSON，格式：
 {{
@@ -133,7 +134,8 @@ def _build_prompt(
         "compliance": {{"score": 9, "signals": []}}
       }},
       "penalties": [],
-      "caption": "一句话描述图片内容",
+      "caption": "一句话配图标题",
+      "content_description": "客观描述画面主体、场景、关键文字与构图特征，用于识别重复图",
       "verdict": "一句话配图建议（是否适合进 3–4 张主画面）",
       "reject": false
     }}
@@ -214,12 +216,26 @@ def _call_vl_batch(
         request_kwargs["response_format"] = {"type": "json_object"}
 
     try:
-        response = client.chat.completions.create(**request_kwargs)
+        from services.model_config.token_usage import complete_chat
+
+        response = complete_chat(
+            client,
+            kind="vision",
+            profile=profile,
+            task="image_score",
+            **request_kwargs,
+        )
     except Exception as exc:
         if "response_format" in request_kwargs:
             logger.debug(f"VL json_mode unsupported, retrying without it: {exc}")
             request_kwargs.pop("response_format", None)
-            response = client.chat.completions.create(**request_kwargs)
+            response = complete_chat(
+                client,
+                kind="vision",
+                profile=profile,
+                task="image_score",
+                **request_kwargs,
+            )
         else:
             raise
 

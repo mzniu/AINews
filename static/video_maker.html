@@ -5,80 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>视频制作 - 图片转视频</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815a">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260813c" defer></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        /* 导航栏样式 */
-        .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 0 var(--space-6);
-            box-shadow: var(--shadow-sm);
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            border-radius: 0 0 var(--radius-xl) var(--radius-xl);
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 60px;
-        }
-
-        .nav-brand {
-            font-size: var(--fs-xl);
-            font-weight: 700;
-            color: var(--brand-1);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: var(--space-2);
-        }
-
-        .nav-brand:hover {
-            color: var(--brand-2);
-        }
-
-        .nav-menu {
-            display: flex;
-            gap: var(--space-1);
-        }
-
-        .nav-link {
-            padding: var(--space-3) var(--space-6);
-            text-decoration: none;
-            color: var(--text-secondary);
-            font-weight: 500;
-            border-radius: var(--radius-sm);
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: var(--space-1);
-        }
-
-        .nav-link:hover {
-            background: rgba(102, 126, 234, 0.1);
-            color: var(--brand-1);
-        }
-
-        .nav-link.active {
-            background: var(--brand-grad);
-            color: var(--text-on-brand);
-        }
-
-        body {
-            font-family: var(--font-sans);
-            background: var(--bg-body);
-            min-height: 100vh;
-            padding: var(--space-6);
-            padding-top: 80px; /* 为固定导航栏留出空间 */
-        }
         .container { max-width: 1000px; margin: 0 auto; }
         .header {
             text-align: center;
@@ -302,21 +233,10 @@
         }
     </style>
 </head>
-<body>
-    <!-- 导航栏 -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-brand">🎬 AINews</a>
-            <div class="nav-menu">
-                <a href="/" class="nav-link">🏠 主页</a>
-                <a href="/video-maker" class="nav-link active">📹 视频制作</a>
-                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
-                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
-            </div>
-        </div>
-    </nav>
-    
-    <div class="container">
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+<div class="container">
         <div class="header">
             <h1>📹 图片转视频</h1>
             <p>上传图片，自动添加入场动画和背景音乐，一键生成精美视频</p>

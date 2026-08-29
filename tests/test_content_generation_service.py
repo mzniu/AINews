@@ -9,13 +9,14 @@ from services.content_generation_service import generate_video_content
 @patch("services.content_generation_service.invoke_json_llm_with_compliance")
 @patch("services.content_generation_service._build_openai_client")
 def test_generate_video_content_parses_llm_response(mock_client, mock_invoke):
-    mock_client.return_value = (MagicMock(), "deepseek-chat", "https://api.deepseek.com")
+    mock_client.return_value = (MagicMock(), "deepseek-chat", "https://api.deepseek.com", {"id": "p1"})
     compliance = MagicMock()
     compliance.tokens_used = 100
     compliance.to_dict.return_value = {"passed": True}
     mock_invoke.return_value = (
         {
             "main_line1": "突发！DeepSeek 新模型",
+            "short_title": "DeepSeek新模型",
             "main_line2": "网友：太强了",
             "sub_title": "小牛说副标题",
             "sub_title2": "",
@@ -39,5 +40,31 @@ def test_generate_video_content_parses_llm_response(mock_client, mock_invoke):
 
     assert result["success"] is True
     assert result["main_line1"].startswith("突发")
+    assert result["short_title"] == "DeepSeek新模型"
     assert result["summary"].startswith("小牛说")
     assert "DeepSeek" in result["title"]
+
+
+@patch("services.content_generation_service.invoke_json_llm_with_compliance")
+@patch("services.content_generation_service._build_openai_client")
+def test_generate_video_content_falls_back_short_title(mock_client, mock_invoke):
+    mock_client.return_value = (MagicMock(), "deepseek-chat", "https://api.deepseek.com", {"id": "p1"})
+    compliance = MagicMock()
+    compliance.tokens_used = 10
+    compliance.to_dict.return_value = {"passed": True}
+    mock_invoke.return_value = (
+        {
+            "main_line1": "成片主标题可以写到二十个字左右了吧",
+            "main_line2": "",
+            "sub_title": "轻观点",
+            "summary": "小牛说：正文摘要。",
+            "voiceover_script": "小牛说：口播。",
+            "tags": "#AI",
+        },
+        compliance,
+    )
+
+    result = generate_video_content(title="原标题", content="正文")
+
+    assert result["success"] is True
+    assert result["short_title"] == "成片主标题可以写到二十个字左右了"

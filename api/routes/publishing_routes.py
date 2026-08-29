@@ -10,25 +10,34 @@ from typing import Optional
 
 import cv2
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from api.schemas.publishing_models import (
     AccountStatusResponse,
+    BindPublishedPostRequest,
     CreatePublishJobRequest,
     ExtractCoverRequest,
+    MetricsSyncStatusResponse,
+    MetricsAlertsResponse,
+    MetricsSummaryResponse,
+    PublishedPostResponse,
     PublishJobResponse,
     PublishingHealthResponse,
     QrStartRequest,
     QrStartResponse,
     QrStatusResponse,
+    ReschedulePublishJobRequest,
+    ViewDropAlert,
 )
+from services.publishing.account_delete import AccountDeleteError, delete_publisher_account
 from services.publishing.account_status import check_account_status
 from services.publishing.compliance import validate_publish_payload
 from services.publishing.job_recovery import recover_stale_publish_jobs
 from services.publishing.metadata_bridge import PublishDraftMetadata, build_wechat_description
 from services.publishing.path_guard import PathGuardError, resolve_cover_path, resolve_video_path, to_relative_posix
 from services.publishing.platform_capabilities import can_account_login, can_video_publish
-from services.publishing.qr_login import create_qr_session
+from services.publishing.orchestrator import PublishOrchestrator
 from services.publishing.registry import (
     PlatformDisabledError,
     PlatformNotFoundError,
@@ -83,6 +92,11 @@ def _job_to_response(job: PublishJob, account: PublisherAccount | None = None) -
         finished_at=job.finished_at,
         published_at=job.published_at,
         scheduled_at=job.scheduled_at,
+        first_comment_text=job.first_comment_text,
+        comment_status=job.comment_status,
+        comment_posted_at=job.comment_posted_at,
+        comment_error_message=job.comment_error_message,
+        comment_retry_count=job.comment_retry_count or 0,
     )
 
 
@@ -162,15 +176,14 @@ async def qr_status(session_id: str, db: Session = Depends(get_db)):
 
 @router.delete("/accounts/{account_id}")
 async def delete_account(account_id: str, db: Session = Depends(get_db)):
-    row = db.get(PublisherAccount, account_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="账号不存在")
-    session_file = Config.ROOT_DIR / row.session_path
-    db.delete(row)
-    db.commit()
-    if session_file.exists():
-        session_file.unlink()
-    return {"success": True}
+    try:
+        summary = delete_publisher_account(db, account_id)
+    except AccountDeleteError as exc:
+        message = str(exc)
+        if "不存在" in message:
+            raise HTTPException(status_code=404, detail=message) from exc
+        raise HTTPException(status_code=409, detail=message) from exc
+    return {"success": True, **summary}
 
 
 @router.post("/accounts/{account_id}/check-status", response_model=AccountStatusResponse)
@@ -257,6 +270,13 @@ async def create_job(body: CreatePublishJobRequest, db: Session = Depends(get_db
             scheduled_at = scheduled_at.replace(tzinfo=None)
         if scheduled_at <= datetime.utcnow():
             raise HTTPException(status_code=400, detail="定时发布时间必须晚于当前时间")
+    first_comment_text = (body.first_comment_text or "").strip() or None
+    if first_comment_text:
+        from services.publishing.first_comment import validate_first_comment
+
+        ok, err = validate_first_comment(first_comment_text)
+        if not ok:
+            raise HTTPException(status_code=400, detail=err)
     job = PublishJob(
         account_id=body.account_id,
         video_path=to_relative_posix(video),
@@ -268,6 +288,8 @@ async def create_job(body: CreatePublishJobRequest, db: Session = Depends(get_db
         source_id=body.source_id,
         status="pending",
         scheduled_at=scheduled_at,
+        first_comment_text=first_comment_text,
+        comment_status="none",
     )
     db.add(job)
     db.commit()
@@ -278,6 +300,7 @@ async def create_job(body: CreatePublishJobRequest, db: Session = Depends(get_db
 @router.get("/jobs")
 async def list_jobs(
     status: Optional[str] = Query(None),
+    comment_status: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -286,6 +309,8 @@ async def list_jobs(
     query = db.query(PublishJob).order_by(PublishJob.created_at.desc())
     if status:
         query = query.filter_by(status=status)
+    if comment_status:
+        query = query.filter(PublishJob.comment_status == comment_status)
     rows = query.offset(offset).limit(limit).all()
     account_map: dict[str, PublisherAccount] = {}
     if rows:
@@ -328,21 +353,35 @@ async def get_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/jobs/{job_id}/retry")
-async def retry_job(job_id: str, db: Session = Depends(get_db)):
+async def retry_job(
+    job_id: str,
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+):
     job = db.get(PublishJob, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="任务不存在")
     if job.status not in {"failed", "uploading"}:
         raise HTTPException(status_code=400, detail="仅失败或中断中的任务可重试")
-    if job.retry_count >= MAX_RETRY:
-        raise HTTPException(status_code=400, detail=f"已达最大重试次数 {MAX_RETRY}")
+    if not force and job.retry_count >= MAX_RETRY:
+        raise HTTPException(
+            status_code=400,
+            detail=f"已达最大重试次数 {MAX_RETRY}，可添加 ?force=true 强制重试",
+        )
     job.status = "pending"
-    job.retry_count += 1
+    if not force or job.retry_count < MAX_RETRY:
+        job.retry_count += 1
     job.error_message = None
     job.started_at = None
     job.finished_at = None
     db.commit()
-    return {"success": True, "job_id": job.id, "status": job.status}
+    return {
+        "success": True,
+        "job_id": job.id,
+        "status": job.status,
+        "retry_count": job.retry_count,
+        "forced": force,
+    }
 
 
 @router.post("/jobs/{job_id}/cancel")
@@ -374,6 +413,286 @@ async def extract_cover(body: ExtractCoverRequest):
         raise HTTPException(status_code=400, detail="无法读取视频首帧")
     cv2.imwrite(str(out_path), frame)
     return {"success": True, "cover_path": to_relative_posix(out_path)}
+
+
+@router.get("/auto-publish/settings")
+def get_auto_publish_settings_route():
+    from services.ingestion.scoring_settings import get_auto_publish_settings
+
+    return {"success": True, **get_auto_publish_settings()}
+
+
+@router.put("/auto-publish/settings")
+def update_auto_publish_settings_route(body: dict):
+    from services.ingestion.scoring_settings import save_auto_publish_settings
+
+    allowed = {
+        "enabled",
+        "min_grade",
+        "interval_minutes",
+        "quiet_hours_enabled",
+        "quiet_hours_start",
+        "quiet_hours_end",
+    }
+    if not any(key in body for key in allowed):
+        raise HTTPException(status_code=400, detail="至少提供一个可更新字段")
+    try:
+        settings = save_auto_publish_settings(
+            enabled=body.get("enabled") if "enabled" in body else None,
+            min_grade=body.get("min_grade") if "min_grade" in body else None,
+            interval_minutes=body.get("interval_minutes") if "interval_minutes" in body else None,
+            quiet_hours_enabled=body.get("quiet_hours_enabled")
+            if "quiet_hours_enabled" in body
+            else None,
+            quiet_hours_start=body.get("quiet_hours_start")
+            if "quiet_hours_start" in body
+            else None,
+            quiet_hours_end=body.get("quiet_hours_end") if "quiet_hours_end" in body else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"success": True, "message": "自动发布设置已更新", **settings}
+
+
+@router.get("/first-comment/settings")
+def get_first_comment_settings_route():
+    from services.publishing.first_comment_settings import get_first_comment_settings
+
+    return {"success": True, **get_first_comment_settings()}
+
+
+@router.put("/first-comment/settings")
+def update_first_comment_settings_route(body: dict):
+    from services.publishing.first_comment_settings import save_first_comment_settings
+
+    if "enabled" not in body:
+        raise HTTPException(status_code=400, detail="至少提供 enabled 字段")
+    settings = save_first_comment_settings(enabled=bool(body.get("enabled")))
+    return {"success": True, "message": "首评设置已更新", **settings}
+
+
+@router.post("/jobs/{job_id}/retry-comment")
+async def retry_comment_job_route(
+    job_id: str,
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    job = db.get(PublishJob, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    result = PublishOrchestrator(get_session_factory()).retry_comment_job(job_id, force=force)
+    if not result.get("success") and result.get("error") not in (None, ""):
+        error = str(result.get("error") or "")
+        if error in {
+            "job_not_found",
+            "account_not_found",
+            "account_inactive",
+            "job_not_published",
+            "no_comment_text",
+            "already_posted",
+            "comment_status_not_retryable",
+            "retry_limit_reached",
+            "unsupported_platform",
+        }:
+            status_code = 404 if error == "job_not_found" else 400
+            raise HTTPException(status_code=status_code, detail=error)
+    db.refresh(job)
+    return {
+        "success": bool(result.get("success")),
+        "job_id": job_id,
+        "comment_status": result.get("comment_status", job.comment_status),
+        "comment_retry_count": result.get("comment_retry_count", job.comment_retry_count),
+        "error": result.get("error"),
+    }
+
+
+@router.patch("/jobs/{job_id}/schedule")
+async def reschedule_publish_job_route(
+    job_id: str,
+    body: ReschedulePublishJobRequest,
+    db: Session = Depends(get_db),
+):
+    from services.publishing.schedule import load_spacing_config, reschedule_publish_job
+
+    job = db.get(PublishJob, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    try:
+        result = reschedule_publish_job(
+            db,
+            job,
+            body.scheduled_at,
+            config=load_spacing_config(),
+            cascade=body.cascade,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    return {"success": True, **result}
+
+
+@router.get("/published-posts")
+def list_published_posts_route(
+    platform: Optional[str] = Query(None),
+    account_id: Optional[str] = Query(None),
+    days: Optional[int] = Query(None, ge=1, le=365),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    from services.publishing.metrics.query import list_published_posts
+
+    items, total = list_published_posts(
+        db,
+        platform=platform,
+        account_id=account_id,
+        days=days,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "success": True,
+        "total": total,
+        "posts": [PublishedPostResponse(**item) for item in items],
+    }
+
+
+@router.get("/published-posts/{job_id}/metrics")
+def get_published_post_metrics_route(
+    job_id: str,
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    from services.publishing.metrics.query import get_post_metrics_history
+
+    job = db.get(PublishJob, job_id)
+    if job is None or job.status != "published":
+        raise HTTPException(status_code=404, detail="已发布作品不存在")
+    history = get_post_metrics_history(db, job_id, days=days)
+    return {"success": True, "job_id": job_id, "history": history}
+
+
+@router.get("/published-posts/export")
+def export_published_posts_csv(
+    platform: Optional[str] = Query(None),
+    account_id: Optional[str] = Query(None),
+    days: Optional[int] = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    from services.publishing.metrics.export import build_published_posts_csv
+
+    csv_text = build_published_posts_csv(
+        db,
+        platform=platform,
+        account_id=account_id,
+        days=days,
+    )
+    filename = f"published_posts_{datetime.utcnow():%Y%m%d}.csv"
+    return Response(
+        content="\ufeff" + csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/published-posts/{job_id}/bind")
+def bind_published_post_route(
+    job_id: str,
+    body: BindPublishedPostRequest,
+    db: Session = Depends(get_db),
+):
+    from services.publishing.metrics.query import bind_published_post
+
+    try:
+        result = bind_published_post(
+            db,
+            job_id=job_id,
+            platform_post_id=body.platform_post_id,
+            platform_post_url=body.platform_post_url,
+        )
+        db.commit()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"success": True, **result}
+
+
+@router.get("/metrics/alerts", response_model=MetricsAlertsResponse)
+def get_metrics_alerts_route(
+    platform: Optional[str] = Query(None),
+    account_id: Optional[str] = Query(None),
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    from services.publishing.metrics.alerts import detect_view_drop_alerts
+    from services.publishing.metrics.config import load_metrics_sync_config
+
+    cfg = load_metrics_sync_config()
+    alerts = detect_view_drop_alerts(
+        db,
+        drop_pct=cfg["alert_view_drop_pct"],
+        min_previous_views=cfg["alert_min_previous_views"],
+        days=days,
+        platform=platform,
+        account_id=account_id,
+    )
+    return MetricsAlertsResponse(
+        success=True,
+        alerts=[ViewDropAlert(**item) for item in alerts],
+    )
+
+
+@router.get("/metrics/summary", response_model=MetricsSummaryResponse)
+def get_metrics_summary_route(
+    platform: Optional[str] = Query(None),
+    account_id: Optional[str] = Query(None),
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    from services.publishing.metrics.query import get_metrics_summary
+
+    summary = get_metrics_summary(
+        db,
+        platform=platform,
+        account_id=account_id,
+        days=days,
+    )
+    return MetricsSummaryResponse(**summary)
+
+
+@router.get("/metrics/sync-status", response_model=MetricsSyncStatusResponse)
+def get_metrics_sync_status(db: Session = Depends(get_db)):
+    from services.publishing.metrics.query import get_latest_sync_run
+
+    run = get_latest_sync_run(db)
+    if run is None:
+        return MetricsSyncStatusResponse(success=True, status=None)
+    return MetricsSyncStatusResponse(
+        success=True,
+        status=run.status,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        accounts_total=run.accounts_total,
+        posts_synced=run.posts_synced,
+        posts_unmatched=run.posts_unmatched,
+        posts_failed=run.posts_failed,
+        error_summary=run.error_summary,
+    )
+
+
+@router.post("/metrics/sync")
+async def trigger_metrics_sync():
+    from services.publishing.metrics.sync_orchestrator import MetricsSyncOrchestrator
+
+    factory = get_session_factory()
+    run = await asyncio.to_thread(MetricsSyncOrchestrator(factory).sync_all_accounts)
+    return {
+        "success": True,
+        "status": run.status,
+        "posts_synced": run.posts_synced,
+        "posts_unmatched": run.posts_unmatched,
+        "posts_failed": run.posts_failed,
+        "error_summary": run.error_summary,
+    }
 
 
 @router.get("/health", response_model=PublishingHealthResponse)

@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from services.ingestion.db_retry import run_with_sqlite_retry
+from services.publishing.browser_lock import BrowserLockTimeout
 from services.publishing.registry import PlatformDisabledError, PlatformNotFoundError, get_adapter
 from src.db.engine import session_scope
 from src.db.models.publishing import PublisherAccount
@@ -14,6 +15,15 @@ _STATUS_MESSAGES = {
     "active": "会话有效，可正常发布",
     "expired": "会话已过期，请重新扫码登录",
     "unknown": "无法确认会话状态，请稍后重试或重新登录",
+}
+
+_PLATFORM_STATUS_MESSAGES = {
+    "douyin": {
+        "expired": "创作者数据接口未授权（会话已失效），请重新扫码登录后再同步数据",
+    },
+    "wechat_channels": {
+        "expired": "视频号数据接口未授权（会话已失效），请重新扫码登录后再同步数据",
+    },
 }
 
 
@@ -67,8 +77,17 @@ def check_account_status(account_id: str) -> dict:
             "platform": info["platform"],
         }
 
-    # validate_session opens Playwright; run only after DB session is closed.
-    session_status = adapter.validate_session(session_path)
+    try:
+        session_status = adapter.validate_session(session_path)
+    except BrowserLockTimeout:
+        return {
+            "success": False,
+            "account_id": info["account_id"],
+            "status": info["status"],
+            "message": "浏览器正用于发布或其他检测任务，请稍后再试",
+            "nickname": info["nickname"],
+            "platform": info["platform"],
+        }
 
     if session_status in ("active", "expired"):
         _persist_status(account_id, session_status)
@@ -77,7 +96,10 @@ def check_account_status(account_id: str) -> dict:
         "success": True,
         "account_id": info["account_id"],
         "status": session_status,
-        "message": _STATUS_MESSAGES.get(session_status, _STATUS_MESSAGES["unknown"]),
+        "message": (
+            _PLATFORM_STATUS_MESSAGES.get(info["platform"], {}).get(session_status)
+            or _STATUS_MESSAGES.get(session_status, _STATUS_MESSAGES["unknown"])
+        ),
         "nickname": info["nickname"],
         "platform": info["platform"],
     }

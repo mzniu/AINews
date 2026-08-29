@@ -2,9 +2,19 @@
 from __future__ import annotations
 
 import re
+import random
 from typing import TYPE_CHECKING
 
 from loguru import logger
+
+from services.publishing.human_form import human_click_element
+from services.publishing.human_pacing import human_pause
+from services.publishing.human_interaction import (
+    human_click,
+    human_click_publish_target,
+    human_idle_on_page,
+    human_type_text,
+)
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
@@ -66,31 +76,7 @@ def compose_xiaohongshu_description(description: str, tags: list[str]) -> str:
 
 
 def _set_field_text(locator: Locator, text: str) -> None:
-    locator.scroll_into_view_if_needed(timeout=5000)
-    locator.click(timeout=5000)
-    tag_name = locator.evaluate("(el) => el.tagName")
-    if tag_name in {"TEXTAREA", "INPUT"}:
-        locator.fill(text)
-        locator.evaluate(
-            """(el) => {
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-            }"""
-        )
-        return
-    locator.evaluate(
-        """(el, value) => {
-            el.focus();
-            if ('value' in el) {
-                el.value = value;
-            }
-            el.textContent = value;
-            el.innerText = value;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-        }""",
-        text,
-    )
+    human_type_text(locator.page, locator, text, clear_first=True)
 
 
 def _first_visible_locator(page: Page, selectors: tuple[str, ...]) -> Locator | None:
@@ -112,16 +98,14 @@ def ensure_video_publish_tab(page: Page, *, timeout_ms: int = 15_000) -> bool:
         try:
             tab = page.get_by_text(text, exact=True).first
             if tab.is_visible(timeout=1500):
-                tab.click(timeout=3000)
-                page.wait_for_timeout(800)
+                human_click(page, tab)
                 return True
         except Exception:
             continue
     try:
         tab = page.locator("div.creator-tab").filter(has_text="上传视频").first
         if tab.is_visible(timeout=timeout_ms):
-            tab.click(timeout=3000)
-            page.wait_for_timeout(800)
+            human_click(page, tab)
             return True
     except Exception:
         pass
@@ -136,8 +120,7 @@ def ensure_upload_surface(page: Page, *, timeout_ms: int) -> bool:
         try:
             trigger = page.get_by_text(text, exact=False).first
             if trigger.is_visible(timeout=1500):
-                trigger.click(timeout=3000)
-                page.wait_for_timeout(1000)
+                human_click(page, trigger)
                 if _first_visible_locator(page, FILE_INPUT_SELECTORS) is not None:
                     return True
         except Exception:
@@ -158,8 +141,10 @@ def upload_xiaohongshu_video(page: Page, video_path: str, *, timeout_ms: int) ->
     if file_input is None:
         file_input = page.locator(FILE_INPUT_SELECTORS[-1]).first
     try:
+        human_idle_on_page(page, moves=1)
         file_input.set_input_files(video_path, timeout=timeout_ms)
-        page.wait_for_timeout(2000)
+        human_pause(page, "after_upload")
+        human_idle_on_page(page, moves=2)
         return True
     except Exception as exc:
         logger.warning(f"Xiaohongshu video upload failed: {exc}")
@@ -181,7 +166,9 @@ def wait_for_xiaohongshu_video_ready(page: Page, *, timeout_ms: int) -> bool:
                 return True
         except Exception:
             pass
-        page.wait_for_timeout(2000)
+        human_pause(page, "polling")
+        if random.random() < 0.35:
+            human_idle_on_page(page, moves=1)
     return False
 
 
@@ -190,7 +177,7 @@ def wait_for_xiaohongshu_editor(page: Page, *, timeout_ms: int) -> bool:
     for _ in range(deadline_attempts):
         if _first_visible_locator(page, TITLE_SELECTORS) is not None:
             return True
-        page.wait_for_timeout(2000)
+        human_pause(page, "polling")
     return False
 
 
@@ -209,6 +196,7 @@ def fill_xiaohongshu_title(page: Page, title: str, *, timeout_ms: int, max_lengt
         return False
     try:
         title_loc.wait_for(state="visible", timeout=timeout_ms)
+        human_idle_on_page(page, moves=1)
         _set_field_text(title_loc, text)
         return True
     except Exception as exc:
@@ -230,6 +218,7 @@ def fill_xiaohongshu_description(page: Page, description: str, *, timeout_ms: in
         return False
     try:
         desc_loc.wait_for(state="visible", timeout=timeout_ms)
+        human_idle_on_page(page, moves=1)
         _set_field_text(desc_loc, description)
         return True
     except Exception as exc:
@@ -237,12 +226,61 @@ def fill_xiaohongshu_description(page: Page, description: str, *, timeout_ms: in
         return False
 
 
+XHS_PUBLISH_INVOKE_METHODS = (
+    "_onPublish",
+    "_onSubmit",
+    "onPublish",
+    "_handlePublish",
+)
+
 XHS_PUBLISH_BUTTON_SELECTORS = (
     "xhs-publish-btn",
     ".publish-page-publish-btn button.bg-red",
     ".publish-page-publish-btn button",
     "button.publishBtn",
 )
+
+XHS_PUBLISH_SUCCESS_PATTERN = re.compile(
+    r"发布成功|发布笔记成功|笔记发布成功|提交成功|已发布|笔记已提交|发布完成|"
+    r"前往笔记管理|继续发布|继续创作|定时发布成功",
+    re.I,
+)
+
+XHS_PUBLISH_FAILURE_PATTERN = re.compile(
+    r"发布失败|提交失败|请添加话题|请填写标题|不能为空|字数超出|内容违规|请先上传",
+    re.I,
+)
+
+XHS_PUBLISH_SUCCESS_URL_HINTS = (
+    "note-manager",
+    "note_manager",
+    "notemanage",
+    "/publish/success",
+    "/new/home",
+    "/creator/notes",
+)
+
+
+def _publish_label_matches(label: str) -> bool:
+    text = re.sub(r"\s+", "", label or "")
+    if not text:
+        return True
+    if text in {"发布", "定时发布"}:
+        return True
+    return text.startswith("发布")
+
+
+def xhs_url_suggests_publish_success(initial_url: str, current_url: str) -> bool:
+    if current_url == initial_url:
+        return False
+    if "/publish/success" in current_url:
+        return True
+    if any(hint in current_url for hint in ("note-manager", "note_manager", "notemanage")):
+        return True
+    if "/publish/publish" in initial_url:
+        if "/new/" in current_url and "/publish/publish" not in current_url:
+            return True
+    return False
 
 
 def wait_for_xhs_publish_button_ready(page: Page, *, timeout_ms: int) -> bool:
@@ -266,57 +304,171 @@ def wait_for_xhs_publish_button_ready(page: Page, *, timeout_ms: int) -> bool:
                 return True
         except Exception:
             pass
-        page.wait_for_timeout(2000)
+        human_pause(page, "polling")
     return False
 
 
-def _click_xhs_publish_component(page: Page) -> bool:
+def _is_xhs_publish_target_enabled(locator: Locator) -> bool:
+    try:
+        if locator.evaluate(
+            """(el) => {
+                if (el.tagName && el.tagName.toLowerCase() === 'xhs-publish-btn') {
+                    return el.getAttribute('submit-disabled') !== 'true';
+                }
+                return !el.disabled && el.getAttribute('aria-disabled') !== 'true';
+            }"""
+        ):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _locate_xhs_publish_targets(page: Page) -> list[Locator]:
+    targets: list[Locator] = []
+    widget = page.locator("xhs-publish-btn").first
+    if widget.count() > 0:
+        inner = widget.locator("button").first
+        if inner.count() > 0:
+            targets.append(inner)
+        targets.append(widget)
+    for selector in (
+        ".publish-page-publish-btn button.bg-red",
+        ".publish-page-publish-btn button",
+        "button.publishBtn",
+    ):
+        locator = page.locator(selector)
+        count = min(locator.count(), 4)
+        for index in range(count):
+            targets.append(locator.nth(index))
+    return targets
+
+
+def scroll_xhs_publish_into_view(page: Page) -> None:
+    try:
+        page.evaluate(
+            """() => {
+                const el = document.querySelector('xhs-publish-btn');
+                if (el) el.scrollIntoView({ block: 'end', behavior: 'instant' });
+                window.scrollTo(0, document.body.scrollHeight);
+            }"""
+        )
+        human_pause(page, "after_click")
+    except Exception:
+        pass
+
+
+def _invoke_xhs_publish_widget(page: Page) -> bool:
+    """Trigger publish on closed-shadow xhs-publish-btn via exposed component methods."""
     try:
         result = page.evaluate(
-            """() => {
-                const publishNames = ['_onPublish', '_onSubmit', 'onPublish', '_handlePublish'];
-                const widgets = Array.from(document.querySelectorAll('xhs-publish-btn'));
+            """(publishNames) => {
+                const isWidgetReady = (el) => {
+                    if (!el) return false;
+                    if (el.getAttribute('submit-loading') === 'true') return false;
+                    if (el.getAttribute('submit-disabled') === 'true') return false;
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width <= 0 || rect.height <= 0) return false;
+                    const style = window.getComputedStyle(el);
+                    return style.display !== 'none'
+                        && style.visibility !== 'hidden'
+                        && Number(style.opacity || 1) > 0;
+                };
+                const widgets = Array.from(document.querySelectorAll('xhs-publish-btn'))
+                    .filter(isWidgetReady);
                 for (const el of widgets) {
-                    if (el.getAttribute('submit-disabled') === 'true') continue;
+                    el.scrollIntoView({ block: 'end', behavior: 'instant' });
                     for (const name of publishNames) {
-                        if (typeof el[name] === 'function') {
-                            el[name]();
+                        const fn = el[name];
+                        if (typeof fn === 'function') {
+                            fn.call(el);
                             return { ok: true, method: name };
                         }
                     }
                 }
-                const legacySelectors = [
-                    '.publish-page-publish-btn button.bg-red',
-                    '.publish-page-publish-btn button',
-                    'button.publishBtn',
-                ];
-                for (const selector of legacySelectors) {
-                    const buttons = Array.from(document.querySelectorAll(selector));
-                    for (const btn of buttons) {
-                        const text = (btn.textContent || '').trim();
-                        if (text !== '发布' || btn.disabled) continue;
-                        btn.click();
-                        return { ok: true, method: selector };
-                    }
-                }
                 return { ok: false };
-            }"""
+            }""",
+            list(XHS_PUBLISH_INVOKE_METHODS),
         )
+        if result and result.get("ok"):
+            logger.info("Xiaohongshu publish invoked via {}", result.get("method"))
+            human_pause(page, "after_click")
+            return True
     except Exception as exc:
-        logger.warning("Xiaohongshu publish component click failed: %s", exc)
-        return False
-    if result and result.get("ok"):
-        logger.info("Xiaohongshu publish triggered via %s", result.get("method"))
-        return True
+        logger.debug("Xiaohongshu publish invoke failed: {}", exc)
     return False
 
 
-def click_xiaohongshu_publish(page: Page, *, timeout_ms: int) -> bool:
-    from services.publishing.adapters.publish_button_helpers import (
-        confirm_publish_dialogs,
-        wait_for_publish_success,
+def _click_xhs_publish_via_keyboard(page: Page) -> bool:
+    """Focus the web component and Tab to the red publish button inside closed shadow."""
+    try:
+        widget = page.locator("xhs-publish-btn").first
+        if widget.count() == 0 or not widget.is_visible(timeout=1500):
+            return False
+        widget.scroll_into_view_if_needed(timeout=5000)
+        human_click_element(page, widget, timeout_ms=3000)
+        human_pause(page, "before_publish")
+        page.keyboard.press("Tab")
+        page.keyboard.press("Tab")
+        page.keyboard.press("Enter")
+        logger.info("Xiaohongshu publish triggered via keyboard focus")
+        human_pause(page, "after_click")
+        return True
+    except Exception as exc:
+        logger.debug("Xiaohongshu keyboard publish failed: {}", exc)
+    return False
+
+
+def _click_xhs_publish_component(page: Page) -> bool:
+    """Click publish: component invoke → keyboard → legacy visible button."""
+    scroll_xhs_publish_into_view(page)
+    if _invoke_xhs_publish_widget(page):
+        return True
+    if _click_xhs_publish_via_keyboard(page):
+        return True
+    for target in _locate_xhs_publish_targets(page):
+        try:
+            if not target.is_visible(timeout=1200):
+                continue
+            label = (target.inner_text(timeout=1000) or "").strip()
+            if label and not _publish_label_matches(label):
+                continue
+            if not _is_xhs_publish_target_enabled(target):
+                continue
+            if human_click_publish_target(page, target):
+                logger.info("Xiaohongshu publish clicked via human mouse")
+                return True
+        except Exception as exc:
+            logger.debug("Xiaohongshu publish target skipped: {}", exc)
+    return False
+
+
+def wait_for_xiaohongshu_publish_success(
+    page: Page,
+    *,
+    timeout_ms: int,
+    initial_url: str,
+) -> bool:
+    from services.publishing.adapters.publish_button_helpers import wait_for_publish_success
+
+    return wait_for_publish_success(
+        page,
+        timeout_ms=timeout_ms,
+        success_pattern=XHS_PUBLISH_SUCCESS_PATTERN,
+        failure_pattern=XHS_PUBLISH_FAILURE_PATTERN,
+        success_url_hints=XHS_PUBLISH_SUCCESS_URL_HINTS,
+        initial_url=initial_url,
+        url_success_checker=xhs_url_suggests_publish_success,
     )
 
+
+def click_xiaohongshu_publish(page: Page, *, timeout_ms: int) -> bool:
+    from services.publishing.adapters.publish_button_helpers import confirm_publish_dialogs
+
+    initial_url = page.url
+    human_pause(page, "before_publish")
+    human_idle_on_page(page, moves=2)
+    scroll_xhs_publish_into_view(page)
     wait_for_xhs_publish_button_ready(page, timeout_ms=min(timeout_ms, 60_000))
 
     clicked = False
@@ -325,22 +477,32 @@ def click_xiaohongshu_publish(page: Page, *, timeout_ms: int) -> bool:
         if _click_xhs_publish_component(page):
             clicked = True
             break
-        page.wait_for_timeout(1500)
+        human_pause(page, "polling")
+    if not clicked:
+        try:
+            fallback = page.get_by_role("button", name=re.compile(r"^发布")).last
+            if fallback.is_visible(timeout=1500) and human_click_publish_target(page, fallback):
+                clicked = True
+        except Exception:
+            pass
     if not clicked:
         return False
 
-    for _ in range(4):
-        confirm_publish_dialogs(page, timeout_ms=3000)
-        page.wait_for_timeout(1200)
+    poll_deadline = max(8, timeout_ms // 4000)
+    for attempt in range(poll_deadline):
+        confirm_publish_dialogs(page, timeout_ms=2500)
+        if wait_for_xiaohongshu_publish_success(
+            page,
+            timeout_ms=2500,
+            initial_url=initial_url,
+        ):
+            return True
+        if attempt in {2, 5} and _click_xhs_publish_component(page):
+            human_pause(page, "after_click")
+        human_pause(page, "polling")
 
-    return wait_for_publish_success(
+    return wait_for_xiaohongshu_publish_success(
         page,
         timeout_ms=timeout_ms,
-        success_pattern=re.compile(r"发布成功|提交成功|笔记管理|审核中", re.I),
-        success_url_hints=(
-            "note-manager",
-            "published",
-            "success",
-            "creator.xiaohongshu.com/new/home",
-        ),
+        initial_url=initial_url,
     )

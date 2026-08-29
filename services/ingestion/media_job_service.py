@@ -12,6 +12,7 @@ from services.ingestion.media_pipeline_trigger import (
     load_media_pipeline_config,
     should_run_media_pipeline,
 )
+from services.ingestion.story_primary import check_story_media_pipeline_gate
 from src.db.models.ingestion import IngestedArticle, MediaGenerationJob
 
 
@@ -44,23 +45,28 @@ def enqueue_media_job(
     trigger_reason: str,
     final_grade: str,
     final_total: float,
+    pipeline_config: dict[str, Any] | None = None,
+    force: bool = False,
 ) -> MediaGenerationJob | None:
     if has_active_media_job(session, article_id):
         return None
     article = session.get(IngestedArticle, article_id)
     if article is None:
         return None
-    cfg = load_media_pipeline_config()
-    if _pipeline_already_done(article, cfg):
+    cfg = load_media_pipeline_config(pipeline_config)
+    if not force and _pipeline_already_done(article, cfg):
         return None
+    payload: dict[str, Any] = {
+        "final_grade": final_grade,
+        "final_total": final_total,
+    }
+    if pipeline_config:
+        payload["pipeline_config"] = pipeline_config
     job = MediaGenerationJob(
         article_id=article_id,
         status="pending",
         trigger_reason=trigger_reason,
-        payload_json=json.dumps(
-            {"final_grade": final_grade, "final_total": final_total},
-            ensure_ascii=False,
-        ),
+        payload_json=json.dumps(payload, ensure_ascii=False),
     )
     session.add(job)
     article.media_pipeline_status = "pending"
@@ -81,6 +87,9 @@ def maybe_enqueue_media_job(
         final_grade=final_grade, final_total=final_total, config=config
     ):
         return {"skipped": True, "reason": "not_eligible"}
+    gate = check_story_media_pipeline_gate(session, article, config=config)
+    if gate:
+        return gate
     reason = f"grade={final_grade},score={round(final_total, 1)}"
     job = enqueue_media_job(
         session,
@@ -136,7 +145,14 @@ def process_next_media_job(session: Session) -> dict[str, Any] | None:
     from services.ingestion.media_pipeline import run_media_pipeline
 
     try:
-        result = run_media_pipeline(session, article_id)
+        payload: dict[str, Any] = {}
+        if job.payload_json:
+            try:
+                payload = json.loads(job.payload_json)
+            except json.JSONDecodeError:
+                payload = {}
+        pipeline_config = payload.get("pipeline_config")
+        result = run_media_pipeline(session, article_id, config=pipeline_config)
         job = session.get(MediaGenerationJob, job_id)
         if job is None:
             raise ValueError(f"Media job not found after pipeline: {job_id}")

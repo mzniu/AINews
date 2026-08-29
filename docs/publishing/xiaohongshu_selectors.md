@@ -32,3 +32,15 @@
 
 **PASS (code)** — 启用 `xiaohongshu.enabled: true` 与 `video_publish: true`。  
 **手动 E2E** — 运行 `python scripts/spike_xiaohongshu_publish.py --login-only` 绑定账号后，用 `--video` 验证上传填表。
+
+## 首评（First Comment，P2）
+
+| Field | Value |
+|-------|-------|
+| probe_script | `scripts/probe_creator_first_comment.py --platform xiaohongshu` |
+| list_url | `https://creator.xiaohongshu.com/new/note-manager` |
+| detail_url | `https://creator.xiaohongshu.com/new/note/{note_id}` |
+| max_comment_length | 50 |
+| mode | **deferred**（发布完成后独立会话发评） |
+
+**Gate: PENDING** — 需 probe 验证评论区 selector。

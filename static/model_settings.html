@@ -5,25 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>模型配置 - AINews</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/model_settings.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815c">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260813c" defer></script>
+    <link rel="stylesheet" href="/static/css/model_settings.css?v=20260815c">
 </head>
-<body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-brand">🎬 AINews</a>
-            <div class="nav-menu">
-                <a href="/" class="nav-link">🏠 主页</a>
-                <a href="/video-maker" class="nav-link">📹 视频制作</a>
-                <a href="/ingestion-library" class="nav-link">📚 资讯库</a>
-                <a href="/publish-center" class="nav-link">📤 发布中心</a>
-                <a href="/model-settings" class="nav-link active">⚙️ 模型配置</a>
-                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
-                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
-            </div>
-        </div>
-    </nav>
+<body class="app-page">
+    <div id="app-nav-root"></div>
 
-    <div class="container">
+<div class="container">
         <div class="page-hero">
             <h1>⚙️ 模型配置</h1>
             <p>管理语言模型与视觉模型，为摘要生成、评分评语与后续图片分析做准备。配置保存在 <code>config/models.local.yaml</code>（不提交 Git）。</p>

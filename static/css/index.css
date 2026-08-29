@@ -1435,7 +1435,8 @@ body {
     background: #e0e0e0;
 }
 
-/* ===== 图片查看器 & 去水印 模态框 ===== */
+/* ===== 图片查看器 & 去水印 模态框（对齐 app-page 深蓝） ===== */
+.app-page .image-modal-overlay,
 .image-modal-overlay {
     display: none;
     position: fixed;
@@ -1717,6 +1718,79 @@ body {
     transition: background 0.15s;
 }
 .region-list-footer button:hover { background: #c0392b; }
+
+.app-page .image-modal {
+    background: var(--app-rich-black);
+}
+.app-page .image-modal-header,
+.app-page .image-modal-footer {
+    background: var(--app-deep-navy);
+    color: var(--app-off-white);
+    border-color: var(--app-border);
+}
+.app-page .image-modal-footer {
+    color: var(--app-text-soft);
+}
+.app-page .modal-btn-zoom {
+    background: var(--app-vibrant-blue);
+    color: var(--app-off-white);
+    border-radius: 999px;
+}
+.app-page .modal-btn-zoom:hover { background: var(--app-royal-blue); }
+.app-page .modal-btn-draw {
+    background: #9a3412;
+    color: var(--app-off-white);
+    border-radius: 999px;
+}
+.app-page .modal-btn-draw:hover { background: #7c2d12; }
+.app-page .modal-btn-draw.active {
+    background: #15803d;
+    box-shadow: 0 0 0 2px #6ee7b7;
+}
+.app-page .modal-btn-action {
+    background: var(--app-vibrant-blue);
+    color: var(--app-off-white);
+    border-radius: 999px;
+}
+.app-page .modal-btn-close:hover { color: #fca5a5; }
+.app-page .zoom-info { color: #93c5fd; }
+.app-page .region-badge { background: #9a3412; }
+.app-page .region-list-panel {
+    background: rgba(5, 22, 80, 0.95);
+    border-color: var(--app-border);
+}
+.app-page .region-list-header {
+    background: rgba(10, 36, 114, 0.8);
+    border-bottom-color: var(--app-border);
+}
+.app-page .region-list-header .panel-close:hover { color: #fca5a5; }
+.app-page .region-list-item:hover,
+.app-page .region-list-item.highlighted {
+    background: rgba(18, 52, 153, 0.35);
+    border-color: var(--app-vibrant-blue);
+}
+.app-page .region-item-num { background: var(--app-vibrant-blue); }
+.app-page .region-item-del:hover { color: #fca5a5; background: rgba(185, 28, 28, 0.2); }
+.app-page .region-list-footer { border-top-color: var(--app-border); }
+.app-page .region-list-footer button { background: #9a3412; }
+.app-page .region-list-footer button:hover { background: #7c2d12; }
+.app-page .modal-tool-input,
+.app-page #imageTextInput,
+.app-page #imageTextFontSelect,
+.app-page #imageTextSizeInput,
+.app-page #imageTextColorPicker {
+    background: var(--app-rich-black);
+    color: var(--app-text);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    box-shadow: var(--app-shadow-inset);
+}
+.app-page .modal-toolbar-sep {
+    color: var(--app-muted);
+}
+.app-page #editTools {
+    border-left-color: var(--app-border);
+}
 
 /* Toast 通知 */
 .toast-container {

@@ -61,13 +61,17 @@ class ArticleScoreResult:
 _DIMENSION_LABELS = {
     "timeliness": "时效性",
     "prominence": "显著性",
+    "event_tension": "事件张力",
     "breakthrough": "突破性",
     "product_heat": "产品热度",
     "hook": "传播钩子",
     "relevance": "话题相关",
     "data_signal": "数据信号",
     "creatability": "可创作性",
+    "hot_radar": "热榜雷达",
 }
+
+DIMENSION_LABELS = _DIMENSION_LABELS
 
 _GRADE_RECOMMENDATIONS = {
     "S": "立即出快讯",
@@ -79,11 +83,14 @@ _GRADE_RECOMMENDATIONS = {
 
 
 def load_scoring_config(path: Path | None = None) -> dict[str, Any]:
-    cfg_path = path or _CONFIG_PATH
-    if not cfg_path.exists():
-        return {}
-    with open(cfg_path, "r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+    if path is not None:
+        if not path.exists():
+            return {}
+        with open(path, "r", encoding="utf-8") as handle:
+            return yaml.safe_load(handle) or {}
+    from services.ingestion.scoring_settings import load_merged_scoring_config
+
+    return load_merged_scoring_config()
 
 
 def _contains_any(text: str, terms: list[str]) -> list[str]:
@@ -99,6 +106,16 @@ def _contains_any(text: str, terms: list[str]) -> list[str]:
 
 
 VALID_GRADES = frozenset({"S", "A", "B", "C", "D"})
+GRADE_RANK = {"S": 5, "A": 4, "B": 3, "C": 2, "D": 1}
+
+
+def grade_meets_minimum(grade: str | None, min_grade: str) -> bool:
+    """Return True when article grade is at least min_grade (e.g. A allows S and A)."""
+    current = str(grade or "").strip().upper()
+    minimum = str(min_grade or "S").strip().upper()
+    if current not in VALID_GRADES or minimum not in VALID_GRADES:
+        return False
+    return GRADE_RANK[current] >= GRADE_RANK[minimum]
 
 
 def grade_from_total(total: float, cfg: dict[str, Any] | None = None) -> str:
@@ -160,6 +177,22 @@ def _score_breakthrough(text: str, cfg: dict[str, Any]) -> tuple[float, list[str
     if has_big_number:
         return 6.0, ["含关键数字"]
     return 3.0, []
+
+
+def _score_event_tension(text: str, cfg: dict[str, Any]) -> tuple[float, list[str]]:
+    signals = _contains_any(text, cfg.get("event_tension_signals") or [])
+    if len(signals) >= 2:
+        score = 9.0
+    elif signals:
+        score = 7.5
+    else:
+        return 2.0, []
+    tier1 = _contains_any(text, cfg.get("tier1_companies") or [])
+    celebs = _contains_any(text, cfg.get("celebrities") or [])
+    if tier1 or celebs:
+        score = min(10.0, score + 1.0)
+        signals = (signals + tier1 + celebs)[:6]
+    return score, signals[:6]
 
 
 def _score_product_heat(text: str, cfg: dict[str, Any]) -> tuple[float, list[str]]:
@@ -249,6 +282,43 @@ def _score_creatability(
     return min(10.0, score), signals
 
 
+def _score_hot_radar(
+    match: Any | None,
+    cfg: dict[str, Any],
+) -> tuple[float, list[str]]:
+    scoring = (cfg.get("hot_radar") or {}).get("scoring") or {}
+    unmatched = float(scoring.get("unmatched", 2.0))
+    if match is None:
+        return unmatched, ["未命中热榜"]
+
+    rank = int(getattr(match, "effective_rank", 0) or getattr(match, "rank", 0) or 0)
+    if rank <= 3:
+        score = float(scoring.get("rank_1_3", 10.0))
+    elif rank <= 10:
+        score = float(scoring.get("rank_4_10", 8.5))
+    elif rank <= 20:
+        score = float(scoring.get("rank_11_20", 7.0))
+    elif rank <= 50:
+        score = float(scoring.get("rank_21_50", 5.5))
+    else:
+        score = unmatched
+
+    board = str(getattr(match, "board_id", "") or getattr(match, "board", "") or "ai")
+    board_label = str(getattr(match, "board_name", "") or "").strip()
+    board_display = str(getattr(match, "board_display", "") or "").strip()
+    if board_label and board_display:
+        board_text = f"{board_label}·{board_display}"
+    else:
+        board_text = board_label or board_display or board.upper()
+    heat_label = getattr(match, "heat_label", None)
+    method = str(getattr(match, "match_method", "title") or "title")
+    signals = [f"{board_text}#{rank}"]
+    if heat_label:
+        signals.append(f"热度{heat_label}")
+    signals.append("URL命中" if method == "url" else "标题命中")
+    return score, signals
+
+
 def score_article(
     *,
     title: str,
@@ -259,6 +329,7 @@ def score_article(
     view_count: int | None = None,
     story_article_count: int = 1,
     image_count: int = 0,
+    hot_radar_match: Any | None = None,
     config: dict[str, Any] | None = None,
 ) -> ArticleScoreResult:
     cfg = config or load_scoring_config()
@@ -266,12 +337,14 @@ def score_article(
     weights: dict[str, float] = cfg.get("weights") or {}
 
     keyword_text = " ".join(keywords or [])
+    # Relevance and topic dimensions read title + summary + keywords + body, never title alone.
     body = " ".join(filter(None, [title, summary, keyword_text, (content_text or "")[:1500]]))
     title_text = title or ""
 
     raw_dimensions = {
         "timeliness": _score_timeliness(published_at),
         "prominence": _score_prominence(body, cfg),
+        "event_tension": _score_event_tension(body, cfg),
         "breakthrough": _score_breakthrough(body, cfg),
         "product_heat": _score_product_heat(body, cfg),
         "hook": _score_hook(title_text, summary or "", cfg),
@@ -282,6 +355,7 @@ def score_article(
             content_len=len(content_text or ""),
             summary=summary,
         ),
+        "hot_radar": _score_hot_radar(hot_radar_match, cfg),
     }
 
     dimensions: list[DimensionScore] = []
@@ -322,6 +396,18 @@ def score_article(
             bonuses.append({"reason": "较高浏览量", "points": pts})
             base_total += pts
 
+    hot_bonus_cfg = (cfg.get("hot_radar") or {}).get("bonuses") or {}
+    if hot_radar_match is not None:
+        rank = int(getattr(hot_radar_match, "effective_rank", 0) or getattr(hot_radar_match, "rank", 0) or 0)
+        if rank <= 3:
+            pts = float(hot_bonus_cfg.get("top3_points", 3))
+            bonuses.append({"reason": "AI热榜Top3", "points": pts})
+            base_total += pts
+        elif rank <= 10:
+            pts = float(hot_bonus_cfg.get("top10_points", 1))
+            bonuses.append({"reason": "AI热榜Top10", "points": pts})
+            base_total += pts
+
     marketing_hits = _contains_any(body, cfg.get("marketing_signals") or [])
     if marketing_hits and len(marketing_hits) >= 2:
         pts = float(penalty_cfg.get("marketing_only", -8))
@@ -337,6 +423,20 @@ def score_article(
                 "reason": f"配图不足（{image_count}张，建议≥{min_images}张）",
                 "points": pts,
                 "signals": [f"本地配图{image_count}张"],
+            }
+        )
+        base_total += pts
+
+    off_topic_cfg = penalty_cfg.get("off_topic") or {}
+    relevance_dim = next((d for d in dimensions if d.key == "relevance"), None)
+    max_relevance = float(off_topic_cfg.get("max_relevance_score", 5))
+    if relevance_dim is not None and relevance_dim.score < max_relevance:
+        pts = float(off_topic_cfg.get("points", -12))
+        penalties.append(
+            {
+                "reason": "非AI选题",
+                "points": pts,
+                "signals": relevance_dim.signals[:3] or ["缺少AI相关词"],
             }
         )
         base_total += pts

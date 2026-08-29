@@ -1,0 +1,628 @@
+/* 全站 Soft UI 外壳 — 品牌深蓝配色
+ * Rich Black #00072d · Deep Navy #051650 · Royal Blue #0a2472
+ * Vibrant Blue #123499 · Off-White #e8eaf6
+ */
+
+.app-page {
+    --app-rich-black: #00072d;
+    --app-deep-navy: #051650;
+    --app-royal-blue: #0a2472;
+    --app-vibrant-blue: #123499;
+    --app-off-white: #e8eaf6;
+
+    /* 语义别名（资讯库等页面沿用的 token 名） */
+    --app-cyan: var(--app-vibrant-blue);
+    --app-cyan-deep: var(--app-royal-blue);
+    --app-cyan-soft: #1a45b8;
+    --app-mint: #1e55c8;
+
+    --app-bg: radial-gradient(ellipse 130% 90% at 50% -10%, #0a2472 0%, #051650 45%, #00072d 100%);
+    --app-card: rgba(5, 22, 80, 0.78);
+    --app-card-solid: #051650;
+    --app-text: var(--app-off-white);
+    --app-text-soft: #a8b4d4;
+    --app-muted: #6b7aa6;
+    --app-text-on-primary: var(--app-off-white);
+    --app-border: rgba(18, 52, 153, 0.42);
+
+    --app-radius-xl: 28px;
+    --app-radius-lg: 20px;
+    --app-radius-md: 14px;
+    --app-shadow-raised:
+        0 10px 28px rgba(0, 0, 0, 0.42),
+        0 1px 0 rgba(232, 234, 246, 0.07) inset;
+    --app-shadow-soft: 0 14px 36px rgba(0, 7, 45, 0.55);
+    --app-shadow-inset:
+        inset 2px 2px 8px rgba(0, 0, 0, 0.38),
+        inset -1px -1px 5px rgba(232, 234, 246, 0.04);
+    --app-font: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.app-page,
+.app-page * {
+    box-sizing: border-box;
+}
+
+body.app-page {
+    margin: 0;
+    font-family: var(--app-font);
+    color: var(--app-text);
+    background: var(--app-bg);
+    background-attachment: fixed;
+    min-height: 100vh;
+    padding: 88px 24px 40px;
+    color-scheme: dark;
+}
+
+.app-page .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+/* —— 顶部导航 —— */
+.app-page .app-nav,
+.app-page .navbar {
+    background: rgba(0, 7, 45, 0.88);
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(18, 52, 153, 0.35);
+    border-top: none;
+    box-shadow: var(--app-shadow-soft);
+    border-radius: 0 0 var(--app-radius-xl) var(--app-radius-xl);
+    padding: 0 24px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+.app-page .nav-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 64px;
+    gap: 16px;
+}
+
+.app-page .nav-brand {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--app-off-white);
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.app-page .nav-menu {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.app-page .nav-link {
+    padding: 8px 14px;
+    text-decoration: none;
+    color: var(--app-text-soft);
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 999px;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.app-page .nav-link:hover {
+    background: rgba(18, 52, 153, 0.45);
+    color: var(--app-off-white);
+}
+
+.app-page .nav-link.active {
+    background: var(--app-vibrant-blue);
+    color: var(--app-off-white);
+    box-shadow: 0 4px 16px rgba(18, 52, 153, 0.55);
+}
+
+@media (max-width: 720px) {
+    body.app-page {
+        padding-top: 120px;
+    }
+
+    .app-page .nav-container {
+        flex-direction: column;
+        height: auto;
+        padding: 12px 0;
+    }
+
+    .app-page .nav-menu {
+        justify-content: center;
+    }
+}
+
+/* —— 布局 —— */
+.app-page .container {
+    max-width: 1280px;
+    margin: 0 auto;
+}
+
+.app-page .page-hero,
+.app-page .header {
+    text-align: left;
+    color: var(--app-text);
+    margin-bottom: 24px;
+    background: var(--app-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    padding: 20px 24px;
+    box-shadow: var(--app-shadow-raised);
+}
+
+.app-page .page-hero h1,
+.app-page .header h1 {
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--app-off-white);
+    margin: 0 0 8px;
+    text-shadow: none;
+}
+
+.app-page .page-hero p,
+.app-page .header p {
+    color: var(--app-text-soft);
+    font-size: 14px;
+    margin: 0;
+    opacity: 1;
+    line-height: 1.55;
+}
+
+.app-page .section-desc {
+    color: var(--app-text-soft);
+    font-size: 14px;
+    line-height: 1.55;
+    margin: -4px 0 16px;
+}
+
+.app-page .hint {
+    color: var(--app-text-soft);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-top: 10px;
+}
+
+.app-page .header a {
+    color: #7da4ff;
+}
+
+/* —— 卡片 —— */
+.app-page .card,
+.app-page .soft-card {
+    background: var(--app-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-xl);
+    padding: 22px 24px;
+    box-shadow: var(--app-shadow-raised);
+    margin-bottom: 20px;
+    color: var(--app-text);
+}
+
+/* —— 表单 —— */
+.app-page .form-control,
+.app-page input[type="text"],
+.app-page input[type="url"],
+.app-page input[type="search"],
+.app-page input[type="number"],
+.app-page input[type="email"],
+.app-page input[type="password"],
+.app-page input[type="datetime-local"],
+.app-page select,
+.app-page textarea {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    font-size: 14px;
+    color: var(--app-text);
+    background: var(--app-rich-black);
+    box-shadow: var(--app-shadow-inset);
+    transition: box-shadow 0.2s, border-color 0.2s;
+    font-family: inherit;
+}
+
+.app-page select option {
+    background: var(--app-deep-navy);
+    color: var(--app-off-white);
+}
+
+.app-page .form-control:focus,
+.app-page input:focus,
+.app-page select:focus,
+.app-page textarea:focus {
+    outline: none;
+    border-color: var(--app-vibrant-blue);
+    box-shadow: var(--app-shadow-inset), 0 0 0 3px rgba(18, 52, 153, 0.45);
+}
+
+/* —— 按钮 —— */
+.app-page .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.app-page .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.app-page .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.app-page .btn-sm {
+    padding: 7px 14px;
+    font-size: 12px;
+}
+
+.app-page .btn-primary,
+.app-page .btn:not(.btn-secondary):not(.btn-outline):not(.btn-soft):not(.btn-accent):not(.btn-success):not(.btn-light):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-warning):not(.btn-outline-info) {
+    background: var(--app-vibrant-blue);
+    color: var(--app-text-on-primary);
+    box-shadow: 0 6px 18px rgba(18, 52, 153, 0.45);
+}
+
+.app-page .btn-secondary,
+.app-page .btn-outline,
+.app-page .btn-soft {
+    background: var(--app-deep-navy);
+    color: var(--app-text-soft);
+    box-shadow: var(--app-shadow-inset);
+    border: 1px solid var(--app-border);
+}
+
+.app-page .btn-secondary:hover:not(:disabled),
+.app-page .btn-outline:hover:not(:disabled),
+.app-page .btn-soft:hover:not(:disabled) {
+    color: var(--app-off-white);
+    border-color: var(--app-vibrant-blue);
+    box-shadow: var(--app-shadow-raised);
+}
+
+.app-page .btn-accent {
+    background: linear-gradient(135deg, var(--app-royal-blue) 0%, var(--app-vibrant-blue) 100%);
+    color: var(--app-text-on-primary);
+    box-shadow: 0 6px 18px rgba(18, 52, 153, 0.45);
+}
+
+.app-page .btn-outline-primary,
+.app-page .btn-outline-secondary,
+.app-page .btn-outline-warning,
+.app-page .btn-outline-info,
+.app-page .btn-success,
+.app-page .btn-light {
+    background: var(--app-deep-navy);
+    color: var(--app-text-soft);
+    box-shadow: var(--app-shadow-inset);
+    border: 1px solid var(--app-border);
+}
+
+.app-page .soft-banner {
+    border-radius: var(--app-radius-lg);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    line-height: 1.5;
+    box-shadow: var(--app-shadow-soft);
+}
+
+.app-page .soft-banner-warn {
+    background: rgba(154, 103, 0, 0.18);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.app-page code {
+    font-size: 0.92em;
+    font-weight: 600;
+    background: rgba(232, 234, 246, 0.14);
+    color: #f0f3ff;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(232, 234, 246, 0.22);
+}
+
+.app-page .publish-tab-btn.active,
+.app-page .settings-tab.active {
+    background: var(--app-vibrant-blue);
+    color: var(--app-off-white);
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(18, 52, 153, 0.45);
+}
+
+/* 覆盖各页面遗留的浅色样式 */
+.app-page table th,
+.app-page table td {
+    border-color: var(--app-border);
+    color: var(--app-text);
+}
+
+.app-page .account-card,
+.app-page .metrics-summary-card,
+.app-page .metrics-platform-card {
+    background: var(--app-card-solid);
+    border-color: var(--app-border);
+    color: var(--app-text);
+}
+
+.app-page .metrics-summary-card .label,
+.app-page .metrics-platform-card p {
+    color: var(--app-text-soft);
+}
+
+.app-page .metrics-summary-card .value {
+    color: var(--app-off-white);
+}
+
+.app-page .publish-tab-btn,
+.app-page .settings-tab {
+    background: var(--app-deep-navy);
+    color: var(--app-text-soft);
+    border: 1px solid var(--app-border);
+}
+
+.app-page .publish-tab-btn:hover,
+.app-page .settings-tab:hover {
+    color: var(--app-off-white);
+    border-color: var(--app-vibrant-blue);
+}
+
+.app-page h1,
+.app-page h2,
+.app-page h3,
+.app-page h4,
+.app-page .card h2,
+.app-page .card h3 {
+    color: var(--app-off-white);
+}
+
+.app-page .qr-box,
+.app-page .metrics-trend-box,
+.app-page .metrics-bind-box {
+    background: var(--app-deep-navy);
+    color: var(--app-text);
+    border: 1px solid var(--app-border);
+}
+
+.app-page .platform-section h3,
+.app-page .metrics-trend-meta,
+.app-page .metrics-bind-box label {
+    color: var(--app-text-soft);
+}
+
+.app-page .banner {
+    background: rgba(154, 103, 0, 0.18);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.app-page .profile-card,
+.app-page .scoring-weight-row {
+    background: rgba(0, 7, 45, 0.42);
+    border: 1px solid var(--app-border);
+    color: var(--app-text);
+}
+
+.app-page .profile-card-head h3,
+.app-page .scoring-weight-head {
+    color: var(--app-off-white);
+}
+
+.app-page .field-label {
+    color: var(--app-text-soft);
+}
+
+.app-page .badge {
+    background: rgba(18, 52, 153, 0.4);
+    color: #c5d4ff;
+}
+
+.app-page .badge-active {
+    background: rgba(30, 85, 200, 0.4);
+    color: #dbeafe;
+}
+
+.app-page .badge-disabled {
+    background: rgba(100, 116, 139, 0.28);
+    color: #94a3b8;
+}
+
+.app-page .badge-warn {
+    background: rgba(180, 83, 9, 0.28);
+    color: #fcd34d;
+}
+
+.app-page .status-bar {
+    color: var(--app-text-soft);
+}
+
+.app-page .status-bar.ok {
+    color: #6ee7b7;
+}
+
+.app-page .status-bar.error {
+    color: #fca5a5;
+}
+
+.app-page .badge-publish {
+    background: rgba(21, 128, 61, 0.25);
+    color: #6ee7b7;
+}
+
+.app-page .badge-account {
+    background: rgba(100, 116, 139, 0.25);
+    color: #94a3b8;
+}
+
+.app-page .metrics-alerts {
+    background: rgba(154, 52, 18, 0.2);
+    border: 1px solid rgba(251, 146, 60, 0.35);
+}
+
+.app-page .metrics-alerts h4,
+.app-page .metrics-alerts ul {
+    color: #fdba74;
+}
+
+.app-page input[type="checkbox"] {
+    accent-color: var(--app-vibrant-blue);
+}
+
+/* —— 弹窗（与页面深蓝 Soft UI 对齐） —— */
+.app-page .app-modal-overlay,
+.app-page .qr-modal,
+.app-page .metrics-trend-modal,
+.app-page .metrics-bind-modal {
+    background: rgba(0, 7, 45, 0.72);
+    backdrop-filter: blur(10px);
+}
+
+.app-page .app-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.app-page .app-modal-overlay.is-open {
+    display: flex;
+}
+
+.app-page .app-modal {
+    background: var(--app-card-solid);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-xl);
+    box-shadow: var(--app-shadow-soft);
+    width: min(520px, 92vw);
+    padding: 24px;
+    max-height: 90vh;
+    overflow: auto;
+    color: var(--app-text);
+}
+
+.app-page .app-modal h3 {
+    margin: 0 0 16px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--app-off-white);
+}
+
+.app-page .app-modal-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--app-text-soft);
+    margin: 10px 0 2px;
+}
+
+.app-page .app-modal-label:first-of-type,
+.app-page .app-modal-cover + .app-modal-label {
+    margin-top: 0;
+}
+
+.app-page .app-modal .form-control {
+    margin: 6px 0 4px;
+}
+
+.app-page .app-modal-hint {
+    font-size: 12px;
+    color: var(--app-muted);
+    margin: 6px 0 0;
+}
+
+.app-page .app-modal-error {
+    color: #fca5a5;
+    font-size: 13px;
+    margin: 0 0 10px;
+}
+
+.app-page .app-modal-error[hidden],
+.app-page .app-modal-cover[hidden],
+.app-page .app-modal-account-actions[hidden] {
+    display: none;
+}
+
+.app-page .app-modal-cover {
+    margin-bottom: 12px;
+}
+
+.app-page .app-modal-cover img {
+    display: block;
+    max-width: 100%;
+    max-height: 160px;
+    border-radius: var(--app-radius-md);
+    border: 1px solid var(--app-border);
+    margin-top: 6px;
+}
+
+.app-page .app-modal-account-list {
+    margin: 6px 0 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    max-height: 180px;
+    overflow: auto;
+    background: var(--app-rich-black);
+    box-shadow: var(--app-shadow-inset);
+}
+
+.app-page .app-modal-account-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+    cursor: pointer;
+    color: var(--app-text);
+    font-size: 13px;
+}
+
+.app-page .app-modal-account-actions {
+    display: flex;
+    margin-bottom: 12px;
+    gap: 8px;
+}
+
+.app-page .app-modal-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--app-text-soft);
+    margin: 4px 0 8px;
+    cursor: pointer;
+}
+
+.app-page .app-modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}

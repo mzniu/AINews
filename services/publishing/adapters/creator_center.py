@@ -15,7 +15,7 @@ from services.publishing.adapters.base import (
     SessionStatus,
 )
 from services.publishing.adapters.publish_stubs import publish_not_implemented
-from services.publishing.adapters.qr_helpers import QrLoginProfile, is_login_success_url, run_generic_qr_login
+from services.publishing.adapters.qr_helpers import build_qr_login_profile, is_login_success_url, run_generic_qr_login
 from services.publishing.session_store import load_encrypted
 from src.utils.config import Config
 
@@ -46,33 +46,35 @@ class CreatorCenterAdapter(PlatformAdapter):
         return list(self.qr_profile.get("success_url_excludes") or ["login", "passport"])
 
     def run_qr_login_flow(self, ctx: QrLoginContext) -> QrLoginResult:
-        required = self.qr_profile.get("required_session_cookies") or []
-        profile = QrLoginProfile(
+        extract_account_info = getattr(self, "_extract_account_from_page", None)
+        profile = build_qr_login_profile(
             platform_id=self.platform_id,
             login_url=self.login_url,
-            success_url_excludes=self._success_url_excludes(),
-            qr_selector=self.qr_profile.get("qr_selector"),
-            qr_switch_selector=self.qr_profile.get("qr_switch_selector"),
-            headless=bool(self.qr_profile.get("headless", False)),
-            nickname_selector=self.qr_profile.get("nickname_selector"),
-            post_login_url=self.qr_profile.get("post_login_url") or self.creator_url,
-            post_login_wait_ms=int(self.qr_profile.get("post_login_wait_ms", 3000)),
-            required_session_cookies=tuple(required),
+            creator_url=self.creator_url,
+            qr_profile=self.qr_profile,
+            extract_account_info=extract_account_info if callable(extract_account_info) else None,
         )
         return run_generic_qr_login(profile, ctx)
 
     def validate_session(self, session_path: Path) -> SessionStatus:
         from playwright.sync_api import sync_playwright
 
+        from services.publishing.human_interaction import human_idle_on_page, open_stealth_browser
+        from services.publishing.human_pacing import human_pause
+
         temp_state = Config.ROOT_DIR / "data" / "publish" / "_validate_state.json"
         try:
             temp_state.write_bytes(load_encrypted(session_path))
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=True)
-                context = browser.new_context(storage_state=str(temp_state))
+                browser, context = open_stealth_browser(
+                    playwright,
+                    headless=True,
+                    storage_state=str(temp_state),
+                )
                 page = context.new_page()
                 page.goto(self.creator_url, wait_until="domcontentloaded", timeout=60_000)
-                page.wait_for_timeout(2000)
+                human_pause(page, "page_load")
+                human_idle_on_page(page, moves=1)
                 expired = not is_login_success_url(page.url, self._success_url_excludes())
                 browser.close()
             return "expired" if expired else "active"

@@ -8,6 +8,11 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from services.ingestion.article_score_llm import generate_score_review
+from services.ingestion.hot_radar_service import (
+    ensure_fresh_hot_radar,
+    load_hot_radar_config,
+    match_article_hot_radar,
+)
 from services.ingestion.post_score_automation import maybe_run_post_score_automation
 from services.ingestion.article_scorer import (
     grade_from_total,
@@ -91,6 +96,18 @@ def _apply_llm_adjustment(
     return final_total, final_grade, adjusted
 
 
+def _merge_scoring_config() -> dict[str, Any]:
+    cfg = load_scoring_config()
+    radar_cfg = load_hot_radar_config()
+    if radar_cfg.get("enabled", True):
+        cfg = {**cfg, "hot_radar": radar_cfg}
+    else:
+        weights = dict(cfg.get("weights") or {})
+        weights["hot_radar"] = 0.0
+        cfg = {**cfg, "weights": weights}
+    return cfg
+
+
 def apply_score_to_article(
     db: Session,
     article: IngestedArticle,
@@ -98,7 +115,19 @@ def apply_score_to_article(
     use_llm: bool = False,
     auto_llm_for_sa: bool = False,
 ) -> dict[str, Any]:
-    cfg = load_scoring_config()
+    cfg = _merge_scoring_config()
+    radar_cfg = cfg.get("hot_radar") or {}
+    hot_match = None
+    if radar_cfg.get("enabled", True):
+        ensure_fresh_hot_radar(db, config=radar_cfg)
+        hot_match = match_article_hot_radar(
+            db,
+            title=article.title or "",
+            url=article.canonical_url,
+            config=radar_cfg,
+            article_id=article.id,
+        )
+
     rule_result = score_article(
         title=article.title or "",
         summary=article.summary,
@@ -108,6 +137,7 @@ def apply_score_to_article(
         view_count=article.view_count,
         story_article_count=_story_article_count(db, article),
         image_count=_image_count(db, article.id),
+        hot_radar_match=hot_match,
         config=cfg,
     )
 
@@ -118,6 +148,22 @@ def apply_score_to_article(
 
     breakdown = rule_result.to_dict()
     breakdown["rule"] = {"total": round(rule_total, 1), "grade": rule_grade}
+    if hot_match is not None:
+        breakdown["hot_radar"] = {
+            "rank": hot_match.rank,
+            "effective_rank": getattr(hot_match, "effective_rank", hot_match.rank),
+            "confidence": getattr(hot_match, "confidence", 1.0),
+            "heat_label": hot_match.heat_label,
+            "heat_value": hot_match.heat_value,
+            "hot_title": hot_match.hot_title,
+            "match_method": hot_match.match_method,
+            "board": hot_match.board,
+            "source": hot_match.source,
+            "board_id": hot_match.board_id,
+            "board_name": hot_match.board_name,
+            "board_display": hot_match.board_display,
+            "inherited_from_article_id": getattr(hot_match, "inherited_from_article_id", None),
+        }
 
     llm_payload: dict[str, Any] | None = None
     llm_adjusted = False
@@ -148,6 +194,11 @@ def apply_score_to_article(
     article.score_breakdown_json = json.dumps(breakdown, ensure_ascii=False)
     article.score_comment = (llm_payload or {}).get("comment") if llm_payload else None
     article.scored_at = datetime.utcnow()
+
+    if article.story_id:
+        from services.ingestion.story_primary import refresh_story_primary
+
+        refresh_story_primary(db, article.story_id)
 
     automation = maybe_run_post_score_automation(
         db,

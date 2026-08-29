@@ -138,6 +138,7 @@ class Story(Base):
     cluster_method: Mapped[str] = mapped_column(String(32), default="rule")
     cluster_score: Mapped[float] = mapped_column(Float, default=0.0)
     article_count: Mapped[int] = mapped_column(Integer, default=0)
+    primary_article_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -182,8 +183,60 @@ class ImageRelevanceEvaluation(Base):
     relevance_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
     breakdown_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     verdict: Mapped[str | None] = mapped_column(Text, nullable=True)
     vision_profile_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     scorer_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
     scored_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class HotRadarSnapshot(Base):
+    __tablename__ = "hot_radar_snapshots"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    source: Mapped[str] = mapped_column(String(32), default="sina")
+    board: Mapped[str] = mapped_column(String(32), default="ai")
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    item_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class HotRadarItem(Base):
+    __tablename__ = "hot_radar_items"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "rank", name="uq_hot_radar_snapshot_rank"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    snapshot_id: Mapped[str] = mapped_column(String(32), ForeignKey("hot_radar_snapshots.id"))
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(512), default="")
+    url: Mapped[str] = mapped_column(String(1024), default="")
+    heat_label: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    heat_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class HotRadarArticleMatch(Base):
+    __tablename__ = "hot_radar_article_matches"
+    __table_args__ = (
+        UniqueConstraint("article_id", "board_hashid", name="uq_hot_radar_article_board"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    article_id: Mapped[str] = mapped_column(String(32), ForeignKey("ingested_articles.id"))
+    snapshot_id: Mapped[str] = mapped_column(String(32), ForeignKey("hot_radar_snapshots.id"))
+    hot_item_id: Mapped[str | None] = mapped_column(String(32), ForeignKey("hot_radar_items.id"), nullable=True)
+    board_hashid: Mapped[str] = mapped_column(String(32), default="")
+    board_id: Mapped[str] = mapped_column(String(64), default="")
+    rank: Mapped[int] = mapped_column(Integer, default=0)
+    effective_rank: Mapped[int] = mapped_column(Integer, default=0)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    match_method: Mapped[str] = mapped_column(String(32), default="")
+    heat_label: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    heat_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hot_title: Mapped[str] = mapped_column(String(512), default="")
+    hot_url: Mapped[str] = mapped_column(String(1024), default="")
+    inherited_from_article_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    matched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

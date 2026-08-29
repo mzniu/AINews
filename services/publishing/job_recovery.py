@@ -22,6 +22,22 @@ def load_publish_lock_timeout_sec() -> float:
     return float(upload + 180)
 
 
+def load_qr_lock_timeout_sec() -> float:
+    """Shorter lock wait for QR login so users are not blocked behind publish jobs."""
+    defaults = load_publishing_yaml().get("defaults") or {}
+    return float(defaults.get("qr_lock_timeout_sec", 90))
+
+
+def has_pending_qr_login(session: Session) -> bool:
+    """True when a QR login session is waiting for the worker."""
+    return (
+        session.query(QrLoginSession)
+        .filter_by(status="pending")
+        .count()
+        > 0
+    )
+
+
 def has_active_publish_job(session: Session) -> bool:
     """True when any job is currently uploading (enforce serial publish)."""
     return (

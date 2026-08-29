@@ -27,6 +27,10 @@ DEFAULT_DEFAULTS = {
     "max_images_per_article": 20,
     "max_image_bytes": 10485760,
     "stop_after_existing": 5,
+    "ingest_performance": {
+        "auto_llm_for_sa_on_ingest": False,
+        "story_cluster_llm_on_ingest": False,
+    },
     "story_cluster": {
         "enabled": True,
         "title_threshold": 0.72,

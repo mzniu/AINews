@@ -304,8 +304,8 @@ def test_chronicle_summary_moved_up_10_percent(tmp_path, monkeypatch):
     summary_y = next(xy[1] for xy, text in drawn if "这是摘要正文" in text)
     summary_pct = float((template.get("typography") or {}).get("summary_y_percent", 75.2)) / 100.0
     assert summary_y == int(canvas_h * summary_pct)
-    assert abs(summary_pct - 0.702) < 0.001
-    assert int(canvas_h * 0.68) < summary_y < int(canvas_h * 0.73)
+    assert abs(summary_pct - 0.732) < 0.001
+    assert int(canvas_h * 0.71) < summary_y < int(canvas_h * 0.76)
 
 
 def test_chronicle_card_and_summary_shifted_up_from_header_pad(tmp_path, monkeypatch):
@@ -452,7 +452,7 @@ def test_chronicle_layout_reads_card_and_summary_percents():
     typo = template.get("typography") or {}
     assert float(layout["card_top_percent"]) == 35
     assert float(layout["card_bottom_percent"]) == 71
-    assert float(typo["summary_y_percent"]) == 70.2
+    assert float(typo["summary_y_percent"]) == 73.2
     left, top, right, bottom = hero_inner_box(1080, 1920, template)
     assert top == int(1920 * 0.35) + 16
     assert bottom == int(1920 * 0.71) - 16
@@ -670,5 +670,192 @@ def test_evidence_cover_skips_summary_keeps_title(tmp_path, monkeypatch):
     labels = [text for _, text in drawn]
     assert any("证据封面标题" in text for text in labels)
     assert not any("这是不应出现的摘要" in text for text in labels)
-    footer_left = str((template.get("chrome") or {}).get("footer_left") or "AI 快讯")
-    assert footer_left in labels
+    assert "小牛聊AI" in labels
+    assert not any(text == "AI 快讯" for text in labels)
+
+
+def test_evidence_brand_and_record_sit_in_footer(tmp_path, monkeypatch):
+    drawn: list[tuple[object, str]] = []
+    from PIL import ImageDraw
+
+    original = ImageDraw.ImageDraw.text
+
+    def spy(self, xy, text, **kwargs):
+        drawn.append((xy, str(text)))
+        return original(self, xy, text, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+    img = _red_image(tmp_path / "shot.jpg")
+    template = _evidence_template()
+    canvas_h = int((template.get("canvas") or {}).get("height") or 1920)
+    render_chronicle_frame(
+        draft={"main_line1": "突发！证据标题"},
+        image=Image.open(img).convert("RGB"),
+        template=template,
+        include_footer=True,
+        include_summary=False,
+    )
+    brand_y = next(xy[1] for xy, text in drawn if text == "小牛聊AI")
+    record_y = next(xy[1] for xy, text in drawn if str(text).startswith("RECORD"))
+    assert brand_y >= int(canvas_h * 0.80)
+    assert record_y >= int(canvas_h * 0.80)
+
+
+def test_evidence_omits_flash_news_and_brand_sub(tmp_path, monkeypatch):
+    drawn: list[str] = []
+    from PIL import ImageDraw
+
+    original = ImageDraw.ImageDraw.text
+
+    def spy(self, xy, text, **kwargs):
+        drawn.append(str(text))
+        return original(self, xy, text, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+    img = _red_image(tmp_path / "shot.jpg")
+    render_chronicle_frame(
+        draft={"main_line1": "突发！证据标题", "summary": "小牛说：摘要"},
+        image=Image.open(img).convert("RGB"),
+        template=_evidence_template(),
+        include_footer=True,
+    )
+    assert "AI 快讯" not in drawn
+    assert not any("粉碎AI信息差" in text for text in drawn)
+
+
+def test_evidence_card_fills_top_space(tmp_path):
+    img = _red_image(tmp_path / "shot.jpg")
+    template = _evidence_template()
+    canvas_h = int((template.get("canvas") or {}).get("height") or 1920)
+    card_top_pct = float((template.get("layout") or {}).get("card_top_percent", 18))
+    assert card_top_pct <= 6
+    frame = render_chronicle_frame(
+        draft={"main_line1": "突发！证据标题"},
+        image=Image.open(img).convert("RGB"),
+        template=template,
+        include_footer=False,
+    )
+    sample = frame.getpixel((540, int(canvas_h * 0.10)))
+    assert sample[0] > 150
+    assert sample[1] < 80
+
+
+def test_archive_brand_stays_in_header(tmp_path, monkeypatch):
+    drawn: list[tuple[object, str]] = []
+    from PIL import ImageDraw
+
+    original = ImageDraw.ImageDraw.text
+
+    def spy(self, xy, text, **kwargs):
+        drawn.append((xy, str(text)))
+        return original(self, xy, text, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+    img = _red_image(tmp_path / "shot.jpg")
+    template = _template()
+    canvas_h = int((template.get("canvas") or {}).get("height") or 1920)
+    render_chronicle_frame(
+        draft={"main_line1": "突发！档案标题"},
+        image=Image.open(img).convert("RGB"),
+        template=template,
+        include_footer=True,
+    )
+    brand_y = next(xy[1] for xy, text in drawn if text == "小牛聊AI")
+    assert brand_y < int(canvas_h * 0.20)
+    assert any(text == "AI 快讯" for _, text in drawn)
+
+
+def _two_frame_gif(path: Path, *, duration_ms: int = 100) -> Path:
+    red = Image.new("RGB", (120, 120), (220, 20, 20))
+    blue = Image.new("RGB", (120, 120), (20, 40, 220))
+    red.save(
+        path,
+        save_all=True,
+        append_images=[blue],
+        duration=duration_ms,
+        loop=0,
+        format="GIF",
+    )
+    return path
+
+
+def test_chronicle_hero_at_gif_skips_ken_burns(tmp_path):
+    from services.ingestion.chronicle_render import chronicle_hero_at
+    from services.ingestion.hero_animation import load_hero_animation
+
+    anim = load_hero_animation(_two_frame_gif(tmp_path / "loop.gif"))
+    first, scale_a, ox_a, oy_a = chronicle_hero_at(
+        anim, 0.0, duration=4.0, effect="zoom_in", end_scale=1.22, pan=0.7
+    )
+    second, scale_b, ox_b, oy_b = chronicle_hero_at(
+        anim, 0.12, duration=4.0, effect="zoom_in", end_scale=1.22, pan=0.7
+    )
+    assert scale_a == scale_b == 1.0
+    assert (ox_a, oy_a) == (ox_b, oy_b) == (0.0, 0.0)
+    assert first.getpixel((8, 8)) != second.getpixel((8, 8))
+
+
+def test_chronicle_hero_at_still_keeps_ken_burns(tmp_path):
+    from services.ingestion.chronicle_render import chronicle_hero_at
+    from services.ingestion.hero_animation import load_hero_animation
+
+    path = tmp_path / "still.jpg"
+    Image.new("RGB", (64, 64), (10, 180, 10)).save(path)
+    anim = load_hero_animation(path)
+    _, scale_start, _, _ = chronicle_hero_at(
+        anim, 0.0, duration=4.0, effect="zoom_in", end_scale=1.22, pan=0.7
+    )
+    _, scale_end, _, _ = chronicle_hero_at(
+        anim, 4.0, duration=4.0, effect="zoom_in", end_scale=1.22, pan=0.7
+    )
+    assert scale_start == 1.0
+    assert scale_end == 1.22
+
+
+def test_chronicle_live_frame_gif_card_changes_color(tmp_path):
+    from services.ingestion.chronicle_render import (
+        compose_chronicle_live_frame,
+        hero_inner_box,
+        render_chronicle_frame,
+    )
+    from services.ingestion.hero_animation import load_hero_animation
+
+    gif = _two_frame_gif(tmp_path / "loop.gif")
+    template = _template()
+    anim = load_hero_animation(gif)
+    chrome = render_chronicle_frame(
+        draft={"main_line1": "动图标题"},
+        image=anim.frames[0],
+        template=template,
+        include_footer=True,
+        include_hero=False,
+    )
+    inner = hero_inner_box(1080, 1920, template)
+    cx = (inner[0] + inner[2]) // 2
+    cy = (inner[1] + inner[3]) // 2
+    f0 = compose_chronicle_live_frame(
+        chrome=chrome,
+        anim=anim,
+        t=0.0,
+        inner=inner,
+        duration=1.0,
+        effect="zoom_in",
+        end_scale=1.22,
+        pan=0.7,
+        apply_motion=False,
+    )
+    f1 = compose_chronicle_live_frame(
+        chrome=chrome,
+        anim=anim,
+        t=0.08,
+        inner=inner,
+        duration=1.0,
+        effect="zoom_in",
+        end_scale=1.22,
+        pan=0.7,
+        apply_motion=False,
+    )
+    r0, _, b0 = f0.getpixel((cx, cy))
+    r1, _, b1 = f1.getpixel((cx, cy))
+    assert r0 > b0
+    assert b1 > r1

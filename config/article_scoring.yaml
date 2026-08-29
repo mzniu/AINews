@@ -2,14 +2,16 @@
 profile: flash_news
 
 weights:
-  timeliness: 0.20
-  prominence: 0.18
-  breakthrough: 0.18
-  product_heat: 0.15
+  timeliness: 0.15
+  prominence: 0.15
+  event_tension: 0.20
+  breakthrough: 0.10
+  product_heat: 0.08
   hook: 0.12
-  relevance: 0.10
-  data_signal: 0.05
+  relevance: 0.12
+  data_signal: 0.02
   creatability: 0.02
+  hot_radar: 0.04
 
 grades:
   S: 85
@@ -32,6 +34,33 @@ penalties:
   insufficient_images:
     min_images: 3
     points: -6
+  off_topic:
+    max_relevance_score: 5
+    points: -12
+
+event_tension_signals:
+  - 离职
+  - 辞职
+  - 创业
+  - 出走
+  - 跳槽
+  - 挖角
+  - 收购
+  - 买走
+  - 并购
+  - 融资
+  - IPO
+  - 估值
+  - 禁令
+  - 翻车
+  - 实测
+  - 被曝
+  - 豪宅
+  - 消失
+  - 裁员
+  - 倒闭
+  - 内斗
+  - 决裂
 
 tier1_companies:
   - OpenAI
@@ -159,6 +188,11 @@ ai_relevance_keywords:
   - 人工智能
   - 大模型
   - LLM
+  - GPT
+  - ChatGPT
+  - Claude
+  - Gemini
+  - OpenAI
   - 机器学习
   - 深度学习
   - 神经网络
@@ -181,7 +215,7 @@ post_score_automation:
   enabled: true
   skip_if_done: true
   include_story_images: true
-  voiceover_min_chars: 40
+  voiceover_min_chars: 70
   voiceover_max_chars: 90
   auto_llm:
     enabled: true
@@ -203,10 +237,18 @@ post_score_automation:
     clip_duration_sec: 2.5
     render_cover: true
     prepend_cover_intro: true
-    cover_intro_duration_sec: 1.0
-    cover_width: 1080
-    cover_height: 1440
   # 出片成功后自动为所有已登录平台创建发布任务
   auto_publish:
     enabled: true
     skip_if_exists: true
+    min_grade: S
+    interval_minutes: 60
+    quiet_hours:
+      enabled: false
+      start: "23:00"
+      end: "07:00"
+  # 同一 Story 仅代表篇出片，避免跨源重复选题
+  story_gate:
+    enabled: true
+    require_primary: true
+    one_pipeline_per_story: true

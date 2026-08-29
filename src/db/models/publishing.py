@@ -24,6 +24,9 @@ class PublisherAccount(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     platform_uid: Mapped[str | None] = mapped_column(String(128), nullable=True)
     session_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    browser_profile_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    browser_profile_version: Mapped[int] = mapped_column(Integer, default=1)
+    last_fingerprint_probe: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="active")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_publish_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -45,6 +48,9 @@ class PublishJob(Base):
     cover_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="pending")
     platform_post_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    platform_post_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    metrics_match_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    metrics_last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     source_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -54,6 +60,11 @@ class PublishJob(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    first_comment_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    comment_status: Mapped[str] = mapped_column(String(16), default="none")
+    comment_posted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    comment_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    comment_retry_count: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class PublishLog(Base):

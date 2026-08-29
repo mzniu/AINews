@@ -602,6 +602,10 @@
                     line2El.value = '';
                 }
             }
+            const shortEl = document.getElementById('generated-short-title');
+            if (shortEl) {
+                shortEl.value = (generatedContent.short_title || line1El?.value || '').trim();
+            }
             document.getElementById('generated-subtitle').textContent = generatedContent.subtitle || '';
             const sub2El = document.getElementById('generated-subtitle2');
             if (sub2El) sub2El.textContent = generatedContent.subtitle2 || '';
@@ -731,6 +735,7 @@
                         <div class="video-info">
                             <h3>生成的视频信息</h3>
                             <p><strong>标题:</strong> ${data.video_metadata.title}</p>
+                            <p><strong>视频号短标题:</strong> ${data.video_metadata.short_title || ''}</p>
                             <p><strong>摘要:</strong> ${(data.video_metadata.summary || '').substring(0, 120)}${(data.video_metadata.summary || '').length > 120 ? '…' : ''}</p>
                             <p><strong>标签:</strong> ${data.video_metadata.tags.join(', ')}</p>
                             <p><strong>项目ID:</strong> ${data.project_id}</p>

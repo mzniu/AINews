@@ -16,6 +16,7 @@ LOCAL_CONFIG_PATH = ROOT_DIR / "config" / "forbidden_words.local.yaml"
 CONTENT_FIELD_NAMES = (
     "main_line1",
     "main_line2",
+    "short_title",
     "sub_title",
     "sub_title2",
     "summary",
@@ -27,7 +28,7 @@ CONTENT_FIELD_NAMES = (
 )
 
 FORBIDDEN_WORDS_HEADER = """【禁限词与合规约束（全局硬性，优先级高于点击率与夸赞效果）】
-以下约束适用于全部输出字段：main_line1、main_line2、sub_title、sub_title2、summary、voiceover_script、tags、highlight_keywords、praise_tags、target_audience。任一字段出现下列词汇、同义变体或明显等价表达，均视为严重违规，必须改写后再输出。
+以下约束适用于全部输出字段：main_line1、main_line2、short_title、sub_title、sub_title2、summary、voiceover_script、tags、highlight_keywords、praise_tags、target_audience。任一字段出现下列词汇、同义变体或明显等价表达，均视为严重违规，必须改写后再输出。
 """
 
 CHINESE_ORDINALS = "一二三四五六七八九十"

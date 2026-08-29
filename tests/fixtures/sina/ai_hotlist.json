@@ -1,0 +1,477 @@
+{
+  "status": 0,
+  "msg": "success",
+  "service": "grpc-service",
+  "uni": "f3b486c2b9bcf5cf9226eef75b1d29ef",
+  "localUni": "",
+  "resTime": 1787327952296,
+  "data": {
+    "dataid": "wpcomos:249300",
+    "newsId": "HB-1-snhs/top_news_list-ai",
+    "hotList": [
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:nipakut1614072",
+            "expId": "17873279521877newsapp6a8875d069cad103357505",
+            "modId": 8,
+            "uniqueId": "8152c46be240cb647b09eb80addeb7f8",
+            "url": "https://finance.sina.cn/2026-08-21/detail-inipakut1614072.d.html"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "404万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "男子驾照体检遇到“高难度”色盲图，记者发朋友圈实测24人仅6人答对，AI识别也答错",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/article/detail.pg?newsId=nipakut1614072-comos-finance-cms"
+        },
+        "info": {
+          "hotValue": "404万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "男子驾照体检遇到“高难度”色盲图，记者发朋友圈实测24人仅6人答对，AI识别也答错"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:ninzyex1587063",
+            "expId": "17873279521929newsapp6a8875d05cb69293167122",
+            "modId": 8,
+            "uniqueId": "127a7e9f4529235ad3119053e64791a1",
+            "url": "https://k.sina.cn/article_1496814565_m593793e5033024crg.html?from=news"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "79万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "驾照体检遇高难度色盲图AI都答错 当事人：20个好友仅7人答对",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/video/miniVideo.pg?newsId=1496814565-m593793e5033024crg-video-mp&dataid=comos:ninzyex1587063"
+        },
+        "info": {
+          "hotValue": "79万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "驾照体检遇高难度色盲图AI都答错 当事人：20个好友仅7人答对"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:ninzyer6446028",
+            "expId": "17873279521929newsapp6a8875d06c480031183898",
+            "modId": 8,
+            "uniqueId": "adb56b715e429af5022af66456a63da3",
+            "url": "https://k.sina.cn/article_6105713761_16bedcc61020028nmm.html?from=news&subch=onews"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "68万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "AI逼得美国数学家宣布退出数学学术界：不再是寻求答案，而是去验证答案",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/article/detail.pg?newsId=6105713761-16bedcc61020028nmm-cms-mp"
+        },
+        "info": {
+          "hotValue": "68万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "AI逼得美国数学家宣布退出数学学术界：不再是寻求答案，而是去验证答案"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:ninzyeu1432812",
+            "expId": "17873279521988newsapp6a8875d004213308272594",
+            "modId": 8,
+            "uniqueId": "b1d9a9c8e37d8a0b33e420abb3854ec7",
+            "url": "https://k.sina.cn/article_7879996539_m1d5af347b03301t2n6.html?from=mil"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "61万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "造中国六代机的工程师发警告：AI正在军事领域“编瞎话”",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/video/miniVideo.pg?newsId=7879996539-m1d5af347b03301t2n6-video-mp&dataid=comos:ninzyeu1432812"
+        },
+        "info": {
+          "hotValue": "61万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "造中国六代机的工程师发警告：AI正在军事领域“编瞎话”"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:niparar1599586",
+            "expId": "17873279521989newsapp6a8875d013d30093143694",
+            "modId": 8,
+            "uniqueId": "d40aa80ac44112a99a9aec469b992fdd",
+            "url": "https://video.sina.cn/finance/2026-08-21/detail-iniparar1599586.d.html"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "37万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "AI牛市裂痕出现？英伟达、微软遭华尔街重新审判，下一轮科技股行情要变天了美股美股分析AI股票英伟达。",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/video/miniVideo.pg?newsId=niparar1599586-comos-video-cms&dataid=comos:niparar1599586"
+        },
+        "info": {
+          "hotValue": "37万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "AI牛市裂痕出现？英伟达、微软遭华尔街重新审判，下一轮科技股行情要变天了美股美股分析AI股票英伟达。"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:ninywtm1745326",
+            "expId": "17873279521989newsapp6a8875d01cf88687839045",
+            "modId": 8,
+            "uniqueId": "b4664fcbcb065b83680194527f2e690e",
+            "url": "https://k.sina.cn/article_1702925432_6580947801901abu4.html?from=finance&kdurlshow=1"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "28万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "芯片涨价潮来了",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/article/detail.pg?newsId=1702925432-6580947801901abu4-cms-mp"
+        },
+        "info": {
+          "hotValue": "28万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "芯片涨价潮来了"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:ninzprc1634665",
+            "expId": "17873279521989newsapp6a8875d024acc485574397",
+            "modId": 8,
+            "uniqueId": "be50b936fc8ab17132656563cbb462f6",
+            "url": "https://finance.sina.cn/2026-08-21/detail-ininzprc1634665.d.html"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "24万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "美股三大指数集体收跌：道指跌逾700点，存储芯片股逆势走强",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/article/detail.pg?newsId=ninzprc1634665-comos-finance-cms"
+        },
+        "info": {
+          "hotValue": "24万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "美股三大指数集体收跌：道指跌逾700点，存储芯片股逆势走强"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:nipakum6479935",
+            "expId": "17873279522030newsapp6a8875d00c26b855053799",
+            "modId": 8,
+            "uniqueId": "d40757d6fdbacfaf1be0529e1e155f4c",
+            "url": "https://k.sina.cn/article_1499104401_m595a849103303pxmi.html?from=tech&kdurlshow=1"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "24万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "AI正在成为医院标配",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/video/miniVideo.pg?newsId=1499104401-m595a849103303pxmi-video-mp&dataid=comos:nipakum6479935"
+        },
+        "info": {
+          "hotValue": "24万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "AI正在成为医院标配"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:ninztwt6447572",
+            "expId": "17873279522031newsapp6a8875d018419776000576",
+            "modId": 8,
+            "uniqueId": "505eb263ed1ef5b11a1e733ef6746cae",
+            "url": "https://tech.sina.cn/2026-08-21/detail-ininztwt6447572.d.html"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "17万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "英伟达被曝用Groq技术打造中国特供芯片：最快年底出货 官方紧急否认",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/article/detail.pg?newsId=ninztwt6447572-comos-tech-cms"
+        },
+        "info": {
+          "hotValue": "17万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "英伟达被曝用Groq技术打造中国特供芯片：最快年底出货 官方紧急否认"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:nipaenv1579755",
+            "expId": "17873279522066newsapp6a8875d0743a9675027922",
+            "modId": 8,
+            "uniqueId": "f5eaa62be955990554956c2954736462",
+            "url": "https://k.sina.cn/article_2673262594_m9f56c00203302e9l4.html?from=sports&subch=osport"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "14万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "柯洁指导AI下棋，棋局不止冰冷胜率",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/video/miniVideo.pg?newsId=2673262594-m9f56c00203302e9l4-video-mp&dataid=comos:nipaenv1579755"
+        },
+        "info": {
+          "hotValue": "14万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "柯洁指导AI下棋，棋局不止冰冷胜率"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:ninzyeu1424598",
+            "expId": "17873279522067newsapp6a8875d081e7c450638065",
+            "modId": 8,
+            "uniqueId": "cf3c14d86755d5b6c5cece095f9a2eca",
+            "url": "https://k.sina.cn/article_1651428902_626ece2602001j2ey.html?from=tech&kdurlshow=1"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "13万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "明星能将AI形象卖出好价钱，普通人却只能被白嫖",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/article/detail.pg?newsId=1651428902-626ece2602001j2ey-cms-mp"
+        },
+        "info": {
+          "hotValue": "13万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "明星能将AI形象卖出好价钱，普通人却只能被白嫖"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/datamodel.item.ItemHotSearchMod",
+        "base": {
+          "base": {
+            "dataid": "comos:ninzyex1600626",
+            "expId": "17873279522149newsapp6a8875d06bb24316367018",
+            "modId": 8,
+            "uniqueId": "2951eb744a8e5965781e2cb48406e639",
+            "url": "https://k.sina.cn/article_5893229038_m15f4389ee033092ydw.html?from=tech&kdurlshow=1"
+          },
+          "decoration": [
+            {
+              "@type": "type.googleapis.com/datamodel.item.ItemBase.HotSearchDecoration",
+              "hotTag": {},
+              "hotValue": "10万",
+              "iconType": 1
+            }
+          ],
+          "dynamicName": "王自如AI提出易感人群心法，好内容创作者需敏感生活",
+          "recommendInfo": {},
+          "routeUri": "sinanews://sina.cn/video/miniVideo.pg?newsId=5893229038-m15f4389ee033092ydw-video-mp&dataid=comos:ninzyex1600626"
+        },
+        "info": {
+          "hotValue": "10万",
+          "layoutStyle": 95,
+          "showTag": [
+            ""
+          ],
+          "title": "王自如AI提出易感人群心法，好内容创作者需敏感生活"
+        }
+      }
+    ],
+    "shareInfo": {
+      "title": "【AI热榜】AI潮流，洞悉未来",
+      "intro": "【AI热榜】AI潮流，洞悉未来",
+      "link": "https://sinanews.sina.cn/h5/top_ai_list.d.html",
+      "imgUrl": "https://n.sinaimg.cn/sinanews/370/w750h420/20240603/f286-f49aa9290d31ba424b6b2678e505bfe8.png",
+      "poster": {
+        "imgUrl": "https://n.sinaimg.cn/sinanews/370/w750h420/20240603/f286-f49aa9290d31ba424b6b2678e505bfe8.png"
+      },
+      "customTitle": "【AI热榜】AI潮流，洞悉未来"
+    },
+    "subscribe": {
+      "userId": "hotlist_2881926"
+    },
+    "tabs": [
+      {
+        "name": "新浪热榜",
+        "tabId": "all",
+        "tabBanner": {
+          "pic": ""
+        }
+      },
+      {
+        "name": "热议榜",
+        "tabId": "hotcmnt",
+        "tabBanner": {
+          "pic": "http://n.sinaimg.cn/default/transform/155/w1125h630/20240320/c2b9-bab6bf0699abce64855b7e53d7128425.png"
+        }
+      },
+      {
+        "name": "视频热榜",
+        "tabId": "minivideo",
+        "tabBanner": {
+          "pic": "http://n.sinaimg.cn/default/transform/155/w1125h630/20220513/d909-e0dd209a2b4dacde92b3d014f1ec44f2.png"
+        }
+      },
+      {
+        "name": "潮流热榜",
+        "tabId": "trend",
+        "tabBanner": {
+          "pic": "https://n.sinaimg.cn/default/78/w563h315/20220721/cf2b-32a76b66d0dfc7f73b8c85421611fc27.png"
+        }
+      },
+      {
+        "name": "体育热榜",
+        "tabId": "sport",
+        "tabBanner": {
+          "pic": "http://n.sinaimg.cn/top/transform/155/w1125h630/20240903/e6a0-1e3ec84525e907edc579fa5aba62e1a1.png"
+        }
+      },
+      {
+        "name": "娱乐热榜",
+        "tabId": "ent",
+        "tabBanner": {
+          "pic": ""
+        }
+      },
+      {
+        "name": "汽车热榜",
+        "tabId": "auto",
+        "tabBanner": {
+          "pic": "http://n.sinaimg.cn/default/transform/156/w1126h630/20220520/a907-72a438547c8632aaec0f9eb64a6453db.png"
+        }
+      },
+      {
+        "name": "旅游热榜",
+        "tabId": "travel",
+        "tabBanner": {
+          "pic": "http://n.sinaimg.cn/default/transform/796/w1500h896/20220519/6e27-1f45385f37a557bafe8472ee3363898e.png"
+        }
+      },
+      {
+        "name": "AI热榜",
+        "tabId": "ai",
+        "tabBanner": {
+          "pic": "https://n.sinaimg.cn/sinanews/370/w750h420/20240603/f286-f49aa9290d31ba424b6b2678e505bfe8.png"
+        }
+      }
+    ],
+    "defaultTabId": "ai",
+    "updateNotice": "实时热点，每10分钟更新一次",
+    "algorithmRuleShow": false,
+    "ads": [
+      {
+        "pdps": "PDPS000000067801",
+        "pos": 4
+      }
+    ],
+    "date": 1787327952,
+    "historyShowSize": 0,
+    "startAudio": null,
+    "endAudio": null
+  }
+}

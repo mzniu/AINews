@@ -7,10 +7,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from loguru import logger
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from services.ingestion.asset_downloader import INGESTED_ROOT, download_image
-from services.ingestion.db_retry import run_with_sqlite_retry
+from services.ingestion.db_retry import run_with_sqlite_retry, serialized_sqlite_write
 from services.ingestion.registry import build_adapter, get_source_config
 from services.ingestion.score_service import apply_score_to_article
 from services.ingestion.story_cluster import assign_article_to_story
@@ -18,9 +20,40 @@ from services.ingestion.url_utils import build_list_page_url, canonicalize_url
 from src.db.models.ingestion import ArticleImage, CrawlRun, IngestedArticle, IngestionSource, _uuid
 
 
+def _ingest_cluster_config(cfg: dict) -> dict:
+    from services.ingestion.story_cluster_config import load_story_cluster_config
+
+    cluster_cfg = cfg.get("story_cluster") or {}
+    options = cfg.get("ingest_performance") or {}
+    base = load_story_cluster_config(cluster_cfg)
+    if not options.get("story_cluster_llm_on_ingest", False):
+        llm = dict(base.get("llm") or {})
+        llm["enabled"] = False
+        base = {**base, "llm": llm}
+    return base
+
+
+def _is_duplicate_article_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    return "uq_source_url" in message or "ingested_articles.source_id" in message
+
+
 class IngestionOrchestrator:
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    def _discover_list_with_retry(self, adapter, list_url: str, *, attempts: int = 3):
+        last_exc: Exception | None = None
+        for attempt in range(attempts):
+            try:
+                return adapter.discover_list(list_url)
+            except Exception as exc:
+                last_exc = exc
+                logger.warning("discover_list failed (attempt {}/{}): {}", attempt + 1, attempts, exc)
+                if attempt + 1 < attempts:
+                    time.sleep(1.5 * (attempt + 1))
+        assert last_exc is not None
+        raise last_exc
 
     def run_source(self, source_id: str, *, job_id: str | None = None) -> dict:
         source = self.session.get(IngestionSource, source_id)
@@ -28,6 +61,8 @@ class IngestionOrchestrator:
             raise ValueError(f"Unknown source: {source_id}")
         cfg = get_source_config(source)
         adapter = build_adapter(source)
+        perf = cfg.get("ingest_performance") or {}
+        cluster_options = _ingest_cluster_config(cfg)
         run = CrawlRun(source_id=source_id, job_id=job_id, status="running")
         self.session.add(run)
         self.session.flush()
@@ -40,24 +75,27 @@ class IngestionOrchestrator:
         max_pages = int(cfg.get("max_list_pages", 2))
         max_new = int(cfg.get("max_new_articles_per_run", 30))
         delay = float(cfg.get("request_delay_sec", 2))
+        started = time.perf_counter()
+
+        existing_urls = {
+            row[0]
+            for row in self.session.query(IngestedArticle.canonical_url)
+            .filter_by(source_id=source_id)
+            .all()
+        }
 
         try:
             for page in range(1, max_pages + 1):
                 if stats["new"] >= max_new:
                     break
                 list_url = build_list_page_url(cfg, page)
-                refs = adapter.discover_list(list_url)
+                refs = self._discover_list_with_retry(adapter, list_url)
                 for ref in refs:
                     if stats["new"] >= max_new:
                         break
                     stats["seen"] += 1
                     url = canonicalize_url(ref.url)
-                    exists = (
-                        self.session.query(IngestedArticle)
-                        .filter_by(source_id=source_id, canonical_url=url)
-                        .first()
-                    )
-                    if exists:
+                    if url in existing_urls:
                         stats["skipped"] += 1
                         consecutive_existing += 1
                         if consecutive_existing >= stop_after:
@@ -65,13 +103,31 @@ class IngestionOrchestrator:
                         continue
                     consecutive_existing = 0
                     try:
-                        self._ingest_one(source, adapter, ref, run_id, cfg)
+                        article = self._ingest_one(
+                            source,
+                            adapter,
+                            ref,
+                            run_id,
+                            cfg,
+                            cluster_options=cluster_options,
+                            perf=perf,
+                        )
+                        existing_urls.add(url)
                         stats["new"] += 1
+                    except IntegrityError as exc:
+                        self.session.rollback()
+                        if _is_duplicate_article_error(exc):
+                            existing_urls.add(url)
+                            stats["skipped"] += 1
+                            continue
+                        stats["failed"] += 1
+                        stats["errors"].append({"url": url, "error": str(exc)})
                     except Exception as exc:
                         self.session.rollback()
                         stats["failed"] += 1
                         stats["errors"].append({"url": url, "error": str(exc)})
-                    time.sleep(delay)
+                    if delay > 0:
+                        time.sleep(delay)
                 if consecutive_existing >= stop_after:
                     break
 
@@ -80,8 +136,11 @@ class IngestionOrchestrator:
             if run and source:
                 run.status = "partial" if stats["failed"] else "succeeded"
                 source.last_run_at = datetime.utcnow()
-                source.last_success_at = datetime.utcnow()
-                source.last_error = None
+                if stats["failed"]:
+                    source.last_error = f"{stats['failed']} 篇文章抓取失败"
+                else:
+                    source.last_success_at = datetime.utcnow()
+                    source.last_error = None
         except Exception as exc:
             run = self.session.get(CrawlRun, run_id)
             source = self.session.get(IngestionSource, source_id)
@@ -97,11 +156,91 @@ class IngestionOrchestrator:
             run = self.session.get(CrawlRun, run_id)
             if run:
                 run.finished_at = datetime.utcnow()
+                stats["duration_sec"] = round(time.perf_counter() - started, 2)
                 run.stats_json = json.dumps(stats, ensure_ascii=False)
             self.session.commit()
         return stats
 
-    def _ingest_one(self, source, adapter, ref, run_id: str, cfg: dict) -> IngestedArticle:
+    def ingest_url(
+        self,
+        source_id: str,
+        url: str,
+        *,
+        title: str | None = None,
+        job_id: str | None = None,
+    ) -> dict:
+        from services.ingestion.adapters.base import ArticleRef
+
+        source = self.session.get(IngestionSource, source_id)
+        if source is None:
+            raise ValueError(f"Unknown source: {source_id}")
+        cfg = get_source_config(source)
+        adapter = build_adapter(source)
+        perf = cfg.get("ingest_performance") or {}
+        cluster_options = _ingest_cluster_config(cfg)
+        run = CrawlRun(source_id=source_id, job_id=job_id, status="running")
+        self.session.add(run)
+        self.session.flush()
+        run_id = run.id
+        self.session.commit()
+
+        ref = ArticleRef(url=canonicalize_url(url), title=title or url)
+        stats = {"seen": 1, "new": 0, "skipped": 0, "failed": 0, "errors": []}
+        try:
+            article = self._ingest_one(
+                source,
+                adapter,
+                ref,
+                run_id,
+                cfg,
+                cluster_options=cluster_options,
+                perf=perf,
+            )
+            stats["new"] = 1
+            stats["article_id"] = article.id
+            run = self.session.get(CrawlRun, run_id)
+            source = self.session.get(IngestionSource, source_id)
+            if run and source:
+                run.status = "succeeded"
+                source.last_success_at = datetime.utcnow()
+                source.last_error = None
+        except IntegrityError as exc:
+            self.session.rollback()
+            if _is_duplicate_article_error(exc):
+                stats["skipped"] = 1
+                existing = (
+                    self.session.query(IngestedArticle)
+                    .filter_by(source_id=source_id, canonical_url=canonicalize_url(url))
+                    .first()
+                )
+                if existing is not None:
+                    stats["article_id"] = existing.id
+            else:
+                stats["failed"] = 1
+                stats["errors"].append({"url": url, "error": str(exc)})
+        except Exception as exc:
+            self.session.rollback()
+            stats["failed"] = 1
+            stats["errors"].append({"url": url, "error": str(exc)})
+        finally:
+            run = self.session.get(CrawlRun, run_id)
+            if run:
+                run.finished_at = datetime.utcnow()
+                run.stats_json = json.dumps(stats, ensure_ascii=False)
+            self.session.commit()
+        return stats
+
+    def _ingest_one(
+        self,
+        source,
+        adapter,
+        ref,
+        run_id: str,
+        cfg: dict,
+        *,
+        cluster_options: dict,
+        perf: dict,
+    ) -> IngestedArticle:
         url = canonicalize_url(ref.url)
         detail = None
         content_text = ref.summary or ""
@@ -148,23 +287,24 @@ class IngestionOrchestrator:
         max_bytes = int(cfg.get("max_image_bytes", 10 * 1024 * 1024))
         images_dir = article_dir / "images"
         downloaded_images: list[dict] = []
-        for idx, image_url in enumerate(image_urls[:max_images], start=1):
-            result = download_image(
-                image_url,
-                images_dir,
-                index=idx,
-                max_bytes=max_bytes,
-                referer=url,
-            )
-            downloaded_images.append(
-                {
-                    "original_url": image_url,
-                    "sort_order": idx,
-                    "origin": "cover" if idx == 1 else "article_body",
-                    "download_status": "ok" if result.get("success") else "failed",
-                    "local_path": result.get("local_path"),
-                }
-            )
+        if cfg.get("download_images", True):
+            for idx, image_url in enumerate(image_urls[:max_images], start=1):
+                result = download_image(
+                    image_url,
+                    images_dir,
+                    index=idx,
+                    max_bytes=max_bytes,
+                    referer=url,
+                )
+                downloaded_images.append(
+                    {
+                        "original_url": image_url,
+                        "sort_order": idx,
+                        "origin": "cover" if idx == 1 else "article_body",
+                        "download_status": "ok" if result.get("success") else "failed",
+                        "local_path": result.get("local_path"),
+                    }
+                )
 
         article = IngestedArticle(
             id=article_id,
@@ -203,19 +343,23 @@ class IngestionOrchestrator:
                     local_path=image["local_path"],
                 )
             )
-        run_with_sqlite_retry(lambda: self.session.commit())
+        serialized_sqlite_write(lambda: self.session.commit())
 
-        cluster_cfg = cfg.get("story_cluster") or {}
-        if cluster_cfg.get("enabled", True):
+        if cluster_options.get("enabled", True):
             assign_article_to_story(
                 self.session,
                 article,
-                threshold=float(cluster_cfg.get("title_threshold", 0.72)),
-                hours_window=int(cluster_cfg.get("hours_window", 72)),
+                threshold=float(cluster_options.get("title_threshold", 0.72)),
+                hours_window=int(cluster_options.get("hours_window", 72)),
+                config=cluster_options,
             )
         try:
-            apply_score_to_article(self.session, article, auto_llm_for_sa=True)
+            apply_score_to_article(
+                self.session,
+                article,
+                auto_llm_for_sa=bool(perf.get("auto_llm_for_sa_on_ingest", False)),
+            )
         except Exception:
             pass
-        run_with_sqlite_retry(lambda: self.session.commit())
+        serialized_sqlite_write(lambda: self.session.commit())
         return article

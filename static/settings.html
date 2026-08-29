@@ -5,25 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>系统配置 - AINews</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/model_settings.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815c">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260813c" defer></script>
+    <link rel="stylesheet" href="/static/css/model_settings.css?v=20260824a">
 </head>
-<body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-brand">🎬 AINews</a>
-            <div class="nav-menu">
-                <a href="/" class="nav-link">🏠 主页</a>
-                <a href="/video-maker" class="nav-link">📹 视频制作</a>
-                <a href="/ingestion-library" class="nav-link">📚 资讯库</a>
-                <a href="/publish-center" class="nav-link">📤 发布中心</a>
-                <a href="/settings" class="nav-link active">⚙️ 系统配置</a>
-                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
-                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
-            </div>
-        </div>
-    </nav>
+<body class="app-page">
+    <div id="app-nav-root"></div>
 
-    <div class="container">
+<div class="container">
         <div class="page-hero">
             <h1>⚙️ 系统配置</h1>
             <p>管理 AI 模型与资讯爬取参数。爬取 Worker 默认内嵌在 <code>web_server</code> 中运行（<code>INGESTION_WORKER_MODE=embedded</code>）。</p>
@@ -31,7 +21,13 @@
 
         <div class="settings-tabs">
             <button type="button" class="settings-tab active" data-tab="models">🗣️ 模型配置</button>
+            <button type="button" class="settings-tab" data-tab="usage">📈 用量统计</button>
+            <button type="button" class="settings-tab" data-tab="title-prompts">📝 标题文案</button>
+            <button type="button" class="settings-tab" data-tab="scoring">📊 文章评分</button>
+            <button type="button" class="settings-tab" data-tab="image-scoring">🖼️ 配图评分</button>
+            <button type="button" class="settings-tab" data-tab="render-templates">🎬 成片模板</button>
             <button type="button" class="settings-tab" data-tab="ingestion">🕷️ 爬取设定</button>
+            <button type="button" class="settings-tab" data-tab="hot-radar">📡 热榜雷达</button>
         </div>
 
         <div id="panel-models" class="settings-panel">
@@ -77,12 +73,233 @@
             </div>
         </div>
 
+        <div id="panel-title-prompts" class="settings-panel" hidden>
+            <div class="card">
+                <h2>标题生成提示词</h2>
+                <p class="section-desc">控制主标题怎么写。默认已改为「事实抓眼」：不强制突发！/炸裂！，并禁止夸张、误导。修改后立即作用于主页、资讯库与 GitHub 成片。网友锐评、副标题等其余段落仍走内置方法论。</p>
+                <div>
+                    <label class="field-label" for="titlePromptSystemRole">系统角色</label>
+                    <textarea id="titlePromptSystemRole" class="form-control prompt-textarea" rows="6"></textarea>
+                </div>
+                <div class="mt-3">
+                    <label class="field-label" for="titlePromptFormula">创作公式（标题相关）</label>
+                    <textarea id="titlePromptFormula" class="form-control prompt-textarea" rows="6"></textarea>
+                </div>
+                <div class="mt-3">
+                    <label class="field-label" for="titlePromptMainLine1">主标题风格与禁令</label>
+                    <textarea id="titlePromptMainLine1" class="form-control prompt-textarea prompt-textarea-lg" rows="12"></textarea>
+                </div>
+                <div class="mt-3">
+                    <label class="field-label" for="titlePromptStage2">主标题字段规则</label>
+                    <textarea id="titlePromptStage2" class="form-control prompt-textarea" rows="5"></textarea>
+                </div>
+                <div class="mt-3">
+                    <label class="field-label" for="titlePromptShortTitle">视频号短标题风格</label>
+                    <textarea id="titlePromptShortTitle" class="form-control prompt-textarea" rows="6"></textarea>
+                </div>
+                <div class="mt-3">
+                    <label class="field-label" for="titlePromptStage2Short">短标题字段规则</label>
+                    <textarea id="titlePromptStage2Short" class="form-control prompt-textarea" rows="4"></textarea>
+                </div>
+                <div class="mt-3">
+                    <label class="field-label" for="titlePromptJsonHint">JSON 字段说明（main_line1）</label>
+                    <input id="titlePromptJsonHint" class="form-control" type="text">
+                </div>
+                <div class="mt-3">
+                    <label class="field-label" for="titlePromptJsonShortHint">JSON 字段说明（short_title）</label>
+                    <input id="titlePromptJsonShortHint" class="form-control" type="text">
+                    <label class="field-label" for="titlePromptFirstComment">首评提示词（first_comment_patterns）</label>
+                    <textarea id="titlePromptFirstComment" class="form-control" rows="6"></textarea>
+                </div>
+            </div>
+            <div class="card">
+                <div class="footer-actions">
+                    <button type="button" class="btn" id="saveTitlePromptsBtn">保存标题提示词</button>
+                    <button type="button" class="btn btn-outline" id="reloadTitlePromptsBtn">重新加载</button>
+                    <button type="button" class="btn btn-outline" id="resetTitlePromptsBtn">恢复默认</button>
+                </div>
+                <div id="titlePromptsStatusBar" class="status-bar"></div>
+                <p class="hint">覆盖项保存在 <code>config/content_prompts.local.yaml</code>（不提交 Git）。</p>
+            </div>
+        </div>
+
+        <div id="panel-scoring" class="settings-panel" hidden>
+            <div class="card">
+                <h2>评分风格预设</h2>
+                <p class="section-desc">选择适合账号定位的评分模型。预设会调整各维度权重与等级分数线，入库文章将按新规则重新定级（已有文章需手动批量重评）。</p>
+                <div class="form-grid">
+                    <div>
+                        <label class="field-label" for="scoringPresetSelect">预设方案</label>
+                        <select id="scoringPresetSelect" class="form-control"></select>
+                    </div>
+                </div>
+                <p id="scoringPresetDesc" class="hint">加载中…</p>
+            </div>
+
+            <div class="card">
+                <div class="section-head">
+                    <h2>维度权重</h2>
+                    <span id="scoringWeightSum" class="badge">合计 100%</span>
+                </div>
+                <p class="section-desc">各维度原始分 0–10，乘以权重后汇总为 0–100 分。保存时会自动归一化为 100%。</p>
+                <div id="scoringWeightsList" class="scoring-weights-list"></div>
+            </div>
+
+            <div class="card">
+                <h2>等级分数线</h2>
+                <p class="section-desc">规则总分达到对应分数线即定为该等级（须满足 S &gt; A &gt; B &gt; C）。</p>
+                <div class="form-grid scoring-grade-grid">
+                    <div>
+                        <label class="field-label" for="gradeThresholdS">S 级（≥）</label>
+                        <input id="gradeThresholdS" class="form-control" type="number" min="1" max="99" step="1">
+                    </div>
+                    <div>
+                        <label class="field-label" for="gradeThresholdA">A 级（≥）</label>
+                        <input id="gradeThresholdA" class="form-control" type="number" min="1" max="99" step="1">
+                    </div>
+                    <div>
+                        <label class="field-label" for="gradeThresholdB">B 级（≥）</label>
+                        <input id="gradeThresholdB" class="form-control" type="number" min="1" max="99" step="1">
+                    </div>
+                    <div>
+                        <label class="field-label" for="gradeThresholdC">C 级（≥）</label>
+                        <input id="gradeThresholdC" class="form-control" type="number" min="1" max="99" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="footer-actions">
+                    <button type="button" class="btn" id="saveScoringBtn">保存评分配置</button>
+                    <button type="button" class="btn btn-outline" id="reloadScoringBtn">重新加载</button>
+                </div>
+                <div id="scoringStatusBar" class="status-bar"></div>
+                <p class="hint">覆盖项保存在 <code>config/article_scoring.local.yaml</code>。修改后可用 <code>python scripts/backfill_article_scores.py</code> 批量重评。</p>
+            </div>
+        </div>
+
+        <div id="panel-image-scoring" class="settings-panel" hidden>
+            <div class="card">
+                <h2>配图评分预设</h2>
+                <p class="section-desc">调整视觉模型评估配图时的维度权重与等级线。用于资讯库「评估配图」与自动勾选主画面，修改后需重新评估配图才会生效。</p>
+                <div class="form-grid">
+                    <div>
+                        <label class="field-label" for="imageScoringPresetSelect">预设方案</label>
+                        <select id="imageScoringPresetSelect" class="form-control"></select>
+                    </div>
+                </div>
+                <p id="imageScoringPresetDesc" class="hint">加载中…</p>
+            </div>
+
+            <div class="card">
+                <div class="section-head">
+                    <h2>维度权重</h2>
+                    <span id="imageScoringWeightSum" class="badge">合计 100%</span>
+                </div>
+                <p class="section-desc">各维度原始分 0–10，乘以权重后汇总为 0–100 分（另含横图/动图加减分）。保存时会自动归一化为 100%。</p>
+                <div id="imageScoringWeightsList" class="scoring-weights-list"></div>
+            </div>
+
+            <div class="card">
+                <h2>等级分数线</h2>
+                <p class="section-desc">配图总分达到对应分数线即定为该等级（须满足 A &gt; B &gt; C）。</p>
+                <div class="form-grid scoring-grade-grid">
+                    <div>
+                        <label class="field-label" for="imageGradeThresholdA">A 级（≥）</label>
+                        <input id="imageGradeThresholdA" class="form-control" type="number" min="1" max="99" step="1">
+                    </div>
+                    <div>
+                        <label class="field-label" for="imageGradeThresholdB">B 级（≥）</label>
+                        <input id="imageGradeThresholdB" class="form-control" type="number" min="1" max="99" step="1">
+                    </div>
+                    <div>
+                        <label class="field-label" for="imageGradeThresholdC">C 级（≥）</label>
+                        <input id="imageGradeThresholdC" class="form-control" type="number" min="1" max="99" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>动图加成</h2>
+                <p class="section-desc">短视频主画面优先动图。开启后，GIF 会在规则分上大幅加分，更容易进入自动勾选。</p>
+                <label class="field-label" style="display:flex;align-items:center;gap:8px;font-weight:500;">
+                    <input type="checkbox" id="imagePreferGifBoost">
+                    GIF 动图大幅加分
+                </label>
+                <p class="hint">关闭时 GIF / 动画 WebP 仍有默认动图加成（+<span id="imageAnimatedBonusHint">8</span>）。开启后 GIF 改为 +<span id="imageGifBoostHint">25</span> 分。修改后需重新评估配图才会生效。</p>
+            </div>
+
+            <div class="card">
+                <div class="footer-actions">
+                    <button type="button" class="btn" id="saveImageScoringBtn">保存配图评分配置</button>
+                    <button type="button" class="btn btn-outline" id="reloadImageScoringBtn">重新加载</button>
+                </div>
+                <div id="imageScoringStatusBar" class="status-bar"></div>
+                <p class="hint">覆盖项保存在 <code>config/image_scoring.local.yaml</code>。修改后可用 <code>python scripts/backfill_image_scores.py</code> 批量重评配图。</p>
+            </div>
+        </div>
+
+        <div id="panel-render-templates" class="settings-panel" hidden>
+            <div class="card">
+                <h2>成片模板</h2>
+                <p class="section-desc">视频和封面共用一套模板、同一分辨率。封面不写摘要，其余版式与成片一致。自动出片使用系统默认；主页生成和重新出片可以另选。</p>
+                <div id="renderTemplateList" class="scoring-weights-list"></div>
+            </div>
+            <div class="card">
+                <h2>当前模板</h2>
+                <p class="section-desc" id="renderTemplateMeta"></p>
+                <div class="form-grid scoring-grade-grid">
+                    <div>
+                        <label class="field-label" for="renderTemplateBrand">页眉品牌</label>
+                        <input id="renderTemplateBrand" class="form-control" type="text">
+                    </div>
+                    <div>
+                        <label class="field-label" for="renderTemplateGlyph">方标字</label>
+                        <input id="renderTemplateGlyph" class="form-control" type="text" maxlength="2">
+                    </div>
+                    <div>
+                        <label class="field-label" for="renderTemplateAccent">强调色</label>
+                        <input id="renderTemplateAccent" class="form-control" type="text" placeholder="#3DDCFF">
+                    </div>
+                </div>
+                <p class="hint">快讯竖屏没有页眉品牌字段，保存时只更新已有 chrome/palette。覆盖项保存在 <code>config/render_templates.local.yaml</code>。</p>
+                <div class="footer-actions">
+                    <button type="button" class="btn" id="saveRenderTemplateBtn">保存当前模板</button>
+                    <button type="button" class="btn btn-outline" id="setDefaultRenderTemplateBtn">设为默认</button>
+                    <button type="button" class="btn btn-outline" id="duplicateRenderTemplateBtn">复制</button>
+                </div>
+                <div id="renderTemplateStatusBar" class="status-bar"></div>
+            </div>
+        </div>
+
         <div id="panel-ingestion" class="settings-panel" hidden>
             <div class="card">
                 <div class="section-head">
                     <h2>Worker 状态</h2>
                 </div>
                 <div id="ingestionWorkerStatus" class="hint">检测中…</div>
+            </div>
+
+            <div class="card">
+                <h2>自动出片</h2>
+                <p class="section-desc">文章评分后，达到<strong>等级门槛</strong>或<strong>总分门槛</strong>之一即自动触发出片（视频生成等）。</p>
+                <div class="form-grid">
+                    <div>
+                        <label class="field-label" for="mediaPipelineMinGrade">最低等级门槛</label>
+                        <select id="mediaPipelineMinGrade" class="form-control">
+                            <option value="S">S 级及以上（仅 S）</option>
+                            <option value="A">A 级及以上（S、A）</option>
+                            <option value="B">B 级及以上（S、A、B）</option>
+                            <option value="C">C 级及以上（S、A、B、C）</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="mediaPipelineMinScore">最低总分（≥）</label>
+                        <input id="mediaPipelineMinScore" class="form-control" type="number" min="0" max="100" step="1" value="80">
+                    </div>
+                </div>
+                <p id="mediaPipelineHint" class="hint">加载中…</p>
+                <div id="mediaPipelineStatusBar" class="status-bar"></div>
             </div>
 
             <div class="card">
@@ -142,10 +359,124 @@
                 <p class="hint">覆盖项保存在 <code>config/ingestion.local.yaml</code>（不提交 Git）。</p>
             </div>
         </div>
-    </div>
 
-    <script src="/static/js/model_settings.js?v=20260802a"></script>
-    <script src="/static/js/settings_ingestion.js?v=20260802a"></script>
-    <script src="/static/js/settings_tabs.js?v=20260802a"></script>
+        <div id="panel-hot-radar" class="settings-panel" hidden>
+            <div class="card">
+                <h2>TopHub 热榜雷达</h2>
+                <p class="section-desc">通过榜眼数据 API 拉取多个 AI 向热榜，用于文章规则评分中的「热榜雷达」维度。默认定时每天 8:00 抓取一次；手动刷新见 <a href="/hot-radar">热榜雷达页</a>。</p>
+                <div class="form-grid">
+                    <div>
+                        <label class="field-label" for="hotRadarEnabled">启用</label>
+                        <select id="hotRadarEnabled" class="form-control">
+                            <option value="true">是</option>
+                            <option value="false">否</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="hotRadarRefreshCron">定时 Cron</label>
+                        <input id="hotRadarRefreshCron" class="form-control" placeholder="0 8 * * *">
+                    </div>
+                    <div>
+                        <label class="field-label" for="hotRadarMaxAge">快照有效期（分钟）</label>
+                        <input id="hotRadarMaxAge" class="form-control" type="number" min="30" max="10080">
+                    </div>
+                    <div>
+                        <label class="field-label" for="hotRadarMatchThreshold">标题匹配阈值</label>
+                        <input id="hotRadarMatchThreshold" class="form-control" type="number" min="0.5" max="0.95" step="0.01">
+                    </div>
+                    <div>
+                        <label class="field-label" for="hotRadarApiBase">API 地址</label>
+                        <input id="hotRadarApiBase" class="form-control" placeholder="https://api.tophubdata.com">
+                    </div>
+                    <div>
+                        <label class="field-label" for="hotRadarAccessKey">TopHub API Key</label>
+                        <input id="hotRadarAccessKey" class="form-control" type="password" placeholder="留空则保留已保存的密钥">
+                        <p class="hint" id="hotRadarAccessKeyHint">—</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>热榜自动发现</h2>
+                <p class="section-desc">热榜刷新后，将排名靠前且尚未入库的链接自动加入爬取队列（仅匹配已配置域名的来源，如 IT之家、36氪）。关闭后仅做匹配评分，不会触发新文章抓取。</p>
+                <div class="form-grid">
+                    <div>
+                        <label class="field-label" for="hotRadarDiscoveryEnabled">启用自动发现</label>
+                        <select id="hotRadarDiscoveryEnabled" class="form-control">
+                            <option value="true">是</option>
+                            <option value="false">否</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="hotRadarDiscoveryMaxRank">最大热榜排名</label>
+                        <input id="hotRadarDiscoveryMaxRank" class="form-control" type="number" min="1" max="50" value="10">
+                    </div>
+                    <div>
+                        <label class="field-label" for="hotRadarDiscoveryMaxUrls">每次最多入队 URL 数</label>
+                        <input id="hotRadarDiscoveryMaxUrls" class="form-control" type="number" min="0" max="30" value="5">
+                    </div>
+                    <div>
+                        <label class="field-label" for="hotRadarRescoreOnRefresh">刷新后重算评分</label>
+                        <select id="hotRadarRescoreOnRefresh" class="form-control">
+                            <option value="true">是</option>
+                            <option value="false">否</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-head">
+                    <h2>热榜节点</h2>
+                    <button type="button" class="btn btn-outline btn-sm" id="addHotRadarBoardBtn">+ 添加节点</button>
+                </div>
+                <p class="section-desc">每个节点对应 TopHub 的一个 hashid。基础模板见 <code>config/hot_radar.yaml</code>。</p>
+                <div id="hotRadarBoardsList"></div>
+            </div>
+
+            <div class="card">
+                <div class="footer-actions">
+                    <button type="button" class="btn" id="saveHotRadarBtn">保存热榜配置</button>
+                    <button type="button" class="btn btn-outline" id="reloadHotRadarBtn">重新加载</button>
+                </div>
+                <div id="hotRadarStatusBar" class="status-bar"></div>
+                <p class="hint">API Key 与覆盖项保存在 <code>config/hot_radar.local.yaml</code>（不提交 Git）。也可设置环境变量 <code>TOPHUB_ACCESS_KEY</code>。</p>
+            </div>
+        </div>
+        <div id="panel-usage" class="settings-panel" hidden>
+            <div class="card">
+                <div class="section-head">
+                    <h2>Token 用量</h2>
+                    <div class="toolbar-row">
+                        <select id="usageRangeSelect" class="form-control" style="width:auto;">
+                            <option value="today">今日</option>
+                            <option value="7d" selected>近 7 天</option>
+                            <option value="30d">近 30 天</option>
+                            <option value="all">全部</option>
+                        </select>
+                        <button type="button" class="btn btn-outline btn-sm" id="reloadUsageBtn">刷新</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="clearUsageBtn">清空统计</button>
+                    </div>
+                </div>
+                <p class="section-desc">统计已配置语言模型与视觉模型的接口返回 token，不是账单估算。</p>
+                <div id="usageSummaryCards" class="form-grid"></div>
+                <h3>按模型</h3>
+                <div id="usageByModel"></div>
+                <h3>按任务</h3>
+                <div id="usageByTask"></div>
+                <div id="usageStatusBar" class="status-bar"></div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/model_settings.js?v=20260813d"></script>
+    <script src="/static/js/settings_content_prompts.js?v=20260815b"></script>
+    <script src="/static/js/settings_scoring.js?v=20260813e"></script>
+    <script src="/static/js/settings_image_scoring.js?v=20260814a"></script>
+    <script src="/static/js/settings_render_templates.js?v=20260815c"></script>
+    <script src="/static/js/settings_ingestion.js?v=20260813d"></script>
+    <script src="/static/js/settings_hot_radar.js?v=20260822b"></script>
+    <script src="/static/js/settings_media_pipeline.js?v=20260813d"></script>
+    <script src="/static/js/settings_token_usage.js?v=20260824a"></script>
+    <script src="/static/js/settings_tabs.js?v=20260824a"></script>
 </body>
 </html>

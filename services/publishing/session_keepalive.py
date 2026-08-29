@@ -1,7 +1,6 @@
 """Periodic session refresh to extend platform login validity."""
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -9,6 +8,7 @@ from typing import Any
 from loguru import logger
 from sqlalchemy.orm import Session, sessionmaker
 
+from services.publishing.browser_session import open_adapter_browser
 from services.publishing.registry import (
     PlatformDisabledError,
     PlatformNotFoundError,
@@ -16,9 +16,7 @@ from services.publishing.registry import (
     get_platform_config,
     load_publishing_yaml,
 )
-from services.publishing.session_store import load_encrypted
 from src.db.models.publishing import PublisherAccount
-from src.utils.config import Config
 
 
 def load_session_keepalive_config(yaml: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -32,7 +30,7 @@ def load_session_keepalive_config(yaml: dict[str, Any] | None = None) -> dict[st
         "enabled": bool(cfg.get("enabled", True)),
         "interval_hours": float(cfg.get("interval_hours", 4)),
         "platforms": list(platforms),
-        "headless": bool(cfg.get("headless", True)),
+        "headless": bool(cfg.get("headless", False)),
     }
 
 
@@ -61,12 +59,12 @@ def refresh_platform_session(
     platform_id: str,
     session_path: Path,
     *,
-    headless: bool = True,
+    headless: bool | None = None,
 ) -> str:
-    """Visit creator pages with stored cookies and persist refreshed storage_state."""
+    """Visit creator pages with the account profile and refresh encrypted backup."""
     adapter = get_adapter(platform_id)
     if hasattr(adapter, "refresh_session"):
-        return adapter.refresh_session(session_path, headless=headless)
+        return adapter.refresh_session(session_path, headless=headless if headless is not None else False)
 
     cfg = get_platform_config(platform_id)
     excludes = list((cfg.get("qr_profile") or {}).get("success_url_excludes") or ["login", "passport"])
@@ -74,41 +72,26 @@ def refresh_platform_session(
     if not visit_urls:
         return adapter.validate_session(session_path)
 
-    from playwright.sync_api import sync_playwright
+    from services.publishing.human_interaction import human_idle_on_page
+    from services.publishing.human_pacing import human_pause
 
-    temp_state = Config.ROOT_DIR / "data" / "publish" / "_keepalive_state.json"
-    playwright = None
-    browser = None
     try:
-        temp_state.write_bytes(load_encrypted(session_path))
-        playwright = sync_playwright().start()
-        browser = playwright.chromium.launch(headless=headless)
-        context = browser.new_context(storage_state=str(temp_state))
-        page = context.new_page()
-        active = False
-        for url in visit_urls:
-            page.goto(url, wait_until="domcontentloaded", timeout=60_000)
-            page.wait_for_timeout(2500)
-            if not _is_login_page(page.url, excludes=excludes):
-                active = True
-                break
-        if not active:
-            return "expired"
-        storage = context.storage_state()
-        adapter.persist_storage_state(
-            session_path,
-            json.dumps(storage, ensure_ascii=False).encode("utf-8"),
-        )
+        with open_adapter_browser(session_path, mode="keepalive", headless=headless) as sess:
+            page = sess.page
+            active = False
+            for url in visit_urls:
+                page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+                human_pause(page, "page_load")
+                human_idle_on_page(page, moves=1)
+                if not _is_login_page(page.url, excludes=excludes):
+                    active = True
+                    break
+            if not active:
+                return "expired"
         return "active"
     except Exception as exc:
         logger.warning("Session keepalive failed for %s: %s", platform_id, exc)
         return adapter.validate_session(session_path)
-    finally:
-        if browser is not None:
-            browser.close()
-        if playwright is not None:
-            playwright.stop()
-        temp_state.unlink(missing_ok=True)
 
 
 def _persist_account_status(
@@ -157,6 +140,8 @@ def run_session_keepalive(session_factory: sessionmaker) -> dict[str, Any]:
             for account in accounts
         ]
 
+    from src.utils.config import Config
+
     for row in account_rows:
         summary["checked"] += 1
         session_file = Config.ROOT_DIR / row["session_path"]
@@ -176,7 +161,7 @@ def run_session_keepalive(session_factory: sessionmaker) -> dict[str, Any]:
             status = refresh_platform_session(
                 row["platform"],
                 session_file,
-                headless=bool(cfg.get("headless", True)),
+                headless=bool(cfg.get("headless", False)),
             )
         except (PlatformNotFoundError, PlatformDisabledError) as exc:
             logger.warning("Keepalive skip %s: %s", row["id"], exc)

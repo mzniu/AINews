@@ -132,6 +132,52 @@ def _title_placement(layout: dict[str, Any] | None = None) -> str:
     return DEFAULT_TITLE_PLACEMENT
 
 
+def _chrome_placement(layout: dict[str, Any] | None = None) -> str:
+    value = str((layout or {}).get("chrome_placement") or "header").strip().lower()
+    if value == "footer":
+        return "footer"
+    return "header"
+
+
+def _draw_brand_chrome(
+    draw: ImageDraw.ImageDraw,
+    *,
+    width: int,
+    inset: int,
+    brand: str,
+    glyph: str,
+    brand_sub: str,
+    brand_font: ImageFont.ImageFont,
+    brand_sub_font: ImageFont.ImageFont,
+    small_font: ImageFont.ImageFont,
+    accent: tuple[int, int, int],
+    accent_dim: tuple[int, int, int],
+    text_color: tuple[int, int, int],
+    muted: tuple[int, int, int],
+    mark_y: int,
+    include_brand_sub: bool,
+) -> None:
+    mark_box = (inset + 16, mark_y, inset + 16 + 64, mark_y + 64)
+    draw.rectangle(mark_box, outline=accent, width=2)
+    gb = draw.textbbox((0, 0), glyph, font=brand_font)
+    gx = mark_box[0] + (64 - (gb[2] - gb[0])) // 2
+    gy = mark_box[1] + (64 - (gb[3] - gb[1])) // 2 - gb[1]
+    draw.text((gx, gy), glyph, font=brand_font, fill=text_color)
+    brand_xy = (mark_box[2] + 16, mark_box[1] + 4)
+    draw.text(brand_xy, brand, font=brand_font, fill=text_color)
+    if include_brand_sub and brand_sub:
+        brand_box = draw.textbbox(brand_xy, brand, font=brand_font)
+        sub_y = brand_box[3] + 10
+        draw.text((brand_xy[0], sub_y), brand_sub, font=brand_sub_font, fill=muted)
+    year = str(datetime.now().year)
+    badge = f"RECORD {year}"
+    bw = draw.textbbox((0, 0), badge, font=small_font)
+    badge_w = bw[2] - bw[0] + 24
+    badge_box = (width - inset - 20 - badge_w, mark_box[1] + 8, width - inset - 20, mark_box[1] + 44)
+    draw.rectangle(badge_box, outline=accent_dim, width=1)
+    draw.text((badge_box[0] + 12, badge_box[1] + 6), badge, font=small_font, fill=accent)
+
+
 def _title_top_y(height: int, layout: dict[str, Any], typo: dict[str, Any]) -> int:
     if layout.get("title_top_percent") is not None:
         return _pct(float(layout["title_top_percent"]) / 100.0, height)
@@ -265,6 +311,62 @@ def scaled_hero(
     x0 = max(0, min(max_x, x0))
     y0 = max(0, min(max_y, y0))
     return hero.crop((x0, y0, x0 + inner_w, y0 + inner_h))
+
+
+def chronicle_hero_at(
+    anim,
+    t: float,
+    *,
+    duration: float,
+    effect: str,
+    end_scale: float,
+    pan: float,
+    apply_motion: bool | None = None,
+) -> tuple[Image.Image, float, float, float]:
+    """Pick the card hero at time `t`. Animated GIFs loop and skip Ken Burns."""
+    from services.ingestion.hero_animation import HeroAnimation, hero_frame_at
+
+    if not isinstance(anim, HeroAnimation):
+        raise TypeError("anim must be a HeroAnimation")
+    src = hero_frame_at(anim, t)
+    use_motion = (not anim.animated) if apply_motion is None else bool(apply_motion)
+    if anim.animated or not use_motion:
+        return src, 1.0, 0.0, 0.0
+    scale, ox, oy = hero_motion_at(
+        t, duration, effect, end_scale=end_scale, pan=pan
+    )
+    return src, scale, ox, oy
+
+
+def compose_chronicle_live_frame(
+    *,
+    chrome: Image.Image,
+    anim,
+    t: float,
+    inner: tuple[int, int, int, int],
+    duration: float,
+    effect: str,
+    end_scale: float,
+    pan: float,
+    apply_motion: bool,
+) -> Image.Image:
+    frame = chrome.copy()
+    inner_w = max(1, inner[2] - inner[0])
+    inner_h = max(1, inner[3] - inner[1])
+    hero, scale, ox, oy = chronicle_hero_at(
+        anim,
+        t,
+        duration=duration,
+        effect=effect,
+        end_scale=end_scale,
+        pan=pan,
+        apply_motion=apply_motion,
+    )
+    frame.paste(
+        scaled_hero(hero, inner_w, inner_h, scale, offset_x=ox, offset_y=oy),
+        (inner[0], inner[1]),
+    )
+    return frame
 
 
 _BACKDROP_CACHE: dict[tuple, Image.Image] = {}
@@ -500,31 +602,27 @@ def render_chronicle_frame(
 
     brand = str(chrome.get("brand") or "小牛聊AI")
     glyph = str(chrome.get("mark_glyph") or "牛")
-    top_pad = _layout_top_pad(typo)
-    header_y = _pct(0.038 + top_pad, height)
-    mark_box = (inset + 16, header_y, inset + 16 + 64, header_y + 64)
-    draw.rectangle(mark_box, outline=accent, width=2)
-    gb = draw.textbbox((0, 0), glyph, font=brand_font)
-    gx = mark_box[0] + (64 - (gb[2] - gb[0])) // 2
-    gy = mark_box[1] + (64 - (gb[3] - gb[1])) // 2 - gb[1]
-    draw.text((gx, gy), glyph, font=brand_font, fill=text_color)
-    brand_xy = (mark_box[2] + 16, mark_box[1] + 4)
-    draw.text(brand_xy, brand, font=brand_font, fill=text_color)
     brand_sub = str(chrome.get("brand_sub") or "")
-    if brand_sub:
-        brand_box = draw.textbbox(brand_xy, brand, font=brand_font)
-        sub_y = brand_box[3] + 10
-        draw.text((brand_xy[0], sub_y), brand_sub, font=brand_sub_font, fill=muted)
-
-    year = str(datetime.now().year)
-    badge = f"RECORD {year}"
-    bw = draw.textbbox((0, 0), badge, font=small_font)
-    badge_w = bw[2] - bw[0] + 24
-    badge_box = (width - inset - 20 - badge_w, mark_box[1] + 8, width - inset - 20, mark_box[1] + 44)
-    draw.rectangle(badge_box, outline=accent_dim, width=1)
-    draw.text((badge_box[0] + 12, badge_box[1] + 6), badge, font=small_font, fill=accent)
-
     layout = _layout_section(template)
+    chrome_place = _chrome_placement(layout)
+    brand_kwargs = dict(
+        width=width,
+        inset=inset,
+        brand=brand,
+        glyph=glyph,
+        brand_sub=brand_sub,
+        brand_font=brand_font,
+        brand_sub_font=brand_sub_font,
+        small_font=small_font,
+        accent=accent,
+        accent_dim=accent_dim,
+        text_color=text_color,
+        muted=muted,
+    )
+    if chrome_place != "footer":
+        header_y = _pct(0.038 + _layout_top_pad(typo), height)
+        _draw_brand_chrome(draw, mark_y=header_y, include_brand_sub=True, **brand_kwargs)
+
     placement = _title_placement(layout)
     title_top = _title_top_y(height, layout, typo)
     rule_x = _pct(0.045, width)
@@ -602,17 +700,20 @@ def render_chronicle_frame(
                     draw, fx, fy, line, footer_font, summary_fill, footer_hi, footer_keywords
                 )
                 fy += footer_size + line_gap
-        draw.line(
-            (rule_x, footer_y, rule_x, _pct(footer_y_pct + 0.10, height)),
-            fill=accent_dim,
-            width=2,
-        )
-        draw.text(
-            (rule_x + 14, _pct(footer_y_pct + 0.02, height)),
-            str(chrome.get("footer_left") or "快讯档案"),
-            font=small_font,
-            fill=muted,
-        )
+        if chrome_place == "footer":
+            _draw_brand_chrome(draw, mark_y=footer_y, include_brand_sub=False, **brand_kwargs)
+        else:
+            draw.line(
+                (rule_x, footer_y, rule_x, _pct(footer_y_pct + 0.10, height)),
+                fill=accent_dim,
+                width=2,
+            )
+            draw.text(
+                (rule_x + 14, _pct(footer_y_pct + 0.02, height)),
+                str(chrome.get("footer_left") or "快讯档案"),
+                font=small_font,
+                fill=muted,
+            )
 
     return frame
 
@@ -664,16 +765,18 @@ def render_chronicle_cover(
     }
 
 
-def render_chronicle_video(
+def build_chronicle_video_clips(
     *,
     article_id: str,
     draft: dict[str, Any],
     image_paths: list[str],
-    bgm_path: str,
     template: dict[str, Any],
     durations: list[float],
-) -> dict[str, Any]:
-    from moviepy import AudioFileClip, ImageClip, VideoClip, concatenate_videoclips
+):
+    """Build per-image MoviePy clips. Animated heroes loop inside the card."""
+    from moviepy import ImageClip, VideoClip
+
+    from services.ingestion.hero_animation import load_hero_animation
 
     canvas = template.get("canvas") or {}
     fps = int(canvas.get("fps") or 24)
@@ -690,8 +793,25 @@ def render_chronicle_video(
         if not path.is_file():
             continue
         duration = float(durations[index]) if index < len(durations) else 2.5
-        src_rgb = Image.open(path).convert("RGB")
-        if motion["enabled"]:
+        try:
+            anim = load_hero_animation(path)
+        except Exception as exc:
+            logger.warning("Chronicle hero animation load failed {}: {}", path, exc)
+            try:
+                with Image.open(path) as src:
+                    still = src.convert("RGB").copy()
+                from services.ingestion.hero_animation import HeroAnimation
+
+                anim = HeroAnimation(
+                    frames=[still],
+                    durations_sec=[0.1],
+                    animated=False,
+                )
+            except Exception:
+                continue
+        src_rgb = anim.frames[0]
+        use_live_clip = anim.animated or motion["enabled"]
+        if use_live_clip:
             chrome = render_chronicle_frame(
                 draft=draft,
                 image=src_rgb,
@@ -700,8 +820,6 @@ def render_chronicle_video(
                 include_hero=False,
             )
             inner = hero_inner_box(width, height, template)
-            inner_w = max(1, inner[2] - inner[0])
-            inner_h = max(1, inner[3] - inner[1])
             if motion["random"]:
                 effect = pick_card_motion_effect(
                     motion["effects"],
@@ -710,28 +828,32 @@ def render_chronicle_video(
                 )
             else:
                 effect = motion["effects"][index % len(motion["effects"])]
+            apply_motion = motion["enabled"] and not anim.animated
 
             def make_frame(
                 t,
-                _src=src_rgb,
+                _anim=anim,
                 _chrome=chrome,
                 _inner=inner,
-                _iw=inner_w,
-                _ih=inner_h,
                 _dur=duration,
                 _effect=effect,
                 _end=motion["end_scale"],
                 _pan=motion["pan"],
+                _apply=apply_motion,
             ):
-                frame = _chrome.copy()
-                scale, ox, oy = hero_motion_at(
-                    t, _dur, _effect, end_scale=_end, pan=_pan
+                return np.asarray(
+                    compose_chronicle_live_frame(
+                        chrome=_chrome,
+                        anim=_anim,
+                        t=t,
+                        inner=_inner,
+                        duration=_dur,
+                        effect=_effect,
+                        end_scale=_end,
+                        pan=_pan,
+                        apply_motion=_apply,
+                    )
                 )
-                frame.paste(
-                    scaled_hero(_src, _iw, _ih, scale, offset_x=ox, offset_y=oy),
-                    (_inner[0], _inner[1]),
-                )
-                return np.asarray(frame)
 
             clips.append(VideoClip(make_frame, duration=duration).with_fps(fps))
         else:
@@ -742,6 +864,29 @@ def render_chronicle_video(
                 include_footer=True,
             )
             clips.append(ImageClip(np.asarray(still, dtype=np.uint8)).with_duration(duration))
+    return clips
+
+
+def render_chronicle_video(
+    *,
+    article_id: str,
+    draft: dict[str, Any],
+    image_paths: list[str],
+    bgm_path: str,
+    template: dict[str, Any],
+    durations: list[float],
+) -> dict[str, Any]:
+    from moviepy import AudioFileClip, concatenate_videoclips
+
+    canvas = template.get("canvas") or {}
+    fps = int(canvas.get("fps") or 24)
+    clips = build_chronicle_video_clips(
+        article_id=article_id,
+        draft=draft,
+        image_paths=image_paths,
+        template=template,
+        durations=durations,
+    )
     if not clips:
         return {"success": False, "error": "insufficient_images"}
     video = concatenate_videoclips(clips, method="compose").with_fps(fps)

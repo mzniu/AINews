@@ -5,73 +5,137 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>资讯库 - AINews</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/ingestion_library.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815a">
+    <link rel="stylesheet" href="/static/css/ingestion_library.css?v=20260818a">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260813c" defer></script>
 </head>
-<body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-brand">🎬 AINews</a>
-            <div class="nav-menu">
-                <a href="/" class="nav-link">🏠 主页</a>
-                <a href="/video-maker" class="nav-link">📹 视频制作</a>
-                <a href="/ingestion-library" class="nav-link active">📚 资讯库</a>
-                <a href="/publish-center" class="nav-link">📤 发布中心</a>
-                <a href="/settings" class="nav-link">⚙️ 系统配置</a>
-                <a href="/github-video-maker" class="nav-link">🐙 GitHub项目</a>
-                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+    <div class="ingestion-shell">
+        <header class="ingestion-header">
+            <div class="ingestion-header-text">
+                <h1>资讯库</h1>
+                <p class="ingestion-lead">定时抓取入库 · 选题后跳转主页生成视频</p>
             </div>
-        </div>
-    </nav>
+            <div class="ingestion-header-toolbar">
+                <div class="ingestion-header-search">
+                    <label class="sr-only" for="searchInput">搜索标题</label>
+                    <input id="searchInput" class="form-control ingestion-search" type="search" placeholder="搜索标题…">
+                </div>
+                <div class="toolbar-actions ingestion-header-actions">
+                    <button class="btn btn-primary" id="refreshBtn" type="button">刷新</button>
+                    <button class="btn btn-soft" id="runSourceBtn" type="button">立即抓取</button>
+                    <button class="btn btn-soft" id="scoreBatchBtn" type="button">批量评分</button>
+                    <button class="btn btn-accent" id="useOnHomeBtn" type="button" disabled>用于主页</button>
+                </div>
+            </div>
+        </header>
 
-    <div class="container">
-        <div class="page-hero">
-            <h1>📚 资讯库</h1>
-            <p>定时抓取入库 · 选题后跳转主页生成视频（补充手动粘贴 URL 流程）</p>
+        <div id="ingestionWorkerBanner" class="soft-banner soft-banner-warn" style="display:none;">
+            ⚠️ 爬取 Worker 未运行。请重启 web_server，或在 <code>.env</code> 设置 <code>INGESTION_WORKER_MODE=separate</code> 后运行 worker。
         </div>
 
-        <div id="ingestionWorkerBanner" class="card" style="display:none;background:#fef3c7;color:#92400e;padding:12px 16px;margin-bottom:16px;">
-            ⚠️ 爬取 Worker 未运行。默认应内嵌在 web_server 中；请重启服务，或在 <code>.env</code> 设置 <code>INGESTION_WORKER_MODE=separate</code> 后运行 <code>python -m services.ingestion.worker</code>。
-        </div>
-
-        <div class="card toolbar">
+        <section class="soft-card toolbar">
             <div class="toolbar-grid">
-                <div>
+                <div class="toolbar-field">
                     <label class="field-label" for="sourceSelect">数据源</label>
                     <select id="sourceSelect" class="form-control"></select>
                 </div>
-                <div>
+                <div class="toolbar-field">
                     <label class="field-label" for="sortSelect">排序</label>
                     <select id="sortSelect" class="form-control">
                         <option value="published_desc">发布时间</option>
                         <option value="score_desc">评分优先</option>
                     </select>
                 </div>
-                <div>
-                    <label class="field-label" for="searchInput">搜索标题</label>
-                    <input id="searchInput" class="form-control" placeholder="关键词">
+                <div class="toolbar-field">
+                    <label class="field-label" for="gradeSelect">等级</label>
+                    <select id="gradeSelect" class="form-control">
+                        <option value="">全部等级</option>
+                        <option value="S">S 级</option>
+                        <option value="A">A 级</option>
+                        <option value="B">B 级</option>
+                        <option value="C">C 级</option>
+                        <option value="D">D 级</option>
+                        <option value="unscored">未评分</option>
+                    </select>
                 </div>
-                <div class="toolbar-actions">
-                    <button class="btn btn-primary" id="refreshBtn" type="button">刷新列表</button>
-                    <button class="btn btn-outline-primary" id="runSourceBtn" type="button">立即抓取</button>
-                    <button class="btn btn-outline-secondary" id="scoreBatchBtn" type="button">批量规则评分</button>
-                    <button class="btn btn-success" id="useOnHomeBtn" type="button" disabled>用于主页生成</button>
+                <div class="toolbar-field">
+                    <label class="field-label">列表视图</label>
+                    <div class="view-toggle" role="group" aria-label="列表视图">
+                        <button type="button" class="view-toggle-btn active" id="viewListBtn" data-view="list">文章列表</button>
+                        <button type="button" class="view-toggle-btn" id="viewTreeBtn" data-view="tree">同题树</button>
+                    </div>
                 </div>
             </div>
-            <div id="statusBar" class="small text-muted mt-2"></div>
-        </div>
+            <div id="statusBar" class="status-bar"></div>
+        </section>
 
         <div class="ingestion-grid">
-            <div class="card">
-                <h2 class="mb-3">文章列表 <span id="articleCount" class="badge badge-secondary">0</span></h2>
-                <div id="articleList"></div>
-            </div>
-            <div class="card" id="articleDetail">
-                <p class="text-muted">选择一篇文章查看详情</p>
+            <section class="soft-card list-panel-card">
+                <div class="list-panel-header">
+                    <div>
+                        <h2 class="panel-title">
+                            <span id="listPanelTitleText">文章列表</span>
+                            <span id="articleCount" class="count-pill">0</span>
+                        </h2>
+                    </div>
+                    <div class="list-panel-tools">
+                        <label class="tree-filter-label" id="treeFilterWrap" style="display:none;">
+                            <input type="checkbox" id="treeMultiOnly" checked>
+                            仅多篇同题
+                        </label>
+                        <button type="button" class="btn btn-soft btn-sm" id="aiReviewBtn" style="display:none;">AI 巡检</button>
+                    </div>
+                </div>
+                <div class="article-list-scroll">
+                    <div id="articleList"></div>
+                </div>
+                <div id="articleLoadMore" class="story-load-more" style="display:none;">
+                    <button type="button" class="btn btn-soft btn-sm" id="loadMoreArticlesBtn">加载更多</button>
+                </div>
+                <div id="storyLoadMore" class="story-load-more" style="display:none;">
+                    <button type="button" class="btn btn-soft btn-sm" id="loadMoreStoriesBtn">加载更多 Story</button>
+                </div>
+            </section>
+
+            <div class="ingestion-detail-column">
+                <section class="soft-card" id="aiReviewPanel" style="display:none;">
+                    <div class="panel-header-row">
+                        <h3 class="panel-title">AI 聚类巡检</h3>
+                        <button type="button" class="btn btn-soft btn-sm" id="closeAiReviewBtn">关闭</button>
+                    </div>
+                    <div id="aiReviewContent" class="text-muted">点击「AI 巡检」分析近期 Story。</div>
+                </section>
+                <section class="soft-card detail-card" id="articleDetail">
+                    <div class="detail-empty">
+                        <p class="panel-eyebrow">detail</p>
+                        <p class="text-muted">选择一篇文章查看详情</p>
+                    </div>
+                </section>
             </div>
         </div>
     </div>
 
-    <script src="/static/js/shared/publish_modal.js?v=20260806a"></script>
-    <script src="/static/js/ingestion_library.js?v=20260804a"></script>
+    <div id="imagePreviewModal" class="image-preview-modal" hidden>
+        <div class="image-preview-backdrop" data-close-image-preview="1"></div>
+        <div class="image-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="imagePreviewTitle">
+            <button type="button" class="image-preview-close" data-close-image-preview="1" aria-label="关闭">×</button>
+            <div class="image-preview-layout">
+                <div class="image-preview-media">
+                    <img id="imagePreviewPhoto" alt="配图大图">
+                </div>
+                <div class="image-preview-meta">
+                    <h3 id="imagePreviewTitle">配图评估</h3>
+                    <div id="imagePreviewBody"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/shared/publish_modal.js?v=20260816b"></script>
+    <script src="/static/js/ingestion_library.js?v=20260822a"></script>
 </body>
 </html>

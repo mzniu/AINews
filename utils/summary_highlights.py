@@ -157,8 +157,15 @@ def pick_highlight_keywords_llm(
             api_key=api_key,
             base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
         )
-        response = client.chat.completions.create(
-            model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+        from services.model_config.token_usage import complete_chat, env_language_profile
+
+        model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+        response = complete_chat(
+            client,
+            kind="language",
+            profile=env_language_profile(model),
+            task="highlights",
+            model=model,
             messages=[
                 {
                     "role": "system",

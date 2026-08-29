@@ -1,7 +1,7 @@
 # 文章配图相关度评分（规则 + 视觉模型）
 # 场景：8–12 秒短视频，通常仅选 3–4 张主画面，优先动图
 profile: short_video_clip
-scorer_version: "1.2"
+scorer_version: "1.3"
 
 weights:
   topic_relevance: 0.30
@@ -31,6 +31,9 @@ penalties:
 bonuses:
   landscape: 5
   animated: 8
+  gif_boost: 25
+
+prefer_gif_boost: false
 
 orientation:
   landscape_min_ratio: 1.25
@@ -86,5 +89,10 @@ auto_select:
   min_grade: A
   fallback_grade: B
   max_count: 4
-  min_count: 2
-  supplement_grade: C
+  min_count: 3
+  preferred_count: 4
+  supplement_grade: D
+
+dedupe:
+  by_content_description: true
+  similarity_threshold: 0.82

@@ -8,6 +8,14 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from services.publishing.human_form import (
+    human_click_element,
+    human_fill,
+    human_upload_file,
+)
+from services.publishing.human_interaction import human_type_text
+from services.publishing.human_pacing import human_pause
+
 from services.publishing.metadata_bridge import PublishDraftMetadata, build_wechat_description, normalize_wechat_title
 
 if TYPE_CHECKING:
@@ -98,8 +106,8 @@ def compose_post_desc_text(
         sub_title=sub_title,
         sub_title2=sub_title2,
         summary=summary,
-        praise_tags=tags or [],
-        tags=tags or [],
+        praise_tags=[],
+        tags=list(tags or []),
     )
     return build_wechat_description(draft)
 
@@ -148,12 +156,12 @@ def ensure_wechat_upload_surface(page: Page, *, timeout_ms: int) -> bool:
             try:
                 trigger = page.get_by_text(text, exact=False).first
                 if trigger.is_visible(timeout=800):
-                    trigger.click(timeout=3000)
-                    page.wait_for_timeout(1000)
+                    human_click_element(page, trigger, timeout_ms=3000)
+                    human_pause(page, "after_click")
                     break
             except Exception:
                 continue
-        page.wait_for_timeout(1200)
+        human_pause(page, "polling")
     return _locate_wechat_video_file_input(page) is not None
 
 
@@ -165,25 +173,23 @@ def upload_wechat_video(page: Page, video_path: str, *, timeout_ms: int) -> bool
     while time.time() < deadline:
         file_input = _locate_wechat_video_file_input(page)
         if file_input is None:
-            page.wait_for_timeout(1200)
+            human_pause(page, "polling")
             continue
         try:
-            file_input.set_input_files(video_path, timeout=15_000)
-            page.wait_for_timeout(1500)
+            human_upload_file(page, file_input, video_path, timeout_ms=15_000)
             logger.info("WeChat video file selected: %s", Path(video_path).name)
             return True
         except Exception as exc:
             last_error = exc
             logger.warning("WeChat video upload attempt failed: %s", exc)
-            page.wait_for_timeout(1200)
+            human_pause(page, "polling")
 
     for selector in ('wujie-app >> input[type="file"]', 'input[type="file"]'):
         try:
             locator = page.locator(selector).first
             if locator.count() == 0:
                 continue
-            locator.set_input_files(video_path, timeout=15_000)
-            page.wait_for_timeout(1500)
+            human_upload_file(page, locator, video_path, timeout_ms=15_000)
             logger.info("WeChat video uploaded via fallback selector: %s", selector)
             return True
         except Exception as exc:
@@ -198,20 +204,44 @@ def _probe_wechat_upload_state(page: Page) -> dict[str, bool]:
     try:
         return page.evaluate(
             """() => {
-                const text = (document.body.textContent || '').replace(/\\s+/g, ' ');
+                const seen = new Set();
+                const texts = [];
+                const buttons = [];
+                let hasTitle = false;
+                let hasDescEditor = false;
+                let hasVideoPreview = false;
+                const walk = (root) => {
+                    if (!root || seen.has(root)) return;
+                    seen.add(root);
+                    if (root.innerText) texts.push(root.innerText);
+                    else if (root.textContent) texts.push(root.textContent);
+                    if (root.querySelector) {
+                        if (root.querySelector(
+                            'textarea[placeholder*="标题"], input[placeholder*="标题"]'
+                        )) hasTitle = true;
+                        if (root.querySelector(
+                            '.post-desc-box .input-editor, div.input-editor[data-placeholder="添加描述"]'
+                        )) hasDescEditor = true;
+                        if (root.querySelector(
+                            'video, [class*="video-preview"], [class*="player"], [class*="preview-video"]'
+                        )) hasVideoPreview = true;
+                    }
+                    if (root.querySelectorAll) {
+                        for (const btn of root.querySelectorAll('button')) buttons.push(btn);
+                        for (const node of root.querySelectorAll('*')) {
+                            if (node.shadowRoot) walk(node.shadowRoot);
+                        }
+                    }
+                    if (root.shadowRoot) walk(root.shadowRoot);
+                };
+                walk(document.body);
+                const wujie = document.querySelector('wujie-app');
+                if (wujie) walk(wujie);
+                const text = texts.join(' ').replace(/\\s+/g, ' ');
                 const stillUploading = /上传中|正在上传|解析中|转码|处理中/.test(text);
                 const uploadRequired = /请上传视频/.test(text);
-                const hasTitle = !!document.querySelector(
-                    'textarea[placeholder*="标题"], input[placeholder*="标题"]'
-                );
-                const hasDescEditor = !!document.querySelector(
-                    '.post-desc-box .input-editor, div.input-editor[data-placeholder="添加描述"]'
-                );
-                const hasVideoPreview = !!document.querySelector(
-                    'video, [class*="video-preview"], [class*="player"], [class*="preview-video"]'
-                );
                 const editorReady = /添加描述|声明原创|更换封面|编辑封面|设置封面/.test(text);
-                const publishBtn = Array.from(document.querySelectorAll('button')).find((btn) => {
+                const publishBtn = buttons.find((btn) => {
                     const label = (btn.textContent || '').replace(/\\s+/g, '').trim();
                     return label === '发表' || label === '发布';
                 });
@@ -258,20 +288,20 @@ def wait_for_wechat_video_ready(page: Page, *, timeout_ms: int) -> bool:
     deadline = time.time() + capped_ms / 1000
     while time.time() < deadline:
         state = _probe_wechat_upload_state(page)
-        if state:
-            editor_visible = (
-                state.get("hasTitle")
-                or state.get("hasDescEditor")
-                or state.get("editorReady")
-            )
-            video_attached = state.get("hasVideoPreview") or not state.get("uploadRequired")
-            if editor_visible and video_attached and not state.get("stillUploading"):
-                logger.info("WeChat video ready for publishing")
-                return True
-            if editor_visible and state.get("publishEnabled") and not state.get("stillUploading"):
-                logger.info("WeChat publish button enabled after upload")
-                return True
-        page.wait_for_timeout(1500)
+        editor_visible = bool(
+            state.get("hasTitle")
+            or state.get("hasDescEditor")
+            or state.get("editorReady")
+            or _is_wechat_editor_ready(page)
+        )
+        video_attached = state.get("hasVideoPreview") or not state.get("uploadRequired")
+        if editor_visible and video_attached and not state.get("stillUploading"):
+            logger.info("WeChat video ready for publishing")
+            return True
+        if editor_visible and state.get("publishEnabled") and not state.get("stillUploading"):
+            logger.info("WeChat publish button enabled after upload")
+            return True
+        human_pause(page, "polling")
 
     ready = _is_wechat_editor_ready(page) and not is_wechat_upload_blocked(page)
     if not ready:
@@ -298,14 +328,8 @@ def _is_topic_field(locator: Locator) -> bool:
     return any(token in lowered for token in _TOPIC_HINTS)
 
 
-def _set_field_text(locator: Locator, text: str) -> None:
-    locator.scroll_into_view_if_needed(timeout=5000)
-    locator.click(timeout=5000)
-    tag_name = locator.evaluate("(el) => el.tagName")
-    if tag_name in {"TEXTAREA", "INPUT"}:
-        locator.fill(text)
-        return
-    _set_contenteditable_text(locator, text)
+def _set_field_text(page: Page, locator: Locator, text: str) -> None:
+    human_fill(page, locator, text)
 
 
 def _set_contenteditable_text(locator: Locator, text: str) -> None:
@@ -390,7 +414,7 @@ def fill_wechat_title(page: Page, title: str, *, timeout_ms: int, max_length: in
         title_loc = page.locator(TITLE_SELECTORS[-1]).first
     try:
         title_loc.wait_for(state="visible", timeout=timeout_ms)
-        _set_field_text(title_loc, text)
+        _set_field_text(page, title_loc, text)
         return True
     except Exception as exc:
         logger.warning(f"Fill WeChat title failed: {exc}")
@@ -406,8 +430,8 @@ def fill_wechat_cover(page: Page, cover_path: Path, *, timeout_ms: int) -> bool:
         try:
             trigger = page.get_by_text(text, exact=False).first
             if trigger.is_visible(timeout=1500):
-                trigger.click(timeout=3000)
-                page.wait_for_timeout(800)
+                human_click_element(page, trigger, timeout_ms=3000)
+                human_pause(page, "after_click")
                 break
         except Exception:
             continue
@@ -421,8 +445,7 @@ def fill_wechat_cover(page: Page, cover_path: Path, *, timeout_ms: int) -> bool:
                 accept = (candidate.get_attribute("accept") or "").lower()
                 if "video" in accept:
                     continue
-                candidate.set_input_files(str(cover_path.resolve()), timeout=timeout_ms)
-                page.wait_for_timeout(1500)
+                human_upload_file(page, candidate, str(cover_path.resolve()), timeout_ms=timeout_ms)
                 logger.info("WeChat cover uploaded: %s", cover_path.name)
                 return True
             except Exception:
@@ -431,8 +454,7 @@ def fill_wechat_cover(page: Page, cover_path: Path, *, timeout_ms: int) -> bool:
     file_inputs = page.locator('input[type="file"]')
     if file_inputs.count() >= 2:
         try:
-            file_inputs.nth(1).set_input_files(str(cover_path.resolve()), timeout=timeout_ms)
-            page.wait_for_timeout(1500)
+            human_upload_file(page, file_inputs.nth(1), str(cover_path.resolve()), timeout_ms=timeout_ms)
             logger.info("WeChat cover uploaded via fallback file input: %s", cover_path.name)
             return True
         except Exception as exc:
@@ -467,6 +489,33 @@ def fill_wechat_post_description(
     return fill_wechat_description(page, text, timeout_ms=timeout_ms)
 
 
+def _description_visible_text(locator: Locator) -> str:
+    try:
+        return str(
+            locator.evaluate("(el) => String(el.innerText || el.textContent || '').trim()")
+            or ""
+        )
+    except Exception:
+        return ""
+
+
+def _description_contains(locator: Locator, expected: str) -> bool:
+    actual = "".join(_description_visible_text(locator).split())
+    needle = "".join((expected or "").split())
+    if not needle:
+        return bool(actual)
+    return needle[:16] in actual
+
+
+def wechat_description_present(page: Page, expected: str = "") -> bool:
+    desc_loc = _locate_description(page)
+    if desc_loc is None:
+        return False
+    if expected:
+        return _description_contains(desc_loc, expected)
+    return bool(_description_visible_text(desc_loc))
+
+
 def fill_wechat_description(page: Page, description: str, *, timeout_ms: int) -> bool:
     if not description:
         return False
@@ -475,18 +524,35 @@ def fill_wechat_description(page: Page, description: str, *, timeout_ms: int) ->
     for _ in range(deadline_attempts):
         desc_loc = _locate_description(page)
         if desc_loc is None:
-            page.wait_for_timeout(1000)
+            human_pause(page, "after_click")
             continue
         try:
             desc_loc.wait_for(state="visible", timeout=3000)
-            _set_contenteditable_text(desc_loc, description)
-            logger.info("WeChat post description filled (%d chars)", len(description))
-            return True
+            # innerHTML + synthetic input does not update WeChat's editor document.
+            # Publish serializes that document, so the live video ends up with no description.
+            human_type_text(page, desc_loc, description, clear_first=True, timeout_ms=timeout_ms)
+            if _description_contains(desc_loc, description):
+                logger.info(
+                    "WeChat post description filled and verified (%d chars)",
+                    len(description),
+                )
+                return True
+            logger.warning("WeChat description still empty after keyboard fill, retrying")
         except Exception as exc:
             last_error = exc
-            page.wait_for_timeout(1000)
+            human_pause(page, "after_click")
     logger.warning(f"Fill WeChat description failed: {last_error}")
     return False
+
+
+def ensure_wechat_description(page: Page, description: str, *, timeout_ms: int) -> bool:
+    if not description:
+        return False
+    if wechat_description_present(page, description):
+        logger.info("WeChat post description still present after later form steps")
+        return True
+    logger.warning("WeChat description missing after later form steps, refilling")
+    return fill_wechat_description(page, description, timeout_ms=timeout_ms)
 
 
 def _ant_checkbox_checked(label_locator: Locator) -> bool:
@@ -551,8 +617,8 @@ def declare_wechat_original(page: Page, *, timeout_ms: int) -> bool:
             logger.info("WeChat original already declared")
             return True
 
-        main_label.click(timeout=5000)
-        page.wait_for_timeout(800)
+        human_click_element(page, main_label, timeout_ms=5000)
+        human_pause(page, "after_click")
 
         dialog = _locate_original_dialog(page)
         if dialog is None:
@@ -564,8 +630,8 @@ def declare_wechat_original(page: Page, *, timeout_ms: int) -> bool:
         proto_label = dialog.locator(".original-proto-wrapper label.ant-checkbox-wrapper").first
         proto_label.wait_for(state="visible", timeout=min(timeout_ms, 10_000))
         if not _ant_checkbox_checked(proto_label):
-            proto_label.click(timeout=5000)
-            page.wait_for_timeout(500)
+            human_click_element(page, proto_label, timeout_ms=5000)
+            human_pause(page, "modal")
 
         confirm_btn = dialog.locator("button.weui-desktop-btn_primary").filter(has_text="声明原创")
         confirm_btn.wait_for(state="visible", timeout=min(timeout_ms, 10_000))
@@ -573,9 +639,9 @@ def declare_wechat_original(page: Page, *, timeout_ms: int) -> bool:
             classes = confirm_btn.get_attribute("class") or ""
             if "disabled" not in classes:
                 break
-            page.wait_for_timeout(250)
-        confirm_btn.click(timeout=5000)
-        page.wait_for_timeout(800)
+            human_pause(page, "after_click")
+        human_click_element(page, confirm_btn, timeout_ms=5000)
+        human_pause(page, "after_click")
 
         if _ant_checkbox_checked(main_label):
             logger.info("WeChat original declaration confirmed")
@@ -596,6 +662,17 @@ WECHAT_PUBLISH_BUTTON_SELECTORS = (
 )
 
 
+WECHAT_PUBLISH_SUCCESS_PATTERN = re.compile(
+    r"发表成功|发布成功|已发表|发表完成|提交成功|已提交",
+    re.I,
+)
+WECHAT_PUBLISH_SUCCESS_URL_HINTS = (
+    "platform/post/list",
+    "platform/post/manage",
+    "platform/content",
+)
+
+
 def click_wechat_publish(page: Page, *, timeout_ms: int) -> bool:
     from services.publishing.adapters.publish_button_helpers import click_publish_and_wait
 
@@ -611,7 +688,7 @@ def click_wechat_publish(page: Page, *, timeout_ms: int) -> bool:
                 max_attempts,
             )
             if not wait_for_wechat_video_ready(page, timeout_ms=per_attempt_ms):
-                page.wait_for_timeout(2000)
+                human_pause(page, "after_upload")
                 continue
         elif not wait_for_wechat_video_ready(page, timeout_ms=min(per_attempt_ms, 30_000)):
             logger.warning("WeChat video may still be processing before publish click")
@@ -621,7 +698,8 @@ def click_wechat_publish(page: Page, *, timeout_ms: int) -> bool:
             timeout_ms=per_attempt_ms,
             button_texts=("发表", "发布"),
             extra_selectors=WECHAT_PUBLISH_BUTTON_SELECTORS,
-            success_pattern=re.compile(r"发表成功|发布成功|已发表", re.I),
+            success_pattern=WECHAT_PUBLISH_SUCCESS_PATTERN,
+            success_url_hints=WECHAT_PUBLISH_SUCCESS_URL_HINTS,
         )
         if published:
             return True
@@ -631,7 +709,7 @@ def click_wechat_publish(page: Page, *, timeout_ms: int) -> bool:
                 "WeChat publish blocked by missing video, retrying after upload wait"
             )
             wait_for_wechat_video_ready(page, timeout_ms=per_attempt_ms)
-            page.wait_for_timeout(1500)
+            human_pause(page, "polling")
             continue
         break
 
