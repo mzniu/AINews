@@ -376,6 +376,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
         title_font, subtitle_font, summary_font = _load_fonts(
             getattr(request, "title_font_key", None),
             getattr(request, "title_font_size", None),
+            getattr(request, "subtitle_font_size", None),
+            getattr(request, "summary_font_size", None),
         )
 
         margin = int(img_width * 0.08)

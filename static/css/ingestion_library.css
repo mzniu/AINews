@@ -419,6 +419,56 @@
     box-shadow: var(--app-shadow-inset);
 }
 
+.app-page .score-dual-badges,
+.app-page .article-item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.app-page .score-dimension-block {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--app-border);
+}
+
+.app-page .score-dimension-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.app-page .score-dimension-head strong {
+    font-size: 13px;
+}
+
+.app-page .grade-badge-viral {
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
+}
+
+.app-page .publish-tier-badge.publish-tier-viral-priority {
+    background: rgba(124, 58, 237, 0.28);
+    color: #d8b4fe;
+}
+
+.app-page .publish-tier-badge.publish-tier-standard {
+    background: rgba(37, 99, 235, 0.22);
+    color: #93c5fd;
+}
+
+.app-page .publish-tier-badge.publish-tier-skip {
+    background: rgba(100, 116, 139, 0.25);
+    color: #94a3b8;
+}
+
+.app-page .score-bonus-list,
+.app-page .score-motive-list {
+    margin-top: 4px;
+}
+
 .app-page .badge {
     display: inline-flex;
     align-items: center;

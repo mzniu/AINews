@@ -47,7 +47,7 @@ class DouyinAdapter(CreatorCenterAdapter):
     def publish_video(self, session_path: Path, payload: PublishPayload) -> PublishResult:
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-        screenshot_dir = Config.ROOT_DIR / "data" / "publish" / "screenshots"
+        screenshot_dir = Config.DATA_DIR / "publish" / "screenshots"
         screenshot_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = screenshot_dir / f"douyin_fail_{int(time.time())}.png"
         page = None

@@ -8,9 +8,10 @@ from typing import Any, Literal
 import yaml
 
 from src.utils.config import Config
+from src.utils.paths import resolve_local_asset_path
 
 _CONFIG_PATH = Config.ROOT_DIR / "config" / "image_scoring.yaml"
-_IMAGE_LOCAL_PATH = Config.ROOT_DIR / "config" / "image_scoring.local.yaml"
+_IMAGE_LOCAL_PATH = Config.CONFIG_DIR / "image_scoring.local.yaml"
 
 VALID_GRADES = frozenset({"A", "B", "C", "D"})
 
@@ -193,7 +194,7 @@ def prefilter_image(
 
     path = local_file
     if path is None and image.local_path:
-        path = Path(image.local_path)
+        path = resolve_local_asset_path(image.local_path)
     if path is None or not path.exists():
         return PreFilterResult(skip=True)
 
@@ -212,6 +213,9 @@ def prefilter_image(
             )
 
     width, height = _image_dimensions(path)
+    if width <= 0 or height <= 0:
+        return PreFilterResult(skip=True)
+
     min_w = int(prefilter.get("min_width", 220))
     min_h = int(prefilter.get("min_height", 140))
     if width and height and (width < min_w or height < min_h):
@@ -436,6 +440,17 @@ def _grade_rank(grade: str) -> int:
     return order.get(str(grade or "D").upper(), 9)
 
 
+def _evaluation_is_rejected(item: ImageScoreResult) -> bool:
+    breakdown = item.breakdown or {}
+    if breakdown.get("reject"):
+        return True
+    penalties = breakdown.get("penalties") or []
+    for penalty in penalties:
+        if str(penalty.get("reason") or "") == "bad_url_hint":
+            return True
+    return False
+
+
 def pick_auto_selected(
     evaluations: list[ImageScoreResult],
     *,
@@ -450,7 +465,7 @@ def pick_auto_selected(
     fallback = str(auto.get("fallback_grade", "B"))
     supplement_grade = str(auto.get("supplement_grade", "D"))
 
-    ranked = rank_evaluations(list(evaluations))
+    ranked = [item for item in rank_evaluations(list(evaluations)) if not _evaluation_is_rejected(item)]
     worst_preferred = max(_grade_rank(min_grade), _grade_rank(fallback))
     preferred = [item for item in ranked if _grade_rank(item.grade) <= worst_preferred]
     picked = preferred[:max_count]

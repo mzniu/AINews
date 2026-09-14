@@ -12,7 +12,7 @@ from openai import OpenAI
 from src.utils.config import Config
 
 MODELS_TEMPLATE_PATH = Config.ROOT_DIR / "config" / "models.yaml"
-MODELS_LOCAL_PATH = Config.ROOT_DIR / "config" / "models.local.yaml"
+MODELS_LOCAL_PATH = Config.CONFIG_DIR / "models.local.yaml"
 
 PROFILE_FIELDS = (
     "id",

@@ -26,13 +26,41 @@ COMMENT_HUB_URL = "https://channels.weixin.qq.com/platform/interaction/comment"
 CLICK_FEED_BY_TITLE_JS = """
 ([titleNeedle, exportId, preferZeroComments]) => {
   const needle = String(titleNeedle || '').trim().toLowerCase();
-  const idNeedle = String(exportId || '').trim();
+  const compactNeedle = needle.replace(/\\s+/g, '');
+  const normalizeExportId = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    return text.replace(/^export\\//i, '');
+  };
+  const idNeedle = normalizeExportId(exportId);
+  const idFull = String(exportId || '').trim();
   const roots = [document];
   const wujie = document.querySelector('wujie-app');
   if (wujie && wujie.shadowRoot) roots.push(wujie.shadowRoot);
   const feedCount = (feed) => {
     const totalEl = feed.querySelector('.feed-comment-total');
     return parseInt((totalEl && totalEl.innerText) || '0', 10) || 0;
+  };
+  const feedExportId = (feed) => {
+    const raw = feed.getAttribute('data-export-id') || feed.dataset?.exportId || '';
+    return normalizeExportId(raw);
+  };
+  const feedMatchesId = (feed) => {
+    if (!idNeedle && !idFull) return false;
+    const fid = feedExportId(feed);
+    if (fid && fid === idNeedle) return true;
+    if (idFull && (feed.getAttribute('data-export-id') === idFull || feed.dataset?.exportId === idFull)) {
+      return true;
+    }
+    const blob = `${feed.innerHTML || ''} ${feed.innerText || ''}`;
+    if (idNeedle && blob.includes(idNeedle)) return true;
+    return false;
+  };
+  const feedMatchesTitle = (feed) => {
+    if (!needle && !compactNeedle) return false;
+    const text = (feed.innerText || '').toLowerCase();
+    const compactText = text.replace(/\\s+/g, '');
+    return (needle && text.includes(needle)) || (compactNeedle && compactText.includes(compactNeedle));
   };
   const tryClick = (feed, mode) => {
     feed.click();
@@ -45,11 +73,10 @@ CLICK_FEED_BY_TITLE_JS = """
       const zeroFeeds = feeds.filter((feed) => feedCount(feed) === 0);
       const pool = zeroFeeds.length ? zeroFeeds : feeds;
       for (const feed of pool) {
-        const text = (feed.innerText || '').toLowerCase();
-        if (idNeedle && feed.dataset && feed.dataset.exportId === idNeedle) {
+        if (feedMatchesId(feed)) {
           return tryClick(feed, 'export_id');
         }
-        if (needle && text.includes(needle)) {
+        if (feedMatchesTitle(feed)) {
           return tryClick(feed, 'title');
         }
       }
@@ -59,11 +86,10 @@ CLICK_FEED_BY_TITLE_JS = """
       continue;
     }
     for (const feed of feeds) {
-      const text = (feed.innerText || '').toLowerCase();
-      if (idNeedle && feed.dataset && feed.dataset.exportId === idNeedle) {
+      if (feedMatchesId(feed)) {
         return tryClick(feed, 'export_id');
       }
-      if (needle && text.includes(needle)) {
+      if (feedMatchesTitle(feed)) {
         return tryClick(feed, 'title');
       }
     }
@@ -72,6 +98,29 @@ CLICK_FEED_BY_TITLE_JS = """
     }
   }
   return { clicked: false };
+}
+"""
+
+SCROLL_COMMENT_FEED_LIST_JS = """
+() => {
+  const roots = [document];
+  const wujie = document.querySelector('wujie-app');
+  if (wujie && wujie.shadowRoot) roots.push(wujie.shadowRoot);
+  for (const root of roots) {
+    for (const selector of ['.comment-feed-list', '.comment-feeds', '[class*="feed-list"]', '[class*="feed-wrap"]']) {
+      const list = root.querySelector(selector);
+      if (list && list.scrollHeight > list.clientHeight + 20) {
+        list.scrollTop += Math.max(240, Math.floor(list.clientHeight * 0.8));
+        return { scrolled: true, mode: 'container' };
+      }
+    }
+    const feeds = [...root.querySelectorAll('.comment-feed-wrap')];
+    if (feeds.length) {
+      feeds[feeds.length - 1].scrollIntoView({ block: 'end' });
+      return { scrolled: true, mode: 'last_feed' };
+    }
+  }
+  return { scrolled: false };
 }
 """
 
@@ -120,11 +169,38 @@ def _fetch_work_rows(page: Page) -> list[dict[str, Any]]:
     return []
 
 
-def _navigate_comment_hub(page: Page) -> None:
-    if COMMENT_HUB_URL not in page.url:
-        page.goto(COMMENT_HUB_URL, wait_until="domcontentloaded", timeout=60_000)
-        human_pause(page, "page_load")
-    dismiss_overlays(page)
+def _navigate_comment_hub(page: Page, *, max_attempts: int = 3) -> None:
+    if COMMENT_HUB_URL in (page.url or ""):
+        dismiss_overlays(page)
+        return
+
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            page.goto(COMMENT_HUB_URL, wait_until="domcontentloaded", timeout=60_000)
+            human_pause(page, "page_load")
+            dismiss_overlays(page)
+            current_url = page.url or ""
+            if "chromewebdata" not in current_url and "channels.weixin.qq.com" in current_url:
+                return
+            last_error = RuntimeError(f"unexpected_url:{current_url}")
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "评论中心导航失败 attempt={}/{} url={} err={}",
+                attempt,
+                max_attempts,
+                page.url,
+                exc,
+            )
+        if attempt < max_attempts:
+            time.sleep(min(2 * attempt, 8))
+            try:
+                page.goto("about:blank", wait_until="domcontentloaded", timeout=15_000)
+            except Exception:
+                pass
+
+    raise RuntimeError(f"comment_hub_navigate_failed:{last_error}")
 
 
 def _wait_for_comment_feeds(page: Page, *, timeout_ms: int = 20_000) -> bool:
@@ -188,20 +264,55 @@ def _find_wechat_comment_input(page: Page) -> Locator | None:
     return None
 
 
+CLICK_WECHAT_SUBMIT_JS = """
+() => {
+  const roots = [document];
+  const wujie = document.querySelector('wujie-app');
+  if (wujie && wujie.shadowRoot) roots.push(wujie.shadowRoot);
+  const tryRoot = (root) => {
+    for (const scope of root.querySelectorAll('.comment-create-wrap, .reply-to-feed')) {
+      for (const el of scope.querySelectorAll('.tag-wrap.primary .tag-inner, button')) {
+        const text = (el.innerText || '').trim();
+        if (text !== '发表') continue;
+        const disabled = el.closest('.tag-wrap')?.classList?.contains('disabled');
+        if (disabled) continue;
+        el.click();
+        return true;
+      }
+      for (const btn of scope.querySelectorAll('button.weui-desktop-btn_primary')) {
+        const text = (btn.innerText || '').trim();
+        if (text === '发表' && !btn.disabled) {
+          btn.click();
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  for (const root of roots) {
+    if (tryRoot(root)) return true;
+  }
+  return false;
+}
+"""
+
+
 def _find_wechat_submit_button(page: Page) -> Locator | None:
     for locator in (
+        page.locator('.comment-create-wrap .tag-wrap.primary .tag-inner'),
+        page.locator('.comment-create-wrap .create-ft .tag-wrap.primary'),
+        page.locator('.reply-to-feed .tag-wrap.primary .tag-inner'),
         page.get_by_role("button", name="发表"),
         page.locator('.comment-create-wrap button.weui-desktop-btn_primary:has-text("发表")'),
-        page.locator('.reply-to-feed button.weui-desktop-btn_primary:has-text("发表")'),
         page.locator('button.weui-desktop-btn_primary:has-text("发表")'),
-        page.locator(".comment-create-wrap button.weui-desktop-btn_primary").last,
     ):
         try:
             if locator.count() > 0 and locator.first.is_visible(timeout=800):
                 text = (locator.first.inner_text(timeout=500) or "").strip()
-                if text in {"切换", "我知道了"}:
+                if text in {"切换", "我知道了", "取消"}:
                     continue
-                return locator.first
+                if text == "发表" or "tag-wrap" in str(locator):
+                    return locator.first
         except Exception:
             continue
     return None
@@ -237,14 +348,16 @@ def _fill_and_submit_wechat_comment(page: Page, text: str) -> CommentResult:
     human_pause(page, "after_type")
 
     submit = _find_wechat_submit_button(page)
-    if submit is None:
+    if submit is not None:
+        try:
+            human_click(page, submit, timeout_ms=8000)
+            human_pause(page, "after_click")
+        except Exception as exc:
+            return CommentResult(success=False, error_message=f"submit_click_failed:{exc}")
+    elif not page.evaluate(CLICK_WECHAT_SUBMIT_JS):
         return CommentResult(success=False, error_message="submit_button_not_found")
-
-    try:
-        human_click(page, submit, timeout_ms=8000)
+    else:
         human_pause(page, "after_click")
-    except Exception as exc:
-        return CommentResult(success=False, error_message=f"submit_click_failed:{exc}")
 
     logger.info("视频号首评已提交")
     return CommentResult(success=True)

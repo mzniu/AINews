@@ -392,3 +392,60 @@ def test_pipeline_rewrites_paths_if_cleared_after_checkpoint(
     article = db_session.get(IngestedArticle, "art_pipe")
     assert article.generated_video_path == "/data/videos/kept.mp4"
     assert article.generated_cover_path == "data/publish/covers/kept.jpg"
+
+
+@patch("services.ingestion.media_pipeline.render_article_cover")
+@patch("services.ingestion.media_pipeline.render_ingested_video")
+@patch("services.ingestion.media_pipeline.pick_random_bgm")
+@patch("services.ingestion.media_pipeline.prepare_video_metadata")
+@patch("services.ingestion.media_pipeline.generate_video_content")
+@patch("services.ingestion.media_pipeline.score_article_images")
+def test_pipeline_falls_back_to_pool_when_auto_selected_empty(
+    mock_score,
+    mock_content,
+    mock_prepare,
+    mock_bgm,
+    mock_render,
+    mock_cover,
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    from PIL import Image
+
+    from src.utils.paths import get_data_dir
+
+    data_dir = tmp_path / "appdata"
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
+    get_data_dir.cache_clear()
+
+    img_path = data_dir / "ingested/src1/art_pipe/images/img_001.jpg"
+    img_path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (800, 600), color="green").save(img_path)
+    stored = "data/ingested/src1/art_pipe/images/img_001.jpg"
+    pool_image = {"local_path": f"/{stored}", "success": True, "url": "https://cdn.example.com/a.jpg"}
+
+    mock_score.return_value = {"scored_count": 0, "from_cache": False}
+    mock_content.return_value = {
+        "success": True,
+        "main_line1": "无评分也能出片",
+        "summary": "小牛说：x",
+        "tags": "#AI",
+        "model": "m",
+    }
+    mock_prepare.return_value = {
+        "auto_selected_images": [],
+        "images": [pool_image, pool_image, pool_image],
+    }
+    mock_bgm.return_value = "static/music/a.mp3"
+    mock_render.return_value = {"success": True, "video_path": "/data/videos/fallback.mp4"}
+    mock_cover.return_value = {"success": True, "cover_path": "/data/covers/fallback.jpg"}
+
+    result = run_media_pipeline(db_session, "art_pipe")
+
+    assert result["success"] is True
+    assert result["video_rendered"] is True
+    mock_render.assert_called_once()
+    image_paths = mock_render.call_args.kwargs.get("image_paths") or mock_render.call_args[1].get("image_paths")
+    assert image_paths
+    get_data_dir.cache_clear()

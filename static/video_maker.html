@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>视频制作 - 图片转视频</title>
+    <title>视频制作 - 图片转视�?/title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815a">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913d">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
-    <script src="/static/js/shared/app_nav.js?v=20260813c" defer></script>
+    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
+
+    <script src="/static/js/shared/app_nav.js?v=20260914b" defer></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         .container { max-width: 1000px; margin: 0 auto; }
@@ -238,9 +240,9 @@
 
 <div class="container">
         <div class="header">
-            <h1>📹 图片转视频</h1>
-            <p>上传图片，自动添加入场动画和背景音乐，一键生成精美视频</p>
-            <a href="/">← 返回主页</a>
+            <h1>📹 图片转视�?/h1>
+            <p>上传图片，自动添加入场动画和背景音乐，一键生成精美视�?/p>
+            <a href="/">�?返回主页</a>
         </div>
 
         <!-- 上传区域 -->
@@ -249,13 +251,13 @@
             <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
                 <div class="icon">📁</div>
                 <div class="text">点击选择图片，或将图片拖拽到此处</div>
-                <div class="hint">支持 JPG、PNG、GIF、WebP 格式，可多选</div>
+                <div class="hint">支持 JPG、PNG、GIF、WebP 格式，可多�?/div>
             </div>
             <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
             <div class="preview-grid" id="previewGrid"></div>
             <div class="actions" id="uploadActions" style="display: none;">
                 <button class="btn btn-sm" onclick="uploadImages()">⬆️ 上传到服务器</button>
-                <button class="btn btn-sm btn-danger" onclick="clearImages()">🗑️ 清空</button>
+                <button class="btn btn-sm btn-danger" onclick="clearImages()">🗑�?清空</button>
                 <span class="status-text" id="uploadStatus"></span>
             </div>
         </div>
@@ -264,37 +266,37 @@
         <div class="card">
             <h2>⚙️ 视频设置</h2>
             <div class="form-row">
-                <label>主标题</label>
+                <label>主标�?/label>
                 <input type="text" id="inputTitle" placeholder="可选，将显示在视频顶部">
             </div>
             <div class="form-row">
-                <label>副标题</label>
-                <input type="text" id="inputSubtitle" placeholder="可选，显示在主标题下方（黄色字）">
+                <label>副标�?/label>
+                <input type="text" id="inputSubtitle" placeholder="可选，显示在主标题下方（黄色字�?>
             </div>
             <div class="form-row">
                 <label>每张时长</label>
                 <select id="clipDuration">
-                    <option value="2.0">2 秒</option>
-                    <option value="2.5">2.5 秒</option>
-                    <option value="3.0" selected>3 秒</option>
-                    <option value="4.0">4 秒</option>
-                    <option value="5.0">5 秒</option>
-                    <option value="6.0">6 秒</option>
-                    <option value="7.0">7 秒</option>
-                    <option value="8.0">8 秒</option>
-                    <option value="9.0">9 秒</option>
-                    <option value="10.0">10 秒</option>
+                    <option value="2.0">2 �?/option>
+                    <option value="2.5">2.5 �?/option>
+                    <option value="3.0" selected>3 �?/option>
+                    <option value="4.0">4 �?/option>
+                    <option value="5.0">5 �?/option>
+                    <option value="6.0">6 �?/option>
+                    <option value="7.0">7 �?/option>
+                    <option value="8.0">8 �?/option>
+                    <option value="9.0">9 �?/option>
+                    <option value="10.0">10 �?/option>
                 </select>
-                <span class="hint">每张图片展示的时间</span>
+                <span class="hint">每张图片展示的时�?/span>
             </div>
             <div class="form-row">
                 <label>视觉特效</label>
                 <select id="effectSelect">
-                    <option value="none">无特效</option>
-                    <option value="gold_sparkle">✨ 金粉闪闪</option>
+                    <option value="none">无特�?/option>
+                    <option value="gold_sparkle">�?金粉闪闪</option>
                     <option value="snowfall">❄️ 雪花飘落</option>
                     <option value="bokeh">💡 柔和光斑</option>
-                    <option value="firefly">🌟 萤火虫</option>
+                    <option value="firefly">🌟 萤火�?/option>
                     <option value="bubble">🫧 气泡</option>
                 </select>
             </div>
@@ -302,7 +304,7 @@
                 <label>背景音乐</label>
                 <select id="audioSelect">
                     <option value="static/music/background.mp3">默认背景音乐</option>
-                    <option value="">不使用背景音乐</option>
+                    <option value="">不使用背景音�?/option>
                 </select>
             </div>
         </div>
@@ -332,8 +334,8 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // 状态
-        let localFiles = [];          // 本地选择的文件
+        // 状�?
+        let localFiles = [];          // 本地选择的文�?
         let uploadedPaths = [];       // 已上传到服务器的路径
 
         // ===== 上传区域 =====
@@ -421,14 +423,14 @@
                 if (data.success) {
                     uploadedPaths = data.files.map(f => f.saved_path);  // 注意这里是files字段
                     console.log('上传后的路径:', uploadedPaths);  // 调试信息
-                    statusEl.textContent = `✅ 已上传 ${data.count} 张图片`;
-                    showToast(`上传成功：${data.count} 张图片`, 'success');
+                    statusEl.textContent = `�?已上�?${data.count} 张图片`;
+                    showToast(`上传成功�?{data.count} 张图片`, 'success');
                 } else {
-                    statusEl.textContent = '❌ 上传失败';
+                    statusEl.textContent = '�?上传失败';
                     showToast('上传失败', 'error');
                 }
             } catch (e) {
-                statusEl.textContent = '❌ 上传出错';
+                statusEl.textContent = '�?上传出错';
                 showToast('上传出错: ' + e.message, 'error');
             }
         }
@@ -450,7 +452,7 @@
             progressFill.style.width = '0%';
 
             try {
-                // 第1步：上传（如果还没上传）
+                // �?步：上传（如果还没上传）
                 if (uploadedPaths.length === 0) {
                     genStatus.textContent = '⬆️ 正在上传图片...';
                     progressFill.style.width = '20%';
@@ -461,11 +463,11 @@
                     const upData = await upResp.json();
                     if (!upData.success) throw new Error('上传失败');
                     uploadedPaths = upData.images;
-                    document.getElementById('uploadStatus').textContent = `✅ 已上传 ${upData.count} 张图片`;
+                    document.getElementById('uploadStatus').textContent = `�?已上�?${upData.count} 张图片`;
                 }
 
-                // 第2步：生成视频
-                genStatus.textContent = '🎬 正在合成视频，请稍候...';
+                // �?步：生成视频
+                genStatus.textContent = '🎬 正在合成视频，请稍�?..';
                 progressFill.style.width = '50%';
 
                 // 调试信息
@@ -496,8 +498,8 @@
                 progressFill.style.width = '100%';
 
                 if (data.success) {
-                    genStatus.textContent = '✅ 视频生成完成！';
-                    showToast('视频生成成功！', 'success');
+                    genStatus.textContent = '�?视频生成完成�?;
+                    showToast('视频生成成功�?, 'success');
 
                     // 显示结果
                     const resultCard = document.getElementById('resultCard');
@@ -509,7 +511,7 @@
                     document.getElementById('resultMeta').innerHTML = `
                         <span>📹 时长: ${data.duration.toFixed(1)}s</span>
                         <span>📦 大小: ${data.file_size_mb}MB</span>
-                        <span>🎞️ 片段: ${data.preview_frames ? data.preview_frames.length : '?'}</span>
+                        <span>🎞�?片段: ${data.preview_frames ? data.preview_frames.length : '?'}</span>
                     `;
 
                     document.getElementById('downloadLink').href = data.video_path;
@@ -519,7 +521,7 @@
                 }
 
             } catch (e) {
-                genStatus.textContent = '❌ 生成失败: ' + e.message;
+                genStatus.textContent = '�?生成失败: ' + e.message;
                 showToast('失败: ' + e.message, 'error');
             } finally {
                 btn.disabled = false;

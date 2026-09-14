@@ -43,3 +43,157 @@ def test_build_qr_login_profile_includes_stealth_defaults():
     )
     assert profile.use_stealth_browser is True
     assert profile.cookie_settle_attempts == 15
+
+
+def test_qr_selector_candidates_splits_comma_list():
+    from services.publishing.adapters.qr_helpers import _qr_selector_candidates
+
+    assert _qr_selector_candidates("img.a, img.b") == ["img.a", "img.b"]
+    assert _qr_selector_candidates("img.js_qrcode_img.web_qrcode_img") == [
+        "img.js_qrcode_img.web_qrcode_img"
+    ]
+
+
+def test_parse_qr_selector_supports_iframe_pipe_syntax():
+    from services.publishing.adapters.qr_helpers import _parse_qr_selector
+
+    assert _parse_qr_selector("iframe:#wx-oauth-container iframe|img.js_qrcode_img") == (
+        "#wx-oauth-container iframe",
+        "img.js_qrcode_img",
+    )
+    assert _parse_qr_selector("img.js_qrcode_img.web_qrcode_img") == (
+        None,
+        "img.js_qrcode_img.web_qrcode_img",
+    )
+
+
+def test_capture_qr_downloads_img_src(monkeypatch, tmp_path):
+    from services.publishing.adapters.qr_helpers import _capture_qr
+
+    qr_path = tmp_path / "qr.png"
+    body = b"fake-qr-bytes"
+
+    class FakeResponse:
+        ok = True
+
+        @staticmethod
+        def body():
+            return body
+
+    class FakeRequest:
+        @staticmethod
+        def get(url):
+            assert url == "https://channels.weixin.qq.com/connect/qrcode/abc"
+            return FakeResponse()
+
+    class FakeLocator:
+        first = None
+
+        def __init__(self):
+            self.first = self
+
+        def wait_for(self, **kwargs):
+            return None
+
+        def evaluate(self, script):
+            return "https://channels.weixin.qq.com/connect/qrcode/abc"
+
+        def screenshot(self, **kwargs):
+            raise AssertionError("screenshot should not be called when download succeeds")
+
+    class FakeFrame:
+        def locator(self, selector):
+            return FakeLocator()
+
+    class FakeContext:
+        request = FakeRequest()
+
+    class FakePage:
+        frames = [FakeFrame()]
+        context = FakeContext()
+        url = "https://example.com/login"
+
+        def screenshot(self, **kwargs):
+            raise AssertionError("full page screenshot should not be called")
+
+        def wait_for_timeout(self, ms):
+            return None
+
+        def locator(self, selector):
+            raise AssertionError(f"unexpected locator {selector}")
+
+        def frame_locator(self, selector):
+            raise AssertionError(f"unexpected frame_locator {selector}")
+
+    _capture_qr(FakePage(), qr_path, "img.js_qrcode_img.web_qrcode_img")
+    assert qr_path.read_bytes() == body
+
+
+def test_capture_login_storage_state_snapshots_immediately_on_success_url():
+    from services.publishing.adapters.qr_helpers import QrLoginProfile, _capture_login_storage_state
+
+    storage = {"cookies": [{"name": "sessionid"}]}
+    goto_calls = []
+
+    class FakePage:
+        url = "https://channels.weixin.qq.com/platform/post/create"
+
+        def goto(self, url, **kwargs):
+            goto_calls.append(url)
+
+    class FakeContext:
+        def storage_state(self):
+            return storage
+
+    profile = QrLoginProfile(
+        platform_id="wechat_channels",
+        login_url="https://channels.weixin.qq.com/login.html",
+        success_url_excludes=["login", "passport"],
+        post_login_url="https://channels.weixin.qq.com/platform/post/create",
+    )
+    result = _capture_login_storage_state(FakeContext(), FakePage(), profile)
+    assert result == storage
+    assert goto_calls == []
+
+
+def test_capture_login_storage_state_skips_goto_when_already_on_settle_url():
+    from services.publishing.adapters.qr_helpers import QrLoginProfile, _capture_login_storage_state
+
+    settle = "https://channels.weixin.qq.com/platform/post/create"
+    goto_calls = []
+
+    class FakePage:
+        url = settle
+
+        def goto(self, url, **kwargs):
+            goto_calls.append(url)
+
+        def wait_for_timeout(self, ms):
+            return None
+
+    class FakeContext:
+        def storage_state(self):
+            return {"cookies": []}
+
+    profile = QrLoginProfile(
+        platform_id="wechat_channels",
+        login_url="https://channels.weixin.qq.com/login.html",
+        success_url_excludes=["login"],
+        post_login_url=settle,
+        use_stealth_browser=False,
+        required_session_cookies=("sessionid",),
+        cookie_settle_attempts=1,
+    )
+    _capture_login_storage_state(FakeContext(), FakePage(), profile)
+    assert goto_calls == []
+
+
+def test_is_target_closed_error():
+    from services.publishing.adapters.qr_helpers import _is_target_closed_error
+
+    class TargetClosedError(Exception):
+        pass
+
+    assert _is_target_closed_error(TargetClosedError("boom"))
+    assert _is_target_closed_error(RuntimeError("Target page, context or browser has been closed"))
+    assert not _is_target_closed_error(ValueError("other"))

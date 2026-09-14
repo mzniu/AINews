@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from src.utils.beijing_time import as_beijing_wallclock
+from src.utils.paths import to_data_url_path
 
 from api.schemas.ingestion_models import (
     BatchSelectRequest,
@@ -34,7 +35,7 @@ from services.ingestion.media_paths import restore_generated_media_paths
 from services.ingestion.publish_status import published_ingestion_ids
 from services.ingestion.image_score_service import score_article_images
 from services.ingestion.score_service import apply_score_to_article, score_article_by_id
-from services.ingestion.job_enqueue import enqueue_ingestion_job, find_active_ingestion_job
+from services.ingestion.job_enqueue import enqueue_ingestion_job, enqueue_article_recrawl, find_active_ingestion_job, find_active_article_recrawl_job
 from services.ingestion.job_recovery import recover_stale_jobs
 from services.ingestion.registry import sync_sources_to_db
 from services.ingestion.settings import (
@@ -403,6 +404,40 @@ def get_article(article_id: str, db: Session = Depends(get_db)):
     if row is None:
         raise HTTPException(status_code=404, detail="Article not found")
     return _article_full(row, db)
+
+
+@router.post("/articles/{article_id}/recrawl")
+def recrawl_article(article_id: str, db: Session = Depends(get_db)):
+    row = db.get(IngestedArticle, article_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    if not row.canonical_url:
+        raise HTTPException(status_code=400, detail="该文章缺少原文链接，无法重新抓取")
+    recover_stale_jobs(db)
+    active = find_active_article_recrawl_job(db, article_id)
+    if active is not None:
+        message = (
+            "正在重新抓取，请稍候"
+            if active.status == "running"
+            else "重新抓取已在队列中，请等待 worker 执行"
+        )
+        return {
+            "success": True,
+            "job_id": active.id,
+            "created": False,
+            "message": message,
+            "status": active.status,
+        }
+    job, created = enqueue_article_recrawl(db, article_id=article_id, source_id=row.source_id)
+    if job is None:
+        raise HTTPException(status_code=500, detail="无法创建重新抓取任务")
+    return {
+        "success": True,
+        "job_id": job.id,
+        "created": created,
+        "message": "已加入重新抓取队列，请确保 ingestion worker 正在运行",
+        "status": job.status,
+    }
 
 
 @router.patch("/articles/{article_id}/video-draft", response_model=IngestedArticleOut)
@@ -779,7 +814,7 @@ def _cover_local_path(db: Session, article_id: str) -> str | None:
         .first()
     )
     if row and row.local_path:
-        return f"/{row.local_path.lstrip('/')}"
+        return to_data_url_path(row.local_path)
     return None
 
 
@@ -790,6 +825,19 @@ def _parse_breakdown(row: IngestedArticle) -> dict | None:
         return json.loads(row.score_breakdown_json)
     except json.JSONDecodeError:
         return None
+
+
+def _dual_score_fields(row: IngestedArticle) -> dict:
+    breakdown = _parse_breakdown(row)
+    if not breakdown:
+        return {}
+    final = breakdown.get("final") or {}
+    viral = breakdown.get("viral") or {}
+    return {
+        "viral_score_total": final.get("viral_total", viral.get("total")),
+        "viral_score_grade": final.get("viral_grade", viral.get("grade")),
+        "publish_tier": final.get("publish_tier"),
+    }
 
 
 def _parse_video_draft(row: IngestedArticle) -> dict | None:
@@ -864,6 +912,7 @@ def _article_brief(
         "view_count": row.view_count,
         "score_total": row.score_total,
         "score_grade": row.score_grade,
+        **_dual_score_fields(row),
         "score_comment": row.score_comment,
         "scored_at": row.scored_at,
         "image_count": img_count,
@@ -957,6 +1006,7 @@ def _article_full(row: IngestedArticle, db: Session) -> IngestedArticleOut:
         view_count=row.view_count,
         score_total=row.score_total,
         score_grade=row.score_grade,
+        **_dual_score_fields(row),
         score_breakdown=_parse_breakdown(row),
         score_comment=row.score_comment,
         scored_at=row.scored_at,
@@ -975,7 +1025,7 @@ def _article_full(row: IngestedArticle, db: Session) -> IngestedArticleOut:
             ArticleImageOut(
                 id=i.id,
                 original_url=i.original_url,
-                local_path=f"/{i.local_path.lstrip('/')}" if i.local_path else None,
+                local_path=to_data_url_path(i.local_path) if i.local_path else None,
                 download_status=i.download_status,
                 sort_order=i.sort_order,
                 relevance_score=ev.relevance_score if (ev := evals.get(("article_image", i.id))) else None,
@@ -1016,7 +1066,7 @@ def _story_asset_out(row: StoryAsset) -> StoryAssetOut:
         asset_type=row.asset_type,
         source_article_id=row.source_article_id,
         original_url=payload.get("original_url"),
-        local_path=f"/{local_path.lstrip('/')}" if local_path else None,
+        local_path=to_data_url_path(local_path) if local_path else None,
         download_status=payload.get("download_status"),
         sort_order=row.sort_order,
     )

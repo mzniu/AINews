@@ -45,3 +45,26 @@ def test_enqueue_run(client):
     body = resp.json()
     assert body["success"] is True
     assert body["job_id"]
+
+
+def test_enqueue_article_recrawl(client):
+    from src.db.models.ingestion import IngestedArticle
+
+    session = get_session_factory()()
+    session.add(
+        IngestedArticle(
+            id="art_recrawl",
+            source_id="aitnt_travel",
+            canonical_url="http://travel.aitntnews.com/newshow.asp?newsid=1",
+            title="recrawl me",
+        )
+    )
+    session.commit()
+    session.close()
+
+    resp = client.post("/api/ingestion/articles/art_recrawl/recrawl")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["job_id"]
+    assert body["created"] is True

@@ -17,6 +17,7 @@ from services.publishing.registry import (
     load_publishing_yaml,
 )
 from src.db.models.publishing import PublisherAccount
+from src.utils.paths import resolve_data_path
 
 
 def load_session_keepalive_config(yaml: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -140,11 +141,9 @@ def run_session_keepalive(session_factory: sessionmaker) -> dict[str, Any]:
             for account in accounts
         ]
 
-    from src.utils.config import Config
-
     for row in account_rows:
         summary["checked"] += 1
-        session_file = Config.ROOT_DIR / row["session_path"]
+        session_file = resolve_data_path(row["session_path"])
         if not session_file.is_file():
             with session_factory() as session:
                 account = session.get(PublisherAccount, row["id"])

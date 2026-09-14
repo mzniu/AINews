@@ -9,7 +9,7 @@ from services.publishing.browser_lock import BrowserLockTimeout
 from services.publishing.registry import PlatformDisabledError, PlatformNotFoundError, get_adapter
 from src.db.engine import session_scope
 from src.db.models.publishing import PublisherAccount
-from src.utils.config import Config
+from src.utils.paths import resolve_data_path
 
 _STATUS_MESSAGES = {
     "active": "会话有效，可正常发布",
@@ -52,7 +52,7 @@ def check_account_status(account_id: str) -> dict:
             "platform": account.platform,
             "status": account.status,
         }
-        session_path = Config.ROOT_DIR / account.session_path
+        session_path = resolve_data_path(account.session_path)
 
     if not session_path.is_file():
         _persist_status(account_id, "expired")

@@ -7,11 +7,12 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from loguru import logger
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from services.ingestion.article_scorer import load_scoring_config
-from src.db.models.publishing import PublishJob
+from src.db.models.publishing import PublishJob, PublisherAccount
 
 BJ = ZoneInfo("Asia/Shanghai")
 INGESTION_SOURCE = "ingestion"
@@ -106,6 +107,154 @@ def clamp_quiet_hours(slot_utc_naive: datetime, config: PublishSpacingConfig) ->
     return _bj_to_utc_naive(end_dt)
 
 
+def _configured_slot_times(windows: Any) -> list[time]:
+    values = (
+        windows.get("slots") or windows.get("windows") or []
+        if isinstance(windows, dict)
+        else windows
+    )
+    slots: set[time] = set()
+    for item in values or []:
+        if isinstance(item, str):
+            slots.add(_parse_hhmm(item))
+            continue
+        if not isinstance(item, dict):
+            continue
+        for explicit in item.get("slots") or []:
+            slots.add(_parse_hhmm(explicit))
+        if not item.get("start") or not item.get("end"):
+            continue
+        start = _parse_hhmm(item["start"])
+        end = _parse_hhmm(item["end"])
+        interval = max(1, int(item.get("interval_minutes", 60)))
+        cursor = datetime.combine(date.min, start)
+        finish = datetime.combine(date.min, end)
+        if finish < cursor:
+            finish += timedelta(days=1)
+        while cursor <= finish:
+            slots.add(cursor.time())
+            cursor += timedelta(minutes=interval)
+    return sorted(slots)
+
+
+def _wall_time_in_window(value: time, start: time, end: time) -> bool:
+    if start <= end:
+        return start <= value <= end
+    return value >= start or value <= end
+
+
+def _pause_windows(platform_config: dict[str, Any]) -> list[dict[str, Any]]:
+    values = platform_config.get("pause_windows") or []
+    single = platform_config.get("pause_window")
+    if single:
+        values = [*values, single]
+    return [value for value in values if isinstance(value, dict)]
+
+
+def _is_paused_at(value: time, platform_config: dict[str, Any]) -> bool:
+    for pause in _pause_windows(platform_config):
+        if not pause.get("start") or not pause.get("end"):
+            continue
+        if _wall_time_in_quiet(
+            value,
+            _parse_hhmm(pause["start"]),
+            _parse_hhmm(pause["end"]),
+        ):
+            return True
+    return False
+
+
+def _job_effective_day(job: PublishJob) -> date | None:
+    value = (
+        job.published_at
+        if job.status == "published" and job.published_at is not None
+        else job.scheduled_at
+    )
+    if value is None:
+        return None
+    return _utc_naive_to_bj(value).date()
+
+
+def next_platform_slot(
+    session: Session,
+    platform: str,
+    target_date: date,
+    platform_config: Any = None,
+    daily_limit: int | None = None,
+    now: datetime | None = None,
+    minimum_global_gap_minutes: int = 15,
+    config: dict[str, Any] | None = None,
+    **legacy: Any,
+) -> datetime | None:
+    """Return the next safe UTC-naive slot on one Beijing natural day."""
+    if platform_config is None:
+        platform_config = legacy.pop("windows", [])
+    if legacy:
+        raise TypeError(f"unexpected arguments: {', '.join(sorted(legacy))}")
+    active_platform_config = (
+        platform_config
+        if isinstance(platform_config, dict)
+        else {"slots": platform_config, "daily_limit": daily_limit}
+    )
+    if active_platform_config.get("paused", False):
+        return None
+    now_utc = parse_schedule_datetime(now or datetime.utcnow())
+    limit = max(
+        0,
+        int(
+            active_platform_config.get("daily_limit")
+            if active_platform_config.get("daily_limit") is not None
+            else daily_limit or 0
+        ),
+    )
+    platform_jobs = (
+        session.query(PublishJob)
+        .join(PublisherAccount, PublishJob.account_id == PublisherAccount.id)
+        .filter(
+            PublisherAccount.platform == platform,
+            PublishJob.status.in_(("pending", "uploading", "published")),
+        )
+        .all()
+    )
+    if sum(_job_effective_day(job) == target_date for job in platform_jobs) >= limit:
+        return None
+
+    occupied = (
+        session.query(PublishJob)
+        .filter(PublishJob.status.in_(("pending", "uploading", "published")))
+        .all()
+    )
+    occupied_times = [
+        value
+        for job in occupied
+        for value in [
+            job.published_at
+            if job.status == "published" and job.published_at is not None
+            else job.scheduled_at
+        ]
+        if value is not None
+    ]
+    spacing = timedelta(minutes=max(15, int(minimum_global_gap_minutes)))
+    quiet = load_spacing_config(config)
+    window_start = _parse_hhmm(
+        active_platform_config.get("window_start", "00:00")
+    )
+    window_end = _parse_hhmm(active_platform_config.get("window_end", "23:59"))
+    for wall_time in _configured_slot_times(active_platform_config):
+        if not _wall_time_in_window(wall_time, window_start, window_end):
+            continue
+        if _is_paused_at(wall_time, active_platform_config):
+            continue
+        bj_slot = datetime.combine(target_date, wall_time, tzinfo=BJ)
+        slot = _bj_to_utc_naive(bj_slot)
+        if slot < now_utc or in_quiet_hours(slot, quiet):
+            continue
+        if any(abs(slot - other) < spacing for other in occupied_times):
+            continue
+        return slot
+    return None
+
+
 def _occupied_slots(session: Session, *, exclude_source_id: str | None = None) -> list[datetime]:
     now = datetime.utcnow()
     query = session.query(PublishJob.scheduled_at).filter(
@@ -117,6 +266,50 @@ def _occupied_slots(session: Session, *, exclude_source_id: str | None = None) -
         )
     rows = query.all()
     return [row[0] if row[0] is not None else now for row in rows]
+
+
+def _occupied_group_slots(session: Session, *, exclude_source_id: str | None = None) -> list[datetime]:
+    """One slot per ingestion article group (multi-platform jobs share a slot)."""
+    now = datetime.utcnow()
+    slots: list[datetime] = []
+
+    group_query = (
+        session.query(PublishJob.source_id, func.min(PublishJob.scheduled_at))
+        .filter(
+            PublishJob.status.in_(("pending", "uploading")),
+            PublishJob.source_type == INGESTION_SOURCE,
+            PublishJob.source_id.isnot(None),
+        )
+        .group_by(PublishJob.source_id)
+    )
+    if exclude_source_id:
+        group_query = group_query.filter(PublishJob.source_id != exclude_source_id)
+    for source_id, slot in group_query.all():
+        if not source_id:
+            continue
+        slots.append(slot if slot is not None else now)
+
+    solo_query = session.query(PublishJob.scheduled_at).filter(
+        PublishJob.status.in_(("pending", "uploading")),
+        (PublishJob.source_type.is_(None))
+        | (PublishJob.source_type != INGESTION_SOURCE)
+        | (PublishJob.source_id.is_(None)),
+    )
+    for row in solo_query.all():
+        slots.append(row[0] if row[0] is not None else now)
+    return slots
+
+
+def _schedule_floor(
+    *,
+    now: datetime,
+    last_success: datetime | None,
+    interval: timedelta,
+) -> datetime:
+    floor = now
+    if last_success is not None:
+        floor = max(floor, last_success + interval)
+    return floor
 
 
 def _last_success_at(session: Session) -> datetime | None:
@@ -140,7 +333,7 @@ def next_auto_slot(
 ) -> datetime:
     now = now or datetime.utcnow()
     interval = timedelta(minutes=config.interval_minutes)
-    occupied = _occupied_slots(session, exclude_source_id=exclude_source_id)
+    occupied = _occupied_group_slots(session, exclude_source_id=exclude_source_id)
     last_success = _last_success_at(session)
 
     if not occupied and not last_success:
@@ -163,6 +356,52 @@ def next_auto_slot(
             continue
         return slot
     return slot
+
+
+def compact_pending_schedule(session: Session, *, config: PublishSpacingConfig) -> list[str]:
+    """Pull pending ingestion groups forward when publish has caught up but queue head is still far ahead."""
+    groups = _pending_ingestion_groups(session)
+    if not groups:
+        return []
+
+    now = datetime.utcnow()
+    interval = timedelta(minutes=config.interval_minutes)
+    last_success = _last_success_at(session)
+    floor = _schedule_floor(now=now, last_success=last_success, interval=interval)
+    head = groups[0][1]
+    if head <= floor + timedelta(seconds=30):
+        return []
+
+    updated: list[str] = []
+    anchor = floor
+    for source_id, _old_slot in groups:
+        slot = clamp_quiet_hours(anchor, config)
+        updated.extend(_set_group_slot(session, source_id, slot))
+        anchor = slot + interval
+    session.flush()
+    logger.info(
+        "Compacted {} publish group(s): head {} -> {}",
+        len(groups),
+        head.isoformat(),
+        floor.isoformat(),
+    )
+    return updated
+
+
+def maybe_compact_pending_schedule(session: Session, *, config: PublishSpacingConfig) -> list[str]:
+    """Compact only when nothing is due yet the queue head is more than one interval ahead."""
+    groups = _pending_ingestion_groups(session)
+    if not groups:
+        return []
+    now = datetime.utcnow()
+    if groups[0][1] <= now:
+        return []
+    interval = timedelta(minutes=config.interval_minutes)
+    last_success = _last_success_at(session)
+    floor = _schedule_floor(now=now, last_success=last_success, interval=interval)
+    if groups[0][1] <= floor + interval:
+        return []
+    return compact_pending_schedule(session, config=config)
 
 
 def existing_article_slot(session: Session, *, article_id: str) -> datetime | None:

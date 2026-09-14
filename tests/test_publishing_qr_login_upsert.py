@@ -9,10 +9,14 @@ from src.db.models.publishing import PublisherAccount
 
 
 def test_upsert_account_calls_adapter_persist(monkeypatch, tmp_path):
+    from src.utils import paths
     from src.utils.config import Config
 
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
+    paths.get_data_dir.cache_clear()
     monkeypatch.setattr(Config, "ROOT_DIR", tmp_path)
-    (tmp_path / "data" / "publish" / "sessions").mkdir(parents=True)
+    (data_dir / "publish" / "sessions").mkdir(parents=True)
 
     mock_adapter = MagicMock()
     monkeypatch.setattr(

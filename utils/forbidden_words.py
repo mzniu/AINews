@@ -9,9 +9,10 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import yaml
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIG_PATH = ROOT_DIR / "config" / "forbidden_words.yaml"
-LOCAL_CONFIG_PATH = ROOT_DIR / "config" / "forbidden_words.local.yaml"
+from src.utils.config import Config
+
+DEFAULT_CONFIG_PATH = Config.ROOT_DIR / "config" / "forbidden_words.yaml"
+LOCAL_CONFIG_PATH = Config.CONFIG_DIR / "forbidden_words.local.yaml"
 
 CONTENT_FIELD_NAMES = (
     "main_line1",

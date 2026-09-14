@@ -13,21 +13,25 @@ from services.ingestion.bgm_picker import pick_random_bgm
 from services.ingestion.cover_picker import pick_best_cover_image
 from services.ingestion.cover_render_service import render_article_cover
 from services.ingestion.cover_video_utils import prepend_cover_intro_to_video
-from services.ingestion.bridge import dedupe_image_entries, prepare_video_metadata
+from services.ingestion.bridge import (
+    dedupe_image_entries,
+    prepare_video_metadata,
+    sort_images_by_relevance,
+    supplement_story_images,
+)
 from services.ingestion.image_scorer import load_image_scoring_config
 from services.ingestion.image_score_service import score_article_images
 from services.ingestion.media_pipeline_trigger import load_media_pipeline_config
+from services.ingestion.render_image_utils import filter_renderable_image_dicts
 from services.ingestion.video_render_service import render_ingested_video, resolve_ingested_clip_durations
 from services.ingestion.media_paths import restore_generated_media_paths
 from src.db.models.ingestion import IngestedArticle
+from src.utils.paths import to_data_url_path
 from utils.title_units import resolve_short_title, truncate_han_equiv, MAIN_LINE1_MAX_UNITS
 
 
 def _normalize_local_path(path: str | None) -> str:
-    raw = str(path or "").strip()
-    if not raw:
-        return ""
-    return raw if raw.startswith("/") else f"/{raw}"
+    return to_data_url_path(path)
 
 
 def _checkpoint(session: Session) -> None:
@@ -148,26 +152,54 @@ def run_media_pipeline(
                 auto_select=True,
             )
             max_n = int(cfg.get("max_selected_images", 4))
+            min_renderable = min(int(cfg.get("min_selected_images", 3)), max_n)
+            pool = dedupe_image_entries(
+                prep.get("images") or [],
+                config=load_image_scoring_config(),
+            )
             if cfg.get("select_top_by_rank"):
-                sorted_imgs = dedupe_image_entries(
-                    prep.get("images") or [],
-                    config=load_image_scoring_config(),
-                )
-                selected_images = [
+                candidates = [
                     img
-                    for img in sorted_imgs
+                    for img in pool
                     if img.get("local_path") and img.get("success", True)
-                ][:max_n]
+                ]
             else:
-                selected_images = dedupe_image_entries(
+                candidates = dedupe_image_entries(
                     prep.get("auto_selected_images") or [],
                     config=load_image_scoring_config(),
                 )
-                selected_images = selected_images[:max_n]
+            selected_images = sort_images_by_relevance(
+                filter_renderable_image_dicts(candidates)
+            )[:max_n]
+            if len(selected_images) < min_renderable:
+                supplemented, added = supplement_story_images(
+                    session,
+                    article,
+                    pool,
+                    include_story_images=bool(cfg.get("include_story_images", True)),
+                    min_renderable=min_renderable,
+                )
+                if added:
+                    pool = supplemented
+                if cfg.get("select_top_by_rank"):
+                    candidates = [
+                        img
+                        for img in pool
+                        if img.get("local_path") and img.get("success", True)
+                    ]
+                else:
+                    candidates = dedupe_image_entries(
+                        prep.get("auto_selected_images") or pool,
+                        config=load_image_scoring_config(),
+                    )
+                selected_images = sort_images_by_relevance(
+                    filter_renderable_image_dicts(candidates)
+                )[:max_n]
             steps["prepare_video"] = {
                 "auto_selected_count": len(selected_images),
-                "selection_mode": "top_rank" if cfg.get("select_top_by_rank") else "auto_grade",
+                "selection_mode": "top_rank" if cfg.get("select_top_by_rank") else "auto_grade_by_rank",
                 "metadata_path": prep.get("metadata_path"),
+                "renderable_count": len(selected_images),
             }
             article.selected_images_json = json.dumps(selected_images, ensure_ascii=False)
         except Exception as exc:
@@ -208,6 +240,7 @@ def run_media_pipeline(
                     "video_path": video_path,
                     "duration": render_result.get("duration"),
                     "clip_durations": resolve_ingested_clip_durations(len(image_paths)),
+                    "image_count": len(image_paths),
                 }
             else:
                 errors.append(f"render_video: {render_result.get('error')}")

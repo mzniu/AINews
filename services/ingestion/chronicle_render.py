@@ -11,6 +11,7 @@ from loguru import logger
 from PIL import Image, ImageDraw, ImageFont
 
 from src.utils.config import Config
+from src.utils.paths import path_relative_to_data, resolve_local_asset_path, to_data_url_path, use_writable_workdir
 from utils.summary_highlights import finalize_highlight_keywords
 from utils.video_utils import (
     DEFAULT_SUMMARY_HIGHLIGHT_COLOR,
@@ -99,11 +100,48 @@ def _wrap_line(text: str, font: ImageFont.ImageFont, max_width: int, draw: Image
         else:
             lines.append(current)
             current = char
-        if len(lines) >= 3:
-            break
-    if current and len(lines) < 3:
+    if current:
         lines.append(current)
     return lines
+
+
+def _summary_line_step(font_size: int) -> int:
+    line_gap = max(6, int(round(font_size * 0.28)))
+    return font_size + line_gap
+
+
+def _summary_max_lines(*, summary_y: int, footer_y: int, font_size: int, bottom_pad: int = 12) -> int:
+    available = max(0, footer_y - summary_y - bottom_pad)
+    step = _summary_line_step(font_size)
+    if step <= 0:
+        return 1
+    return max(1, available // step)
+
+
+def _prepare_summary_lines(
+    draw: ImageDraw.ImageDraw,
+    footer: str,
+    *,
+    max_width: int,
+    summary_y: int,
+    footer_y: int,
+    preferred_font_size: int,
+    min_font_size: int = 28,
+) -> tuple[ImageFont.ImageFont, list[str], int]:
+    font_size = max(min_font_size, int(preferred_font_size))
+    while font_size >= min_font_size:
+        font = _truetype(font_size)
+        lines = _wrap_line(footer, font, max_width, draw)
+        budget = _summary_max_lines(summary_y=summary_y, footer_y=footer_y, font_size=font_size)
+        if len(lines) <= budget:
+            return font, lines, font_size
+        if font_size <= min_font_size:
+            return font, lines[:budget], font_size
+        font_size -= 2
+    font = _truetype(min_font_size)
+    lines = _wrap_line(footer, font, max_width, draw)
+    budget = _summary_max_lines(summary_y=summary_y, footer_y=footer_y, font_size=min_font_size)
+    return font, lines[:budget], min_font_size
 
 
 def _strip_prefixes(text: str, prefixes: list[str]) -> str:
@@ -381,61 +419,68 @@ def _build_tech_backdrop(
     accent: tuple[int, int, int],
     accent_dim: tuple[int, int, int],
 ) -> Image.Image:
-    yy, xx = np.ogrid[:height, :width]
+    yy, xx = np.mgrid[0:height, 0:width].astype(np.float32)
     cx = width / 2.0
-    cy = height * 0.48
-    nx = (xx - cx) / max(1.0, width * 0.55)
-    ny = (yy - cy) / max(1.0, height * 0.46)
+    cy = height * 0.42
+    nx = (xx - cx) / max(1.0, width * 0.58)
+    ny = (yy - cy) / max(1.0, height * 0.50)
     dist = np.sqrt(nx * nx + ny * ny)
 
+    top_tint = tuple(min(255, int(bg[i] * 0.72 + glow[i] * 0.28)) for i in range(3))
+    bottom_tint = tuple(min(255, int(bg[i] * 0.88 + accent_dim[i] * 0.12)) for i in range(3))
+    vertical = (yy / max(1.0, height - 1))[..., None]
     arr = np.empty((height, width, 3), dtype=np.float32)
-    arr[:] = bg
-    well = np.clip(1.0 - dist * 0.82, 0.0, 1.0) ** 1.45
     for i in range(3):
-        arr[:, :, i] += (glow[i] - arr[:, :, i]) * well * 0.62
-    core = np.clip(1.0 - dist * 1.25, 0.0, 1.0) ** 2.1
+        arr[:, :, i] = top_tint[i] * (1.0 - vertical[:, :, 0]) + bottom_tint[i] * vertical[:, :, 0]
+
+    bloom = np.clip(1.0 - dist * 0.95, 0.0, 1.0) ** 1.85
     for i in range(3):
-        arr[:, :, i] += (accent[i] - arr[:, :, i]) * core * 0.16
-    vignette = np.clip(dist * 0.38, 0.0, 1.0) ** 1.35
-    arr *= (1.0 - vignette * 0.42)[..., None]
-    arr *= (1.0 - ((yy % 3) == 0).astype(np.float32) * 0.055)[..., None]
-    noise = np.random.default_rng(7).normal(0.0, 2.8, (height, width, 1)).astype(np.float32)
+        arr[:, :, i] += (glow[i] - arr[:, :, i]) * bloom * 0.48
+    core = np.clip(1.0 - dist * 1.35, 0.0, 1.0) ** 2.4
+    for i in range(3):
+        arr[:, :, i] += (accent[i] - arr[:, :, i]) * core * 0.12
+
+    # Soft top wash — studio light instead of flat chalkboard matte.
+    top_glow = np.clip(1.0 - (yy / max(1.0, height * 0.72)), 0.0, 1.0) ** 1.6
+    for i in range(3):
+        arr[:, :, i] += (glow[i] - arr[:, :, i]) * top_glow * 0.10
+
+    edge = np.clip(dist * 0.55, 0.0, 1.0) ** 1.25
+    arr *= (1.0 - edge * 0.34)[..., None]
+
+    noise = np.random.default_rng(7).normal(0.0, 1.1, (height, width, 1)).astype(np.float32)
     arr += noise
     frame = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
 
     overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
-    grid = (*accent_dim, 36)
-    grid_hi = (*accent, 28)
-    step_x, step_y = 54, 48
+    fade = np.clip(1.0 - dist * 0.72, 0.12, 1.0)
+
+    step_x, step_y = 72, 64
     for x in range(0, width, step_x):
-        od.line((x, 0, x, height), fill=grid_hi if x % (step_x * 4) == 0 else grid, width=1)
+        alpha = int(18 + 14 * fade[height // 2, min(x, width - 1)])
+        od.line((x, 0, x, height), fill=(*accent_dim, alpha), width=1)
     for y in range(0, height, step_y):
-        od.line((0, y, width, y), fill=grid_hi if y % (step_y * 4) == 0 else grid, width=1)
+        alpha = int(16 + 12 * fade[min(y, height - 1), width // 2])
+        od.line((0, y, width, y), fill=(*accent_dim, alpha), width=1)
 
     cxi, cyi = int(cx), int(cy)
-    rings = ((0.26, 1, 42), (0.40, 2, 58), (0.56, 1, 40), (0.74, 1, 32))
-    for scale, stroke, alpha in rings:
-        rx = int(width * scale * 0.50)
-        ry = int(height * scale * 0.36)
-        color = (*accent, alpha) if stroke == 2 else (*accent_dim, alpha)
-        od.ellipse((cxi - rx, cyi - ry, cxi + rx, cyi + ry), outline=color, width=stroke)
+    for scale, stroke, alpha in ((0.34, 1, 26), (0.52, 1, 20), (0.70, 1, 14)):
+        rx = int(width * scale * 0.46)
+        ry = int(height * scale * 0.30)
+        od.ellipse((cxi - rx, cyi - ry, cxi + rx, cyi + ry), outline=(*accent, alpha), width=stroke)
 
-    rx, ry = int(width * 0.20), int(height * 0.144)
-    tick, tick_color = 16, (*accent, 70)
-    od.line((cxi, cyi - ry - tick, cxi, cyi - ry + tick), fill=tick_color, width=1)
-    od.line((cxi, cyi + ry - tick, cxi, cyi + ry + tick), fill=tick_color, width=1)
-    od.line((cxi - rx - tick, cyi, cxi - rx + tick, cyi), fill=tick_color, width=1)
-    od.line((cxi + rx - tick, cyi, cxi + rx + tick, cyi), fill=tick_color, width=1)
-
-    vanish_y = int(height * 0.60)
-    for i in range(-7, 8):
-        x_bottom = cxi + i * int(width * 0.11)
-        od.line((cxi, vanish_y, x_bottom, height + 30), fill=(*accent_dim, 40), width=1)
-    for frac in (0.76, 0.82, 0.88, 0.93, 0.97):
-        y = int(height * frac)
-        span = int(width * max(0.18, frac - 0.52))
-        od.line((cxi - span, y, cxi + span, y), fill=(*accent_dim, 34), width=1)
+    inset = int(min(width, height) * 0.028)
+    corner = int(min(width, height) * 0.055)
+    corner_color = (*accent, 54)
+    for ox, oy, flip_x, flip_y in (
+        (inset, inset, 1, 1),
+        (width - inset, inset, -1, 1),
+        (inset, height - inset, 1, -1),
+        (width - inset, height - inset, -1, -1),
+    ):
+        od.line((ox, oy, ox + flip_x * corner, oy), fill=corner_color, width=2)
+        od.line((ox, oy, ox, oy + flip_y * corner), fill=corner_color, width=2)
 
     return Image.alpha_composite(frame.convert("RGBA"), overlay).convert("RGB")
 
@@ -471,6 +516,50 @@ def _truetype(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
+def _draw_main_title_background(
+    draw: ImageDraw.ImageDraw,
+    *,
+    title_x: int,
+    title_top: int,
+    title_max_w: int,
+    draft: dict[str, Any],
+    title_font: ImageFont.ImageFont,
+    bg_color: tuple[int, int, int],
+    border_color: tuple[int, int, int] | None,
+    pad_x: int,
+    pad_y: int,
+    radius: int,
+) -> None:
+    lines: list[tuple[str, ImageFont.ImageFont, int]] = []
+    for line in _wrap_line(str(draft.get("main_line1") or ""), title_font, title_max_w, draw)[:2]:
+        if line:
+            lines.append((line, title_font, 8))
+    if not lines:
+        return
+
+    y = title_top
+    min_x = title_x
+    max_x = title_x
+    max_y = title_top
+    for line, font, gap in lines:
+        bbox = draw.textbbox((title_x, y), line, font=font)
+        min_x = min(min_x, bbox[0])
+        max_x = max(max_x, bbox[2])
+        max_y = max(max_y, bbox[3])
+        y = bbox[3] + gap
+
+    box = (min_x - pad_x, title_top - pad_y, max_x + pad_x, max_y + pad_y)
+    if radius <= 0:
+        draw.rectangle(box, fill=bg_color)
+    else:
+        draw.rounded_rectangle(box, radius=radius, fill=bg_color)
+    if border_color is not None:
+        if radius <= 0:
+            draw.rectangle(box, outline=border_color, width=1)
+        else:
+            draw.rounded_rectangle(box, radius=radius, outline=border_color, width=1)
+
+
 def _draw_title_block(
     draw: ImageDraw.ImageDraw,
     *,
@@ -485,11 +574,32 @@ def _draw_title_block(
     title_hi: tuple[int, int, int],
     hook_color: tuple[int, int, int],
     title_keywords: list[str],
+    main_line1_color: tuple[int, int, int] | None = None,
+    title_bg_color: tuple[int, int, int] | None = None,
+    title_bg_border: tuple[int, int, int] | None = None,
+    title_bg_pad_x: int = 14,
+    title_bg_pad_y: int = 8,
+    title_bg_radius: int = 10,
 ) -> int:
+    if title_bg_color is not None:
+        _draw_main_title_background(
+            draw,
+            title_x=title_x,
+            title_top=title_top,
+            title_max_w=title_max_w,
+            draft=draft,
+            title_font=title_font,
+            bg_color=title_bg_color,
+            border_color=title_bg_border,
+            pad_x=title_bg_pad_x,
+            pad_y=title_bg_pad_y,
+            radius=title_bg_radius,
+        )
     y = title_top
+    line1_color = main_line1_color if title_bg_color is not None and main_line1_color is not None else text_color
     for line in _wrap_line(str(draft.get("main_line1") or ""), title_font, title_max_w, draw)[:2]:
         _draw_highlighted_line(
-            draw, title_x, y, line, title_font, text_color, title_hi, title_keywords
+            draw, title_x, y, line, title_font, line1_color, title_hi, title_keywords
         )
         y += (draw.textbbox((0, 0), line, font=title_font)[3] - draw.textbbox((0, 0), line, font=title_font)[1]) + 8
     if draft.get("main_line2"):
@@ -637,6 +747,12 @@ def render_chronicle_frame(
         title_blob,
     )
     hook_color = _hex_rgb(typo.get("subtitle2_color"), accent)
+    main_line1_color = _hex_rgb(typo.get("main_line1_color"), text_color)
+    title_bg_color = _hex_rgb(typo.get("title_bg_color"), (0, 0, 0)) if typo.get("title_bg_color") else None
+    border_raw = typo.get("title_bg_border_color")
+    title_bg_border = (
+        _hex_rgb(border_raw, accent_dim) if border_raw else None
+    ) if title_bg_color else None
     title_kwargs = dict(
         draft=draft,
         title_x=title_x,
@@ -649,6 +765,12 @@ def render_chronicle_frame(
         title_hi=title_hi,
         hook_color=hook_color,
         title_keywords=title_keywords,
+        main_line1_color=main_line1_color,
+        title_bg_color=title_bg_color,
+        title_bg_border=title_bg_border,
+        title_bg_pad_x=int(typo.get("title_bg_pad_x") or 16),
+        title_bg_pad_y=int(typo.get("title_bg_pad_y") or 10),
+        title_bg_radius=int(typo.get("title_bg_radius") or 12),
     )
 
     if placement == "above_card":
@@ -690,16 +812,25 @@ def render_chronicle_frame(
             summary_fill = _hex_rgb(typo.get("summary_color"), text_color)
             summary_y_pct = float(typo.get("summary_y_percent", DEFAULT_SUMMARY_Y_PERCENT)) / 100.0
             summary_y = _pct(summary_y_pct, height)
-            footer_lines = _wrap_line(footer, footer_font, _pct(0.78, width), draw)
+            summary_width_pct = float(typo.get("summary_width_percent") or 84) / 100.0
+            summary_font_size = int(typo.get("summary_font_size") or footer_size)
+            summary_font, footer_lines, summary_font_size = _prepare_summary_lines(
+                draw,
+                footer,
+                max_width=int(width * summary_width_pct),
+                summary_y=summary_y,
+                footer_y=footer_y,
+                preferred_font_size=summary_font_size,
+            )
             fy = summary_y
-            line_gap = max(6, int(round(footer_size * 0.28)))
-            for line in footer_lines[:3]:
-                bbox = draw.textbbox((0, 0), line, font=footer_font)
+            line_gap = max(6, int(round(summary_font_size * 0.28)))
+            for line in footer_lines:
+                bbox = draw.textbbox((0, 0), line, font=summary_font)
                 fx = (width - (bbox[2] - bbox[0])) // 2
                 _draw_highlighted_line(
-                    draw, fx, fy, line, footer_font, summary_fill, footer_hi, footer_keywords
+                    draw, fx, fy, line, summary_font, summary_fill, footer_hi, footer_keywords
                 )
-                fy += footer_size + line_gap
+                fy += summary_font_size + line_gap
         if chrome_place == "footer":
             _draw_brand_chrome(draw, mark_y=footer_y, include_brand_sub=False, **brand_kwargs)
         else:
@@ -726,11 +857,8 @@ def render_chronicle_cover(
     template: dict[str, Any],
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
-    cleaned = str(image_path or "").strip().lstrip("/").replace("\\", "/")
-    asset_path = (Config.ROOT_DIR / cleaned).resolve()
-    if not asset_path.is_file():
-        asset_path = Path(image_path)
-    if not asset_path.is_file():
+    asset_path = resolve_local_asset_path(image_path)
+    if asset_path is None or not asset_path.is_file():
         return {"success": False, "error": f"cover_source_missing: {image_path}"}
 
     canvas = template.get("canvas") or {}
@@ -747,12 +875,12 @@ def render_chronicle_cover(
         )
     if cover.size != (cover_w, cover_h):
         cover = cover.resize((cover_w, cover_h), Image.Resampling.LANCZOS)
-    out_dir = Path(output_dir) if output_dir else Config.ROOT_DIR / "data" / "publish" / "covers"
+    out_dir = Path(output_dir) if output_dir else Config.DATA_DIR / "publish" / "covers"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{article_id}_cover.jpg"
     cover.save(out_path, format="JPEG", quality=92)
     try:
-        rel = out_path.resolve().relative_to(Config.ROOT_DIR).as_posix()
+        rel = path_relative_to_data(out_path.resolve())
     except ValueError:
         rel = out_path.name
     logger.info(f"Chronicle cover rendered for {article_id}: {rel}")
@@ -786,11 +914,8 @@ def build_chronicle_video_clips(
     height = int(canvas.get("height") or CANVAS_H)
     clips = []
     for index, raw_path in enumerate(image_paths):
-        cleaned = str(raw_path or "").strip().lstrip("/").replace("\\", "/")
-        path = (Config.ROOT_DIR / cleaned).resolve()
-        if not path.is_file():
-            path = Path(raw_path)
-        if not path.is_file():
+        path = resolve_local_asset_path(raw_path)
+        if path is None or not path.is_file():
             continue
         duration = float(durations[index]) if index < len(durations) else 2.5
         try:
@@ -890,17 +1015,18 @@ def render_chronicle_video(
     if not clips:
         return {"success": False, "error": "insufficient_images"}
     video = concatenate_videoclips(clips, method="compose").with_fps(fps)
-    audio_file = Path(str(bgm_path or "").lstrip("/"))
-    if not audio_file.is_file():
+    audio_file = resolve_local_asset_path(bgm_path)
+    if audio_file is None:
         audio_file = Config.ROOT_DIR / str(bgm_path or "").lstrip("/").replace("\\", "/")
     if audio_file.is_file():
         from services.ingestion.cover_video_utils import fit_audio_to_duration
 
         audio = AudioFileClip(str(audio_file))
         video = video.with_audio(fit_audio_to_duration(audio, float(video.duration)))
-    out_dir = Config.ROOT_DIR / "data" / "videos"
+    out_dir = Config.DATA_DIR / "videos"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{article_id}_chronicle.mp4"
-    video.write_videofile(str(out_path), fps=fps, codec="libx264", audio_codec="aac", logger=None)
-    rel = f"/{out_path.relative_to(Config.ROOT_DIR).as_posix()}"
+    with use_writable_workdir("videos"):
+        video.write_videofile(str(out_path), fps=fps, codec="libx264", audio_codec="aac", logger=None)
+    rel = to_data_url_path(path_relative_to_data(out_path))
     return {"success": True, "video_path": rel, "duration": float(video.duration)}

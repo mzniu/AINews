@@ -6,8 +6,11 @@
         short_title_patterns: 'titlePromptShortTitle',
         stage2_main_line1: 'titlePromptStage2',
         stage2_short_title: 'titlePromptStage2Short',
+        summary_patterns: 'titlePromptSummaryPatterns',
+        stage2_summary: 'titlePromptStage2Summary',
         json_main_line1_hint: 'titlePromptJsonHint',
         json_short_title_hint: 'titlePromptJsonShortHint',
+        json_summary_hint: 'titlePromptJsonSummaryHint',
         first_comment_patterns: 'titlePromptFirstComment',
     };
 
@@ -55,11 +58,11 @@
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.detail || data.message || '保存失败');
         fillForm(data);
-        setStatus(data.message || '标题提示词已保存', 'ok');
+        setStatus(data.message || '标题与摘要提示词已保存', 'ok');
     }
 
     async function resetTitlePromptSettings() {
-        if (!window.confirm('恢复默认标题提示词？本地覆盖会被清除。')) return;
+        if (!window.confirm('恢复默认标题与摘要提示词？本地覆盖会被清除。')) return;
         setStatus('恢复中…');
         const resp = await fetch('/api/content-prompts/reset', { method: 'POST' });
         const data = await resp.json();

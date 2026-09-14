@@ -11,13 +11,13 @@ from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from services.ingestion.asset_downloader import INGESTED_ROOT, download_image
+from services.ingestion.asset_downloader import get_ingested_root, download_image
 from services.ingestion.db_retry import run_with_sqlite_retry, serialized_sqlite_write
 from services.ingestion.registry import build_adapter, get_source_config
 from services.ingestion.score_service import apply_score_to_article
 from services.ingestion.story_cluster import assign_article_to_story
 from services.ingestion.url_utils import build_list_page_url, canonicalize_url
-from src.db.models.ingestion import ArticleImage, CrawlRun, IngestedArticle, IngestionSource, _uuid
+from src.db.models.ingestion import ArticleImage, CrawlRun, ImageRelevanceEvaluation, IngestedArticle, IngestionSource, _uuid
 
 
 def _ingest_cluster_config(cfg: dict) -> dict:
@@ -36,6 +36,14 @@ def _ingest_cluster_config(cfg: dict) -> dict:
 def _is_duplicate_article_error(exc: BaseException) -> bool:
     message = str(exc).lower()
     return "uq_source_url" in message or "ingested_articles.source_id" in message
+
+
+def _load_keywords_json(raw: str | None) -> list:
+    try:
+        data = json.loads(raw or "[]")
+        return data if isinstance(data, list) else []
+    except json.JSONDecodeError:
+        return []
 
 
 class IngestionOrchestrator:
@@ -161,6 +169,193 @@ class IngestionOrchestrator:
             self.session.commit()
         return stats
 
+    def recrawl_article(self, article_id: str, *, job_id: str | None = None) -> dict:
+        """Re-fetch an existing article's detail page and refresh local assets."""
+        from services.ingestion.adapters.base import ArticleRef
+
+        article = self.session.get(IngestedArticle, article_id)
+        if article is None:
+            raise ValueError(f"Article not found: {article_id}")
+        source = self.session.get(IngestionSource, article.source_id)
+        if source is None:
+            raise ValueError(f"Unknown source: {article.source_id}")
+
+        cfg = get_source_config(source)
+        adapter = build_adapter(source)
+        perf = cfg.get("ingest_performance") or {}
+        url = canonicalize_url(article.canonical_url)
+
+        run = CrawlRun(source_id=source.id, job_id=job_id, status="running")
+        self.session.add(run)
+        self.session.flush()
+        run_id = run.id
+        self.session.commit()
+
+        stats = {
+            "seen": 1,
+            "updated": 0,
+            "failed": 0,
+            "errors": [],
+            "article_id": article_id,
+        }
+        try:
+            ref = ArticleRef(url=url, title=article.title or url)
+            detail = None
+            content_text = article.content_text or ""
+            content_html = article.content_html
+            try:
+                detail = adapter.fetch_detail(ref)
+                content_text = detail.content_text or content_text
+                content_html = detail.content_html
+            except Exception as exc:
+                raise RuntimeError(f"fetch_detail failed: {exc}") from exc
+
+            article_dir = get_ingested_root() / source.slug / article_id
+            article_dir.mkdir(parents=True, exist_ok=True)
+            if content_text:
+                content_path = article_dir / "content.txt"
+                content_path.write_text(content_text, encoding="utf-8")
+                article.content_path = content_path.as_posix()
+            if content_html:
+                (article_dir / "content.html").write_text(content_html, encoding="utf-8")
+                article.content_html = content_html
+
+            metadata = {
+                "url": url,
+                "title": (detail.title if detail else article.title) or article.title,
+                "source_id": source.id,
+                "summary": (detail.summary if detail else None) or article.summary,
+                "theme": (detail.theme if detail else None) or article.theme,
+                "view_count": (
+                    detail.view_count
+                    if detail and detail.view_count is not None
+                    else article.view_count
+                ),
+            }
+            (article_dir / "metadata.json").write_text(
+                json.dumps(metadata, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+
+            image_urls: list[str] = []
+            if detail and detail.images:
+                image_urls = detail.images
+            elif detail and detail.cover_image_url:
+                image_urls = [detail.cover_image_url]
+            elif article.cover_image_url:
+                image_urls = [article.cover_image_url]
+
+            max_images = int(cfg.get("max_images_per_article", 20))
+            max_bytes = int(cfg.get("max_image_bytes", 10 * 1024 * 1024))
+            images_dir = article_dir / "images"
+            images_dir.mkdir(parents=True, exist_ok=True)
+            for path in images_dir.iterdir():
+                if path.is_file():
+                    path.unlink()
+
+            self.session.query(ArticleImage).filter_by(article_id=article_id).delete()
+            self.session.query(ImageRelevanceEvaluation).filter_by(article_id=article_id).delete()
+            article.images_scored_at = None
+            article.images_score_summary_json = None
+
+            prep_meta = article_dir / "prepare_video_metadata.json"
+            if prep_meta.exists():
+                prep_meta.unlink()
+
+            downloaded_images: list[dict] = []
+            if cfg.get("download_images", True):
+                for idx, image_url in enumerate(image_urls[:max_images], start=1):
+                    result = download_image(
+                        image_url,
+                        images_dir,
+                        index=idx,
+                        max_bytes=max_bytes,
+                        referer=url,
+                    )
+                    downloaded_images.append(
+                        {
+                            "original_url": image_url,
+                            "sort_order": idx,
+                            "origin": "cover" if idx == 1 else "article_body",
+                            "download_status": "ok" if result.get("success") else "failed",
+                            "local_path": result.get("local_path"),
+                        }
+                    )
+
+            article.title = (detail.title if detail else article.title) or article.title
+            article.summary = (detail.summary if detail else None) or article.summary
+            article.published_at = (detail.published_at if detail else article.published_at)
+            article.theme = (detail.theme if detail else None) or article.theme
+            article.keywords_json = json.dumps(
+                (detail.keywords if detail and detail.keywords else None)
+                or _load_keywords_json(article.keywords_json),
+                ensure_ascii=False,
+            )
+            article.cover_image_url = (
+                detail.cover_image_url if detail else article.cover_image_url
+            )
+            article.view_count = (
+                detail.view_count
+                if detail and detail.view_count is not None
+                else article.view_count
+            )
+            article.content_text = content_text or None
+            article.content_hash = (
+                hashlib.sha256(content_text.encode("utf-8")).hexdigest()
+                if content_text
+                else None
+            )
+            article.crawl_run_id = run_id
+            article.status = "fetched"
+
+            for image in downloaded_images:
+                self.session.add(
+                    ArticleImage(
+                        article_id=article_id,
+                        original_url=image["original_url"],
+                        sort_order=image["sort_order"],
+                        origin=image["origin"],
+                        download_status=image["download_status"],
+                        local_path=image["local_path"],
+                    )
+                )
+
+            serialized_sqlite_write(lambda: self.session.commit())
+
+            try:
+                apply_score_to_article(
+                    self.session,
+                    article,
+                    auto_llm_for_sa=bool(perf.get("auto_llm_for_sa_on_ingest", False)),
+                )
+            except Exception:
+                pass
+            serialized_sqlite_write(lambda: self.session.commit())
+
+            stats["updated"] = 1
+            stats["image_count"] = len(downloaded_images)
+            run = self.session.get(CrawlRun, run_id)
+            source = self.session.get(IngestionSource, source.id)
+            if run and source:
+                run.status = "succeeded"
+                source.last_success_at = datetime.utcnow()
+                source.last_error = None
+        except Exception as exc:
+            self.session.rollback()
+            stats["failed"] = 1
+            stats["errors"].append({"url": url, "error": str(exc)})
+            run = self.session.get(CrawlRun, run_id)
+            if run:
+                run.status = "failed"
+                run.error_message = str(exc)
+        finally:
+            run = self.session.get(CrawlRun, run_id)
+            if run:
+                run.finished_at = datetime.utcnow()
+                run.stats_json = json.dumps(stats, ensure_ascii=False)
+            self.session.commit()
+        return stats
+
     def ingest_url(
         self,
         source_id: str,
@@ -253,7 +448,7 @@ class IngestionOrchestrator:
             detail = None
 
         article_id = _uuid()
-        article_dir = INGESTED_ROOT / source.slug / article_id
+        article_dir = get_ingested_root() / source.slug / article_id
         article_dir.mkdir(parents=True, exist_ok=True)
         if content_text:
             content_path = article_dir / "content.txt"

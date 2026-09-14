@@ -289,12 +289,99 @@
         }
     }
 
-    function formatScoreBadge(grade, total) {
+    const PUBLISH_TIER_LABELS = {
+        viral_priority: '传播优先',
+        standard: '标准队列',
+        skip: '建议跳过',
+    };
+
+    function getDualScoreInfo(article) {
+        const breakdown = article?.score_breakdown || {};
+        const final = breakdown.final || {};
+        const industry = breakdown.industry || {};
+        const viral = breakdown.viral || {};
+        const industryGrade = final.industry_grade || breakdown.grade || article?.score_grade;
+        const industryTotal = final.industry_total ?? breakdown.total ?? article?.score_total;
+        const viralGrade = final.viral_grade || viral.grade || article?.viral_score_grade;
+        const viralTotal = final.viral_total ?? viral.total ?? article?.viral_score_total;
+        const publishTier = final.publish_tier || article?.publish_tier;
+        const hasViral = Boolean(viralGrade || viral.total != null || article?.viral_score_grade);
+        return {
+            industryGrade,
+            industryTotal,
+            viralGrade,
+            viralTotal,
+            publishTier,
+            hasViral,
+            industry,
+            viral,
+            final,
+            breakdown,
+        };
+    }
+
+    function formatGradeBadge(grade, total, options = {}) {
+        const kind = options.kind || 'industry';
         if (!grade) return '<span class="badge badge-light">未评分</span>';
         const cls = `grade-${String(grade).toLowerCase()}`;
         const scoreNum = total != null && Number.isFinite(Number(total)) ? Math.round(Number(total)) : null;
-        const label = scoreNum != null ? `${grade} ${scoreNum}分` : grade;
-        return `<span class="badge grade-badge ${cls}" title="规则评分">${label}</span>`;
+        const label = scoreNum != null ? `${grade} ${scoreNum}` : grade;
+        const kindCls = kind === 'viral' ? ' grade-badge-viral' : ' grade-badge-industry';
+        const title = options.title || (kind === 'viral' ? '传播潜力' : '行业质量');
+        return `<span class="badge grade-badge${kindCls} ${cls}" title="${escapeHtml(title)}">${escapeHtml(label)}</span>`;
+    }
+
+    function formatScoreBadge(grade, total) {
+        return formatGradeBadge(grade, total, { kind: 'industry', title: '行业质量' });
+    }
+
+    function formatDualScoreBadges(article) {
+        const info = getDualScoreInfo(article);
+        const parts = [formatGradeBadge(info.industryGrade, info.industryTotal, { kind: 'industry' })];
+        if (info.hasViral) {
+            parts.push(formatGradeBadge(info.viralGrade, info.viralTotal, { kind: 'viral' }));
+        }
+        if (info.publishTier) {
+            parts.push(formatPublishTierBadge(info.publishTier));
+        }
+        return parts.join('');
+    }
+
+    function formatPublishTierBadge(tier) {
+        if (!tier) return '';
+        const label = PUBLISH_TIER_LABELS[tier] || tier;
+        const cls = `publish-tier-${String(tier).replace(/_/g, '-')}`;
+        return `<span class="badge publish-tier-badge ${cls}" title="发布分层（影子模式）">${escapeHtml(label)}</span>`;
+    }
+
+    function renderBonusList(items, emptyText) {
+        if (!items || !items.length) return `<p class="small text-muted mb-0">${escapeHtml(emptyText)}</p>`;
+        return `<ul class="score-bonus-list mb-0 pl-3">${items.map((item) => {
+            const pts = Number(item.points);
+            const sign = pts > 0 ? '+' : '';
+            return `<li class="small">${escapeHtml(item.reason || '')} ${sign}${pts}</li>`;
+        }).join('')}</ul>`;
+    }
+
+    function renderMotiveList(motives) {
+        if (!motives || !motives.length) return '<p class="small text-muted mb-0">暂无动机信号</p>';
+        return `<ul class="score-motive-list mb-0 pl-3">${motives.map((motive) => `
+            <li class="small">
+                <strong>${escapeHtml(motive.label || motive.key || '')}</strong>
+                ${motive.score}/10
+                ${(motive.signals || []).length ? ` · ${escapeHtml(motive.signals.slice(0, 4).join('、'))}` : ''}
+            </li>`).join('')}</ul>`;
+    }
+
+    function renderHookGate(hookGate) {
+        if (!hookGate) return '';
+        const dims = [
+            hookGate.subject ? '主体' : null,
+            hookGate.number ? '数字' : null,
+            hookGate.conflict ? '冲突' : null,
+        ].filter(Boolean);
+        const status = hookGate.passed ? '已通过' : '未通过';
+        return `<p class="small text-muted mb-2">标题钩子检测：${status}${dims.length ? `（${dims.join(' / ')}）` : ''}</p>`;
     }
 
     function renderScorePanel(article) {
@@ -302,12 +389,17 @@
         if (!breakdown) {
             return '<p class="text-muted small">暂无评分，可点击下方按钮生成。</p>';
         }
-        const dims = (breakdown.dimensions || [])
+        const info = getDualScoreInfo(article);
+        const industry = info.industry;
+        const viral = info.viral;
+        const dims = (breakdown.dimensions || industry.dimensions || [])
             .map((d) => `<li class="small">${escapeHtml(d.label)} ${d.score}/10 · ${escapeHtml((d.signals || []).join('、'))}</li>`)
             .join('');
+        const industryBonuses = industry.bonuses || breakdown.bonuses || [];
+        const industryPenalties = industry.penalties || breakdown.penalties || [];
         const llm = breakdown.llm || {};
         const rule = breakdown.rule || {};
-        const final = breakdown.final || {};
+        const final = info.final || {};
         const ruleNote =
             rule.grade && final.grade && rule.grade !== final.grade
                 ? `<p class="small text-muted">规则初评 ${rule.grade}（${rule.total}）→ LLM 修正为 ${final.grade}（${final.total}）</p>`
@@ -333,14 +425,46 @@
                 ${llm.risks ? `<p class="small text-muted">风险：${escapeHtml(llm.risks)}</p>` : ''}
                 ${adjustReason}
             </div>` : (article.score_comment ? `<p class="small">${escapeHtml(article.score_comment)}</p>` : '');
+        const industryRecommendation = industry.recommendation || breakdown.recommendation || '';
+        const viralRecommendation = viral.recommendation || '';
+        const viralBlock = info.hasViral ? `
+            <div class="score-dimension-block mt-3">
+                <div class="score-dimension-head">
+                    <strong>传播潜力</strong>
+                    <span class="small text-muted">${escapeHtml(viralRecommendation)}</span>
+                </div>
+                ${renderMotiveList(viral.motives)}
+                ${renderHookGate(viral.hook_gate)}
+                ${(viral.platform_fit || []).length ? `<p class="small text-muted mb-2">平台适配：${escapeHtml(viral.platform_fit.join('、'))}</p>` : ''}
+                <div class="small mt-2"><strong>传播加成</strong></div>
+                ${renderBonusList(viral.bonuses, '无额外传播加成')}
+            </div>` : '';
+        const penaltyBlock = industryPenalties.length
+            ? `<div class="small mt-2 text-warning"><strong>扣分</strong>${renderBonusList(industryPenalties, '')}</div>`
+            : '';
         return `
             <div class="score-panel mb-3">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    ${formatScoreBadge(article.score_grade, article.score_total)}
-                    <span class="small text-muted">${breakdown.recommendation || ''} · ${article.score_total != null ? Math.round(article.score_total) : '—'} 分</span>
+                <div class="score-dual-summary mb-3">
+                    <div class="score-dual-badges">
+                        ${formatDualScoreBadges(article)}
+                    </div>
+                    <p class="small text-muted mb-0 mt-2">
+                        行业 ${info.industryTotal != null ? Math.round(info.industryTotal) : '—'} 分
+                        ${info.hasViral ? ` · 传播 ${info.viralTotal != null ? Math.round(info.viralTotal) : '—'} 分` : ''}
+                        ${info.publishTier ? ` · ${escapeHtml(PUBLISH_TIER_LABELS[info.publishTier] || info.publishTier)}` : ''}
+                    </p>
                 </div>
-                ${ruleNote}
-                <ul class="mb-1 pl-3">${dims}</ul>
+                <div class="score-dimension-block">
+                    <div class="score-dimension-head">
+                        <strong>行业质量</strong>
+                        <span class="small text-muted">${escapeHtml(industryRecommendation)}</span>
+                    </div>
+                    ${ruleNote}
+                    <ul class="mb-1 pl-3">${dims}</ul>
+                    ${industryBonuses.length ? `<div class="small mt-2"><strong>行业加成</strong>${renderBonusList(industryBonuses, '')}</div>` : ''}
+                    ${penaltyBlock}
+                </div>
+                ${viralBlock}
                 ${hotRadarBlock}
                 ${llmBlock}
             </div>`;
@@ -400,6 +524,38 @@
             data-primary-id="${escapeHtml(primaryId)}" title="打开同题代表篇（用于发布出片）">代表篇</button>`;
     }
 
+    function renderRecrawlArticleButton(articleId) {
+        return `<button type="button" class="btn btn-sm btn-outline-secondary recrawl-article-btn"
+            data-article-id="${escapeHtml(articleId)}" title="重新抓取正文与配图">重新抓取</button>`;
+    }
+
+    function wireRecrawlArticleButtons(root) {
+        const scope = root || document;
+        scope.querySelectorAll('.recrawl-article-btn').forEach((btn) => {
+            btn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                recrawlArticle(btn.dataset.articleId, btn);
+            });
+        });
+    }
+
+    async function recrawlArticle(id, button) {
+        if (!id) return;
+        if (button) button.disabled = true;
+        try {
+            const res = await api(`/api/ingestion/articles/${id}/recrawl`, { method: 'POST' });
+            setStatus(res.message || '已提交重新抓取', 'ok');
+            if (selectedArticleId === id) {
+                await selectArticle(id);
+            }
+            await refreshMainList();
+        } catch (err) {
+            setStatus(err.message, 'error');
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
     function wirePrimaryArticleButtons(root) {
         const scope = root || document;
         scope.querySelectorAll('.open-primary-btn').forEach((btn) => {
@@ -433,6 +589,7 @@
             ? '<span class="badge badge-published ml-1" title="已发布到平台">已发布</span>'
             : '';
         const primaryBtn = renderPrimaryArticleButton(article.id, story.primary_article_id);
+        const recrawlBtn = renderRecrawlArticleButton(article.id);
         return `
             <div class="story-tree-article ${selectedArticleId === article.id ? 'selected' : ''} ${isPrimary ? 'is-primary' : ''}"
                  data-id="${article.id}">
@@ -444,7 +601,7 @@
                         · ${pub}${views ? ` · ${views}` : ''} · 图 ${article.image_count || 0}
                     </div>
                     <div class="article-item-actions mt-1">
-                        ${formatScoreBadge(article.score_grade, article.score_total)}${roleBadge}${sim}${videoBadge}${publishedBadge}${primaryBtn}
+                        ${formatDualScoreBadges(article)}${roleBadge}${sim}${videoBadge}${publishedBadge}${recrawlBtn}${primaryBtn}
                     </div>
                 </div>
             </div>`;
@@ -474,12 +631,13 @@
         });
         list.querySelectorAll('.story-tree-article').forEach((el) => {
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.open-primary-btn')) return;
+                if (e.target.closest('.open-primary-btn, .recrawl-article-btn')) return;
                 e.stopPropagation();
                 selectArticle(el.dataset.id);
             });
         });
         wirePrimaryArticleButtons(list);
+        wireRecrawlArticleButtons(list);
     }
 
     async function toggleStory(storyId) {
@@ -656,7 +814,8 @@
                 : `<span class="badge badge-info ml-1" title="同题 story">同题</span>`)
             : '';
         const primaryBtn = renderPrimaryArticleButton(a.id, a.story_primary_article_id);
-        const gradeBadge = formatScoreBadge(a.score_grade, a.score_total);
+        const recrawlBtn = renderRecrawlArticleButton(a.id);
+        const gradeBadge = formatDualScoreBadges(a);
         const sourceBadge = showSource
             ? `<span class="badge badge-secondary mr-1">${escapeHtml(sourceNameMap[a.source_id] || a.source_id)}</span>`
             : '';
@@ -680,7 +839,7 @@
                     <div class="article-item-actions mt-1">
                         ${sourceBadge}${gradeBadge}${prepBadge}${videoBadge}${publishedBadge}
                         <span class="badge badge-${a.status === 'selected' ? 'success' : 'light'}">${a.status}</span>
-                        ${storyBadge}${primaryBtn}
+                        ${storyBadge}${recrawlBtn}${primaryBtn}
                     </div>
                 </div>
             </div>`;
@@ -689,11 +848,12 @@
     function wireArticleListEvents(list) {
         list.querySelectorAll('.article-item').forEach((el) => {
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.open-primary-btn')) return;
+                if (e.target.closest('.open-primary-btn, .recrawl-article-btn')) return;
                 selectArticle(el.dataset.id);
             });
         });
         wirePrimaryArticleButtons(list);
+        wireRecrawlArticleButtons(list);
     }
 
     function renderArticleList() {
@@ -1088,7 +1248,13 @@
                 body: JSON.stringify({ use_llm: useLlm }),
             });
             setStatus(
-                `评分完成：${res.score_grade} 级 ${Math.round(res.score_total)} 分` +
+                `评分完成：行业 ${res.score_grade} ${Math.round(res.score_total)} 分` +
+                    (res.viral_score_grade
+                        ? ` · 传播 ${res.viral_score_grade} ${Math.round(res.viral_score_total || 0)} 分`
+                        : '') +
+                    (res.publish_tier
+                        ? ` · ${PUBLISH_TIER_LABELS[res.publish_tier] || res.publish_tier}`
+                        : '') +
                     (res.rule_grade && res.rule_grade !== res.score_grade
                         ? `（规则 ${res.rule_grade}→LLM 修正）`
                         : '') +

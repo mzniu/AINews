@@ -11,9 +11,16 @@ from urllib.parse import urlparse
 import requests
 
 from src.utils.config import Config
+from src.utils.paths import get_data_dir, path_relative_to_data
 from utils.image_format import resolve_image_ext
 
-INGESTED_ROOT = Path("data/ingested")
+
+def get_ingested_root() -> Path:
+    return get_data_dir() / "ingested"
+
+
+# Backward-compatible alias; prefer get_ingested_root() for clarity.
+INGESTED_ROOT = get_ingested_root()
 
 WECHAT_MP_REFERER = "https://mp.weixin.qq.com/"
 WECHAT_CDN_HOSTS = ("mmbiz.qpic.cn", "mmecoa.qpic.cn", "wx.qlogo.cn")
@@ -175,7 +182,7 @@ def download_image(
                     sha = hashlib.sha256(content).hexdigest()
                     return {
                         "success": True,
-                        "local_path": path.as_posix(),
+                        "local_path": path_relative_to_data(path),
                         "original_url": image_url,
                         "sha256": sha,
                         "download_url": url,

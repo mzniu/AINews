@@ -13,6 +13,7 @@ from services.publishing.human_interaction import STEALTH_CHROMIUM_ARGS
 from services.publishing.registry import load_publishing_yaml
 from services.publishing.session_store import load_encrypted, save_encrypted
 from src.utils.config import Config
+from src.utils.paths import get_data_dir, resolve_data_path
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Playwright
@@ -44,9 +45,7 @@ def load_browser_profile_config(yaml: dict[str, Any] | None = None) -> dict[str,
 
 def resolve_profile_dir(profile_key: str, *, root: Path | None = None) -> Path:
     cfg = load_browser_profile_config()
-    base = root or (Config.ROOT_DIR / cfg["profile_root"])
-    if not base.is_absolute():
-        base = Config.ROOT_DIR / base
+    base = root or resolve_data_path(cfg["profile_root"])
     return base / profile_key
 
 
@@ -72,8 +71,8 @@ def is_profile_initialized(profile_dir: Path) -> bool:
 
 
 def profile_path_for_account(account_id: str) -> str:
-    rel = resolve_profile_dir(account_id).relative_to(Config.ROOT_DIR)
-    return rel.as_posix()
+    rel = resolve_profile_dir(account_id).relative_to(get_data_dir())
+    return f"data/{rel.as_posix()}"
 
 
 def promote_pending_profile(pending_key: str, account_id: str) -> Path:

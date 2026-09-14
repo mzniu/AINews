@@ -14,6 +14,27 @@ from services.publishing.adapters.base import AccountInfo, QrLoginContext, QrLog
 
 
 @dataclass
+class _QrCaptureTarget:
+    locator: object
+    mode: Literal["img", "element"] = "img"
+
+
+_WECHAT_LOGIN_MARKERS = ("channels.weixin.qq.com/login",)
+_WECHAT_QR_IFRAME = "#wx-oauth-container iframe"
+_WECHAT_QR_IMG_SELECTORS = (
+    "img.js_qrcode_img.web_qrcode_img",
+    "img.js_qrcode_img",
+    "img.web_qrcode_img",
+    'img[class*="qrcode"]',
+    "img",
+)
+_WECHAT_QR_CONTAINER_SELECTORS = (
+    _WECHAT_QR_IFRAME,
+    ".qrcode-wrap",
+    ".login-qrcode-wrap",
+)
+
+@dataclass
 class QrLoginProfile:
     platform_id: str
     login_url: str
@@ -76,10 +97,23 @@ def storage_state_has_session_cookies(storage: dict, cookie_names: Sequence[str]
 
 
 def _capture_login_storage_state(context, page, profile: QrLoginProfile) -> dict:
-    settle_url = profile.post_login_url
-    if settle_url:
+    """Capture session cookies after login. Snapshot early — users often close the window right after scan."""
+    current_url = page.url or ""
+    try:
+        if is_login_success_url(current_url, profile.success_url_excludes):
+            early = context.storage_state()
+            if not profile.required_session_cookies or storage_state_has_session_cookies(
+                early, profile.required_session_cookies
+            ):
+                logger.info("Captured login storage immediately for {}", profile.platform_id)
+                return early
+    except Exception as exc:
+        logger.debug("Early login storage snapshot skipped for {}: {}", profile.platform_id, exc)
+
+    settle_url = (profile.post_login_url or "").strip()
+    if settle_url and settle_url not in current_url:
         page.goto(settle_url, wait_until="domcontentloaded", timeout=60_000)
-        _login_page_pause(page, profile, kind="page_load")
+    _login_page_pause(page, profile, kind="page_load", after_login_success=True)
 
     if not profile.required_session_cookies:
         return context.storage_state()
@@ -111,10 +145,20 @@ def _login_settle_pause(page, profile: QrLoginProfile) -> None:
     page.wait_for_timeout(interval_ms)
 
 
-def _login_page_pause(page, profile: QrLoginProfile, *, kind: str = "page_load") -> None:
+def _login_page_pause(
+    page,
+    profile: QrLoginProfile,
+    *,
+    kind: str = "page_load",
+    after_login_success: bool = False,
+) -> None:
     if profile.use_stealth_browser:
-        from services.publishing.human_interaction import human_idle_on_page
         from services.publishing.human_pacing import human_pause
+
+        if after_login_success:
+            human_pause(page, "after_click")
+            return
+        from services.publishing.human_interaction import human_idle_on_page
 
         human_pause(page, kind)  # type: ignore[arg-type]
         if kind == "page_load":
@@ -172,6 +216,7 @@ def _run_qr_login_loop(
     try:
         page.goto(profile.login_url or ctx.login_url, wait_until="domcontentloaded")
         _login_page_pause(page, profile, kind="step")
+        _prepare_login_page_for_qr(page, profile.login_url or ctx.login_url)
         if profile.qr_switch_selector:
             try:
                 if profile.use_stealth_browser:
@@ -189,7 +234,19 @@ def _run_qr_login_loop(
 
     while time.time() < deadline:
         if is_login_success_url(page.url, profile.success_url_excludes):
-            storage = _capture_login_storage_state(context, page, profile)
+            try:
+                storage = _capture_login_storage_state(context, page, profile)
+            except Exception as exc:
+                if _is_target_closed_error(exc):
+                    return QrLoginResult(
+                        status="failed",
+                        error_message=(
+                            "扫码已成功，但浏览器窗口在保存会话前被关闭。"
+                            "请重新扫码并在看到「登录成功」前保持浏览器窗口打开。"
+                        ),
+                        qr_image_path=str(qr_path),
+                    )
+                raise
             if profile.required_session_cookies and not storage_state_has_session_cookies(
                 storage, profile.required_session_cookies
             ):
@@ -220,7 +277,7 @@ def _run_qr_login_loop(
             )
         _login_page_pause(page, profile, kind="polling")
         try:
-            _capture_qr(page, qr_path, profile.qr_selector)
+            _capture_qr(page, qr_path, profile.qr_selector, prepare=False)
         except Exception:
             pass
 
@@ -231,11 +288,156 @@ def _run_qr_login_loop(
     )
 
 
-def _capture_qr(page, qr_path: Path, selector: str | None) -> None:
-    if selector:
-        page.locator(selector).first.screenshot(path=str(qr_path))
-    else:
+def _qr_selector_candidates(selector: str) -> list[str]:
+    return [part.strip() for part in selector.split(",") if part.strip()]
+
+
+def _is_wechat_login_url(url: str | None) -> bool:
+    lower = (url or "").lower()
+    return any(marker in lower for marker in _WECHAT_LOGIN_MARKERS)
+
+
+def _wechat_qr_visible(page) -> bool:
+    return _find_wechat_qr_target(page, prepare=False) is not None
+
+
+def _prepare_login_page_for_qr(page, login_url: str | None) -> None:
+    if not _is_wechat_login_url(login_url or getattr(page, "url", "")):
+        return
+    page.wait_for_timeout(2000)
+    if _wechat_qr_visible(page):
+        return
+    for attempt in range(3):
+        try:
+            mask = page.locator(".qrcode-wrap .mask").first
+            if not mask.is_visible(timeout=1200):
+                if _wechat_qr_visible(page):
+                    return
+                page.wait_for_timeout(1500)
+                continue
+            page.locator(".refresh-wrap").first.click(timeout=3000)
+            logger.info("WeChat login QR refresh click {}/3", attempt + 1)
+        except Exception as exc:
+            logger.debug("WeChat login QR refresh skipped: {}", exc)
+        page.wait_for_timeout(2500)
+        if _wechat_qr_visible(page):
+            return
+
+
+def _is_target_closed_error(exc: BaseException) -> bool:
+    name = exc.__class__.__name__
+    return name == "TargetClosedError" or "has been closed" in str(exc).lower()
+
+
+def _parse_qr_selector(selector: str) -> tuple[str | None, str]:
+    text = selector.strip()
+    if text.lower().startswith("iframe:"):
+        body = text[len("iframe:") :]
+        if "|" not in body:
+            return body.strip(), "img"
+        iframe_sel, inner_sel = body.split("|", 1)
+        return iframe_sel.strip(), inner_sel.strip()
+    return None, text
+
+
+def _iter_qr_search_specs(selectors: Sequence[str]) -> list[tuple[str | None, str]]:
+    specs: list[tuple[str | None, str]] = []
+    seen: set[tuple[str | None, str]] = set()
+    for raw in selectors:
+        iframe_sel, inner_sel = _parse_qr_selector(raw)
+        key = (iframe_sel, inner_sel)
+        if key not in seen:
+            specs.append(key)
+            seen.add(key)
+    return specs
+
+
+def _find_wechat_qr_target(page, *, prepare: bool = False) -> _QrCaptureTarget | None:
+    if prepare:
+        _prepare_login_page_for_qr(page, page.url)
+    for img_sel in _WECHAT_QR_IMG_SELECTORS:
+        try:
+            loc = page.frame_locator(_WECHAT_QR_IFRAME).locator(img_sel).first
+            loc.wait_for(state="visible", timeout=4000)
+            return _QrCaptureTarget(locator=loc, mode="img")
+        except Exception:
+            continue
+    for container_sel in _WECHAT_QR_CONTAINER_SELECTORS:
+        try:
+            loc = page.locator(container_sel).first
+            loc.wait_for(state="visible", timeout=2000)
+            return _QrCaptureTarget(locator=loc, mode="element")
+        except Exception:
+            continue
+    return None
+
+
+def _find_visible_qr_locator(page, selectors: Sequence[str]) -> _QrCaptureTarget | None:
+    specs = _iter_qr_search_specs(selectors)
+    if _is_wechat_login_url(page.url):
+        specs.extend((iframe_sel, inner) for iframe_sel, inner in (
+            (_WECHAT_QR_IFRAME, img_sel) for img_sel in _WECHAT_QR_IMG_SELECTORS
+        ))
+
+    for iframe_sel, inner_sel in specs:
+        if iframe_sel:
+            try:
+                loc = page.frame_locator(iframe_sel).locator(inner_sel).first
+                loc.wait_for(state="visible", timeout=4000)
+                return _QrCaptureTarget(locator=loc, mode="img")
+            except Exception:
+                continue
+            continue
+
+        for frame in page.frames:
+            try:
+                loc = frame.locator(inner_sel).first
+                loc.wait_for(state="visible", timeout=2500)
+                return _QrCaptureTarget(locator=loc, mode="img")
+            except Exception:
+                continue
+
+    if _is_wechat_login_url(page.url):
+        return _find_wechat_qr_target(page, prepare=False)
+    return None
+
+
+def _download_qr_from_img(loc, page, qr_path: Path) -> bool:
+    try:
+        src = loc.evaluate(
+            """(el) => {
+                if (!el || el.tagName !== 'IMG') return '';
+                try { return new URL(el.currentSrc || el.src, document.baseURI).href; }
+                catch { return el.src || ''; }
+            }"""
+        )
+    except Exception:
+        return False
+    if not src or src.startswith("data:"):
+        return False
+    response = page.context.request.get(src)
+    if not response.ok:
+        return False
+    qr_path.write_bytes(response.body())
+    return True
+
+
+def _capture_qr(page, qr_path: Path, selector: str | None, *, prepare: bool = True) -> None:
+    if not selector:
         page.screenshot(path=str(qr_path), full_page=True)
+        return
+
+    if prepare:
+        _prepare_login_page_for_qr(page, page.url)
+    selectors = _qr_selector_candidates(selector)
+    target = _find_visible_qr_locator(page, selectors)
+    if target is None:
+        raise RuntimeError(f"QR element not found: {selector}")
+
+    loc = target.locator
+    if target.mode == "img" and _download_qr_from_img(loc, page, qr_path):
+        return
+    loc.screenshot(path=str(qr_path))
 
 
 def _resolve_account_info(page, profile: QrLoginProfile) -> AccountInfo:

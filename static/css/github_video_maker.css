@@ -85,7 +85,6 @@
             background-color: var(--light-bg);
             color: var(--text-primary);
             line-height: 1.5;
-            padding-top: 80px; /* 为固定导航栏留出空间 */
         }
 
         .container {

@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import copy
+import os
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +14,36 @@ from services.ingestion.article_scorer import VALID_GRADES
 from src.utils.config import Config
 
 SCORING_BASE_PATH = Config.ROOT_DIR / "config" / "article_scoring.yaml"
-SCORING_LOCAL_PATH = Config.ROOT_DIR / "config" / "article_scoring.local.yaml"
+SCORING_LOCAL_PATH = Config.CONFIG_DIR / "article_scoring.local.yaml"
+SCORING_LEGACY_LOCAL_PATH = Config.ROOT_DIR / "config" / "article_scoring.local.yaml"
+
+
+def _migrate_legacy_local_config() -> None:
+    target = SCORING_LOCAL_PATH
+    legacy = SCORING_LEGACY_LOCAL_PATH
+    if target == legacy or target.exists() or not legacy.is_file():
+        return
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Path | None = None
+    try:
+        fd, temp_name = tempfile.mkstemp(
+            dir=target.parent,
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+        )
+        temp_path = Path(temp_name)
+        with os.fdopen(fd, "wb") as destination, open(legacy, "rb") as source:
+            shutil.copyfileobj(source, destination)
+            destination.flush()
+            os.fsync(destination.fileno())
+        try:
+            os.link(temp_path, target)
+        except FileExistsError:
+            pass
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -19,6 +51,11 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return {}
     with open(path, "r", encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
+
+
+def _load_local_yaml() -> dict[str, Any]:
+    _migrate_legacy_local_config()
+    return _load_yaml(SCORING_LOCAL_PATH)
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -33,7 +70,7 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 def load_merged_scoring_config() -> dict[str, Any]:
     base = _load_yaml(SCORING_BASE_PATH)
-    local = _load_yaml(SCORING_LOCAL_PATH)
+    local = _load_local_yaml()
     if not local:
         return base
     return _deep_merge(base, local)
@@ -81,7 +118,7 @@ def save_auto_publish_settings(
     quiet_hours_start: str | None = None,
     quiet_hours_end: str | None = None,
 ) -> dict[str, Any]:
-    local = _load_yaml(SCORING_LOCAL_PATH)
+    local = _load_local_yaml()
     post = local.setdefault("post_score_automation", {})
     auto = post.setdefault("auto_publish", {})
     qh = auto.setdefault("quiet_hours", {})
@@ -158,7 +195,7 @@ def save_media_pipeline_settings(
     min_score: float | None = None,
     logic: str | None = None,
 ) -> dict[str, Any]:
-    local = _load_yaml(SCORING_LOCAL_PATH)
+    local = _load_local_yaml()
     post = local.setdefault("post_score_automation", {})
     pipeline = post.setdefault("media_pipeline", {})
     trigger = pipeline.setdefault("trigger", {})
@@ -194,7 +231,7 @@ def get_scoring_criteria_settings() -> dict[str, Any]:
     )
 
     cfg = load_merged_scoring_config()
-    local = _load_yaml(SCORING_LOCAL_PATH)
+    local = _load_local_yaml()
     weights = merge_weights_from_config(cfg)
     grades = merge_grades_from_config(cfg)
     profile = str(local.get("profile") or detect_preset_id(weights))
@@ -227,7 +264,7 @@ def save_scoring_criteria_settings(
         validate_grades,
     )
 
-    local = _load_yaml(SCORING_LOCAL_PATH)
+    local = _load_local_yaml()
     merged = load_merged_scoring_config()
 
     next_weights = merge_weights_from_config(merged)
@@ -258,3 +295,30 @@ def save_scoring_criteria_settings(
     with open(SCORING_LOCAL_PATH, "w", encoding="utf-8") as handle:
         yaml.dump(local, handle, allow_unicode=True, sort_keys=False)
     return get_scoring_criteria_settings()
+
+
+def get_publish_policy_settings() -> dict[str, Any]:
+    cfg = load_merged_scoring_config()
+    policy = copy.deepcopy(cfg.get("publish_policy") or {})
+    platforms = policy.get("platforms") or {}
+    return {
+        "policy_version": str(policy.get("policy_version", cfg.get("policy_version", 1))),
+        "enabled": bool(policy.get("enabled", False)),
+        "shadow_mode": bool(policy.get("shadow_mode", True)),
+        "rollout": copy.deepcopy(policy.get("rollout") or {}),
+        "platforms": copy.deepcopy(platforms),
+        "local_config_path": str(SCORING_LOCAL_PATH),
+        "has_local_override": SCORING_LOCAL_PATH.exists(),
+    }
+
+
+def save_publish_policy_settings(patch: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Deep-merge publish_policy overrides into the writable local YAML."""
+    local = _load_local_yaml()
+    policy = local.setdefault("publish_policy", {})
+    if patch:
+        local["publish_policy"] = _deep_merge(policy, copy.deepcopy(patch))
+    SCORING_LOCAL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(SCORING_LOCAL_PATH, "w", encoding="utf-8") as handle:
+        yaml.dump(local, handle, allow_unicode=True, sort_keys=False)
+    return get_publish_policy_settings()

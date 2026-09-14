@@ -6,7 +6,7 @@
 
 ## 登录
 
-- QR 容器：待 Spike 填写
+- QR 图片：嵌在 `#wx-oauth-container iframe`（`open.weixin.qq.com/connect/qrconnect`）内，优先 `img.js_qrcode_img.web_qrcode_img`；加载失败时点 `.refresh-wrap` 重试；兜底截 `.qrcode-wrap`
 - 登录成功判定：跳转离开 login 页或出现创作者中心元素
 
 ## 上传
@@ -42,8 +42,11 @@
 | probe_script | `scripts/probe_creator_first_comment.py --platform wechat_channels` |
 | comment_hub_url | `https://channels.weixin.qq.com/platform/interaction/comment` |
 | feed_selector | `.comment-feed-wrap`（优先选 0 评论作品） |
+| activate_feed_api | `POST .../comment/update_feed_comment` `{ opType: 1, exportId }` |
+| comment_list_api | `POST .../comment/comment_list` `{ exportId }` |
 | write_tab | 点击「写评论」标签 |
 | comment_input | `textarea.create-input[placeholder*="发表"]` |
+| comment_submit | `.comment-create-wrap .tag-wrap.primary .tag-inner`（文案「发表」，非 button） |
 | mode | **deferred**（发布完成后独立会话发评） |
 
 流程：互动管理 → 评论 → 选中作品 →「写评论」→ 填写 `textarea.create-input` → 点击「发表」。

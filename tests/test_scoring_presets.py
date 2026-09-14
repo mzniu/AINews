@@ -5,6 +5,8 @@ import pytest
 import yaml
 
 from services.ingestion.scoring_presets import (
+    DEFAULT_GRADES,
+    SCORING_PRESETS,
     detect_preset_id,
     normalize_weights,
     validate_grades,
@@ -23,8 +25,7 @@ def test_normalize_weights_scales_to_one():
             "event_tension": 2,
             "breakthrough": 2,
             "product_heat": 2,
-            "hook": 1,
-            "relevance": 1,
+            "relevance": 2,
             "data_signal": 0,
             "creatability": 0,
             "hot_radar": 0,
@@ -42,6 +43,13 @@ def test_detect_preset_flash_news():
     from services.ingestion.scoring_presets import DEFAULT_WEIGHTS
 
     assert detect_preset_id(DEFAULT_WEIGHTS) == "flash_news"
+
+
+def test_default_flash_and_balanced_presets_use_calibrated_industry_grades():
+    expected = {"S": 88, "A": 70, "B": 55, "C": 40}
+    assert DEFAULT_GRADES == expected
+    assert SCORING_PRESETS["flash_news"]["grades"] == expected
+    assert SCORING_PRESETS["balanced"]["grades"] == expected
 
 
 def test_save_scoring_preset_persists_local(tmp_path, monkeypatch):
@@ -77,8 +85,7 @@ def test_save_custom_weights_marks_profile_custom(tmp_path, monkeypatch):
             "event_tension": 0.10,
             "breakthrough": 0.10,
             "product_heat": 0.10,
-            "hook": 0.08,
-            "relevance": 0.08,
+            "relevance": 0.10,
             "data_signal": 0.08,
             "creatability": 0.08,
             "hot_radar": 0.08,

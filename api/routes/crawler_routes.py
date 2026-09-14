@@ -125,7 +125,7 @@ async def generate_summary(request: GenerateSummaryRequest):
 
         vmin = request.voiceover_min_chars
         vmax = request.voiceover_max_chars
-        from services.content_prompts import get_system_role, json_main_line1_hint, json_short_title_hint
+        from services.content_prompts import get_system_role, json_main_line1_hint, json_short_title_hint, json_summary_hint
         from utils.title_units import resolve_short_title
         from utils.content_methodology import build_methodology_prompt_section
 
@@ -140,7 +140,7 @@ async def generate_summary(request: GenerateSummaryRequest):
   "main_line2": "主标题第二行（有争议钩子才写，以「网友：」开头；没有争议钩子必须空字符串）",
   "sub_title": "副标题第一行（11~15汉字当量，轻观点收尾，不含emoji）",
   "sub_title2": "副标题第二行（11~15汉字当量，七种流量钩子之一，可空字符串）",
-  "summary": "生成的摘要（55-65字，以「小牛说：」开头）",
+  "summary": "{json_summary_hint()}",
   "tags": "#赛道标签 #垂直标签 #精准标签 #热点标签 #小牛说 #其他标签1 #其他标签2 #其他标签3 #其他标签4 #其他标签5",
   "voiceover_script": "口播稿全文（{vmin}~{vmax}字，前3秒点出主体+数字+冲突，不要以「小牛说：」开头，结尾留可回答争议，禁止点赞关注）",
   "highlight_keywords": ["摘要中连续子串1", "子串2", "子串3"]
@@ -304,7 +304,7 @@ def update_content_prompts_route(body: dict):
         save_title_prompts(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"success": True, "message": "标题提示词已保存", **get_title_prompt_settings()}
+    return {"success": True, "message": "标题与摘要提示词已保存", **get_title_prompt_settings()}
 
 
 @router.post("/content-prompts/reset")
@@ -312,4 +312,4 @@ def reset_content_prompts_route():
     from services.content_prompts import get_title_prompt_settings, reset_title_prompts
 
     reset_title_prompts()
-    return {"success": True, "message": "已恢复默认标题提示词", **get_title_prompt_settings()}
+    return {"success": True, "message": "已恢复默认标题与摘要提示词", **get_title_prompt_settings()}

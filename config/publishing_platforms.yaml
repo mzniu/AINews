@@ -39,6 +39,26 @@ defaults:
     comment_delay_sec: 15
     comment_wait_max_sec: 60
     retry_max: 3
+  comment_reply:
+    enabled: false
+    cron: "0 * * * *"
+    mode: inline
+    lookback_hours: 48
+    max_scan_posts: 30
+    max_new_replies_per_run: 30
+    max_auto_replies_per_run: 10
+    max_replies_per_run: 30
+    max_replies_per_post: 20
+    pause_between_replies_sec: 3
+    retry_enabled: true
+    retry_max: 3
+    retry_batch_size: 10
+    reply_min_length: 5
+    reply_max_length: 50
+    platforms:
+      - wechat_channels
+      - kuaishou
+      - douyin
   session_keepalive:
     enabled: true
     interval_hours: 4
@@ -63,6 +83,10 @@ platforms:
       first_comment: true
     qr_profile:
       success_url_excludes: ["login"]
+      qr_selector: >-
+        iframe:#wx-oauth-container iframe|img.js_qrcode_img.web_qrcode_img,
+        img.js_qrcode_img.web_qrcode_img,
+        .qrcode-wrap
       post_login_url: https://channels.weixin.qq.com/platform/post/create
       post_login_wait_ms: 6000
       cookie_settle_attempts: 15

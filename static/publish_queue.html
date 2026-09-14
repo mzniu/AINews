@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>发布队列 - AINews</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815a">
-    <link rel="stylesheet" href="/static/css/publish_queue.css?v=20260828a">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
+    <link rel="stylesheet" href="/static/css/publish_queue.css?v=20260910a">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
-    <script src="/static/js/shared/app_nav.js?v=20260828a" defer></script>
-    <script src="/static/js/publish_queue.js?v=20260828a" defer></script>
+    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
+
+    <script src="/static/js/shared/app_nav.js?v=20260914b" defer></script>
+    <script src="/static/js/publish_queue.js?v=20260911d" defer></script>
 </head>
 <body class="app-page">
     <div id="app-nav-root"></div>
@@ -22,6 +24,7 @@
             </div>
             <div class="queue-header-actions">
                 <button type="button" class="btn btn-soft" id="refreshQueueBtn">刷新</button>
+                <a class="btn btn-soft" href="/publish-metrics">已发布数据</a>
                 <a class="btn btn-soft" href="/publish-center">发布中心</a>
             </div>
         </header>
@@ -84,6 +87,19 @@
                 </table>
             </div>
         </section>
+    </div>
+
+    <div id="platformsModal" class="schedule-modal" hidden>
+        <div class="schedule-box soft-card platforms-box">
+            <h3>修改发布平台</h3>
+            <p id="platformsModalTitle" class="hint schedule-modal-title"></p>
+            <p id="platformsModalNote" class="hint schedule-modal-note">勾选要发布的平台。账号未登录的任务仍会入队，发布失败后可重试。</p>
+            <div id="platformsChecklist" class="platforms-checklist"></div>
+            <div class="schedule-actions">
+                <button type="button" class="btn btn-soft" id="platformsCancelBtn">取消</button>
+                <button type="button" class="btn" id="platformsSaveBtn">保存</button>
+            </div>
+        </div>
     </div>
 
     <div id="scheduleModal" class="schedule-modal" hidden>

@@ -2,13 +2,23 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from services.ingestion.asset_downloader import get_ingested_root
+from src.utils.paths import to_data_url_path
 from services.ingestion.image_dedupe import dedupe_image_entries, normalize_image_url
 from services.ingestion.image_scorer import ImageScoreResult, load_image_scoring_config, pick_auto_selected
-from src.db.models.ingestion import ArticleImage, ImageRelevanceEvaluation, IngestedArticle, StoryAsset
+from services.ingestion.render_image_utils import filter_renderable_image_dicts, is_renderable_local_image
+from src.db.models.ingestion import (
+    ArticleImage,
+    ImageRelevanceEvaluation,
+    IngestedArticle,
+    StoryArticle,
+    StoryAsset,
+)
 
 
 def _evaluation_extra_fields(evaluation: ImageRelevanceEvaluation | None) -> dict:
@@ -98,7 +108,7 @@ def _image_entry(
 ) -> dict:
     entry = {
         "url": url,
-        "local_path": f"/{local_path.lstrip('/')}" if local_path else None,
+        "local_path": to_data_url_path(local_path) if local_path else None,
         "success": bool(local_path),
         "source": source,
         "auto_selected": auto_selected,
@@ -204,6 +214,206 @@ def _story_merged_images(
     return merged
 
 
+def _normalize_title_key(title: str) -> str:
+    return re.sub(r"\s+", "", (title or "").strip().lower())
+
+
+def _titles_are_same_topic(left: str, right: str) -> bool:
+    a = _normalize_title_key(left)
+    b = _normalize_title_key(right)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    return len(shorter) >= 10 and shorter in longer
+
+
+def _article_image_entries(
+    session: Session,
+    article_id: str,
+    *,
+    evaluations: dict[tuple[str, str], ImageRelevanceEvaluation],
+    seen_urls: set[str],
+    source: str,
+) -> list[dict]:
+    rows = (
+        session.query(ArticleImage)
+        .filter_by(article_id=article_id, download_status="ok")
+        .order_by(ArticleImage.sort_order)
+        .all()
+    )
+    merged: list[dict] = []
+    for img in rows:
+        if not img.local_path or not is_renderable_local_image(img.local_path):
+            continue
+        url = str(img.original_url or "").strip()
+        norm_url = normalize_image_url(url)
+        if not norm_url or norm_url in seen_urls:
+            continue
+        seen_urls.add(norm_url)
+        merged.append(
+            _image_entry(
+                url,
+                img.local_path,
+                source=source,
+                source_type="article_image",
+                source_id=img.id,
+                evaluation=evaluations.get(("article_image", img.id)),
+            )
+        )
+    return merged
+
+
+def _story_sibling_article_images(
+    session: Session,
+    story_id: str,
+    *,
+    exclude_article_id: str,
+    evaluations: dict[tuple[str, str], ImageRelevanceEvaluation],
+    seen_urls: set[str],
+) -> list[dict]:
+    links = (
+        session.query(StoryArticle)
+        .filter_by(story_id=story_id)
+        .filter(StoryArticle.article_id != exclude_article_id)
+        .all()
+    )
+    merged: list[dict] = []
+    for link in links:
+        merged.extend(
+            _article_image_entries(
+                session,
+                link.article_id,
+                evaluations=evaluations,
+                seen_urls=seen_urls,
+                source="story_related",
+            )
+        )
+    return merged
+
+
+def _title_search_tokens(title: str) -> list[str]:
+    tokens: list[str] = []
+    match = re.search(r"[\u4e00-\u9fff]{3,}", title or "")
+    if match:
+        tokens.append(match.group(0)[:6])
+    compact = re.sub(r"\s+", "", title or "")
+    if len(compact) >= 8:
+        tokens.append(compact[:8])
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        if token and token not in seen:
+            seen.add(token)
+            deduped.append(token)
+    return deduped
+
+
+def _title_match_article_images(
+    session: Session,
+    article: IngestedArticle,
+    *,
+    evaluations: dict[tuple[str, str], ImageRelevanceEvaluation],
+    seen_urls: set[str],
+    limit: int = 12,
+) -> list[dict]:
+    title = (article.title or "").strip()
+    if len(_normalize_title_key(title)) < 8:
+        return []
+    candidate_ids: set[str] = set()
+    candidates: list[IngestedArticle] = []
+    for token in _title_search_tokens(title):
+        rows = (
+            session.query(IngestedArticle)
+            .filter(IngestedArticle.id != article.id)
+            .filter(IngestedArticle.title.isnot(None))
+            .filter(IngestedArticle.title.like(f"%{token}%"))
+            .limit(20)
+            .all()
+        )
+        for row in rows:
+            if row.id in candidate_ids:
+                continue
+            candidate_ids.add(row.id)
+            candidates.append(row)
+    merged: list[dict] = []
+    for other in candidates:
+        if not _titles_are_same_topic(other.title or "", title):
+            continue
+        merged.extend(
+            _article_image_entries(
+                session,
+                other.id,
+                evaluations=evaluations,
+                seen_urls=seen_urls,
+                source="story_related",
+            )
+        )
+        if len(merged) >= limit:
+            break
+    return merged[:limit]
+
+
+def supplement_story_images(
+    session: Session,
+    article: IngestedArticle,
+    images: list[dict],
+    *,
+    include_story_images: bool = True,
+    min_renderable: int = 3,
+) -> tuple[list[dict], int]:
+    """Append same-topic images when the article has too few renderable frames."""
+    if not include_story_images:
+        return images, 0
+    renderable = filter_renderable_image_dicts(images)
+    if len(renderable) >= min_renderable:
+        return images, 0
+
+    evaluations = _load_evaluations(session, article.id)
+    seen_urls = {
+        normalize_image_url(str(item.get("url") or ""))
+        for item in images
+        if normalize_image_url(str(item.get("url") or ""))
+    }
+    extra: list[dict] = []
+    if article.story_id:
+        extra.extend(
+            _story_merged_images(
+                session,
+                article.story_id,
+                exclude_article_id=article.id,
+                evaluations=evaluations,
+            )
+        )
+        extra.extend(
+            _story_sibling_article_images(
+                session,
+                article.story_id,
+                exclude_article_id=article.id,
+                evaluations=evaluations,
+                seen_urls=seen_urls,
+            )
+        )
+    if len(filter_renderable_image_dicts(images + extra)) < min_renderable:
+        extra.extend(
+            _title_match_article_images(
+                session,
+                article,
+                evaluations=evaluations,
+                seen_urls=seen_urls,
+            )
+        )
+    if not extra:
+        return images, 0
+    merged = dedupe_image_entries(images + extra, config=load_image_scoring_config())
+    return merged, len(extra)
+
+
+def sort_images_by_relevance(images: list[dict]) -> list[dict]:
+    return _sort_images_by_relevance(images)
+
+
 def _sort_images_by_relevance(images: list[dict]) -> list[dict]:
     def sort_key(item: dict) -> tuple:
         rank = item.get("relevance_rank")
@@ -262,18 +472,32 @@ def prepare_video_metadata(
         )
         image_paths = image_paths + story_images
 
+    image_paths, story_supplemented = supplement_story_images(
+        session,
+        article,
+        image_paths,
+        include_story_images=include_story_images,
+    )
+    if story_supplemented:
+        story_images = [img for img in image_paths if img.get("source") == "story_related"]
+
     image_paths = dedupe_image_entries(image_paths, config=load_image_scoring_config())
 
     auto_selected_images: list[dict] = []
     if auto_select and evaluations:
         cfg = load_image_scoring_config()
         picked = pick_auto_selected(_image_entries_to_results(image_paths), config=cfg)
-        auto_ids = {(p.source_type, p.source_id) for p in picked}
-        for item in image_paths:
-            key = (item.get("source_type"), item.get("source_id"))
-            if key in auto_ids:
-                item["auto_selected"] = True
-                auto_selected_images.append(item)
+        lookup = {
+            (item.get("source_type"), item.get("source_id")): item
+            for item in image_paths
+        }
+        for pick in picked:
+            key = (pick.source_type, pick.source_id)
+            item = lookup.get(key)
+            if item is None:
+                continue
+            item["auto_selected"] = True
+            auto_selected_images.append(item)
 
     if sort_by_relevance and evaluations:
         image_paths = _sort_images_by_relevance(image_paths)
@@ -309,7 +533,7 @@ def prepare_video_metadata(
         else None,
         "video_prep_at": article.video_prep_at.isoformat() if article.video_prep_at else None,
     }
-    base_dir = Path("data/ingested") / article.source_id / article.id
+    base_dir = get_ingested_root() / article.source_id / article.id
     base_dir.mkdir(parents=True, exist_ok=True)
     meta_path = base_dir / "prepare_video_metadata.json"
     meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")

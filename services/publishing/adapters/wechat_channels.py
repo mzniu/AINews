@@ -92,7 +92,7 @@ class WechatChannelsAdapter(CreatorCenterAdapter):
     def publish_video(self, session_path: Path, payload: PublishPayload) -> PublishResult:
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-        screenshot_dir = Config.ROOT_DIR / "data" / "publish" / "screenshots"
+        screenshot_dir = Config.DATA_DIR / "publish" / "screenshots"
         screenshot_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = screenshot_dir / f"fail_{int(time.time())}.png"
         page = None
@@ -253,11 +253,13 @@ class WechatChannelsAdapter(CreatorCenterAdapter):
         from services.publishing.adapters.wechat_channels_comment import post_wechat_first_comment
         from services.publishing.first_comment_timing import run_standalone_first_comment
 
+        from services.publishing.adapters.wechat_channels_comment import COMMENT_HUB_URL
+
         return run_standalone_first_comment(
             session_path,
             platform_id="wechat_channels",
             platform_label="视频号",
-            creator_url=self.creator_url,
+            creator_url=COMMENT_HUB_URL,
             warmup_url="https://channels.weixin.qq.com/platform/post/list",
             success_url_excludes=self._success_url_excludes(),
             post_fn=post_wechat_first_comment,

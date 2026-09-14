@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>评论管理 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260914b">
+    <link rel="stylesheet" href="/static/css/publish_comments.css?v=20260914b">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260914b" defer></script>
+    <script src="/static/js/publish_comments.js?v=20260914b" defer></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+    <div class="comments-shell">
+        <header class="comments-header">
+            <div>
+                <h1>评论管理</h1>
+                <p class="comments-lead">扫描各平台观众评论，生成并发送回复。</p>
+            </div>
+            <div class="comments-header-actions">
+                <a class="btn btn-soft" href="/publish-center">发布中心</a>
+                <a class="btn btn-soft" href="/publish-metrics">已发布数据</a>
+            </div>
+        </header>
+
+        <section class="soft-card">
+            <label class="comments-toggle">
+                <input type="checkbox" id="commentReplyEnabled">
+                <span>每小时扫描新评论并生成回复（视频号 / 快手 / 抖音）</span>
+            </label>
+            <div class="comments-toolbar">
+                <label>
+                    <span>模式</span>
+                    <select id="commentReplyMode" class="form-control">
+                        <option value="inline">内联回复（扫描即发）</option>
+                        <option value="approve">待审核（人工确认）</option>
+                        <option value="auto">自动发送（兼容旧配置）</option>
+                    </select>
+                </label>
+                <label>
+                    <span>评论时效</span>
+                    <input type="number" id="commentReplyLookbackHours" class="form-control" min="1" max="168" step="1">
+                    <span class="hint" style="margin:0;">小时内回复（更早的评论跳过）</span>
+                </label>
+                <label>
+                    <select id="commentInboxStatus" class="form-control" aria-label="评论状态">
+                        <option value="replied">已回复</option>
+                        <option value="failed">失败</option>
+                        <option value="skipped">已跳过</option>
+                        <option value="pending_approval">待审核</option>
+                        <option value="">全部</option>
+                    </select>
+                </label>
+            </div>
+            <div class="comments-actions">
+                <button class="btn-secondary btn" id="commentReplyScanBtn" type="button">立即扫描</button>
+                <button class="btn-secondary btn" id="commentInboxRefreshBtn" type="button">刷新收件箱</button>
+                <button class="btn-secondary btn" id="commentReplyRetryBtn" type="button">重试失败</button>
+                <button class="btn-secondary btn" id="commentReplyRegenerateBtn" type="button">重新生成文案</button>
+            </div>
+            <p id="commentReplyRunMeta" class="hint" style="margin-top:8px;">上次运行：加载中</p>
+            <p class="hint" style="margin-top:4px;">
+                内联模式下扫描时直接回复并记入收件箱；已回复评论不会重复发送。待审核模式可人工确认后再发送。
+            </p>
+            <div class="comments-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>作品</th>
+                            <th>观众</th>
+                            <th>评论</th>
+                            <th>拟回复</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="commentInboxTable"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

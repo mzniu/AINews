@@ -166,7 +166,7 @@ def probe_douyin_creator_session(
     from services.publishing.human_pacing import human_pause
     from services.publishing.session_store import load_encrypted
 
-    temp_state = Config.ROOT_DIR / "data" / "publish" / "_douyin_probe_state.json"
+    temp_state = Config.DATA_DIR / "publish" / "_douyin_probe_state.json"
     playwright = None
     browser = None
     try:
@@ -207,7 +207,7 @@ def fetch_douyin_metrics_rows(
     from services.publishing.human_pacing import human_pause
     from services.publishing.session_store import load_encrypted
 
-    temp_state = Config.ROOT_DIR / "data" / "publish" / "_metrics_state.json"
+    temp_state = Config.DATA_DIR / "publish" / "_metrics_state.json"
     playwright = None
     browser = None
     captured_payloads: list[dict[str, Any]] = []

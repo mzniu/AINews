@@ -144,6 +144,8 @@ class CreateAnimatedVideoRequest(BaseModel):
     background_image_path: Optional[str] = None  # 成片背景图，须为 static/ 下可访问路径
     title_font_key: Optional[str] = None  # 主标题字体预设，见 /api/list-title-fonts
     title_font_size: Optional[int] = None   # 主标题字号（px），默认 TITLE_MAIN_FONT_SIZE
+    subtitle_font_size: Optional[int] = None  # 副标题字号（px）
+    summary_font_size: Optional[int] = None  # 摘要字号（px），默认 44
     title_y_percent: Optional[float] = None  # 标题/副标题顶部位置，占画布高度百分比
     summary_y_percent: Optional[float] = None  # 摘要顶部基准位置，占画布高度百分比（会减去摘要高度）
     first_image_effect: Optional[str] = None  # GitHub页可用：side_flip_rounded，将第一张静态图做30度侧翻圆角卡片并渐进放大

@@ -145,12 +145,15 @@ def test_repo_builtin_yaml_loads_three_templates():
     assert chronicle["chrome"]["brand"] == "小牛聊AI"
     assert chronicle["chrome"]["mark_glyph"] == "牛"
     typo = chronicle["typography"]
-    assert typo["subtitle_font_size"] == 47
+    assert typo["subtitle_font_size"] == 52
     assert typo["title_font_size"] == 64
     assert typo["footer_font_size"] >= 40
     layout = chronicle.get("layout") or {}
-    assert layout["card_top_percent"] == 35
-    assert layout["card_bottom_percent"] == 71
+    assert layout["card_top_percent"] == 33.2
+    assert layout["card_bottom_percent"] == 72.8
+    assert layout["card_left_percent"] == 3.8
+    assert layout["card_right_percent"] == 96.2
+    assert layout["card_inset_px"] == 8
     assert layout.get("title_placement") in (None, "above_card")
     assert typo["summary_y_percent"] == 73.2
     motion = (chronicle.get("video") or {}).get("card_motion") or {}
@@ -178,12 +181,12 @@ def test_repo_builtin_yaml_loads_three_templates():
     etypo = evidence["typography"]
     assert etypo["summary_y_percent"] == 75.0
     assert etypo["summary_color"] == "#9EC9D8"
-    assert etypo["footer_y_percent"] == 85.2
+    assert etypo["footer_y_percent"] == 87.0
     emotion = (evidence.get("video") or {}).get("card_motion") or {}
     assert emotion["enabled"] is True
     assert float(emotion["end_scale"]) >= 1.22
     assert evidence["chrome"]["brand"] == "小牛聊AI"
-    assert evidence["palette"]["accent"] == "#3DDCFF"
+    assert evidence["palette"]["accent"] == "#4BE4FF"
 
 
 def test_save_render_template_writes_local_override(tmp_path, monkeypatch):

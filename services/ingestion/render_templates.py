@@ -10,7 +10,7 @@ import yaml
 from src.utils.config import Config
 
 RENDER_TEMPLATES_BASE_PATH = Config.ROOT_DIR / "config" / "render_templates.yaml"
-RENDER_TEMPLATES_LOCAL_PATH = Config.ROOT_DIR / "config" / "render_templates.local.yaml"
+RENDER_TEMPLATES_LOCAL_PATH = Config.CONFIG_DIR / "render_templates.local.yaml"
 
 KNOWN_LAYOUT_KINDS = frozenset({"classic_overlay", "chronicle_frame"})
 

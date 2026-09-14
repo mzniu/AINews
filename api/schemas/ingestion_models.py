@@ -55,6 +55,9 @@ class IngestedArticleOut(BaseModel):
     view_count: Optional[int] = None
     score_total: Optional[float] = None
     score_grade: Optional[str] = None
+    viral_score_total: Optional[float] = None
+    viral_score_grade: Optional[str] = None
+    publish_tier: Optional[str] = None
     score_breakdown: Optional[Dict[str, Any]] = None
     score_comment: Optional[str] = None
     scored_at: Optional[datetime] = None
@@ -167,6 +170,9 @@ class HotRadarArticleMatchOut(BaseModel):
     article_url: str
     score_total: Optional[float] = None
     score_grade: Optional[str] = None
+    viral_score_total: Optional[float] = None
+    viral_score_grade: Optional[str] = None
+    publish_tier: Optional[str] = None
     scored_at: Optional[datetime] = None
     matched: bool
     match: Optional[Dict[str, Any]] = None

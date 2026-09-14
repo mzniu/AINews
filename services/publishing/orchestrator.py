@@ -21,7 +21,7 @@ from services.publishing.metrics.post_id import is_synthetic_platform_post_id
 from services.publishing.path_guard import resolve_cover_path, resolve_video_path
 from services.publishing.registry import get_adapter
 from src.db.models.publishing import PublishJob, PublisherAccount
-from src.utils.config import Config
+from src.utils.paths import resolve_data_path
 
 _SESSION_EXPIRED_MARKERS = ("会话已过期", "请重新扫码", "重新登录")
 
@@ -85,7 +85,7 @@ class PublishOrchestrator:
             first_comment=first_comment,
         )
         adapter = get_adapter(platform)
-        session_file = Config.ROOT_DIR / session_path
+        session_file = resolve_data_path(session_path)
 
         with publish_job_scope(self.session_factory, job_id):
             record_job_log(
@@ -210,7 +210,7 @@ class PublishOrchestrator:
             return {"success": False, "error": reason}
 
         adapter = get_adapter(platform)
-        session_file = Config.ROOT_DIR / session_path
+        session_file = resolve_data_path(session_path)
 
         with publish_job_scope(self.session_factory, job_id):
             record_job_log(self.session_factory, job_id, "开始重试首评")

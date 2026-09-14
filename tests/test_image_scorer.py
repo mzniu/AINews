@@ -64,6 +64,29 @@ def test_prefilter_skips_failed_download(cfg):
     assert result.skip is True
 
 
+def test_prefilter_resolves_data_relative_path(cfg, tmp_path, monkeypatch):
+    data_dir = tmp_path / "appdata"
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
+
+    rel = "data/ingested/src1/art/images/img_001.jpg"
+    img_path = data_dir / "ingested/src1/art/images/img_001.jpg"
+    img_path.parent.mkdir(parents=True, exist_ok=True)
+    from PIL import Image
+
+    Image.new("RGB", (800, 600), color="blue").save(img_path)
+
+    result = prefilter_image(
+        _scorable(local_path=rel),
+        local_file=None,
+        config=cfg,
+    )
+    assert result.skip is False
+    get_data_dir.cache_clear()
+
+
 def test_prefilter_forces_d_grade_for_logo_url(cfg, tmp_path):
     img_path = tmp_path / "logo_test.jpg"
     from PIL import Image

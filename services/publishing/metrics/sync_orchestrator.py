@@ -21,7 +21,7 @@ from services.publishing.metrics.registry import fetch_platform_metrics_items, f
 from services.publishing.metrics.snapshot_store import upsert_metric_snapshot
 from src.db.models.publishing import PublishJob, PublisherAccount
 from src.db.models.publishing_metrics import PublishMetricsSyncRun
-from src.utils.config import Config
+from src.utils.paths import resolve_data_path
 
 SNAPSHOT_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -125,6 +125,32 @@ class MetricsSyncOrchestrator:
             run.error_summary = "; ".join(errors[:5]) if errors else None
             run.finished_at = datetime.utcnow()
             session.commit()
+
+        try:
+            from services.ingestion.article_scorer import load_scoring_config
+            from services.publishing.metrics.mature_metrics import get_mature_platform_metrics
+            from services.publishing.rollout_guard import maybe_apply_kill_switches
+
+            with self.session_factory() as session:
+                mature = get_mature_platform_metrics(
+                    session,
+                    platforms=["wechat_channels", "douyin", "kuaishou"],
+                    horizons=(24,),
+                    published_after=datetime.utcnow() - timedelta(days=14),
+                )
+            applied = maybe_apply_kill_switches(
+                mature,
+                config=load_scoring_config(),
+            )
+            if applied:
+                logger.warning("Publish policy kill-switch applied: {}", applied)
+        except Exception as exc:
+            logger.exception("Kill-switch evaluation failed: {}", exc)
+
+        with self.session_factory() as session:
+            run = session.get(PublishMetricsSyncRun, run_id)
+            if run is None:
+                raise RuntimeError("sync run missing")
             return MetricsSyncRunResult(
                 id=run.id,
                 status=run.status,
@@ -168,7 +194,7 @@ class MetricsSyncOrchestrator:
                 return result
 
             platform = account.platform
-            session_path = Config.ROOT_DIR / account.session_path
+            session_path = resolve_data_path(account.session_path)
             job_dicts = []
             needed_post_ids: set[str] = set()
             for job in jobs:

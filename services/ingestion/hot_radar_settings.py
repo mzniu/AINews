@@ -12,7 +12,7 @@ import yaml
 from src.utils.config import Config
 
 HOT_RADAR_BASE_PATH = Config.ROOT_DIR / "config" / "hot_radar.yaml"
-HOT_RADAR_LOCAL_PATH = Config.ROOT_DIR / "config" / "hot_radar.local.yaml"
+HOT_RADAR_LOCAL_PATH = Config.CONFIG_DIR / "hot_radar.local.yaml"
 
 DEFAULT_BOARDS = [
     {

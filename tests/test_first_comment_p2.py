@@ -42,6 +42,15 @@ def test_pick_work_matches_post_id():
     assert work["photo_id"] == "def"
 
 
+def test_pick_work_fuzzy_title_match():
+    rows = [
+        {"photo_id": "abc", "title": "英伟达 400 亿押注开源，边卖铲子边挖矿"},
+    ]
+    work = pick_work(rows, title="英伟达400亿押注开源，边卖铲子边挖矿", post_id=None)
+    assert work is not None
+    assert work["photo_id"] == "abc"
+
+
 def test_orchestrator_deferred_comment_after_publish(tmp_path, monkeypatch):
     from src.db.engine import init_db, get_session_factory
     from src.db.models.publishing import PublishJob, PublisherAccount

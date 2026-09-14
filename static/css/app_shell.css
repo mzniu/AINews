@@ -50,7 +50,7 @@ body.app-page {
     background: var(--app-bg);
     background-attachment: fixed;
     min-height: 100vh;
-    padding: 88px 24px 40px;
+    padding: 24px 24px 40px 248px;
     color-scheme: dark;
 }
 
@@ -65,56 +65,339 @@ body.app-page {
     border: 0;
 }
 
-/* —— 顶部导航 —— */
-.app-page .app-nav,
-.app-page .navbar {
-    background: rgba(0, 7, 45, 0.88);
-    backdrop-filter: blur(18px);
-    border: 1px solid rgba(18, 52, 153, 0.35);
-    border-top: none;
-    box-shadow: var(--app-shadow-soft);
-    border-radius: 0 0 var(--app-radius-xl) var(--app-radius-xl);
-    padding: 0 24px;
+/* —— 左侧导航 —— */
+.app-page .app-nav {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
+    bottom: 0;
+    width: 224px;
     z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 7, 45, 0.92);
+    backdrop-filter: blur(18px);
+    border-right: 1px solid rgba(18, 52, 153, 0.35);
+    box-shadow: var(--app-shadow-soft);
 }
 
-.app-page .nav-container {
-    max-width: 1280px;
-    margin: 0 auto;
+.app-page .nav-sidebar {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    padding: 18px 12px 12px;
+}
+
+.app-page .nav-brand-row {
+    display: flex;
     align-items: center;
-    height: 64px;
-    gap: 16px;
+    gap: 8px;
+    padding: 0 4px 16px;
+    flex-shrink: 0;
+}
+
+.app-page .nav-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid rgba(232, 234, 246, 0.14);
+    border-radius: 10px;
+    background: rgba(18, 52, 153, 0.35);
+    color: var(--app-off-white);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.app-page .nav-refresh-btn:hover {
+    background: rgba(30, 85, 200, 0.55);
+    border-color: rgba(232, 234, 246, 0.28);
+}
+
+.app-page .nav-refresh-btn:active {
+    transform: scale(0.96);
+}
+
+.app-page .nav-refresh-icon {
+    display: block;
 }
 
 .app-page .nav-brand {
-    font-size: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+    font-size: 1.05rem;
     font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--app-off-white);
     text-decoration: none;
+}
+
+.app-page .nav-brand-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 0;
+    box-shadow: none;
+    flex-shrink: 0;
+    display: block;
+}
+
+.app-page .nav-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.app-page .nav-group {
+    margin-bottom: 14px;
+}
+
+.app-page .nav-group-label {
+    padding: 0 10px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--app-muted);
+}
+
+.app-page .nav-footer {
+    flex-shrink: 0;
+    padding-top: 10px;
+    border-top: 1px solid rgba(232, 234, 246, 0.08);
+}
+
+.app-page .nav-user-menu {
+    position: relative;
+}
+
+.app-page .nav-user-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: none;
+    padding: 8px 8px 8px 6px;
+    border: 1px solid rgba(232, 234, 246, 0.14);
+    border-radius: 14px;
+    background: rgba(18, 52, 153, 0.35);
+    color: var(--app-off-white);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.app-page .nav-user-trigger:hover,
+.app-page .nav-user-menu.is-open .nav-user-trigger {
+    background: rgba(30, 85, 200, 0.55);
+    border-color: rgba(232, 234, 246, 0.28);
+}
+
+.app-page .nav-user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--app-vibrant-blue);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
     flex-shrink: 0;
 }
 
-.app-page .nav-menu {
+.app-page .nav-user-copy {
     display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+    gap: 1px;
+}
+
+.app-page .nav-user-name {
+    font-size: 13px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-page .nav-version {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--app-muted);
+    letter-spacing: 0.02em;
+}
+
+.app-page .nav-user-chevron {
+    flex-shrink: 0;
+    opacity: 0.8;
+    transition: transform 0.15s ease;
+}
+
+.app-page .nav-user-menu.is-open .nav-user-chevron {
+    transform: rotate(180deg);
+}
+
+.app-page .nav-user-dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 8px);
+    top: auto;
+    min-width: 0;
+    width: 100%;
+    background: rgba(8, 18, 48, 0.98);
+    border: 1px solid rgba(18, 52, 153, 0.45);
+    border-radius: var(--app-radius-md);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    padding: 8px;
+    z-index: 1100;
+}
+
+.app-page .nav-user-dropdown[hidden] {
+    display: none;
+}
+
+.app-page .nav-user-dropdown-header {
+    padding: 8px 10px 10px;
+    border-bottom: 1px solid rgba(232, 234, 246, 0.08);
+    margin-bottom: 4px;
+}
+
+.app-page .nav-user-dropdown-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--app-off-white);
+    word-break: break-all;
+}
+
+.app-page .nav-user-dropdown-subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--app-text-soft);
+    line-height: 1.4;
+}
+
+.app-page .nav-user-dropdown-message {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #fbbf24;
+    line-height: 1.4;
+}
+
+.app-page .nav-user-dropdown-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.app-page .nav-user-item {
+    display: block;
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--app-off-white);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.app-page .nav-user-item:hover {
+    background: rgba(18, 52, 153, 0.45);
+}
+
+.app-page .nav-user-item.is-danger {
+    color: #fca5a5;
+}
+
+.app-page .nav-window-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 4px;
+    flex-shrink: 0;
+}
+
+.app-page .nav-window-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--app-off-white);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-page .nav-window-btn:hover {
+    background: rgba(18, 52, 153, 0.55);
+}
+
+.app-page .nav-window-btn-close:hover {
+    background: #e81123;
+    color: #fff;
+}
+
+.desktop-auth-titlebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 40px;
+    padding: 0 8px 0 14px;
+    background: rgba(0, 7, 45, 0.92);
+    border-bottom: 1px solid rgba(18, 52, 153, 0.35);
+}
+
+.desktop-auth-titlebar[hidden] {
+    display: none;
+}
+
+.desktop-auth-titlebar-drag {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a8b4d4;
+    user-select: none;
+}
+
+body.desktop-auth-page {
+    padding-top: 48px;
 }
 
 .app-page .nav-link {
-    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
     text-decoration: none;
     color: var(--app-text-soft);
     font-size: 13px;
     font-weight: 600;
-    border-radius: 999px;
+    border-radius: 10px;
     transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
@@ -131,17 +414,37 @@ body.app-page {
 
 @media (max-width: 720px) {
     body.app-page {
-        padding-top: 120px;
+        padding: 16px 16px 24px 16px;
     }
 
-    .app-page .nav-container {
-        flex-direction: column;
+    .app-page .app-nav {
+        position: static;
+        width: auto;
         height: auto;
-        padding: 12px 0;
+        margin: -16px -16px 16px;
+        border-right: none;
+        border-bottom: 1px solid rgba(18, 52, 153, 0.35);
     }
 
-    .app-page .nav-menu {
-        justify-content: center;
+    .app-page .nav-sidebar {
+        height: auto;
+    }
+
+    .app-page .nav-scroll {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        overflow: visible;
+    }
+
+    .app-page .nav-group {
+        margin-bottom: 0;
+        min-width: 140px;
+    }
+
+    .app-page .nav-user-dropdown {
+        bottom: auto;
+        top: calc(100% + 8px);
     }
 }
 

@@ -552,10 +552,18 @@ def get_article_hot_radar_view(
 
     stored_match: dict[str, Any] | None = None
     hot_radar_dimension: dict[str, Any] | None = None
+    viral_score_total: float | None = None
+    viral_score_grade: str | None = None
+    publish_tier: str | None = None
     if article.score_breakdown_json:
         try:
             breakdown = json.loads(article.score_breakdown_json)
             stored_match = breakdown.get("hot_radar")
+            final = breakdown.get("final") or {}
+            viral = breakdown.get("viral") or {}
+            viral_score_total = final.get("viral_total", viral.get("total"))
+            viral_score_grade = final.get("viral_grade", viral.get("grade"))
+            publish_tier = final.get("publish_tier")
             for dim in breakdown.get("dimensions") or []:
                 if dim.get("key") == "hot_radar":
                     hot_radar_dimension = dim
@@ -569,6 +577,9 @@ def get_article_hot_radar_view(
         "article_url": article.canonical_url,
         "score_total": article.score_total,
         "score_grade": article.score_grade,
+        "viral_score_total": viral_score_total,
+        "viral_score_grade": viral_score_grade,
+        "publish_tier": publish_tier,
         "scored_at": article.scored_at,
         "matched": live_match is not None,
         "match": hot_radar_match_to_dict(live_match),

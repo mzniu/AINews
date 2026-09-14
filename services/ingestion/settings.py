@@ -10,7 +10,7 @@ import yaml
 from src.utils.config import Config
 
 INGESTION_BASE_PATH = Config.ROOT_DIR / "config" / "ingestion_sources.yaml"
-INGESTION_LOCAL_PATH = Config.ROOT_DIR / "config" / "ingestion.local.yaml"
+INGESTION_LOCAL_PATH = Config.CONFIG_DIR / "ingestion.local.yaml"
 
 DEFAULT_WORKER = {
     "poll_interval_sec": 5,

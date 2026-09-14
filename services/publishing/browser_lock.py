@@ -25,7 +25,7 @@ class BrowserLockTimeout(TimeoutError):
 
 
 def _lock_path() -> Path:
-    return Config.ROOT_DIR / "data" / ".playwright.lock"
+    return Config.DATA_DIR / ".playwright.lock"
 
 
 def _is_process_alive_win32(pid: int) -> bool:

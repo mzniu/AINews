@@ -110,6 +110,53 @@ def _resolve_media_paths(article: IngestedArticle) -> tuple[str, str | None]:
     return to_relative_posix(video), cover_rel
 
 
+class PublishPayloadError(ValueError):
+    """A candidate cannot safely be converted into a publish job."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def create_ingestion_publish_job(
+    session: Session,
+    *,
+    article: IngestedArticle,
+    account: PublisherAccount,
+    scheduled_at,
+    media_paths: tuple[str, str | None] | None = None,
+    draft=None,
+) -> PublishJob:
+    """Build and flush one ingestion-backed job after all validation passes."""
+    video_path, cover_path = media_paths or _resolve_media_paths(article)
+    active_draft = draft or draft_from_video_draft(_parse_video_draft(article))
+    fields = _build_fields_for_platform(article, account.platform)
+    title = (fields.get("title") or "").strip()
+    description = (fields.get("description") or "").strip() or None
+    tags = fields.get("tags") or []
+    compliance = validate_publish_payload(title, description, tags)
+    if not compliance.ok:
+        raise PublishPayloadError("compliance_violation")
+
+    job = PublishJob(
+        account_id=account.id,
+        video_path=video_path,
+        title=title,
+        description=description,
+        tags_json=json.dumps(tags, ensure_ascii=False),
+        cover_path=None if account.platform == "douyin" else cover_path,
+        source_type=SOURCE_TYPE,
+        source_id=article.id,
+        status="pending",
+        scheduled_at=scheduled_at,
+        first_comment_text=(active_draft.first_comment or "").strip() or None,
+        comment_status="none",
+    )
+    session.add(job)
+    session.flush()
+    return job
+
+
 def maybe_enqueue_auto_publish_jobs(
     session: Session,
     article: IngestedArticle,
@@ -117,6 +164,39 @@ def maybe_enqueue_auto_publish_jobs(
     config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create one pending publish job per active platform account. Never raises."""
+    active_config = config or load_scoring_config()
+    if bool(active_config.get("publish_policy", {}).get("enabled", False)):
+        from services.publishing.candidate_queue import evaluate_article_candidates
+        from services.publishing.rollout_guard import platform_kill_switch_active
+
+        result = evaluate_article_candidates(session, article, active_config)
+        policy = active_config.get("publish_policy") or {}
+        killed = [
+            platform
+            for platform, platform_config in (policy.get("platforms") or {}).items()
+            if isinstance(platform_config, dict)
+            and platform_kill_switch_active(platform_config)
+        ]
+        if killed:
+            legacy = _enqueue_legacy_jobs(
+                session,
+                article,
+                config=active_config,
+                platforms=set(killed),
+            )
+            return {**result, "legacy_fallback": legacy}
+        return result
+
+    return _enqueue_legacy_jobs(session, article, config=active_config)
+
+
+def _enqueue_legacy_jobs(
+    session: Session,
+    article: IngestedArticle,
+    *,
+    config: dict[str, Any] | None = None,
+    platforms: set[str] | None = None,
+) -> dict[str, Any]:
     cfg = load_auto_publish_config(config)
     if not cfg.get("enabled", True):
         return {"skipped": True, "reason": "disabled"}
@@ -147,6 +227,8 @@ def maybe_enqueue_auto_publish_jobs(
         return {"skipped": True, "reason": "invalid_media_path", "error": str(exc)}
 
     accounts = _select_accounts_for_auto_publish(session)
+    if platforms is not None:
+        accounts = [account for account in accounts if account.platform in platforms]
     if not accounts:
         return {"skipped": True, "reason": "no_active_accounts"}
 
@@ -185,47 +267,28 @@ def maybe_enqueue_auto_publish_jobs(
             continue
 
         try:
-            fields = _build_fields_for_platform(article, account.platform)
+            job = create_ingestion_publish_job(
+                session,
+                article=article,
+                account=account,
+                scheduled_at=slot,
+                media_paths=(video_path, cover_path),
+                draft=draft,
+            )
         except PlatformNotFoundError as exc:
             skipped.append(
                 {"account_id": account.id, "platform": account.platform, "reason": str(exc)}
             )
             continue
-
-        title = (fields.get("title") or "").strip()
-        description = (fields.get("description") or "").strip() or None
-        tags = fields.get("tags") or []
-        compliance = validate_publish_payload(title, description, tags)
-        if not compliance.ok:
+        except PublishPayloadError as exc:
             skipped.append(
                 {
                     "account_id": account.id,
                     "platform": account.platform,
-                    "reason": "compliance_violation",
+                    "reason": exc.reason,
                 }
             )
             continue
-
-        job_cover_path = cover_path
-        if account.platform == "douyin":
-            job_cover_path = None
-
-        job = PublishJob(
-            account_id=account.id,
-            video_path=video_path,
-            title=title,
-            description=description,
-            tags_json=json.dumps(tags, ensure_ascii=False),
-            cover_path=job_cover_path,
-            source_type=SOURCE_TYPE,
-            source_id=article.id,
-            status="pending",
-            scheduled_at=slot,
-            first_comment_text=(draft.first_comment or "").strip() or None,
-            comment_status="none",
-        )
-        session.add(job)
-        session.flush()
         created.append(
             {
                 "job_id": job.id,
@@ -243,4 +306,4 @@ def maybe_enqueue_auto_publish_jobs(
 
     if created:
         return {"enqueued": True, "jobs": created, "skipped": skipped}
-    return {"skipped": True, "reason": "nothing_created", "details": skipped}
+    return {"skipped": True, "reason": "nothing_created", "details": skipped, "jobs": [], "enqueued": False}

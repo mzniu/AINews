@@ -25,7 +25,7 @@ def test_build_methodology_prompt_includes_forbidden_words_constraint():
     assert "16" in prompt
     assert "标点" in prompt
     assert "必须以感叹词开头" not in prompt
-    assert "55-65 字" in prompt
+    assert "100-130 字" in prompt
     assert "前3秒" in prompt or "前 3 秒" in prompt
     assert "不要以「小牛说」开头" in prompt or "不要以「小牛说：" in prompt
     assert "可回答的争议" in prompt or "评论开口" in prompt

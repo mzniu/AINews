@@ -1,23 +1,219 @@
 # 快讯向选题评分配置（规则分 0-100，各维度 0-10 后乘权重）
 profile: flash_news
+policy_version: 1
+
+# 所有正向行业加分共享此上限。
+industry_bonus:
+  max_total_points: 8
+
+# 后续平台候选与预算调度使用。默认关闭，仅保留影子评估配置。
+publish_policy:
+  policy_version: 1
+  enabled: false
+  shadow_mode: true
+  rollout:
+    max_queue_days: 2
+    kill_switch:
+      min_samples: 20
+      min_median_views: 700
+      min_completion_rate: 0.30
+    stage_gates:
+      wechat_channels:
+        min_samples: 20
+        min_median_views: 1000
+        min_hit_rate_10k: 0.30
+        min_completion_rate: 0.34
+        max_publish_failure_rate: 0.10
+      douyin:
+        min_samples: 20
+        max_below_1k_rate: 0.30
+        protect_baseline: true
+      kuaishou:
+        min_samples: 10
+        require_metrics_match: true
+  time_window:
+    timezone: Asia/Shanghai
+    default_start: "07:00"
+    default_end: "22:00"
+  defaults:
+    overflow_action: defer
+    window_start: "07:00"
+    window_end: "22:00"
+  platforms:
+    wechat_channels:
+      enabled: false
+      shadow_mode: true
+      rollout_stage: 1
+      daily_limit: 8
+      window_start: "08:00"
+      window_end: "22:00"
+      experiment_slots: ["15:10", "16:20", "17:10", "18:10"]
+      control_slots: ["08:10", "10:20", "20:10", "21:40"]
+      slots: ["08:10", "10:20", "15:10", "16:20", "17:10", "18:10", "20:10", "21:40"]
+      thresholds:
+        industry_min_grade: A
+        viral_min_grade: A
+      weights:
+        industry_total: 0.35
+        viral_total: 0.35
+        motives:
+          public_issue: 1.0
+          identity: 1.0
+          emotional_arousal: 1.0
+        platform_fit_bonus: 10
+      duplicate_penalty: 12
+      kill_switch:
+        active: false
+    douyin:
+      enabled: false
+      shadow_mode: true
+      rollout_stage: 2
+      daily_limit: 10
+      window_start: "07:00"
+      window_end: "22:00"
+      slots: ["07:00", "08:30", "10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00", "21:00"]
+      thresholds:
+        industry_min_grade: A
+        viral_min_grade: B
+      weights:
+        industry_total: 0.35
+        viral_total: 0.40
+        motives:
+          social_currency: 1.0
+          emotional_arousal: 1.0
+        platform_fit_bonus: 10
+      duplicate_penalty: 12
+      kill_switch:
+        active: false
+    kuaishou:
+      enabled: false
+      shadow_mode: true
+      rollout_stage: 3
+      daily_limit: 5
+      window_start: "08:00"
+      window_end: "22:00"
+      paused: false
+      pause_windows: []
+      slots: ["08:50", "11:00", "14:00", "18:30", "22:00"]
+      thresholds:
+        industry_min_grade: A
+        motive_min_score: 6
+      weights:
+        industry_total: 0.35
+        viral_total: 0.25
+        motives:
+          identity: 1.5
+          social_currency: 1.5
+        platform_fit_bonus: 10
+      duplicate_penalty: 10
+      kill_switch:
+        active: false
 
 weights:
-  timeliness: 0.15
-  prominence: 0.15
+  timeliness: 0.14
+  prominence: 0.16
   event_tension: 0.20
-  breakthrough: 0.10
-  product_heat: 0.08
-  hook: 0.12
-  relevance: 0.12
-  data_signal: 0.02
-  creatability: 0.02
-  hot_radar: 0.04
+  breakthrough: 0.12
+  product_heat: 0.10
+  relevance: 0.14
+  data_signal: 0.04
+  creatability: 0.04
+  hot_radar: 0.06
 
 grades:
-  S: 85
+  S: 88
   A: 70
   B: 55
   C: 40
+
+public_issue_signals:
+  - CEO
+  - 卸任
+  - 接任
+  - 战略转向
+  - 监管
+  - 禁令
+  - 制裁
+  - 大规模裁员
+  - 千人裁员
+
+viral_scoring:
+  enabled: true
+  grades:
+    S: 75
+    A: 60
+    B: 45
+    C: 30
+  hook_gate:
+    min_dimensions: 2
+  motives:
+    social_currency:
+      weight: 0.30
+      shock_words: [暴涨, 暴跌, 翻倍, 10倍]
+    emotional_arousal:
+      weight: 0.25
+      signals: [离职, 裁员, 开除, 叫停, 翻车, 对峙, 决裂, 内斗, 收购, 买走, 被曝, 闭关, 质疑]
+    identity:
+      weight: 0.25
+      signals: [00后, 博士, 红娘, 天才, 少年, 创业, 退款, 结婚]
+    public_issue:
+      weight: 0.20
+      signals: [CEO, 卸任, 接任, 监管, 禁令, 制裁]
+      require_tier1: true
+  bonuses:
+    hot_radar_entry:
+      max_rank: 20
+      points: 10
+    multi_source:
+      min_articles: 2
+      points: 6
+    all_motives_present:
+      min_score: 5.0
+      points: 8
+    money_shock:
+      min_social_score: 8.0
+      points: 20
+    personnel_conflict:
+      min_emotional_score: 6.0
+      min_prominence_score: 8.0
+      points: 12
+    identity_highlight:
+      min_identity_score: 6.0
+      points: 8
+    layoff_shock:
+      signals: [裁员, 开除, 走人, 裁员]
+      min_emotional_score: 7.0
+      min_prominence_score: 8.0
+      points: 18
+    financial_exposure:
+      signals: [收入, 营收, 被曝, 估值, 融资]
+      min_social_score: 8.0
+      points: 12
+    consumer_story:
+      min_identity_score: 8.0
+      min_social_score: 6.0
+      points: 12
+    ceo_vision:
+      min_public_issue_score: 6.0
+      min_social_score: 8.0
+      points: 10
+    tier1_scale:
+      signals: [万亿, 亿人, 万参数, 参数]
+      min_prominence_score: 8.5
+      points: 8
+  platform_fit:
+    wechat_channels: [emotional_arousal, public_issue, identity]
+    douyin: [social_currency, emotional_arousal]
+    kuaishou: [identity, social_currency]
+
+publish_tier:
+  viral_min_grade: A
+  industry_min_grade: S
+  industry_standard_grade: A
+  viral_low_grade: B
+  skip_industry_grade: B
+  skip_viral_grade: C
+  standard_min_score: 80
 
 bonuses:
   multi_source_story:
@@ -27,6 +223,38 @@ bonuses:
   view_count_tier1_points: 2
   view_count_tier2: 10000
   view_count_tier2_points: 4
+  personnel_exodus:
+    signals: [离职, 出走, 跳槽]
+    min_prominence_score: 8.0
+    points: 6
+  layoff_crisis:
+    signals: [裁员, 开除, 叫停]
+    min_prominence_score: 8.0
+    min_event_tension_score: 6.0
+    points: 8
+  financial_disclosure:
+    signals: [收入, 营收, 被曝, 估值]
+    min_prominence_score: 8.0
+    points: 6
+  mega_parameter:
+    signals: [万亿, 万参数, 535B, 参数]
+    min_prominence_score: 8.5
+    points: 5
+  open_training:
+    core_signals: [直播, 训练]
+    open_signals: [Loss, 全公开, 开源, 公开]
+    min_breakthrough_score: 8.0
+    points: 8
+  executive_voice:
+    signals: [发声, 表态, 回应]
+    min_prominence_score: 8.5
+    points: 6
+  workforce_shock:
+    signals: [裁员, 开除, 走人]
+    data_signals: [暴涨, 反增, 暴增, 220%]
+    min_prominence_score: 8.0
+    min_event_tension_score: 8.0
+    points: 10
 
 penalties:
   marketing_only: -8
@@ -34,9 +262,15 @@ penalties:
   insufficient_images:
     min_images: 3
     points: -6
+    exempt_when:
+      timeliness_score_gte: 9
+      breaking_news_signals: [裁员, 离职, 被曝, 叫停, 收购, 买走]
+      breaking_news_prominence_gte: 8.0
+      breaking_news_timeliness_gte: 8.0
   off_topic:
     max_relevance_score: 5
     points: -12
+    exempt_public_issue: true
 
 event_tension_signals:
   - 离职
@@ -61,6 +295,27 @@ event_tension_signals:
   - 倒闭
   - 内斗
   - 决裂
+  - 叫停
+  - 换人
+  - 资助
+  - 直播
+  - 收入
+  - 营收
+  - 发声
+  - 曝
+  - 训练
+
+event_tension_high_stakes:
+  - 裁员
+  - 离职
+  - 收购
+  - 买走
+  - 禁令
+  - 被曝
+  - 消失
+  - 叫停
+  - 融资
+  - IPO
 
 tier1_companies:
   - OpenAI

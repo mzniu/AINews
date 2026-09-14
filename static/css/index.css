@@ -78,7 +78,6 @@ body {
     background: var(--bg-body);
     min-height: 100vh;
     padding: var(--space-6);
-    padding-top: 80px; /* 为固定导航栏留出空间 */
 }
 
 .container {

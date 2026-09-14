@@ -51,7 +51,7 @@ boards:
     weight: 0.85
 
 scoring:
-  unmatched: 2.0
+  unmatched: 0.0
   rank_1_3: 10.0
   rank_4_10: 8.5
   rank_11_20: 7.0

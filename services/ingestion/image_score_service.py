@@ -23,6 +23,7 @@ from services.ingestion.image_scorer import (
     rank_evaluations,
 )
 from services.model_config.registry import get_active_vision_profile
+from src.utils.paths import resolve_local_asset_path
 from src.db.models.ingestion import (
     ArticleImage,
     ImageRelevanceEvaluation,
@@ -214,7 +215,7 @@ def _score_candidates(
     skipped = 0
 
     for image in candidates:
-        local_file = Path(image.local_path) if image.local_path else None
+        local_file = resolve_local_asset_path(image.local_path)
         pre = prefilter_image(image, local_file=local_file, config=cfg)
         if pre.skip:
             skipped += 1

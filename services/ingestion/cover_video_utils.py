@@ -8,6 +8,7 @@ from loguru import logger
 from PIL import Image
 
 from src.utils.config import Config
+from src.utils.paths import path_relative_to_data, resolve_local_asset_path, to_data_url_path, use_writable_workdir
 
 DEFAULT_INTRO_DURATION_SEC = 1.0 / 24
 
@@ -130,8 +131,11 @@ def letterbox_image_on_canvas(
 
 
 def _resolve_media_path(raw: str) -> Path:
-    cleaned = str(raw or "").strip().lstrip("/").replace("\\", "/")
-    return (Config.ROOT_DIR / cleaned).resolve()
+    resolved = resolve_local_asset_path(raw)
+    if resolved is None:
+        cleaned = str(raw or "").strip().lstrip("/").replace("\\", "/")
+        return (Config.ROOT_DIR / cleaned).resolve()
+    return resolved
 
 
 def prepend_cover_intro_to_video(
@@ -171,15 +175,16 @@ def prepend_cover_intro_to_video(
         final = concatenate_videoclips([intro, video], method="compose")
 
     try:
-        final.write_videofile(
-            str(temp_output),
-            fps=fps,
-            codec="libx264",
-            audio_codec="aac" if video.audio is not None else None,
-            temp_audiofile="temp-audio.m4a" if video.audio is not None else None,
-            remove_temp=True,
-            logger=None,
-        )
+        with use_writable_workdir("videos"):
+            final.write_videofile(
+                str(temp_output),
+                fps=fps,
+                codec="libx264",
+                audio_codec="aac" if video.audio is not None else None,
+                temp_audiofile="temp-audio.m4a" if video.audio is not None else None,
+                remove_temp=True,
+                logger=None,
+            )
         temp_output.replace(video_file)
     finally:
         for clip in (intro, video, final):
@@ -188,7 +193,7 @@ def prepend_cover_intro_to_video(
             except Exception:
                 pass
 
-    rel = f"/{video_file.relative_to(Config.ROOT_DIR).as_posix()}"
+    rel = to_data_url_path(path_relative_to_data(video_file))
     logger.info(f"Prepended cover intro to video: {rel} ({intro_duration}s)")
     return {
         "success": True,

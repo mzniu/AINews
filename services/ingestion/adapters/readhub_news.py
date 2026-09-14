@@ -15,6 +15,22 @@ from src.utils.config import Config
 
 _TOPIC_PATH = re.compile(r"/topic/[A-Za-z0-9]+")
 _PAYWALL_MARKERS = ("专业版", "登录后", "收藏专业版")
+_BAD_IMAGE_HINTS = (
+    "/icons/",
+    "/icon/",
+    ".svg",
+    "bookmark",
+    "icn-",
+    "favicon",
+    "logo",
+)
+
+
+def _is_content_image_url(url: str) -> bool:
+    lower = (url or "").strip().lower()
+    if not lower or lower.startswith("data:"):
+        return False
+    return not any(hint in lower for hint in _BAD_IMAGE_HINTS)
 
 
 class ReadhubNewsAdapter:
@@ -85,6 +101,11 @@ class ReadhubNewsAdapter:
         content_root = soup.select_one("article") or soup.select_one("main")
         paragraphs: list[str] = []
         images: list[str] = []
+        og_image = soup.find("meta", property="og:image")
+        if og_image and og_image.get("content"):
+            og_url = self._abs_url(str(og_image["content"]).strip())
+            if _is_content_image_url(og_url):
+                images.append(og_url)
         if content_root:
             for p in content_root.select("p"):
                 text = p.get_text("\n", strip=True)
@@ -92,8 +113,13 @@ class ReadhubNewsAdapter:
                     paragraphs.append(text)
             for img in content_root.select("img[src]"):
                 src = (img.get("src") or "").strip()
-                if src and not src.startswith("data:"):
-                    images.append(self._abs_url(src))
+                if not src or src.startswith("data:"):
+                    continue
+                abs_url = self._abs_url(src)
+                if not _is_content_image_url(abs_url):
+                    continue
+                if abs_url not in images:
+                    images.append(abs_url)
 
         paragraphs = self._clean_paragraphs(paragraphs)
         content_text = "\n\n".join(paragraphs)

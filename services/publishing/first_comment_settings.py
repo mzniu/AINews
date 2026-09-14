@@ -8,7 +8,7 @@ import yaml
 from services.publishing.registry import load_publishing_yaml
 from src.utils.config import Config
 
-PUBLISHING_LOCAL_PATH = Config.ROOT_DIR / "config" / "publishing_platforms.local.yaml"
+PUBLISHING_LOCAL_PATH = Config.CONFIG_DIR / "publishing_platforms.local.yaml"
 
 
 def _load_yaml(path) -> dict[str, Any]:

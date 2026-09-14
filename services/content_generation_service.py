@@ -9,7 +9,7 @@ from loguru import logger
 from openai import OpenAI
 
 from utils.content_compliance import invoke_json_llm_with_compliance
-from services.content_prompts import get_system_role, json_main_line1_hint, json_short_title_hint
+from services.content_prompts import get_system_role, json_main_line1_hint, json_short_title_hint, json_summary_hint
 from utils.title_units import resolve_short_title
 from utils.content_methodology import build_methodology_prompt_section
 from utils.summary_highlights import normalize_highlight_keywords_from_llm
@@ -56,7 +56,7 @@ def generate_video_content(
   "main_line2": "主标题第二行（有争议钩子才写，以「网友：」开头；没有争议钩子必须空字符串）",
   "sub_title": "副标题第一行（11~15汉字当量，轻观点收尾，不含emoji）",
   "sub_title2": "副标题第二行（11~15汉字当量，七种流量钩子之一，可空字符串）",
-  "summary": "生成的摘要（55-65字，以「小牛说：」开头）",
+  "summary": "{json_summary_hint()}",
   "tags": "#赛道标签 #垂直标签 #精准标签 #热点标签 #小牛说 #其他标签1 #其他标签2 #其他标签3 #其他标签4 #其他标签5",
   "voiceover_script": "口播稿全文（{vmin}~{vmax}字，前3秒点出主体+数字+冲突，不要以「小牛说：」开头，结尾留可回答争议，禁止点赞关注）",
   "first_comment": "首评文案（15~50字，问句优先，承接口播结尾争议，禁止emoji与链接）",

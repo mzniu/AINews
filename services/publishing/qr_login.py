@@ -29,7 +29,7 @@ def process_qr_session(session_factory: sessionmaker, session_id: str) -> None:
         cfg = get_platform_config(platform)
         defaults = load_publishing_yaml().get("defaults") or {}
         adapter = get_adapter(platform)
-        qr_dir = Config.ROOT_DIR / "data" / "publish" / "qr"
+        qr_dir = Config.DATA_DIR / "publish" / "qr"
         ctx = QrLoginContext(
             session_id=session_id,
             login_url=cfg.get("login_url", ""),
@@ -121,7 +121,7 @@ def _upsert_account(
         session.add(account)
         session.flush()
 
-    session_path = Config.ROOT_DIR / "data" / "publish" / "sessions" / f"{account.id}.enc"
+    session_path = Config.DATA_DIR / "publish" / "sessions" / f"{account.id}.enc"
     adapter = get_adapter(platform)
     adapter.persist_storage_state(session_path, storage_state_json)
     account.session_path = f"data/publish/sessions/{account.id}.enc"

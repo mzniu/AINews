@@ -63,7 +63,7 @@ def run_standalone_first_comment(
     try:
         with open_adapter_browser(session_path, mode="publish") as sess:
             page = sess.page
-            if platform_id == "wechat_channels":
+            if platform_id in {"wechat_channels", "kuaishou"}:
                 page.goto(creator_url, wait_until="domcontentloaded", timeout=60_000)
             else:
                 open_creator_pages(

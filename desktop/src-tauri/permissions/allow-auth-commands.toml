@@ -1,0 +1,31 @@
+[[permission]]
+identifier = "allow-auth-commands"
+description = "AINews UserCenter auth and desktop navigation"
+commands.allow = [
+  "auth_get_status",
+  "auth_login",
+  "auth_register",
+  "auth_logout",
+  "auth_redeem_offline_code",
+  "auth_clear_offline",
+  "auth_refresh",
+  "auth_change_password",
+  "auth_request_password_reset",
+  "auth_health_check",
+  "auth_send_phone_code",
+  "auth_get_captcha",
+  "auth_save_remembered_password",
+  "auth_load_remembered_password",
+  "auth_clear_remembered_password",
+  "auth_list_remembered_emails",
+  "auth_phone_login",
+  "auth_phone_register",
+  "auth_bind_phone",
+  "auth_bootstrap_completed",
+  "auth_start_app",
+  "ainews_show_login",
+  "desktop_window_minimize",
+  "desktop_window_toggle_maximize",
+  "desktop_window_close",
+  "desktop_window_is_maximized",
+]

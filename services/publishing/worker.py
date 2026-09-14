@@ -24,7 +24,7 @@ from src.db.engine import get_session_factory, init_db
 from src.db.models.publishing import PublishJob, QrLoginSession
 from src.utils.config import Config
 
-HEARTBEAT_PATH = Config.ROOT_DIR / "data" / "publish" / "worker_heartbeat"
+HEARTBEAT_PATH = Config.DATA_DIR / "publish" / "worker_heartbeat"
 ACTIVE_QR = ("pending", "processing")
 
 # Set by web_server when PUBLISH_WORKER_MODE=embedded
@@ -57,6 +57,7 @@ class PublishWorker:
         self.scheduler = scheduler_cls(timezone="Asia/Shanghai")
 
     def _register_poll_job(self) -> None:
+        self._register_candidate_dispatch_job()
         self.scheduler.add_job(
             self._try_process_qr_login,
             "interval",
@@ -75,6 +76,56 @@ class PublishWorker:
         )
         self._register_keepalive_job()
         self._register_metrics_sync_job()
+        self._register_comment_reply_job()
+
+    def _register_candidate_dispatch_job(self, config=None) -> None:
+        from services.ingestion.article_scorer import load_scoring_config
+
+        active = config or load_scoring_config()
+        policy = active.get("publish_policy") or {}
+        if not policy.get("enabled", False):
+            return
+        if any(
+            job.id == "dispatch_publish_candidates"
+            for job in self.scheduler.get_jobs()
+        ):
+            return
+        seconds = max(15, int(policy.get("dispatch_interval_seconds", 60)))
+        self.scheduler.add_job(
+            self._run_candidate_dispatch,
+            "interval",
+            seconds=seconds,
+            id="dispatch_publish_candidates",
+            max_instances=1,
+            replace_existing=True,
+        )
+        logger.info("Candidate dispatch scheduled every %s second(s)", seconds)
+
+    def _register_comment_reply_job(self) -> None:
+        from services.publishing.comment_reply.config import load_comment_reply_config
+
+        cfg = load_comment_reply_config()
+        if not cfg.get("enabled"):
+            return
+        cron = str(cfg.get("cron", "0 * * * *"))
+        parts = cron.split()
+        if len(parts) != 5:
+            logger.warning("Invalid comment_reply.cron %r, using 0 * * * *", cron)
+            parts = ["0", "*", "*", "*", "*"]
+        minute, hour, day, month, day_of_week = parts
+        self.scheduler.add_job(
+            self._run_comment_reply_scan,
+            "cron",
+            minute=minute,
+            hour=hour,
+            day=day,
+            month=month,
+            day_of_week=day_of_week,
+            id="comment_reply_scan",
+            max_instances=1,
+            replace_existing=True,
+        )
+        logger.info("Comment reply scan scheduled: %s", cron)
 
     def _register_metrics_sync_job(self) -> None:
         from services.publishing.metrics.config import load_metrics_sync_config
@@ -245,6 +296,67 @@ class PublishWorker:
 
         threading.Thread(target=_run, daemon=True, name="metrics-sync").start()
 
+    def _run_comment_reply_scan(self) -> None:
+        if not self._poll_lock.acquire(blocking=False):
+            return
+
+        def _run() -> None:
+            try:
+                from services.publishing.job_recovery import has_active_publish_job
+                from services.publishing.comment_reply.orchestrator import CommentReplyOrchestrator
+
+                with self.session_factory() as session:
+                    if has_active_publish_job(session):
+                        logger.info("Skip comment reply scan: publish job in progress")
+                        return
+                result = CommentReplyOrchestrator(self.session_factory).run_scheduled_cycle()
+                if result is None:
+                    return
+                logger.info(
+                    "Comment reply cycle finished: accounts=%s pending=%s auto=%s retried=%s",
+                    result.accounts_total,
+                    result.new_pending,
+                    result.auto_sent,
+                    result.retried,
+                )
+            except Exception as exc:
+                logger.exception("Comment reply scan tick failed: %s", exc)
+            finally:
+                self._poll_lock.release()
+
+        threading.Thread(target=_run, daemon=True, name="comment-reply-scan").start()
+
+    def _run_candidate_dispatch(self) -> None:
+        if not self._poll_lock.acquire(blocking=False):
+            return
+
+        def _run() -> None:
+            try:
+                from services.publishing.candidate_queue import dispatch_daily_candidates
+
+                def dispatch():
+                    with self.session_factory() as session:
+                        result = dispatch_daily_candidates(session)
+                        session.commit()
+                        return result
+
+                result = run_with_sqlite_retry(dispatch)
+                if result.get("dispatched"):
+                    logger.info(
+                        "Candidate dispatch created %s publish job(s)",
+                        len(result["dispatched"]),
+                    )
+            except Exception as exc:
+                logger.exception("Candidate dispatch tick failed: %s", exc)
+            finally:
+                self._poll_lock.release()
+
+        threading.Thread(
+            target=_run,
+            daemon=True,
+            name="candidate-dispatch",
+        ).start()
+
     def _poll_once(self) -> None:
         """Backward-compatible entry: QR first, then publish jobs."""
         with self.session_factory() as session:
@@ -280,9 +392,19 @@ class PublishWorker:
         return run_with_sqlite_retry(claim)
 
     def _claim_pending_job(self) -> str | None:
-        from services.publishing.schedule import INGESTION_SOURCE, in_quiet_hours, load_spacing_config
+        from services.ingestion.article_scorer import load_scoring_config
+        from services.publishing.schedule import (
+            INGESTION_SOURCE,
+            in_quiet_hours,
+            load_spacing_config,
+            maybe_compact_pending_schedule,
+        )
 
-        spacing = load_spacing_config()
+        active_config = load_scoring_config()
+        policy_enabled = bool(
+            (active_config.get("publish_policy") or {}).get("enabled", False)
+        )
+        spacing = load_spacing_config(active_config)
 
         def claim() -> str | None:
             with self.session_factory() as session:
@@ -290,6 +412,9 @@ class PublishWorker:
                     return None
                 if has_pending_qr_login(session):
                     return None
+                if not policy_enabled:
+                    maybe_compact_pending_schedule(session, config=spacing)
+                    session.commit()
                 now = datetime.utcnow()
                 jobs = (
                     session.query(PublishJob)

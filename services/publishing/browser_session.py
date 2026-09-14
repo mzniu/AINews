@@ -68,7 +68,7 @@ def _default_headless(mode: PublishSessionMode, override: bool | None) -> bool:
 
 
 def _session_enc_path_for_key(profile_key: str) -> Path:
-    return Config.ROOT_DIR / "data" / "publish" / "sessions" / f"{profile_key}.enc"
+    return Config.DATA_DIR / "publish" / "sessions" / f"{profile_key}.enc"
 
 
 def _bootstrap_publish_fingerprint(page, profile_key: str, *, mode: PublishSessionMode) -> None:
@@ -152,7 +152,7 @@ def open_legacy_stealth_session(
     """Legacy Playwright Chromium + encrypted storage_state snapshot."""
     from playwright.sync_api import sync_playwright
 
-    temp_state = Config.ROOT_DIR / "data" / "publish" / "_legacy_state.json"
+    temp_state = Config.DATA_DIR / "publish" / "_legacy_state.json"
     account_id = account_id_from_session_path(session_path) or "unknown"
     with browser_lock(timeout_sec=load_publish_lock_timeout_sec()):
         playwright = sync_playwright().start()

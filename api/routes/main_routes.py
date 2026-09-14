@@ -8,77 +8,86 @@ import asyncio
 import os
 
 from src.models.github_models import GitHubVoiceoverRequest, GitHubVoiceoverResponse
+from src.utils.config import Config
 
 router = APIRouter()
+
+
+def _read_static_html(name: str) -> str:
+    path = Config.ROOT_DIR / "static" / name
+    if not path.is_file():
+        raise HTTPException(status_code=500, detail=f"页面文件不存在: {path}")
+    return path.read_text(encoding="utf-8")
 
 @router.get("/", response_class=HTMLResponse)
 async def root():
     """主页"""
-    with open(os.path.join("static", "index.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("index.html")
 
 @router.get("/video-maker", response_class=HTMLResponse)
 async def video_maker_page():
     """视频制作页面"""
-    with open(os.path.join("static", "video_maker.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("video_maker.html")
 
 @router.get("/video-editor3", response_class=HTMLResponse)
 async def video_editor3_page():
     """视频文字编辑器页面"""
-    with open(os.path.join("static", "video_editor3.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("video_editor3.html")
 
 @router.get("/github-video-maker", response_class=HTMLResponse)
 async def github_video_maker_page():
     """GitHub项目视频制作页面"""
-    with open(os.path.join("static", "github_video_maker.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("github_video_maker.html")
 
 @router.get("/digital-human", response_class=HTMLResponse)
 async def digital_human_page():
     """数字人视频生成页面"""
-    with open(os.path.join("static", "digital_human.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("digital_human.html")
 
 @router.get("/ingestion-library", response_class=HTMLResponse)
 async def ingestion_library_page():
     """资讯库：定时抓取入库文章的浏览与选题"""
-    with open(os.path.join("static", "ingestion_library.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("ingestion_library.html")
 
 
 @router.get("/hot-radar", response_class=HTMLResponse)
 async def hot_radar_page():
     """热榜雷达：新浪 AI 热榜快照与文章命中详情"""
-    with open(os.path.join("static", "hot_radar.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("hot_radar.html")
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page():
     """系统配置：模型 + 爬取设定"""
-    with open(os.path.join("static", "settings.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("settings.html")
 
 
 @router.get("/model-settings", response_class=HTMLResponse)
 async def model_settings_page():
     """兼容旧链接 → 系统配置"""
-    with open(os.path.join("static", "settings.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("settings.html")
 
 @router.get("/publish-queue", response_class=HTMLResponse)
 async def publish_queue_page():
     """发布队列：仅查看待发布任务与改期"""
-    with open(os.path.join("static", "publish_queue.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("publish_queue.html")
 
 
 @router.get("/publish-center", response_class=HTMLResponse)
 async def publish_center_page():
     """发布中心：自媒体账号管理与半自动发布"""
-    with open(os.path.join("static", "publish_center.html"), "r", encoding="utf-8") as f:
-        return f.read()
+    return _read_static_html("publish_center.html")
+
+
+@router.get("/publish-metrics", response_class=HTMLResponse)
+async def publish_metrics_page():
+    """已发布数据：作品指标同步与趋势"""
+    return _read_static_html("publish_metrics.html")
+
+
+@router.get("/publish-comments", response_class=HTMLResponse)
+async def publish_comments_page():
+    """评论管理：观众评论扫描与回复"""
+    return _read_static_html("publish_comments.html")
 
 @router.get("/health")
 async def health():

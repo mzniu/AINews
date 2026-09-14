@@ -25,8 +25,14 @@ _AUTO_PUBLISH_CFG = {
 @pytest.fixture
 def db_session(tmp_path, monkeypatch):
     db_path = tmp_path / "auto_publish.db"
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
     monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
     monkeypatch.setattr("src.utils.config.Config.ROOT_DIR", tmp_path)
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
     init_db()
     from src.db.engine import get_session_factory
 
@@ -149,6 +155,38 @@ def test_auto_publish_skips_when_disabled(db_session, tmp_path):
     assert db_session.query(PublishJob).count() == 0
 
 
+def test_policy_disabled_legacy_path_skips_inactive_only_accounts(
+    db_session, tmp_path
+):
+    article = IngestedArticle(
+        id="art_inactive",
+        source_id="src1",
+        canonical_url="https://example.com/inactive",
+        title="标题",
+        score_grade="S",
+        score_total=90.0,
+        generated_video_path=_seed_video(tmp_path, "art_inactive"),
+    )
+    db_session.add(article)
+    db_session.add(
+        PublisherAccount(
+            id="inactive-dy",
+            platform="douyin",
+            nickname="inactive",
+            session_path="data/publish/sessions/inactive.json",
+            status="expired",
+        )
+    )
+    db_session.commit()
+
+    result = maybe_enqueue_auto_publish_jobs(
+        db_session, article, config=_AUTO_PUBLISH_CFG
+    )
+
+    assert result == {"skipped": True, "reason": "no_active_accounts"}
+    assert db_session.query(PublishJob).count() == 0
+
+
 def test_auto_publish_skips_duplicate_jobs(db_session, tmp_path):
     article = IngestedArticle(
         id="art_dup",
@@ -221,3 +259,124 @@ def test_auto_publish_allows_grade_at_threshold(db_session, tmp_path):
     )
     assert result["enqueued"] is True
     assert db_session.query(PublishJob).count() == 1
+
+
+def test_enabled_publish_policy_returns_candidate_result_without_direct_jobs(
+    db_session, tmp_path, monkeypatch
+):
+    article = IngestedArticle(
+        id="art_policy",
+        source_id="src1",
+        canonical_url="https://example.com/policy",
+        title="候选队列",
+        score_grade="A",
+        score_total=75.0,
+        generated_video_path=_seed_video(tmp_path, "art_policy"),
+    )
+    db_session.add(article)
+    db_session.commit()
+    expected = {
+        "candidate_evaluation": True,
+        "candidates": [{"platform": "douyin", "status": "pending"}],
+    }
+    monkeypatch.setattr(
+        "services.publishing.candidate_queue.evaluate_article_candidates",
+        lambda session, candidate_article, config: expected,
+    )
+
+    result = maybe_enqueue_auto_publish_jobs(
+        db_session,
+        article,
+        config={
+            "publish_policy": {"enabled": True},
+            "post_score_automation": {"auto_publish": {"enabled": True}},
+        },
+    )
+
+    assert result == expected
+    assert db_session.query(PublishJob).count() == 0
+
+
+def test_killed_platform_falls_back_to_legacy_enqueue_while_keeping_candidates(
+    db_session, tmp_path, monkeypatch
+):
+    article = IngestedArticle(
+        id="art_killed",
+        source_id="src1",
+        canonical_url="https://example.com/killed",
+        title="止损回退",
+        score_grade="S",
+        score_total=90.0,
+        generated_video_path=_seed_video(tmp_path, "art_killed"),
+        generated_cover_path=_seed_cover(tmp_path, "art_killed"),
+        video_draft_json=json.dumps({"main_line1": "止损回退"}),
+    )
+    db_session.add(article)
+    _add_account(db_session, account_id="acc-wc", platform="wechat_channels")
+    db_session.commit()
+    monkeypatch.setattr(
+        "services.publishing.candidate_queue.evaluate_article_candidates",
+        lambda session, candidate_article, config: {
+            "candidate_evaluation": True,
+            "candidates": [{"platform": "wechat_channels", "status": "pending"}],
+        },
+    )
+
+    result = maybe_enqueue_auto_publish_jobs(
+        db_session,
+        article,
+        config={
+            "publish_policy": {
+                "enabled": True,
+                "platforms": {
+                    "wechat_channels": {
+                        "enabled": False,
+                        "kill_switch": {"active": True, "reason": "weak_d1"},
+                    }
+                },
+            },
+            "post_score_automation": {
+                "auto_publish": {"enabled": True, "skip_if_exists": True, "min_grade": "S"},
+                "story_gate": {"enabled": False},
+            },
+        },
+    )
+
+    assert result["candidate_evaluation"] is True
+    assert result["legacy_fallback"]["enqueued"] is True
+    assert db_session.query(PublishJob).count() == 1
+
+
+def test_runtime_config_enables_candidate_queue_when_config_is_omitted(
+    db_session, tmp_path, monkeypatch
+):
+    article = IngestedArticle(
+        id="art_runtime_policy",
+        source_id="src1",
+        canonical_url="https://example.com/runtime-policy",
+        title="运行时策略",
+        score_grade="A",
+        score_total=75.0,
+        generated_video_path=_seed_video(tmp_path, "art_runtime_policy"),
+    )
+    db_session.add(article)
+    db_session.commit()
+    runtime = {"publish_policy": {"enabled": True}}
+    expected = {"candidate_evaluation": True, "candidates": []}
+    monkeypatch.setattr(
+        "services.publishing.auto_publish.load_scoring_config",
+        lambda: runtime,
+    )
+    monkeypatch.setattr(
+        "services.publishing.candidate_queue.evaluate_article_candidates",
+        lambda session, candidate_article, config: expected,
+    )
+
+    result = maybe_enqueue_auto_publish_jobs(db_session, article)
+
+    assert result == expected
+
+    result_from_empty_override = maybe_enqueue_auto_publish_jobs(
+        db_session, article, config={}
+    )
+    assert result_from_empty_override == expected

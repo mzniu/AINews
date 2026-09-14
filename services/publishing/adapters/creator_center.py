@@ -62,7 +62,7 @@ class CreatorCenterAdapter(PlatformAdapter):
         from services.publishing.human_interaction import human_idle_on_page, open_stealth_browser
         from services.publishing.human_pacing import human_pause
 
-        temp_state = Config.ROOT_DIR / "data" / "publish" / "_validate_state.json"
+        temp_state = Config.DATA_DIR / "publish" / "_validate_state.json"
         try:
             temp_state.write_bytes(load_encrypted(session_path))
             with sync_playwright() as playwright:

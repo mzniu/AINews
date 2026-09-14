@@ -1,6 +1,7 @@
 """Shared helpers for creator-center first-comment automation."""
 from __future__ import annotations
 
+import re
 import time
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -95,6 +96,24 @@ def find_submit_button(page: Page):
     return None
 
 
+def _normalize_title_key(title: str) -> str:
+    cleaned = re.sub(r"[\s:：|｜，,。.!！?？\"'「」【】\-—_()（）]+", "", (title or "").strip().lower())
+    return cleaned
+
+
+def _titles_match(left: str, right: str) -> bool:
+    a = _normalize_title_key(left)
+    b = _normalize_title_key(right)
+    if not a or not b:
+        return False
+    if a == b or a in b or b in a:
+        return True
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    if len(shorter) >= 6 and longer.startswith(shorter[:8]):
+        return True
+    return False
+
+
 def pick_work(
     rows: list[dict[str, Any]],
     *,
@@ -102,18 +121,26 @@ def pick_work(
     post_id: str | None,
     id_keys: tuple[str, ...] = ("photo_id", "work_id", "note_id", "export_id", "video_id"),
 ) -> dict[str, Any] | None:
+    if not rows:
+        return None
     if post_id:
         for row in rows:
             for key in id_keys:
                 if str(row.get(key) or "") == str(post_id):
                     return row
-    needle = title.strip().lower()
+    needle = (title or "").strip()
     if needle:
         for row in rows:
-            hay = str(row.get("title") or "").lower()
-            if needle in hay or hay in needle:
+            hay = str(row.get("title") or "")
+            if _titles_match(needle, hay):
                 return row
-    return rows[0] if rows else None
+        token = _normalize_title_key(needle)[:8]
+        if len(token) >= 4:
+            for row in rows:
+                hay = _normalize_title_key(str(row.get("title") or ""))
+                if token in hay:
+                    return row
+    return rows[0]
 
 
 def locate_work_row(page: Page, work: dict[str, Any], *, title_chars: int = 20):

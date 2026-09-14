@@ -26,8 +26,8 @@ def db_session(tmp_path, monkeypatch):
     ingest_dir = tmp_path / "ingested"
     ingest_dir.mkdir()
     monkeypatch.setattr(
-        "services.ingestion.orchestrator.INGESTED_ROOT",
-        ingest_dir,
+        "services.ingestion.orchestrator.get_ingested_root",
+        lambda: ingest_dir,
     )
     source = IngestionSource(
         id="aitnt_travel",
@@ -116,3 +116,33 @@ def test_ingest_url_returns_article_id_on_new_and_duplicate(db_session, monkeypa
     stats2 = orch.ingest_url("aitnt_travel", article_url, title="fixture article")
     assert stats2["skipped"] == 1
     assert stats2.get("article_id") == stats1["article_id"]
+
+
+def test_recrawl_article_refreshes_existing_record(db_session, monkeypatch):
+    session, ingest_dir = db_session
+    detail_html = (FIXTURE_DIR / "detail_27818.html").read_text(encoding="utf-8")
+    article_url = "http://travel.aitntnews.com/newshow.asp?newsid=27818"
+
+    monkeypatch.setattr(
+        "services.ingestion.adapters.aitnt_news.AitntNewsAdapter.fetch_html",
+        lambda self, url: detail_html,
+    )
+    monkeypatch.setattr(
+        "services.ingestion.asset_downloader.download_image",
+        lambda *args, **kwargs: {"success": True, "local_path": "images/img_001.jpg"},
+    )
+
+    orch = IngestionOrchestrator(session)
+    created = orch.ingest_url("aitnt_travel", article_url, title="fixture article")
+    article_id = created["article_id"]
+    article = session.get(IngestedArticle, article_id)
+    assert article is not None
+    old_title = article.title
+
+    stats = orch.recrawl_article(article_id)
+    session.refresh(article)
+    assert stats["updated"] == 1
+    assert stats["failed"] == 0
+    assert article.title == old_title
+    assert (ingest_dir / "aitnt_travel" / article_id / "content.txt").exists()
+    assert session.query(IngestedArticle).count() == 1

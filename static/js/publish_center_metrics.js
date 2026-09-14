@@ -79,6 +79,21 @@
         return params;
     }
 
+    async function loadMetricsPlatforms() {
+        const sel = document.getElementById('metricsPlatformFilter');
+        if (!sel) return;
+        try {
+            const resp = await fetch('/api/publishing/platforms');
+            const data = await resp.json();
+            const platforms = (data.platforms || []).filter(p => p.enabled && p.capabilities?.account_login);
+            sel.innerHTML = '<option value="">全部平台</option>' + platforms.map(p => (
+                `<option value="${p.id}">${p.display_name}</option>`
+            )).join('');
+        } catch (e) {
+            sel.innerHTML = '<option value="">全部平台</option>';
+        }
+    }
+
     async function loadMetricsAccounts() {
         const sel = document.getElementById('metricsAccountFilter');
         if (!sel) return;
@@ -408,6 +423,7 @@
     }
 
     function initPublishedMetricsTab() {
+        if (!document.getElementById('metricsSummaryCards')) return;
         document.getElementById('metricsSyncBtn')?.addEventListener('click', triggerMetricsSync);
         document.getElementById('metricsExportBtn')?.addEventListener('click', exportMetricsCsv);
         document.getElementById('metricsBindCancelBtn')?.addEventListener('click', closeBindModal);
@@ -447,25 +463,7 @@
                 openBindModal(bindBtn.dataset.jobId, decodeURIComponent(bindBtn.dataset.title || ''));
             }
         });
-        document.querySelectorAll('.publish-tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tab = btn.dataset.tab;
-                document.querySelectorAll('.publish-tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.publish-tab-panel').forEach(p => {
-                    p.classList.remove('active');
-                    p.style.display = 'none';
-                });
-                btn.classList.add('active');
-                const panel = document.getElementById('tab-' + tab);
-                if (panel) {
-                    panel.classList.add('active');
-                    panel.style.display = 'block';
-                }
-                if (tab === 'metrics') {
-                    loadMetricsAccounts().then(reloadMetricsTab);
-                }
-            });
-        });
+        Promise.all([loadMetricsPlatforms(), loadMetricsAccounts()]).then(reloadMetricsTab);
     }
 
     window.showPostTrend = showPostTrend;

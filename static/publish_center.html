@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>发布中心 - AINews</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815a">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913e">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
-    <script src="/static/js/shared/app_nav.js?v=20260828a" defer></script>
+    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260914b" defer></script>
     <style>
         .container { max-width: 1100px; margin: 0 auto; }
         .banner { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: none; }
@@ -52,27 +53,6 @@
         .schedule-box label { display: block; font-size: 13px; margin-top: 10px; }
         .schedule-box input { width: 100%; margin-top: 4px; }
         .schedule-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-        .publish-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-        .publish-tab-panel { display: none; }
-        .publish-tab-panel.active { display: block; }
-        .metrics-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-        #metricsPlatformFilter, #metricsAccountFilter, #metricsDaysFilter { width: auto; min-width: 140px; margin: 0; }
-        .metrics-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
-        .metrics-platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 16px; }
-        .metrics-trend-modal, .metrics-bind-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 2100; align-items: center; justify-content: center; padding: 20px; }
-        .metrics-bind-modal { z-index: 2200; }
-        .metrics-trend-box, .metrics-bind-box { border-radius: 12px; padding: 20px; width: min(720px, 96vw); max-height: 90vh; overflow: auto; }
-        .metrics-bind-box { width: min(420px, 92vw); }
-        .metrics-trend-meta { font-size: 13px; margin-bottom: 12px; }
-        #metricsTrendCanvas { width: 100%; height: 280px; display: block; }
-        .metrics-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; }
-        .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-        .metrics-alerts { border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; display: none; }
-        .metrics-alerts h4 { margin: 0 0 8px; font-size: 14px; }
-        .metrics-alerts ul { margin: 0; padding-left: 18px; font-size: 13px; }
-        .metrics-bind-box label { display: block; font-size: 13px; margin-top: 10px; }
-        .metrics-bind-box input { width: 100%; margin-top: 4px; }
-        .metrics-pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; font-size: 13px; }
     </style>
 </head>
 <body class="app-page">
@@ -83,12 +63,16 @@
         <p>半自动发布：确认文案与账号后提交，由 publish-worker 完成上传。</p>
         <div id="workerBanner" class="banner soft-banner-warn">⚠️ 发布 worker 未运行。若使用独立进程模式，请执行 <code>scripts/run_publish_worker.bat</code>；或于 <code>.env</code> 设置 <code>PUBLISH_WORKER_MODE=embedded</code>（默认）后仅启动 web_server。</div>
 
-        <div class="publish-tabs">
-            <button type="button" class="publish-tab-btn active" data-tab="main">发布管理</button>
-            <button type="button" class="publish-tab-btn" data-tab="metrics">已发布数据</button>
+
+        <div id="rolloutStatusPanel" class="soft-card">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+                <h2 style="margin:0;font-size:16px;">发布策略灰度</h2>
+                <button type="button" class="btn-secondary btn" id="rolloutRefreshBtn">刷新策略状态</button>
+            </div>
+            <p class="hint" style="margin:8px 0 0;">展示候选策略版本、平台预算使用率、成熟 D1 指标与队列天数。当前为 shadow 阶段时不会按新策略派发。</p>
+            <div id="rolloutStatusBody" class="small text-muted" style="margin-top:10px;line-height:1.6;">加载中…</div>
         </div>
 
-        <div id="tab-main" class="publish-tab-panel active">
         <div class="card">
             <h2>自动发布</h2>
             <label class="auto-publish-toggle">
@@ -121,8 +105,7 @@
                 </div>
             </div>
             <p id="autoPublishHint" class="hint" style="margin-top:8px;">
-                关闭开关后仍会出片，但不会自动入发布队列。等级门槛仅对自动发布生效。间隔按<strong>文章</strong>计算，同篇各平台共用档期；改间隔仅影响之后新入队的任务。禁发时段内自动任务会顺延，手动发布不受限。
-            </p>
+                关闭开关后仍会出片，但不会自动入发布队列。等级门槛仅对自动发布生效。间隔按<strong>文章</strong>计算，同篇各平台共用档期；改间隔仅影响之后新入队的任务。禁发时段内自动任务会顺延，手动发布不受限。</p>
         </div>
 
         <div class="card">
@@ -132,8 +115,7 @@
                 <span>发布成功后自动发首评（作者账号，支持抖音/快手/视频号/小红书）</span>
             </label>
             <p class="hint" style="margin-top:8px;">
-                首评文案在出片时由 AI 生成并随任务快照；发评失败不影响「已发布」状态。抖音为同会话发评，其他平台在发布完成后独立会话发评；作品入库可能有延迟，系统会等待后再发评。
-            </p>
+                首评文案在出片时由 AI 生成并随任务快照；发评失败不影响「已发布」状态。抖音为同会话发评，其他平台在发布完成后独立会话发评；作品入库可能有延迟，系统会等待后再发评。</p>
         </div>
 
         <div class="card">
@@ -148,7 +130,11 @@
         <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
                 <h2 style="margin:0;">发布队列</h2>
-                <a class="btn-secondary btn" href="/publish-queue" style="text-decoration:none;">独立页面查看</a>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a class="btn-secondary btn" href="/publish-comments" style="text-decoration:none;">评论管理</a>
+                    <a class="btn-secondary btn" href="/publish-metrics" style="text-decoration:none;">已发布数据</a>
+                    <a class="btn-secondary btn" href="/publish-queue" style="text-decoration:none;">独立页面查看</a>
+                </div>
             </div>
             <p id="publishQueueSummary"></p>
             <table>
@@ -173,84 +159,10 @@
             <select id="quickAccount"></select>
             <button class="btn" id="quickPublishBtn" style="margin-top:8px;">确认发布</button>
         </div>
-        </div>
 
-        <div id="tab-metrics" class="publish-tab-panel">
-            <div class="card">
-                <h2>已发布数据</h2>
-                <div class="metrics-toolbar">
-                    <select id="metricsPlatformFilter" class="form-control">
-                        <option value="">全部平台</option>
-                    </select>
-                    <select id="metricsAccountFilter" class="form-control">
-                        <option value="">全部账号</option>
-                    </select>
-                    <select id="metricsDaysFilter" class="form-control">
-                        <option value="7">近 7 天</option>
-                        <option value="30" selected>近 30 天</option>
-                        <option value="90">近 90 天</option>
-                    </select>
-                    <span id="metricsSyncStatus" style="font-size:13px;">加载中…</span>
-                    <button type="button" class="btn-secondary btn" id="metricsExportBtn">导出 CSV</button>
-                    <button type="button" class="btn-secondary btn" id="metricsSyncBtn">立即同步</button>
-                </div>
-                <div id="metricsAlerts" class="metrics-alerts soft-banner-warn"></div>
-                <div id="metricsSummaryCards" class="metrics-summary-grid"></div>
-                <div id="metricsPlatformBreakdown" class="metrics-platform-grid"></div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>标题</th>
-                            <th>平台/账号</th>
-                            <th>播放</th>
-                            <th>点赞</th>
-                            <th>评论</th>
-                            <th>收藏</th>
-                            <th>关注</th>
-                            <th>3秒%</th>
-                            <th>完播%</th>
-                            <th>发布时间</th>
-                            <th>匹配</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="publishedPostsTable"></tbody>
-                </table>
-                <div id="publishedPostsPager" class="metrics-pager"></div>
-            </div>
-        </div>
     </div>
 
-    <div id="metricsBindModal" class="metrics-bind-modal">
-        <div class="metrics-bind-box">
-            <h3 style="margin:0 0 8px;">手动绑定平台作品</h3>
-            <p id="metricsBindTitle" style="font-size:13px;margin:0 0 8px;"></p>
-            <label>平台作品 ID</label>
-            <input id="metricsBindPostId" class="form-control" placeholder="如 noteId / aweme_id">
-            <label>作品链接（可选）</label>
-            <input id="metricsBindPostUrl" class="form-control" placeholder="https://...">
-            <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
-                <button type="button" class="btn-secondary btn" id="metricsBindCancelBtn">取消</button>
-                <button type="button" class="btn" id="metricsBindSaveBtn">保存</button>
-            </div>
-        </div>
-    </div>
 
-    <div id="metricsTrendModal" class="metrics-trend-modal">
-        <div class="metrics-trend-box">
-            <h3 id="metricsTrendTitle">作品趋势</h3>
-            <div id="metricsTrendMeta" class="metrics-trend-meta"></div>
-            <canvas id="metricsTrendCanvas" width="680" height="280"></canvas>
-            <div class="metrics-legend">
-                <span><span class="legend-dot" style="background:#667eea;"></span>播放</span>
-                <span><span class="legend-dot" style="background:#f59e0b;"></span>点赞</span>
-                <span><span class="legend-dot" style="background:#10b981;"></span>评论</span>
-            </div>
-            <div style="margin-top:14px;text-align:right;">
-                <button type="button" class="btn-secondary btn" id="metricsTrendCloseBtn">关闭</button>
-            </div>
-        </div>
-    </div>
 
     <div id="scheduleModal" class="schedule-modal">
         <div class="schedule-box card">
@@ -286,6 +198,13 @@
         let platformCatalog = [];
         let scheduleJobId = null;
 
+        function esc(text) {
+            return String(text ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/"/g, '&quot;');
+        }
+
         function quietTimeToInput(value) {
             const text = String(value || '').trim();
             if (!text) return '23:00';
@@ -304,6 +223,45 @@
             }
         }
 
+        function formatRolloutNumber(value, digits = 0) {
+            if (value === null || value === undefined || value === '') return '—';
+            const n = Number(value);
+            if (!Number.isFinite(n)) return '—';
+            return digits ? n.toFixed(digits) : String(Math.round(n));
+        }
+
+        async function loadRolloutStatus() {
+            const body = document.getElementById('rolloutStatusBody');
+            if (!body) return;
+            try {
+                const resp = await fetch('/api/publishing/rollout/status');
+                const data = await resp.json();
+                if (!data.success) {
+                    body.textContent = '策略状态加载失败';
+                    return;
+                }
+                const queueDays = formatRolloutNumber(data.queue?.oldest_age_days, 1);
+                const lines = [
+                    `policy_version=${data.policy_version || '—'} · enabled=${data.enabled ? '是' : '否'} · shadow=${data.shadow_mode ? '是' : '否'} · 队列约 ${queueDays} 天（${data.queue?.job_count || 0} 条）`,
+                ];
+                const platforms = data.platforms || {};
+                Object.keys(platforms).forEach((platform) => {
+                    const row = platforms[platform] || {};
+                    const mature = row.mature?.['24h'] || {};
+                    const budget = row.budget || {};
+                    const candidates = row.candidates || {};
+                    const gate = row.stage_gate || {};
+                    lines.push(
+                        `${platform}: ${row.mode || '—'} · 预算 ${budget.used || 0}/${budget.daily_limit || '—'} · 候选 pending=${candidates.pending || 0}/deferred=${candidates.deferred || 0} · D1中位=${formatRolloutNumber(mature.median_views)} 完播=${formatRolloutNumber((mature.completion_rate || 0) * (mature.completion_rate <= 1 ? 100 : 1), 1)}% · 晋级=${gate.passed ? '可' : '否'}${row.kill_switch?.active ? ' · 已止损' : ''}`
+                    );
+                });
+                body.innerHTML = lines.map((line) => `<div>${line}</div>`).join('');
+            } catch (err) {
+                body.textContent = '策略状态加载失败';
+            }
+        }
+
+        document.getElementById('rolloutRefreshBtn')?.addEventListener('click', loadRolloutStatus);
         function statusLabel(status) {
             const map = { active: '有效', expired: '已过期', unknown: '未知' };
             return map[status] || status;
@@ -333,11 +291,6 @@
             }
             document.getElementById('addAccountBtn').disabled = false;
             sel.innerHTML = enabled.map(p => `<option value="${p.id}">${p.display_name}</option>`).join('');
-            const metricsFilter = document.getElementById('metricsPlatformFilter');
-            if (metricsFilter) {
-                metricsFilter.innerHTML = '<option value="">全部平台</option>'
-                    + enabled.map(p => `<option value="${p.id}">${p.display_name}</option>`).join('');
-            }
         }
 
         async function loadFirstCommentSettings() {
@@ -763,9 +716,8 @@
             saveReschedule().catch(err => alert('改期失败: ' + err.message));
         });
 
-        checkHealth(); loadAutoPublishSettings(); loadFirstCommentSettings(); loadPlatformMenu(); loadAccounts(); loadJobs(); loadVideos();
+        checkHealth(); loadAutoPublishSettings(); loadFirstCommentSettings(); loadPlatformMenu(); loadAccounts(); loadJobs(); loadVideos(); loadRolloutStatus();
         setInterval(() => { checkHealth(); loadJobs(); }, 5000);
     </script>
-    <script src="/static/js/publish_center_metrics.js?v=20260821a"></script>
 </body>
 </html>

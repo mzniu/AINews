@@ -37,10 +37,21 @@
 |-------|-------|
 | probe_script | `scripts/probe_creator_first_comment.py --platform kuaishou` |
 | list_url | `https://cp.kuaishou.com/article/manage/video` |
-| detail_url | `.../article/manage/video/detail?photoId={photo_id}` |
-| comment_input | `textarea[placeholder*="评论"]` 等通用选择器 |
-| comment_submit | `button:has-text("发送")` |
+| comment_hub_url | `https://cp.kuaishou.com/article/comment` |
+| video_feed | `.comment-home-video`（按标题匹配） |
+| comment_input | `.author-comment-input__row__input` |
+| comment_submit | `.author-comment-input__row__btn`（文案「发布」） |
 | mode | **deferred**（发布完成后独立会话发评） |
 | report | `data/publish/probe_kuaishou_first_comment_report.json` |
+
+## 观众评论回复（Audience Reply，P1）
+
+| Field | Value |
+|-------|-------|
+| adapter | `services/publishing/adapters/kuaishou_audience_reply.py` |
+| scan | 评论中心选作品 → 拦截 `*/comment/list*` API，DOM 兜底 |
+| reply | 点击评论「回复」→ `textarea` / `contenteditable` → 「发送」 |
+| audience_comment_item | `.comment-item` / `.comment-list-item` |
+| stable_id | API `commentId` 或 `sha1(photo_id+author+content)` |
 
 **Gate: PENDING** — 运行 probe dry-run + `--post` 验证后改为 PASS。

@@ -21,7 +21,7 @@ from src.db.engine import get_session_factory, init_db
 from src.db.models.ingestion import IngestionJob, IngestionSource
 from src.utils.config import Config
 
-HEARTBEAT_PATH = Config.ROOT_DIR / "data" / "ingestion" / "worker_heartbeat"
+HEARTBEAT_PATH = Config.DATA_DIR / "ingestion" / "worker_heartbeat"
 
 _embedded_instance: "IngestionWorker | None" = None
 
@@ -205,7 +205,10 @@ class IngestionWorker:
                     session.query(IngestionJob)
                     .filter_by(status="pending")
                     .order_by(
-                        case((IngestionJob.job_type == "hot_radar_discovery", 0), else_=1),
+                        case(
+                            (IngestionJob.job_type.in_(("hot_radar_discovery", "article_recrawl")), 0),
+                            else_=1,
+                        ),
                         IngestionJob.created_at.asc(),
                     )
                     .first()
@@ -232,6 +235,12 @@ class IngestionWorker:
                         title=payload.get("title"),
                         job_id=job_id,
                     )
+                elif job_type == "article_recrawl":
+                    payload = json.loads(payload_json or "{}")
+                    stats = IngestionOrchestrator(session).recrawl_article(
+                        payload.get("article_id") or "",
+                        job_id=job_id,
+                    )
                 else:
                     stats = IngestionOrchestrator(session).run_source(source_id, job_id=job_id)
 
@@ -239,7 +248,9 @@ class IngestionWorker:
                 with self.session_factory() as session:
                     job = session.get(IngestionJob, job_id)
                     if job:
-                        failed = job_type == "hot_radar_discovery" and bool(stats.get("failed"))
+                        failed = job_type in ("hot_radar_discovery", "article_recrawl") and bool(
+                            stats.get("failed")
+                        )
                         job.status = "failed" if failed else "succeeded"
                         job.finished_at = datetime.utcnow()
                         if failed:

@@ -235,12 +235,21 @@
                 </div>`;
         }
 
+        const tierLabels = { viral_priority: '传播优先', standard: '标准队列', skip: '建议跳过' };
+        const scoreLine = [
+            `行业 ${escapeHtml(data.score_grade || '—')} ${data.score_total != null ? Math.round(data.score_total) + ' 分' : ''}`,
+            data.viral_score_grade
+                ? `传播 ${escapeHtml(data.viral_score_grade)} ${data.viral_score_total != null ? Math.round(data.viral_score_total) + ' 分' : ''}`
+                : '',
+            data.publish_tier ? escapeHtml(tierLabels[data.publish_tier] || data.publish_tier) : '',
+        ].filter(Boolean).join(' · ');
+
         panel.innerHTML = `
             <div class="${hitCls}">
                 <p class="match-title">${escapeHtml(data.article_title || '—')}</p>
                 <p class="match-meta">${hitLabel}</p>
                 <p class="match-meta">文章 ID：${escapeHtml(data.article_id)}</p>
-                <p class="match-meta">评分：${escapeHtml(data.score_grade || '—')} ${data.score_total != null ? Math.round(data.score_total) + ' 分' : ''}</p>
+                <p class="match-meta">评分：${scoreLine}</p>
                 <p class="match-meta"><a href="${escapeHtml(data.article_url || '#')}" target="_blank" rel="noopener">原文链接</a></p>
                 ${matchBlock}
                 ${storedBlock}

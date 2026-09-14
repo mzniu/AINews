@@ -21,6 +21,7 @@ USAGE_TASK_LABELS = {
     "related_image_query": "相关配图",
     "model_test": "模型测试",
     "crawler_content": "爬虫文案",
+    "comment_reply": "评论回复",
 }
 
 _VALID_RANGES = frozenset({"today", "7d", "30d", "all"})
@@ -82,10 +83,14 @@ def record_token_usage(
         session.add(event)
         return
     try:
+        from services.ingestion.db_retry import serialized_sqlite_write
         from src.db.engine import session_scope
 
-        with session_scope() as scoped:
-            scoped.add(event)
+        def _write() -> None:
+            with session_scope() as scoped:
+                scoped.add(event)
+
+        serialized_sqlite_write(_write)
     except Exception as exc:
         logger.warning("token usage record failed: {}", exc)
 

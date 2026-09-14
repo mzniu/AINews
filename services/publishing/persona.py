@@ -29,7 +29,7 @@ def save_persona(account_id: str, persona: dict[str, Any]) -> None:
 
 
 def persona_path(account_id: str) -> Path:
-    return Config.ROOT_DIR / "data" / "publish" / "persona" / f"{account_id}.json"
+    return Config.DATA_DIR / "publish" / "persona" / f"{account_id}.json"
 
 
 def set_publish_persona_account(account_id: str | None) -> None:

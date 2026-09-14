@@ -10,7 +10,7 @@ import yaml
 from src.utils.config import Config
 
 IMAGE_SCORING_BASE_PATH = Config.ROOT_DIR / "config" / "image_scoring.yaml"
-IMAGE_SCORING_LOCAL_PATH = Config.ROOT_DIR / "config" / "image_scoring.local.yaml"
+IMAGE_SCORING_LOCAL_PATH = Config.CONFIG_DIR / "image_scoring.local.yaml"
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:

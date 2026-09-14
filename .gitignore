@@ -73,6 +73,10 @@ config/hot_radar.local.yaml
 # niuclaude-memory
 MEMORY.md
 
+# Desktop release staging
+desktop/src-tauri/bundle-resources/
+desktop/src-tauri/target/
+
 # Node (presentations)
 docs/presentations/node_modules/
 

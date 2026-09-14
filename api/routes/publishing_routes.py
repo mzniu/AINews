@@ -28,7 +28,13 @@ from api.schemas.publishing_models import (
     QrStartResponse,
     QrStatusResponse,
     ReschedulePublishJobRequest,
+    UpdatePublishPlatformsRequest,
     ViewDropAlert,
+    CommentInboxResponse,
+    CommentInboxListResponse,
+    ApproveCommentReplyRequest,
+    CommentReplyRunResponse,
+    CommentReplyRunListResponse,
 )
 from services.publishing.account_delete import AccountDeleteError, delete_publisher_account
 from services.publishing.account_status import check_account_status
@@ -38,6 +44,7 @@ from services.publishing.metadata_bridge import PublishDraftMetadata, build_wech
 from services.publishing.path_guard import PathGuardError, resolve_cover_path, resolve_video_path, to_relative_posix
 from services.publishing.platform_capabilities import can_account_login, can_video_publish
 from services.publishing.orchestrator import PublishOrchestrator
+from services.publishing.qr_login import create_qr_session
 from services.publishing.registry import (
     PlatformDisabledError,
     PlatformNotFoundError,
@@ -45,12 +52,20 @@ from services.publishing.registry import (
     list_platforms,
 )
 from src.db.engine import get_session_factory
-from src.db.models.publishing import PublishJob, PublishLog, PublisherAccount, QrLoginSession
+from src.db.models.publishing import (
+    PublishJob,
+    PublishLog,
+    PublisherAccount,
+    QrLoginSession,
+    CommentInbox,
+    CommentReplyRun,
+)
 from src.utils.config import Config
+from src.utils.paths import resolve_data_path
 
 router = APIRouter(prefix="/api/publishing", tags=["publishing"])
 
-HEARTBEAT_PATH = Config.ROOT_DIR / "data" / "publish" / "worker_heartbeat"
+HEARTBEAT_PATH = Config.DATA_DIR / "publish" / "worker_heartbeat"
 MAX_RETRY = 3
 
 
@@ -159,12 +174,8 @@ async def qr_status(session_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="会话不存在")
     qr_url = None
     if row.qr_image_path:
-        rel = Path(row.qr_image_path)
-        try:
-            rel = rel.resolve().relative_to(Config.ROOT_DIR.resolve())
-        except ValueError:
-            rel = Path(row.qr_image_path)
-        qr_url = f"/{rel.as_posix()}"
+        rel = resolve_data_path(row.qr_image_path).resolve().relative_to(Config.DATA_DIR.resolve())
+        qr_url = f"/data/{rel.as_posix()}"
     return QrStatusResponse(
         session_id=row.id,
         status=row.status,
@@ -403,7 +414,7 @@ async def extract_cover(body: ExtractCoverRequest):
         video = resolve_video_path(body.video_path)
     except PathGuardError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    out_dir = Config.ROOT_DIR / "data" / "publish" / "covers"
+    out_dir = Config.DATA_DIR / "publish" / "covers"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{video.stem}_cover.jpg"
     cap = cv2.VideoCapture(str(video))
@@ -420,6 +431,53 @@ def get_auto_publish_settings_route():
     from services.ingestion.scoring_settings import get_auto_publish_settings
 
     return {"success": True, **get_auto_publish_settings()}
+
+
+@router.get("/rollout/status")
+def get_rollout_status_route(db: Session = Depends(get_db)):
+    from services.publishing.rollout_guard import collect_rollout_status
+
+    return {"success": True, **collect_rollout_status(db)}
+
+
+@router.get("/rollout/settings")
+def get_rollout_settings_route():
+    from services.ingestion.scoring_settings import get_publish_policy_settings
+
+    return {"success": True, **get_publish_policy_settings()}
+
+
+@router.put("/rollout/settings")
+def update_rollout_settings_route(body: dict):
+    from services.ingestion.scoring_settings import save_publish_policy_settings
+
+    patch: dict = {}
+    if "enabled" in body:
+        patch["enabled"] = bool(body["enabled"])
+    if "shadow_mode" in body:
+        patch["shadow_mode"] = bool(body["shadow_mode"])
+    platforms = body.get("platforms")
+    if isinstance(platforms, dict):
+        cleaned = {}
+        for platform, raw in platforms.items():
+            if not isinstance(raw, dict):
+                continue
+            entry = {}
+            if "enabled" in raw:
+                entry["enabled"] = bool(raw["enabled"])
+            if "shadow_mode" in raw:
+                entry["shadow_mode"] = bool(raw["shadow_mode"])
+            if "paused" in raw and platform == "kuaishou":
+                # Never force-pause Kuaishou from this control surface.
+                entry["paused"] = False
+            if entry:
+                cleaned[str(platform)] = entry
+        if cleaned:
+            patch["platforms"] = cleaned
+    if not patch:
+        raise HTTPException(status_code=400, detail="至少提供一个可更新字段")
+    settings = save_publish_policy_settings(patch)
+    return {"success": True, **settings}
 
 
 @router.put("/auto-publish/settings")
@@ -471,6 +529,189 @@ def update_first_comment_settings_route(body: dict):
     return {"success": True, "message": "首评设置已更新", **settings}
 
 
+@router.get("/comment-reply/settings")
+def get_comment_reply_settings_route():
+    from services.publishing.comment_reply.settings import get_comment_reply_settings
+
+    return {"success": True, **get_comment_reply_settings()}
+
+
+@router.put("/comment-reply/settings")
+def update_comment_reply_settings_route(body: dict):
+    from services.publishing.comment_reply.settings import save_comment_reply_settings
+
+    if "enabled" not in body and "mode" not in body and "lookback_hours" not in body:
+        raise HTTPException(status_code=400, detail="至少提供 enabled、mode 或 lookback_hours 字段")
+    try:
+        settings = save_comment_reply_settings(
+            enabled=bool(body["enabled"]) if "enabled" in body else None,
+            mode=str(body["mode"]) if "mode" in body else None,
+            lookback_hours=int(body["lookback_hours"]) if "lookback_hours" in body else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"success": True, "message": "评论回复设置已更新", **settings}
+
+
+@router.get("/comment-reply/runs", response_model=CommentReplyRunListResponse)
+def list_comment_reply_runs(
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(CommentReplyRun)
+        .order_by(CommentReplyRun.started_at.desc())
+        .limit(limit)
+        .all()
+    )
+    items = [
+        CommentReplyRunResponse(
+            id=row.id,
+            status=row.status,
+            mode=row.mode,
+            accounts_total=row.accounts_total,
+            posts_scanned=row.posts_scanned,
+            comments_seen=row.comments_seen,
+            new_pending=row.new_pending,
+            auto_sent=row.auto_sent,
+            skipped=row.skipped,
+            failed=row.failed,
+            retried=row.retried,
+            error_summary=row.error_summary,
+            started_at=row.started_at,
+            finished_at=row.finished_at,
+        )
+        for row in rows
+    ]
+    return CommentReplyRunListResponse(items=items, total=len(items))
+
+
+@router.post("/comment-reply/retry-failed")
+async def retry_failed_comment_replies_route():
+    from services.publishing.comment_reply.orchestrator import CommentReplyOrchestrator
+
+    result = await asyncio.to_thread(
+        CommentReplyOrchestrator(get_session_factory()).retry_failed_replies,
+    )
+    return {"success": True, **result}
+
+
+@router.post("/comment-reply/regenerate")
+async def regenerate_comment_replies_route():
+    from services.publishing.comment_reply.orchestrator import CommentReplyOrchestrator
+
+    result = await asyncio.to_thread(
+        CommentReplyOrchestrator(get_session_factory()).regenerate_pending_replies,
+    )
+    return {"success": True, **result}
+
+
+@router.get("/comment-inbox", response_model=CommentInboxListResponse)
+def list_comment_inbox(
+    status: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    query = db.query(CommentInbox).order_by(CommentInbox.created_at.desc())
+    if status:
+        query = query.filter(CommentInbox.status == status)
+    total = query.count()
+    rows = query.limit(limit).all()
+    account_ids = {row.account_id for row in rows}
+    accounts = {
+        item.id: item
+        for item in db.query(PublisherAccount).filter(PublisherAccount.id.in_(account_ids)).all()
+    } if account_ids else {}
+    items = [
+        CommentInboxResponse(
+            id=row.id,
+            account_id=row.account_id,
+            platform=row.platform,
+            platform_post_id=row.platform_post_id,
+            platform_comment_id=row.platform_comment_id,
+            publish_job_id=row.publish_job_id,
+            post_title=row.post_title,
+            author_name=row.author_name,
+            content=row.content,
+            commented_at=row.commented_at,
+            status=row.status,
+            skip_reason=row.skip_reason,
+            reply_text=row.reply_text,
+            replied_at=row.replied_at,
+            error_message=row.error_message,
+            retry_count=row.retry_count or 0,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            account_nickname=accounts.get(row.account_id).nickname if accounts.get(row.account_id) else None,
+        )
+        for row in rows
+    ]
+    return CommentInboxListResponse(items=items, total=total)
+
+
+@router.post("/comment-inbox/{inbox_id}/approve")
+async def approve_comment_inbox_route(
+    inbox_id: str,
+    body: ApproveCommentReplyRequest,
+    db: Session = Depends(get_db),
+):
+    from services.publishing.comment_reply.orchestrator import CommentReplyOrchestrator
+
+    result = await asyncio.to_thread(
+        CommentReplyOrchestrator(get_session_factory()).approve_inbox_item,
+        inbox_id,
+        reply_text=body.reply_text,
+    )
+    if not result.get("success"):
+        error = str(result.get("error") or "approve_failed")
+        status_code = 404 if error.endswith("_not_found") else 400
+        raise HTTPException(status_code=status_code, detail=error)
+    row = db.get(CommentInbox, inbox_id)
+    return {"success": True, "status": row.status if row else result.get("status")}
+
+
+@router.post("/comment-inbox/{inbox_id}/reject")
+def reject_comment_inbox_route(inbox_id: str, db: Session = Depends(get_db)):
+    from services.publishing.comment_reply.orchestrator import CommentReplyOrchestrator
+
+    result = CommentReplyOrchestrator(get_session_factory()).reject_inbox_item(inbox_id)
+    if not result.get("success"):
+        error = str(result.get("error") or "reject_failed")
+        status_code = 404 if error.endswith("_not_found") else 400
+        raise HTTPException(status_code=status_code, detail=error)
+    row = db.get(CommentInbox, inbox_id)
+    return {"success": True, "status": row.status if row else result.get("status")}
+
+
+@router.post("/comment-reply/scan")
+async def trigger_comment_reply_scan_route():
+    from services.publishing.comment_reply.orchestrator import CommentReplyOrchestrator
+
+    summaries = await asyncio.to_thread(
+        CommentReplyOrchestrator(get_session_factory()).scan_all_accounts,
+        force=True,
+    )
+    if not summaries:
+        return {
+            "success": True,
+            "accounts": 0,
+            "new_pending": 0,
+            "message": "未执行扫描：请确认已开启评论回复开关，且存在活跃的视频号账号",
+            "summaries": [],
+        }
+    return {
+        "success": True,
+        "accounts": len(summaries),
+        "new_pending": sum(item.new_pending for item in summaries),
+        "auto_sent": sum(item.auto_sent for item in summaries),
+        "posts_scanned": sum(item.posts_scanned for item in summaries),
+        "comments_seen": sum(item.comments_seen for item in summaries),
+        "skipped": sum(item.skipped for item in summaries),
+        "errors": sum(item.errors for item in summaries),
+        "summaries": [item.__dict__ for item in summaries],
+    }
+
+
 @router.post("/jobs/{job_id}/retry-comment")
 async def retry_comment_job_route(
     job_id: str,
@@ -480,7 +721,11 @@ async def retry_comment_job_route(
     job = db.get(PublishJob, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="任务不存在")
-    result = PublishOrchestrator(get_session_factory()).retry_comment_job(job_id, force=force)
+    result = await asyncio.to_thread(
+        PublishOrchestrator(get_session_factory()).retry_comment_job,
+        job_id,
+        force=force,
+    )
     if not result.get("success") and result.get("error") not in (None, ""):
         error = str(result.get("error") or "")
         if error in {
@@ -525,6 +770,22 @@ async def reschedule_publish_job_route(
             config=load_spacing_config(),
             cascade=body.cascade,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    return {"success": True, **result}
+
+
+@router.patch("/jobs/{job_id}/platforms")
+async def update_publish_platforms_route(
+    job_id: str,
+    body: UpdatePublishPlatformsRequest,
+    db: Session = Depends(get_db),
+):
+    from services.publishing.platform_jobs import update_job_platforms
+
+    try:
+        result = update_job_platforms(db, job_id, body.platforms)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()

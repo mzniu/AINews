@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -14,16 +14,23 @@ from services.publishing.schedule import (
     INGESTION_SOURCE,
     PublishSpacingConfig,
     clamp_quiet_hours,
+    compact_pending_schedule,
     in_quiet_hours,
     load_spacing_config,
+    maybe_compact_pending_schedule,
     next_auto_slot,
+    next_platform_slot,
     reschedule_publish_job,
     reshuffle_jobs_in_quiet_window,
 )
 from services.publishing.worker import PublishWorker
 from src.db.engine import Base, init_db
 from src.db.models.ingestion import IngestedArticle, IngestionSource
-from src.db.models.publishing import PublishJob, PublisherAccount
+from src.db.models.publishing import (
+    AutoPublishCandidate,
+    PublishJob,
+    PublisherAccount,
+)
 
 _AUTO_PUBLISH_CFG = {
     "post_score_automation": {
@@ -51,8 +58,14 @@ def _cfg(**kwargs) -> PublishSpacingConfig:
 @pytest.fixture
 def db_session(tmp_path, monkeypatch):
     db_path = tmp_path / "spacing.db"
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
     monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
     monkeypatch.setattr("src.utils.config.Config.ROOT_DIR", tmp_path)
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
     init_db()
     from src.db.engine import get_session_factory
 
@@ -350,6 +363,65 @@ def test_settings_interval_validation(tmp_path, monkeypatch):
         save_auto_publish_settings(interval_minutes=5)
 
 
+def test_compact_pending_schedule_pulls_far_head_forward(db_session):
+    _add_account(db_session, account_id="a1")
+    now = datetime.utcnow()
+    far = now + timedelta(days=3)
+    db_session.add(
+        PublishJob(
+            account_id="a1",
+            video_path="data/videos/a.mp4",
+            title="far",
+            status="pending",
+            source_type=INGESTION_SOURCE,
+            source_id="art-far",
+            scheduled_at=far,
+        )
+    )
+    db_session.add(
+        PublishJob(
+            account_id="a1",
+            video_path="data/videos/b.mp4",
+            title="published",
+            status="published",
+            published_at=now - timedelta(minutes=30),
+            source_type=INGESTION_SOURCE,
+            source_id="art-old",
+        )
+    )
+    db_session.commit()
+
+    updated = compact_pending_schedule(db_session, config=_cfg(interval_minutes=60))
+    db_session.commit()
+    assert updated
+    new_slot = (
+        db_session.query(PublishJob.scheduled_at)
+        .filter_by(source_id="art-far")
+        .scalar()
+    )
+    assert new_slot is not None
+    assert new_slot < far
+    assert new_slot <= now + timedelta(minutes=60)
+
+
+def test_maybe_compact_skips_when_head_is_due(db_session):
+    _add_account(db_session, account_id="a1")
+    now = datetime.utcnow()
+    db_session.add(
+        PublishJob(
+            account_id="a1",
+            video_path="data/videos/a.mp4",
+            title="due",
+            status="pending",
+            source_type=INGESTION_SOURCE,
+            source_id="art-due",
+            scheduled_at=now - timedelta(minutes=1),
+        )
+    )
+    db_session.commit()
+    assert maybe_compact_pending_schedule(db_session, config=_cfg()) == []
+
+
 def test_reshuffle_jobs_in_quiet_window(db_session):
     _add_account(db_session, account_id="a1")
     inside = datetime(2026, 8, 28, 16, 0, 0)  # 00:00 Beijing
@@ -376,3 +448,269 @@ def test_reshuffle_jobs_in_quiet_window(db_session):
     )
     assert new_slot is not None
     assert not in_quiet_hours(new_slot, cfg)
+
+
+def test_next_platform_slot_uses_beijing_day_and_explicit_times(db_session):
+    _add_account(db_session, account_id="dy", platform="douyin")
+
+    slot = next_platform_slot(
+        db_session,
+        "douyin",
+        date(2026, 9, 13),
+        ["09:00", "12:00"],
+        2,
+        now=datetime(2026, 9, 13, 0, 30),  # 08:30 Beijing
+    )
+
+    assert slot == datetime(2026, 9, 13, 1, 0)  # 09:00 Beijing
+
+
+def test_next_platform_slot_obeys_quiet_hours(db_session, monkeypatch):
+    monkeypatch.setattr(
+        "services.publishing.schedule.load_spacing_config",
+        lambda *_args, **_kwargs: _cfg(
+            quiet_hours_enabled=True,
+            quiet_hours_start="23:00",
+            quiet_hours_end="07:00",
+        ),
+    )
+
+    slot = next_platform_slot(
+        db_session,
+        "douyin",
+        date(2026, 9, 13),
+        ["06:30", "07:15"],
+        2,
+        now=datetime(2026, 9, 12, 20, 0),  # 04:00 Beijing
+    )
+
+    assert slot == datetime(2026, 9, 12, 23, 15)  # 07:15 Beijing
+
+
+def test_next_platform_slot_counts_cross_midnight_beijing_day(db_session):
+    _add_account(db_session, account_id="dy", platform="douyin")
+    db_session.add(
+        PublishJob(
+            account_id="dy",
+            video_path="data/videos/a.mp4",
+            title="already scheduled",
+            status="pending",
+            scheduled_at=datetime(2026, 9, 13, 16, 30),  # Sep 14 00:30 Beijing
+        )
+    )
+    db_session.commit()
+
+    slot = next_platform_slot(
+        db_session,
+        "douyin",
+        date(2026, 9, 14),
+        ["09:00"],
+        1,
+        now=datetime(2026, 9, 14, 0, 0),
+    )
+
+    assert slot is None
+
+
+def test_next_platform_slot_counts_uploading_and_published_toward_daily_limit(
+    db_session,
+):
+    _add_account(db_session, account_id="dy", platform="douyin")
+    for index, status in enumerate(("uploading", "published")):
+        db_session.add(
+            PublishJob(
+                account_id="dy",
+                video_path=f"data/videos/{index}.mp4",
+                title=status,
+                status=status,
+                scheduled_at=datetime(2026, 9, 13, index + 1, 0),
+            )
+        )
+    db_session.commit()
+
+    assert (
+        next_platform_slot(
+            db_session,
+            "douyin",
+            date(2026, 9, 13),
+            ["12:00", "18:00"],
+            2,
+            now=datetime(2026, 9, 13, 0, 0),
+        )
+        is None
+    )
+
+
+def test_next_platform_slot_avoids_global_collisions(db_session):
+    _add_account(db_session, account_id="wx", platform="wechat_channels")
+    db_session.add(
+        PublishJob(
+            account_id="wx",
+            video_path="data/videos/wx.mp4",
+            title="global collision",
+            status="pending",
+            scheduled_at=datetime(2026, 9, 13, 1, 5),  # 09:05 Beijing
+        )
+    )
+    db_session.commit()
+
+    slot = next_platform_slot(
+        db_session,
+        "douyin",
+        date(2026, 9, 13),
+        ["09:00", "09:20"],
+        2,
+        now=datetime(2026, 9, 13, 0, 0),
+        minimum_global_gap_minutes=5,  # callers cannot weaken the 15m floor
+    )
+
+    assert slot == datetime(2026, 9, 13, 1, 20)
+
+
+def test_next_platform_slot_supports_configured_windows(db_session):
+    slot = next_platform_slot(
+        db_session,
+        "douyin",
+        date(2026, 9, 13),
+        [{"start": "15:00", "end": "16:00", "interval_minutes": 30}],
+        3,
+        now=datetime(2026, 9, 13, 6, 10),  # 14:10 Beijing
+    )
+
+    assert slot == datetime(2026, 9, 13, 7, 0)  # 15:00 Beijing
+
+
+def test_next_platform_slot_uses_whole_platform_and_runtime_config(db_session):
+    runtime = {
+        "post_score_automation": {
+            "auto_publish": {
+                "quiet_hours": {
+                    "enabled": True,
+                    "start": "08:30",
+                    "end": "10:30",
+                }
+            }
+        }
+    }
+    platform = {
+        "daily_limit": 3,
+        "window_start": "08:00",
+        "window_end": "22:00",
+        "slots": ["07:30", "09:00", "10:30"],
+    }
+
+    slot = next_platform_slot(
+        db_session,
+        "douyin",
+        date(2026, 9, 13),
+        platform_config=platform,
+        now=datetime(2026, 9, 12, 20, 0),
+        config=runtime,
+    )
+
+    assert slot == datetime(2026, 9, 13, 2, 30)  # 10:30 Beijing
+
+
+def test_next_platform_slot_obeys_paused_and_pause_windows(db_session):
+    base = {
+        "daily_limit": 2,
+        "window_start": "08:00",
+        "window_end": "22:00",
+        "slots": ["09:00", "12:00"],
+    }
+    assert (
+        next_platform_slot(
+            db_session,
+            "douyin",
+            date(2026, 9, 13),
+            {**base, "paused": True},
+            now=datetime(2026, 9, 13, 0, 0),
+            config=_AUTO_PUBLISH_CFG,
+        )
+        is None
+    )
+
+    slot = next_platform_slot(
+        db_session,
+        "douyin",
+        date(2026, 9, 13),
+        {
+            **base,
+            "pause_windows": [{"start": "08:30", "end": "10:00"}],
+        },
+        now=datetime(2026, 9, 13, 0, 0),
+        config=_AUTO_PUBLISH_CFG,
+    )
+    assert slot == datetime(2026, 9, 13, 4, 0)  # 12:00 Beijing
+
+
+@pytest.mark.parametrize("policy_enabled", [True, False])
+def test_worker_compaction_respects_policy_platform_slots(
+    db_session, monkeypatch, policy_enabled
+):
+    from sqlalchemy.orm import sessionmaker
+
+    account = _add_account(
+        db_session, account_id=f"worker-{policy_enabled}", platform="douyin"
+    )
+    article = IngestedArticle(
+        id=f"worker-art-{policy_enabled}",
+        source_id="src1",
+        canonical_url=f"https://example.com/worker-{policy_enabled}",
+        title="worker",
+    )
+    explicit_slot = datetime.utcnow() + timedelta(days=3)
+    job = PublishJob(
+        id=f"worker-job-{policy_enabled}",
+        account_id=account.id,
+        video_path="data/videos/worker.mp4",
+        title="worker",
+        status="pending",
+        source_type=INGESTION_SOURCE,
+        source_id=article.id,
+        scheduled_at=explicit_slot,
+    )
+    db_session.add_all([article, job])
+    db_session.flush()
+    if policy_enabled:
+        db_session.add(
+            AutoPublishCandidate(
+                id="worker-candidate",
+                article_id=article.id,
+                platform="douyin",
+                action="publish",
+                recommended_action="publish",
+                priority=90,
+                reasons_json="[]",
+                policy_version="worker-v1",
+                status="dispatched",
+                evaluated_at=datetime.utcnow(),
+                scheduled_date=explicit_slot.date(),
+                publish_job_id=job.id,
+            )
+        )
+    db_session.commit()
+    runtime = {
+        "publish_policy": {"enabled": policy_enabled},
+        **_AUTO_PUBLISH_CFG,
+    }
+    monkeypatch.setattr(
+        "services.ingestion.article_scorer.load_scoring_config",
+        lambda: runtime,
+    )
+    monkeypatch.setattr(
+        "services.publishing.schedule.load_scoring_config",
+        lambda: runtime,
+    )
+    worker = PublishWorker(embedded=True)
+    worker.session_factory = sessionmaker(
+        bind=db_session.get_bind(), autoflush=False, autocommit=False
+    )
+
+    worker._claim_pending_job()
+    db_session.expire_all()
+
+    if policy_enabled:
+        assert job.scheduled_at == explicit_slot
+    else:
+        assert job.scheduled_at < explicit_slot

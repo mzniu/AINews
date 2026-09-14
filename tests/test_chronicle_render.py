@@ -16,6 +16,8 @@ from services.ingestion.chronicle_render import (
     render_chronicle_cover,
     render_chronicle_frame,
     scaled_hero,
+    _prepare_summary_lines,
+    _wrap_line,
 )
 from services.ingestion.render_templates import get_render_template
 
@@ -414,6 +416,27 @@ def test_chronicle_footer_omits_year(tmp_path, monkeypatch):
     assert any(text.startswith("RECORD") for text in drawn)
 
 
+def test_chronicle_main_title_has_background_band(tmp_path):
+    img = _red_image(tmp_path / "shot.jpg")
+    frame = render_chronicle_frame(
+        draft={"main_line1": "小米玄戒O3安兔兔跑分破500万", "main_line2": "网友：522万分？先别吹"},
+        image=Image.open(img).convert("RGB"),
+        template=_template(),
+        include_hero=False,
+        include_footer=False,
+    )
+    typo = _template().get("typography") or {}
+    bg = tuple(int(typo["title_bg_color"].lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
+    layout = _template().get("layout") or {}
+    title_top = int(1920 * float(layout.get("title_top_percent", 11)) / 100.0)
+    sample = frame.getpixel((120, title_top + 20))
+    assert sample[2] > sample[0] + 10
+
+    # main_line2 区域不应铺主标题背景色（背景仅包住 main_line1）
+    line2_sample = frame.getpixel((120, title_top + 80))
+    assert abs(line2_sample[0] - bg[0]) > 20 or abs(line2_sample[1] - bg[1]) > 20
+
+
 def test_chronicle_backdrop_has_tech_depth(tmp_path):
     img = _red_image(tmp_path / "shot.jpg")
     frame = render_chronicle_frame(
@@ -450,12 +473,12 @@ def test_chronicle_layout_reads_card_and_summary_percents():
     template = _template()
     layout = template.get("layout") or {}
     typo = template.get("typography") or {}
-    assert float(layout["card_top_percent"]) == 35
-    assert float(layout["card_bottom_percent"]) == 71
+    assert float(layout["card_top_percent"]) == 33.2
+    assert float(layout["card_bottom_percent"]) == 72.8
     assert float(typo["summary_y_percent"]) == 73.2
     left, top, right, bottom = hero_inner_box(1080, 1920, template)
-    assert top == int(1920 * 0.35) + 16
-    assert bottom == int(1920 * 0.71) - 16
+    assert top == int(1920 * 0.332) + 8
+    assert bottom == int(1920 * 0.728) - 8
 
 
 def test_hero_motion_zoom_in_is_stronger_than_old_ken_burns():
@@ -859,3 +882,37 @@ def test_chronicle_live_frame_gif_card_changes_color(tmp_path):
     r1, _, b1 = f1.getpixel((cx, cy))
     assert r0 > b0
     assert b1 > r1
+
+
+def test_wrap_line_allows_more_than_three_lines():
+    from PIL import Image, ImageDraw
+
+    from services.ingestion.chronicle_render import _truetype
+
+    draw = ImageDraw.Draw(Image.new("RGB", (1080, 200)))
+    font = _truetype(34)
+    text = "这是一段较长的摘要内容，用于验证换行不会被三行上限截断。" * 3
+    lines = _wrap_line(text, font, 900, draw)
+    assert len(lines) > 3
+
+
+def test_prepare_summary_lines_uses_layout_budget_not_three_line_cap():
+    from PIL import Image, ImageDraw
+
+    from services.ingestion.chronicle_render import _prepare_summary_lines, _truetype
+
+    draw = ImageDraw.Draw(Image.new("RGB", (1080, 1920)))
+    summary = "小牛说：" + "人工智能行业持续演进，值得持续关注最新动态。" * 6
+    font = _truetype(34)
+    wrapped = _wrap_line(summary, font, 900, draw)
+    assert len(wrapped) > 3
+    _font, lines, _size = _prepare_summary_lines(
+        draw,
+        summary,
+        max_width=900,
+        summary_y=1300,
+        footer_y=1750,
+        preferred_font_size=34,
+    )
+    assert len(lines) == len(wrapped)
+    assert len(lines) > 3

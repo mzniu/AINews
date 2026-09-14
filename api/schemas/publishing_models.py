@@ -57,6 +57,10 @@ class ReschedulePublishJobRequest(BaseModel):
     cascade: bool = True
 
 
+class UpdatePublishPlatformsRequest(BaseModel):
+    platforms: List[str] = Field(default_factory=list)
+
+
 class PublishJobResponse(BaseModel):
     id: str
     account_id: str
@@ -182,3 +186,59 @@ class ViewDropAlert(BaseModel):
 class MetricsAlertsResponse(BaseModel):
     success: bool = True
     alerts: List[ViewDropAlert] = Field(default_factory=list)
+
+
+class CommentInboxResponse(BaseModel):
+    id: str
+    account_id: str
+    platform: str
+    platform_post_id: str
+    platform_comment_id: str
+    publish_job_id: Optional[str] = None
+    post_title: Optional[str] = None
+    author_name: Optional[str] = None
+    content: str
+    commented_at: Optional[datetime] = None
+    status: str
+    skip_reason: Optional[str] = None
+    reply_text: Optional[str] = None
+    replied_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+    retry_count: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    account_nickname: Optional[str] = None
+
+
+class CommentInboxListResponse(BaseModel):
+    success: bool = True
+    items: List[CommentInboxResponse] = Field(default_factory=list)
+    total: int = 0
+
+
+class ApproveCommentReplyRequest(BaseModel):
+    reply_text: Optional[str] = None
+
+
+class CommentReplyRunResponse(BaseModel):
+    id: str
+    status: str
+    mode: str
+    accounts_total: int = 0
+    posts_scanned: int = 0
+    comments_seen: int = 0
+    new_pending: int = 0
+    auto_sent: int = 0
+    skipped: int = 0
+    failed: int = 0
+    retried: int = 0
+    error_summary: Optional[str] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+
+
+class CommentReplyRunListResponse(BaseModel):
+    success: bool = True
+    items: List[CommentReplyRunResponse] = Field(default_factory=list)
+    total: int = 0
+

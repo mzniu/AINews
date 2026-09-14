@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>资讯库 - AINews</title>
+    <title>资讯�?- AINews</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260815a">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913d">
     <link rel="stylesheet" href="/static/css/ingestion_library.css?v=20260818a">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
-    <script src="/static/js/shared/app_nav.js?v=20260813c" defer></script>
+    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
+
+    <script src="/static/js/shared/app_nav.js?v=20260914b" defer></script>
 </head>
 <body class="app-page">
     <div id="app-nav-root"></div>
@@ -16,13 +18,13 @@
     <div class="ingestion-shell">
         <header class="ingestion-header">
             <div class="ingestion-header-text">
-                <h1>资讯库</h1>
-                <p class="ingestion-lead">定时抓取入库 · 选题后跳转主页生成视频</p>
+                <h1>资讯�?/h1>
+                <p class="ingestion-lead">定时抓取入库 · 选题后跳转主页生成视�?/p>
             </div>
             <div class="ingestion-header-toolbar">
                 <div class="ingestion-header-search">
                     <label class="sr-only" for="searchInput">搜索标题</label>
-                    <input id="searchInput" class="form-control ingestion-search" type="search" placeholder="搜索标题…">
+                    <input id="searchInput" class="form-control ingestion-search" type="search" placeholder="搜索标题�?>
                 </div>
                 <div class="toolbar-actions ingestion-header-actions">
                     <button class="btn btn-primary" id="refreshBtn" type="button">刷新</button>
@@ -34,13 +36,13 @@
         </header>
 
         <div id="ingestionWorkerBanner" class="soft-banner soft-banner-warn" style="display:none;">
-            ⚠️ 爬取 Worker 未运行。请重启 web_server，或在 <code>.env</code> 设置 <code>INGESTION_WORKER_MODE=separate</code> 后运行 worker。
+            ⚠️ 爬取 Worker 未运行。请重启 web_server，或�?<code>.env</code> 设置 <code>INGESTION_WORKER_MODE=separate</code> 后运�?worker�?
         </div>
 
         <section class="soft-card toolbar">
             <div class="toolbar-grid">
                 <div class="toolbar-field">
-                    <label class="field-label" for="sourceSelect">数据源</label>
+                    <label class="field-label" for="sourceSelect">数据�?/label>
                     <select id="sourceSelect" class="form-control"></select>
                 </div>
                 <div class="toolbar-field">
@@ -54,19 +56,19 @@
                     <label class="field-label" for="gradeSelect">等级</label>
                     <select id="gradeSelect" class="form-control">
                         <option value="">全部等级</option>
-                        <option value="S">S 级</option>
-                        <option value="A">A 级</option>
-                        <option value="B">B 级</option>
-                        <option value="C">C 级</option>
-                        <option value="D">D 级</option>
-                        <option value="unscored">未评分</option>
+                        <option value="S">S �?/option>
+                        <option value="A">A �?/option>
+                        <option value="B">B �?/option>
+                        <option value="C">C �?/option>
+                        <option value="D">D �?/option>
+                        <option value="unscored">未评�?/option>
                     </select>
                 </div>
                 <div class="toolbar-field">
                     <label class="field-label">列表视图</label>
                     <div class="view-toggle" role="group" aria-label="列表视图">
                         <button type="button" class="view-toggle-btn active" id="viewListBtn" data-view="list">文章列表</button>
-                        <button type="button" class="view-toggle-btn" id="viewTreeBtn" data-view="tree">同题树</button>
+                        <button type="button" class="view-toggle-btn" id="viewTreeBtn" data-view="tree">同题�?/button>
                     </div>
                 </div>
             </div>
@@ -85,7 +87,7 @@
                     <div class="list-panel-tools">
                         <label class="tree-filter-label" id="treeFilterWrap" style="display:none;">
                             <input type="checkbox" id="treeMultiOnly" checked>
-                            仅多篇同题
+                            仅多篇同�?
                         </label>
                         <button type="button" class="btn btn-soft btn-sm" id="aiReviewBtn" style="display:none;">AI 巡检</button>
                     </div>
@@ -107,12 +109,12 @@
                         <h3 class="panel-title">AI 聚类巡检</h3>
                         <button type="button" class="btn btn-soft btn-sm" id="closeAiReviewBtn">关闭</button>
                     </div>
-                    <div id="aiReviewContent" class="text-muted">点击「AI 巡检」分析近期 Story。</div>
+                    <div id="aiReviewContent" class="text-muted">点击「AI 巡检」分析近�?Story�?/div>
                 </section>
                 <section class="soft-card detail-card" id="articleDetail">
                     <div class="detail-empty">
                         <p class="panel-eyebrow">detail</p>
-                        <p class="text-muted">选择一篇文章查看详情</p>
+                        <p class="text-muted">选择一篇文章查看详�?/p>
                     </div>
                 </section>
             </div>

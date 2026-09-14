@@ -7,6 +7,11 @@
 
     let scheduleJobId = null;
     let scheduleIsArticleGroup = false;
+    let platformsJobId = null;
+    let platformsIsArticleGroup = false;
+    let platformsSingleOnly = false;
+    let platformCatalog = [];
+    let accountCatalog = [];
     let refreshTimer = null;
 
     function esc(text) {
@@ -103,8 +108,24 @@
     }
 
     function renderRowActions(jobId, canReschedule, canCancel, options = {}) {
-        const { scheduledAt = '', title = '', isArticleGroup = false } = options;
+        const {
+            scheduledAt = '',
+            title = '',
+            isArticleGroup = false,
+            canEditPlatforms = false,
+            platforms = [],
+            singleOnly = false,
+        } = options;
         const parts = [];
+        if (canEditPlatforms) {
+            parts.push(
+                `<button type="button" class="btn btn-soft btn-sm" data-action="platforms"`
+                + ` data-job-id="${esc(jobId)}" data-title="${esc(title)}"`
+                + ` data-article-group="${isArticleGroup ? '1' : '0'}"`
+                + ` data-single-only="${singleOnly ? '1' : '0'}"`
+                + ` data-platforms="${esc(platforms.join(','))}">平台</button>`
+            );
+        }
         if (canReschedule) {
             parts.push(
                 `<button type="button" class="btn btn-soft btn-sm" data-action="reschedule"`
@@ -142,7 +163,14 @@
                         job.id,
                         job.status === 'pending',
                         ACTIVE_STATUSES.has(job.status),
-                        { scheduledAt: job.scheduled_at || '', title: job.title || '', isArticleGroup: false },
+                        {
+                            scheduledAt: job.scheduled_at || '',
+                            title: job.title || '',
+                            isArticleGroup: false,
+                            canEditPlatforms: ACTIVE_STATUSES.has(job.status),
+                            platforms: job.platform ? [job.platform] : [],
+                            singleOnly: true,
+                        },
                     )}</td>
                 </tr>`;
             }
@@ -166,7 +194,14 @@
                     row.representativeJobId,
                     hasPending,
                     row.jobs.some((job) => ACTIVE_STATUSES.has(job.status)),
-                    { scheduledAt: row.scheduledAt || '', title: row.title || '', isArticleGroup: true },
+                    {
+                        scheduledAt: row.scheduledAt || '',
+                        title: row.title || '',
+                        isArticleGroup: true,
+                        canEditPlatforms: row.jobs.some((job) => ACTIVE_STATUSES.has(job.status)),
+                        platforms: row.jobs.map((job) => job.platform).filter(Boolean),
+                        singleOnly: false,
+                    },
                 )}</td>
             </tr>`;
         }).join('');
@@ -290,6 +325,134 @@
         scheduleIsArticleGroup = false;
     }
 
+    function accountStatusLabel(status) {
+        const map = {
+            active: '已登录',
+            expired: '需重新登录',
+            unknown: '状态未知',
+        };
+        return map[status] || status || '未登录';
+    }
+
+    function accountStatusClass(status) {
+        if (status === 'expired') return 'account-status-expired';
+        if (!status || status === 'unknown') return 'account-status-missing';
+        return '';
+    }
+
+    async function ensurePlatformCatalog() {
+        const requests = [fetch('/api/publishing/accounts')];
+        if (!platformCatalog.length) {
+            requests.unshift(fetch('/api/publishing/platforms'));
+        }
+        const responses = await Promise.all(requests);
+        let platformResp;
+        let accountResp;
+        if (platformCatalog.length) {
+            accountResp = responses[0];
+        } else {
+            [platformResp, accountResp] = responses;
+        }
+
+        const accountData = await accountResp.json();
+        if (!accountResp.ok) throw new Error(accountData.detail || '加载账号失败');
+        accountCatalog = accountData.accounts || [];
+
+        if (platformResp) {
+            const platformData = await platformResp.json();
+            if (!platformResp.ok) throw new Error(platformData.detail || '加载平台失败');
+            platformCatalog = (platformData.platforms || []).filter(
+                (item) => item.enabled && item.capabilities?.video_publish,
+            );
+        }
+    }
+
+    function accountForPlatform(platformId) {
+        const rows = accountCatalog
+            .filter((item) => item.platform === platformId)
+            .sort((a, b) => {
+                if (a.status === 'active' && b.status !== 'active') return -1;
+                if (a.status !== 'active' && b.status === 'active') return 1;
+                return 0;
+            });
+        return rows[0] || null;
+    }
+
+    function renderPlatformsChecklist(selectedPlatforms) {
+        const selected = new Set(selectedPlatforms);
+        const checklist = document.getElementById('platformsChecklist');
+        if (!checklist) return;
+        checklist.innerHTML = platformCatalog.map((platform) => {
+            const platformId = platform.id;
+            const account = accountForPlatform(platformId);
+            const checked = selected.has(platformId) ? 'checked' : '';
+            const optionClass = account ? 'platform-option' : 'platform-option is-missing-account';
+            const statusText = account
+                ? `${account.nickname || '未命名'} · ${accountStatusLabel(account.status)}`
+                : '暂无账号，保存前请先在发布中心登录';
+            const statusClass = account ? accountStatusClass(account.status) : 'account-status-missing';
+            return `
+                <label class="${optionClass}">
+                    <input type="checkbox" name="publish-platform" value="${esc(platformId)}" ${checked}>
+                    <span class="platform-option-body">
+                        <div class="platform-option-title">${esc(platform.display_name || platformId)}</div>
+                        <div class="platform-option-meta ${statusClass}">${esc(statusText)}</div>
+                    </span>
+                </label>
+            `;
+        }).join('');
+    }
+
+    async function openPlatformsModal(jobId, title, selectedPlatforms, isArticleGroup, singleOnly) {
+        platformsJobId = jobId;
+        platformsIsArticleGroup = isArticleGroup;
+        platformsSingleOnly = singleOnly;
+        document.getElementById('platformsModalTitle').textContent = title || '未命名';
+        document.getElementById('platformsModalNote').textContent = singleOnly
+            ? '手动任务只能选择一个平台。账号未登录也会保留在队列，发布失败后可重试。'
+            : '勾选要发布的平台。同篇文章各平台共用档期；账号未登录也会入队，发布失败后可重试。';
+        await ensurePlatformCatalog();
+        renderPlatformsChecklist(selectedPlatforms);
+        document.getElementById('platformsModal').hidden = false;
+    }
+
+    function closePlatformsModal() {
+        document.getElementById('platformsModal').hidden = true;
+        platformsJobId = null;
+        platformsIsArticleGroup = false;
+        platformsSingleOnly = false;
+    }
+
+    function readSelectedPlatforms() {
+        const inputs = document.querySelectorAll('#platformsChecklist input[name="publish-platform"]:checked');
+        return [...inputs].map((input) => input.value);
+    }
+
+    async function savePlatforms() {
+        if (!platformsJobId) return;
+        const platforms = readSelectedPlatforms();
+        if (!platforms.length) {
+            alert('请至少选择一个平台');
+            return;
+        }
+        if (platformsSingleOnly && platforms.length !== 1) {
+            alert('手动任务只能选择一个平台');
+            return;
+        }
+        const resp = await fetch(`/api/publishing/jobs/${platformsJobId}/platforms`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platforms }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            alert('保存失败: ' + (data.detail || data.message || resp.statusText));
+            return;
+        }
+        closePlatformsModal();
+        await loadQueue();
+    }
+
     async function saveReschedule() {
         if (!scheduleJobId) return;
         const parsed = parseBeijingDatetimeLocal(document.getElementById('scheduleDatetime').value);
@@ -351,6 +514,21 @@
             return;
         }
 
+        if (action === 'platforms') {
+            const selected = (button.dataset.platforms || '')
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean);
+            openPlatformsModal(
+                jobId,
+                button.dataset.title || '',
+                selected,
+                button.dataset.articleGroup === '1',
+                button.dataset.singleOnly === '1',
+            ).catch((err) => alert('加载平台失败: ' + err.message));
+            return;
+        }
+
         if (action === 'cancel') {
             const groupIds = row?.dataset?.jobIds;
             cancelJobs(groupIds ? groupIds.split(',') : [jobId]);
@@ -379,6 +557,21 @@
         });
         document.getElementById('scheduleModal')?.addEventListener('click', (event) => {
             if (event.target.id === 'scheduleModal') closeRescheduleModal();
+        });
+        document.getElementById('platformsCancelBtn')?.addEventListener('click', closePlatformsModal);
+        document.getElementById('platformsSaveBtn')?.addEventListener('click', () => {
+            savePlatforms().catch((err) => alert('保存失败: ' + err.message));
+        });
+        document.getElementById('platformsModal')?.addEventListener('click', (event) => {
+            if (event.target.id === 'platformsModal') closePlatformsModal();
+        });
+        document.getElementById('platformsChecklist')?.addEventListener('change', (event) => {
+            if (!platformsSingleOnly) return;
+            const input = event.target;
+            if (!input || input.name !== 'publish-platform' || !input.checked) return;
+            document.querySelectorAll('#platformsChecklist input[name="publish-platform"]').forEach((node) => {
+                if (node !== input) node.checked = false;
+            });
         });
     }
 

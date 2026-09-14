@@ -33,7 +33,7 @@ class KuaishouAdapter(CreatorCenterAdapter):
     def publish_video(self, session_path: Path, payload: PublishPayload) -> PublishResult:
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-        screenshot_dir = Config.ROOT_DIR / "data" / "publish" / "screenshots"
+        screenshot_dir = Config.DATA_DIR / "publish" / "screenshots"
         screenshot_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = screenshot_dir / f"kuaishou_fail_{int(time.time())}.png"
         page = None
@@ -163,14 +163,14 @@ class KuaishouAdapter(CreatorCenterAdapter):
         delay_sec: int = 15,
         wait_max_sec: int = 60,
     ):
-        from services.publishing.adapters.kuaishou_comment import post_kuaishou_first_comment
+        from services.publishing.adapters.kuaishou_comment import COMMENT_HUB_URL, post_kuaishou_first_comment
         from services.publishing.first_comment_timing import run_standalone_first_comment
 
         return run_standalone_first_comment(
             session_path,
             platform_id="kuaishou",
             platform_label="快手",
-            creator_url=self.creator_url,
+            creator_url=COMMENT_HUB_URL,
             warmup_url=self.qr_profile.get("post_login_url") or self.login_url,
             success_url_excludes=self._success_url_excludes(),
             post_fn=post_kuaishou_first_comment,

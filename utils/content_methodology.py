@@ -131,11 +131,22 @@ STAGE_2_MAIN_LINE1 = """1. main_line1（主标题第一行，事实抓眼 + 话�
 STAGE_2_SHORT_TITLE = """2. short_title（视频号短标题）：不超过 16 个字（空格计入）。专门给微信视频号投稿标题，必须能单独成句（谁+做了什么）；可从主标题压缩，不要只截半句；小数点写成「点」（GPT-4.5 → GPT4点5），横杠和其他标点去掉；不含 emoji；禁止夸张误导与感叹硬开头。
 """
 
-STAGE_2_REST = """3. main_line2（主标题第二行，网友锐评）：仅当正文有明确争议钩子时写，9-12 个汉字当量。有则**以「网友：」开头**接尖锐短评并挂 content_hooks；**没有争议钩子时必须填空字符串 ""**，不要硬编。不得人身攻击、地域歧视、低俗辱骂；不含 emoji。
+STAGE_2_MID = """3. main_line2（主标题第二行，网友锐评）：仅当正文有明确争议钩子时写，9-12 个汉字当量。有则**以「网友：」开头**接尖锐短评并挂 content_hooks；**没有争议钩子时必须填空字符串 ""**，不要硬编。不得人身攻击、地域歧视、低俗辱骂；不含 emoji。
 4. sub_title（副标题第一行，轻观点收尾）：11-15 个汉字当量。创作者视角 1 句行业观点或轻干货；**句式必须从【副标题句式库】8 种里挑 1 种**，且不得与 main_line2 同口吻；不含 emoji。
 5. sub_title2（副标题第二行，流量钩子）：11-15 个汉字当量。优先「观众想看看真假」「观众想证明自己」；不得与 sub_title / main_line2 同句式；内容没有强钩子时填空字符串 ""；不含 emoji。
-6. summary（摘要）：55-65 字。以「小牛说：」开头，按 话题引入→关键事实→轻观点 凝缩；客观理性带适度幽默；不含 emoji。
-7. tags（标签）：严格 10 个，每个以 # 开头、空格分隔，顺序固定：第1赛道/第2垂直/第3精准/第4热点/第5个人IP（#小牛说 或 #小牛说AI）/第6-10其他补充。
+"""
+
+DEFAULT_STAGE2_SUMMARY = """6. summary（摘要）：100-130 字。以「小牛说：」开头，按 话题引入→关键事实→轻观点 凝缩；客观理性带适度幽默；不含 emoji。"""
+
+DEFAULT_SUMMARY_PATTERNS = """【摘要 summary 写法】
+- 100-130 字，必须以「小牛说：」开头
+- 结构：话题引入 → 关键事实（主体/动作/数字）→ 轻观点收尾
+- 与口播稿区分：摘要是凝缩版信息，不做长叙述、不堆参数清单
+- 客观理性，可带适度幽默；须与正文事实一致，禁止夸张误导
+- 不含 emoji；highlight_keywords 必须从摘要原文连续截取
+"""
+
+STAGE_2_AFTER_SUMMARY = """7. tags（标签）：严格 10 个，每个以 # 开头、空格分隔，顺序固定：第1赛道/第2垂直/第3精准/第4热点/第5个人IP（#小牛说 或 #小牛说AI）/第6-10其他补充。
 8. voiceover_script（口播稿）：与摘要有区分，完整配音长稿。中文按字符计数，长度严格在 {vmin}~{vmax} 字之间（含边界）。**不要以「小牛说：」开头**；**前3秒（约前12-16字）必须点出主体+数字+冲突**；「小牛说」放到第二句或结尾口播署名。分层：主体事实+数字+冲突 → 关键细节 → 「小牛说」轻观点 → **最后一句留可回答的争议/评论开口**（可与可选「网友：」同题）。禁止「点赞关注」和先夸观众；口语化、适合朗读；不含 emoji。
 9. highlight_keywords（摘要高亮）：JSON 数组，3-5 个字符串。每个必须是「摘要」原文中的连续子串（一字不差）。中文片段每个不超过 5 个字符；纯英文单词整词输出。
 10. traffic_hook（回显）：把阶段 1 推断的流量钩子类型中文名回显到这里（如「观众想看看真假」）；若 sub_title2 为空则此处也为空字符串 ""。
@@ -157,6 +168,8 @@ def build_methodology_prompt_section(*, vmin: int, vmax: int, json_template: str
     main_line1_patterns = prompts.get("main_line1_patterns") or MAIN_LINE1_HOOK_PATTERNS
     stage2_main_line1 = prompts.get("stage2_main_line1") or STAGE_2_MAIN_LINE1
     stage2_short_title = prompts.get("stage2_short_title") or STAGE_2_SHORT_TITLE
+    summary_patterns = prompts.get("summary_patterns") or DEFAULT_SUMMARY_PATTERNS
+    stage2_summary = prompts.get("stage2_summary") or DEFAULT_STAGE2_SUMMARY
     short_title_patterns = prompts.get("short_title_patterns") or ""
     stage2 = (
         STAGE_2_HEAD
@@ -164,7 +177,11 @@ def build_methodology_prompt_section(*, vmin: int, vmax: int, json_template: str
         + "\n"
         + stage2_short_title.rstrip()
         + "\n"
-        + STAGE_2_REST.format(vmin=vmin, vmax=vmax)
+        + STAGE_2_MID.rstrip()
+        + "\n"
+        + stage2_summary.rstrip()
+        + "\n"
+        + STAGE_2_AFTER_SUMMARY.format(vmin=vmin, vmax=vmax)
     )
     return (
         METHODOLOGY_CORE
@@ -178,6 +195,8 @@ def build_methodology_prompt_section(*, vmin: int, vmax: int, json_template: str
         + main_line1_patterns
         + "\n"
         + short_title_patterns
+        + "\n"
+        + summary_patterns
         + "\n"
         + (prompts.get("first_comment_patterns") or "")
         + "\n"
