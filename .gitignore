@@ -74,6 +74,9 @@ MEMORY.md
 
 # Node (presentations)
 docs/presentations/node_modules/
+remotion/node_modules/
+remotion/out/
+remotion/public/runtime/
 
 # 临时导入数据
 tmp_import_payload.json

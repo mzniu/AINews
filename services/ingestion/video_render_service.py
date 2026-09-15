@@ -1,6 +1,7 @@
 """Render ingested article video using the homepage animated-video pipeline."""
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi.responses import JSONResponse
@@ -67,11 +68,26 @@ def render_ingested_video(
     background_image: str = "static/imgs/bg.png",
     clip_duration_sec: float = 2.5,
     template: dict[str, Any] | None = None,
+    renderer: str | None = None,
 ) -> dict[str, Any]:
     if len(image_paths) < 1:
         return {"success": False, "error": "insufficient_images", "count": len(image_paths)}
 
     durations = resolve_ingested_clip_durations(len(image_paths), template=template)
+
+    use_remotion = str(renderer or os.environ.get("VIDEO_RENDERER", "")).strip().lower() == "remotion"
+    if use_remotion:
+        from services.ingestion.remotion_render_service import render_with_remotion
+
+        return render_with_remotion(
+            article_id=article_id,
+            draft=draft,
+            image_paths=image_paths,
+            bgm_path=bgm_path,
+            background_image=background_image,
+            durations=durations,
+            template=template,
+        )
     if len(durations) < len(image_paths):
         durations = durations + [clip_duration_sec] * (len(image_paths) - len(durations))
 
