@@ -8,6 +8,16 @@ Remotion replaces the Python/MoviePy slideshow path for ingested article videos.
 - `npm install` in this directory
 - Chrome/Chromium (system `google-chrome` works in cloud VMs with sandbox flags)
 
+## BGM upload path
+
+Place your test MP3 at:
+
+```
+remotion/public/static/music/test-bgm.mp3
+```
+
+Then run `npm run render:bgm`.
+
 ## Quick start
 
 ```bash

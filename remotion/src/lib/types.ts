@@ -12,6 +12,8 @@ export type ImageClip = {
   path: string;
   duration: number;
   motionEffect?: string;
+  animation?: string;
+  imageYPercent?: number;
 };
 
 export type ChronicleTemplate = {

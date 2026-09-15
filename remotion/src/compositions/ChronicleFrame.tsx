@@ -3,6 +3,7 @@ import {AbsoluteFill} from 'remotion';
 import {ChronicleTemplate, Draft} from '../lib/types';
 import {hexToRgb} from '../lib/colors';
 import {mergeHighlightKeywords, splitHighlightSegments, wrapLine} from '../lib/text';
+import {fontStyles} from '../lib/fonts';
 import {HeroImage} from './HeroImage';
 import {TechBackdrop} from './TechBackdrop';
 
@@ -109,27 +110,41 @@ export const ChronicleFrame: React.FC<Props> = ({
     <AbsoluteFill>
       <TechBackdrop width={width} height={height} palette={palette} />
       <div style={{position: 'absolute', left: inset + 16, top: pct(0.038, height) + pct(Number(typo.top_pad_percent || 5) / 100, height), display: 'flex', alignItems: 'center', gap: 16}}>
-        <div style={{width: 64, height: 64, border: `2px solid ${accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: textColor, fontSize: brandSize, fontWeight: 700}}>
+        <div style={{width: 64, height: 64, border: `2px solid ${accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: textColor, fontSize: brandSize, ...fontStyles.title}}>
           {String(chrome.mark_glyph || '牛')}
         </div>
         <div>
-          <div style={{color: textColor, fontSize: brandSize, fontWeight: 700}}>{String(chrome.brand || '小牛聊AI')}</div>
+          <div style={{color: textColor, fontSize: brandSize, ...fontStyles.title}}>{String(chrome.brand || '小牛聊AI')}</div>
           {chrome.brand_sub ? (
-            <div style={{color: muted, fontSize: brandSubSize, marginTop: 6}}>{String(chrome.brand_sub)}</div>
+            <div style={{color: muted, fontSize: brandSubSize, marginTop: 6, ...fontStyles.body}}>{String(chrome.brand_sub)}</div>
           ) : null}
         </div>
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          right: inset + 20,
+          top: pct(0.038, height) + pct(Number(typo.top_pad_percent || 5) / 100, height) + 8,
+          border: `1px solid ${accentDim}`,
+          padding: '6px 12px',
+          color: accent,
+          fontSize: Math.round(footerSize * 0.9),
+          ...fontStyles.badge,
+        }}
+      >
+        RECORD {new Date().getFullYear()}
       </div>
 
       {placement === 'above_card' ? (
         <div style={{position: 'absolute', left: pct(0.045, width) + 18, top: titleTop, maxWidth: width - inset - 40, color: textColor}}>
           <div style={{position: 'absolute', left: -18, top: 0, width: 2, height: pct(0.14, height), background: accentDim}} />
           {titleLines.map((line, i) => (
-            <div key={i} style={{marginBottom: 8}}>
+            <div key={i} style={{marginBottom: 8, ...(i < 2 ? fontStyles.title : fontStyles.body)}}>
               {renderHighlighted(line, i < 2 ? titleSize : subSize, textColor, titleHi)}
             </div>
           ))}
-          {draft.sub_title ? <div style={{fontSize: subSize, marginTop: 4}}>{draft.sub_title}</div> : null}
-          {draft.sub_title2 ? <div style={{fontSize: subSize, marginTop: 4, color: hookColor}}>{draft.sub_title2}</div> : null}
+          {draft.sub_title ? <div style={{fontSize: subSize, marginTop: 4, ...fontStyles.body}}>{draft.sub_title}</div> : null}
+          {draft.sub_title2 ? <div style={{fontSize: subSize, marginTop: 4, color: hookColor, ...fontStyles.body}}>{draft.sub_title2}</div> : null}
         </div>
       ) : null}
 

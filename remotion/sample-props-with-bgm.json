@@ -1,0 +1,65 @@
+{
+  "articleId": "sample-bgm",
+  "draft": {
+    "main_line1": "突发！中文渲染测试",
+    "main_line2": "Noto Sans SC 字体验证",
+    "sub_title": "AI 快讯",
+    "summary": "小牛说：验证简体中文、关键词高亮与背景音乐合成。",
+    "tags": "#AI #中文",
+    "highlight_keywords": ["中文", "AI"]
+  },
+  "images": [
+    {"path": "static/imgs/bg-2.png", "duration": 3.0},
+    {"path": "static/imgs/bg.png", "duration": 3.0}
+  ],
+  "audioPath": "static/music/test-bgm.mp3",
+  "template": {
+    "canvas": {"width": 1080, "height": 1920, "fps": 24},
+    "palette": {
+      "bg": "#070B10",
+      "bg_glow": "#165A82",
+      "accent": "#3DDCFF",
+      "accent_dim": "#1A6A8A",
+      "text": "#F4F7FA",
+      "text_muted": "#8B96A8",
+      "card": "#FFFFFF",
+      "frame": "#1A6A8A"
+    },
+    "chrome": {
+      "brand": "小牛聊AI",
+      "mark_glyph": "牛",
+      "brand_sub": "粉碎AI信息差 / 消除AI焦虑",
+      "footer_left": "AI 快讯"
+    },
+    "typography": {
+      "title_font_size": 64,
+      "subtitle_font_size": 47,
+      "brand_font_size": 43,
+      "brand_sub_font_size": 28,
+      "footer_font_size": 40,
+      "summary_y_percent": 70.2,
+      "footer_y_percent": 85.2,
+      "top_pad_percent": 5,
+      "title_highlight_color": "#FFEC30",
+      "main_line1_color": "#F4F7FA",
+      "subtitle2_color": "#3DDCFF"
+    },
+    "layout": {
+      "card_top_percent": 35,
+      "card_bottom_percent": 71,
+      "card_left_percent": 8,
+      "card_right_percent": 92,
+      "card_inset_px": 16
+    },
+    "video": {
+      "card_motion": {
+        "enabled": true,
+        "random": true,
+        "end_scale": 1.22,
+        "pan_percent": 70,
+        "effects": ["zoom_in", "pan_left", "zoom_out"]
+      }
+    }
+  },
+  "seed": "sample-bgm"
+}
