@@ -149,6 +149,7 @@ AINews/
 
 详细设计文档请查看 [docs/](docs/) 目录：
 
+- [CI / GitHub Actions](docs/ci.md)
 - [项目概述](docs/01-项目概述.md)
 - [架构设计](docs/02-架构设计.md)
 - [爬虫设计](docs/03-爬虫设计.md)
