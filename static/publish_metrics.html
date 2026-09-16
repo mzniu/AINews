@@ -46,6 +46,7 @@
                 </select>
                 <span id="metricsSyncStatus">加载中…</span>
                 <button type="button" class="btn-secondary btn" id="metricsExportBtn">导出 CSV</button>
+                <button type="button" class="btn-secondary btn" id="metricsExportJsonBtn">导出 JSON</button>
                 <button type="button" class="btn-secondary btn" id="metricsSyncBtn">立即同步</button>
             </div>
             <div id="metricsAlerts" class="metrics-alerts soft-banner-warn"></div>
@@ -54,6 +55,10 @@
             </div>
             <div id="metricsSummaryCards" class="metrics-summary-grid metrics-kpi-grid"></div>
             <div id="metricsPlatformBreakdown" class="metrics-platform-grid"></div>
+            <div id="metricsCharts" class="metrics-charts" aria-label="平台指标图表">
+                <canvas id="metricsPlatformChart" class="metrics-chart-canvas" width="960" height="220" aria-label="各平台播放对比"></canvas>
+                <canvas id="metricsTrendChart" class="metrics-chart-canvas" width="960" height="180" aria-label="汇总趋势"></canvas>
+            </div>
             <div class="metrics-table-wrap">
                 <table id="publishedPostsDataTable" data-sortable="true">
                     <thead>

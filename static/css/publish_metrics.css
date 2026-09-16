@@ -76,6 +76,21 @@
     opacity: 0.7;
 }
 
+.metrics-charts {
+    display: grid;
+    gap: 16px;
+    margin: 16px 0;
+}
+
+.metrics-chart-canvas {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-card-solid);
+}
+
 .metrics-header {
     display: flex;
     align-items: flex-start;

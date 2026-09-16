@@ -61,6 +61,12 @@ async def ingestion_library_page():
     return _read_static_html("ingestion_library.html")
 
 
+@router.get("/design-system", response_class=HTMLResponse)
+async def design_system_page():
+    """设计系统组件展示（静态 Storybook）"""
+    return _read_static_html("design-system.html")
+
+
 @router.get("/hot-radar", response_class=HTMLResponse)
 async def hot_radar_page():
     """热榜雷达：新浪 AI 热榜快照与文章命中详情"""

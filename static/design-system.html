@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AINews Design System · 设计系统</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260916p2">
+    <style>
+        .ds-page { max-width: 960px; margin: 0 auto; padding: 24px 24px 64px; }
+        .ds-page h1 { font-family: var(--font-display); margin: 0 0 8px; }
+        .ds-lead { color: var(--app-text-soft); margin: 0 0 28px; }
+        .ds-section { margin-bottom: 32px; }
+        .ds-section h2 { font-size: 1.1rem; margin: 0 0 12px; }
+        .ds-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+        .ds-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+        .ds-swatch { border-radius: 12px; padding: 12px; border: 1px solid var(--app-border); font-size: 12px; }
+        .ds-swatch-chip { width: 100%; height: 36px; border-radius: 8px; margin-bottom: 8px; }
+    </style>
+    <script src="/static/js/shared/theme.js?v=20260916" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260916p2" defer></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+    <main class="ds-page">
+        <h1>AINews Design System</h1>
+        <p class="ds-lead">静态组件展示页 — 设计令牌、按钮、卡片与徽章（Storybook 风格）。</p>
+
+        <section class="ds-section soft-card">
+            <h2>品牌色板</h2>
+            <div class="ds-swatches">
+                <div class="ds-swatch"><div class="ds-swatch-chip" style="background:#123499"></div>Primary #123499</div>
+                <div class="ds-swatch"><div class="ds-swatch-chip" style="background:#0a2472"></div>Royal #0a2472</div>
+                <div class="ds-swatch"><div class="ds-swatch-chip" style="background:#051650"></div>Deep #051650</div>
+                <div class="ds-swatch"><div class="ds-swatch-chip" style="background:#f0f3fa"></div>Surface #f0f3fa</div>
+            </div>
+        </section>
+
+        <section class="ds-section soft-card">
+            <h2>按钮</h2>
+            <div class="ds-row">
+                <button type="button" class="btn">Primary</button>
+                <button type="button" class="btn btn-soft">Soft</button>
+                <button type="button" class="btn btn-secondary">Secondary</button>
+                <button type="button" class="btn btn-danger">Danger</button>
+            </div>
+        </section>
+
+        <section class="ds-section soft-card">
+            <h2>徽章 · 等级</h2>
+            <div class="ds-row">
+                <span class="badge grade-badge grade-s">S 92</span>
+                <span class="badge grade-badge grade-a">A 85</span>
+                <span class="badge grade-badge grade-b">B 72</span>
+                <span class="badge grade-badge grade-c">C 58</span>
+                <span class="badge badge-success">已发布</span>
+                <span class="badge badge-warning">进行中</span>
+            </div>
+        </section>
+
+        <section class="ds-section soft-card">
+            <h2>表单控件</h2>
+            <div class="ds-row">
+                <input class="form-control" placeholder="搜索资讯…" style="max-width:280px">
+                <select class="form-control" style="max-width:180px"><option>全部平台</option></select>
+            </div>
+        </section>
+
+        <section class="ds-section soft-card">
+            <h2>卡片与 Banner</h2>
+            <div class="soft-banner-warn" style="margin-bottom:12px">Worker 未运行 — 请检查后台服务。</div>
+            <div class="metrics-kpi-card" style="max-width:220px">
+                <div class="metrics-kpi-label">示例 KPI</div>
+                <div class="metrics-kpi-value">12.4万</div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

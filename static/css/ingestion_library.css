@@ -347,6 +347,28 @@
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+    overflow: hidden;
+}
+
+.app-page .article-grade-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--color-grade-c, #6b7aa6);
+}
+
+.app-page .article-grade-bar.grade-s { background: var(--color-grade-s, #c27803); }
+.app-page .article-grade-bar.grade-a { background: var(--color-grade-a, #0d9f6e); }
+.app-page .article-grade-bar.grade-b { background: var(--color-grade-b, #123499); }
+.app-page .article-grade-bar.grade-c { background: var(--color-grade-c, #6b7aa6); }
+.app-page .article-grade-bar.grade-d { background: #94a3b8; }
+
+.app-page .article-item.hot-radar-highlight {
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.65), var(--app-shadow-soft);
+    border-color: rgba(251, 191, 36, 0.55);
 }
 
 .app-page .article-item:hover {

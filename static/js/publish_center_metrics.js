@@ -230,6 +230,95 @@
         window.location.href = '/api/publishing/published-posts/export?' + params.toString();
     }
 
+    function exportMetricsJson() {
+        const params = getFilterParams();
+        params.delete('limit');
+        params.delete('offset');
+        window.location.href = '/api/publishing/published-posts/export.json?' + params.toString();
+    }
+
+    function drawBarChart(canvas, rows, { valueKey = 'view_count', labelKey = 'platform_display_name' } = {}) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+        if (!rows || !rows.length) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '14px sans-serif';
+            ctx.fillText('暂无平台数据', 40, height / 2);
+            return;
+        }
+        const padding = { top: 24, right: 20, bottom: 36, left: 48 };
+        const chartW = width - padding.left - padding.right;
+        const chartH = height - padding.top - padding.bottom;
+        const maxVal = Math.max(1, ...rows.map((r) => Number(r[valueKey]) || 0));
+        const barW = chartW / rows.length * 0.6;
+        const gap = chartW / rows.length;
+        ctx.fillStyle = '#64748b';
+        ctx.font = '11px sans-serif';
+        rows.forEach((row, index) => {
+            const val = Number(row[valueKey]) || 0;
+            const barH = (val / maxVal) * chartH;
+            const x = padding.left + gap * index + (gap - barW) / 2;
+            const y = padding.top + chartH - barH;
+            ctx.fillStyle = '#123499';
+            ctx.fillRect(x, y, barW, barH);
+            const label = String(row[labelKey] || row.platform || `#${index + 1}`).slice(0, 8);
+            ctx.fillStyle = '#64748b';
+            ctx.fillText(label, x, height - 12);
+        });
+    }
+
+    function drawTrendChart(canvas, totals) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+        const series = [
+            totals.view_count || 0,
+            totals.like_count || 0,
+            totals.comment_count || 0,
+            totals.favorite_count || 0,
+        ];
+        const labels = ['播放', '点赞', '评论', '收藏'];
+        const padding = { top: 20, right: 20, bottom: 32, left: 40 };
+        const chartW = width - padding.left - padding.right;
+        const chartH = height - padding.top - padding.bottom;
+        const maxVal = Math.max(1, ...series);
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 3; i++) {
+            const y = padding.top + (chartH * i) / 3;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+            ctx.stroke();
+        }
+        ctx.strokeStyle = '#123499';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        series.forEach((val, index) => {
+            const x = padding.left + (chartW * index) / Math.max(series.length - 1, 1);
+            const y = padding.top + chartH - (val / maxVal) * chartH;
+            if (index === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        ctx.fillStyle = '#64748b';
+        ctx.font = '11px sans-serif';
+        labels.forEach((label, index) => {
+            const x = padding.left + (chartW * index) / Math.max(series.length - 1, 1);
+            ctx.fillText(label, x - 12, height - 10);
+        });
+    }
+
+    function renderMetricsCharts(totals, platformRows) {
+        drawBarChart(document.getElementById('metricsPlatformChart'), platformRows || []);
+        drawTrendChart(document.getElementById('metricsTrendChart'), totals || {});
+    }
+
     let bindJobId = null;
 
     function openBindModal(jobId, title) {
@@ -284,10 +373,12 @@
             renderKpiRow(totals);
             renderSummaryCards(totals);
             renderPlatformBreakdown(data.by_platform || []);
+            renderMetricsCharts(totals, data.by_platform || []);
         } catch (e) {
             renderKpiRow({});
             renderSummaryCards({});
             renderPlatformBreakdown([]);
+            renderMetricsCharts({}, []);
         }
     }
 
@@ -517,6 +608,7 @@
         if (!document.getElementById('metricsSummaryCards')) return;
         document.getElementById('metricsSyncBtn')?.addEventListener('click', triggerMetricsSync);
         document.getElementById('metricsExportBtn')?.addEventListener('click', exportMetricsCsv);
+        document.getElementById('metricsExportJsonBtn')?.addEventListener('click', exportMetricsJson);
         document.getElementById('metricsBindCancelBtn')?.addEventListener('click', closeBindModal);
         document.getElementById('metricsBindSaveBtn')?.addEventListener('click', saveBindModal);
         document.getElementById('metricsBindModal')?.addEventListener('click', (e) => {

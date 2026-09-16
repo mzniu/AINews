@@ -18,7 +18,7 @@ from services.ingestion.hot_radar_settings import (
 )
 from services.ingestion.story_cluster import title_similarity
 from services.ingestion.url_utils import canonicalize_url
-from src.db.models.ingestion import HotRadarItem, HotRadarSnapshot, IngestedArticle, _uuid
+from src.db.models.ingestion import HotRadarArticleMatch, HotRadarItem, HotRadarSnapshot, IngestedArticle, _uuid
 from src.utils.config import Config
 
 _HEAT_RE = re.compile(r"(\d+(?:\.\d+)?)(万|亿)?")
@@ -422,7 +422,12 @@ def hot_radar_match_to_dict(match: HotRadarMatch | None) -> dict[str, Any] | Non
     }
 
 
-def _item_row_to_dict(row: HotRadarItem, *, board: dict[str, Any] | None = None) -> dict[str, Any]:
+def _item_row_to_dict(
+    row: HotRadarItem,
+    *,
+    board: dict[str, Any] | None = None,
+    matched_article_id: str | None = None,
+) -> dict[str, Any]:
     payload = {
         "rank": row.rank,
         "title": row.title,
@@ -431,6 +436,8 @@ def _item_row_to_dict(row: HotRadarItem, *, board: dict[str, Any] | None = None)
         "heat_value": row.heat_value,
         "external_id": row.external_id,
     }
+    if matched_article_id:
+        payload["matched_article_id"] = matched_article_id
     if board:
         payload["board_id"] = board.get("id")
         payload["board_hashid"] = board.get("hashid")
@@ -460,6 +467,16 @@ def _board_snapshot_view(db: Session, board: dict[str, Any]) -> dict[str, Any]:
         .order_by(HotRadarItem.rank.asc())
         .all()
     )
+    match_rows = (
+        db.query(HotRadarArticleMatch)
+        .filter_by(snapshot_id=snapshot.id)
+        .all()
+    )
+    url_to_article = {
+        str(row.hot_url or "").strip(): row.article_id
+        for row in match_rows
+        if row.hot_url and row.article_id
+    }
     status = "failed" if snapshot.error_message else ("ready" if snapshot.item_count else "empty")
     return {
         "board_id": board.get("id"),
@@ -471,7 +488,14 @@ def _board_snapshot_view(db: Session, board: dict[str, Any]) -> dict[str, Any]:
         "item_count": snapshot.item_count,
         "error_message": snapshot.error_message,
         "status": status,
-        "items": [_item_row_to_dict(row, board=board) for row in items],
+        "items": [
+            _item_row_to_dict(
+                row,
+                board=board,
+                matched_article_id=url_to_article.get(str(row.url or "").strip()),
+            )
+            for row in items
+        ],
     }
 
 

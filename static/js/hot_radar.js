@@ -82,12 +82,18 @@
             const link = item.url
                 ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">打开</a>`
                 : '—';
+            const libraryLink = item.matched_article_id
+                ? `<a class="library-link" href="/ingestion-library?article_id=${encodeURIComponent(item.matched_article_id)}&from=hot-radar">资讯库</a>`
+                : (item.article_id
+                    ? `<a class="library-link" href="/ingestion-library?article_id=${encodeURIComponent(item.article_id)}&from=hot-radar">资讯库</a>`
+                    : '');
+            const actions = [link, libraryLink].filter(Boolean).join(' · ') || '—';
             return `<tr>
                 <td class="small">${escapeHtml(item.board_label || '—')}</td>
                 <td class="${rankCls}">${item.rank}</td>
                 <td class="hot-title">${escapeHtml(item.title)}</td>
                 <td class="hot-heat">${escapeHtml(item.heat_label || '—')}</td>
-                <td>${link}</td>
+                <td>${actions}</td>
             </tr>`;
         }).join('');
     }
@@ -157,7 +163,7 @@
             }
             if (item.article_id) {
                 actions.push(
-                    `<a href="/ingestion-library?article_id=${encodeURIComponent(item.article_id)}">资讯库</a>`
+                    `<a class="library-link" href="/ingestion-library?article_id=${encodeURIComponent(item.article_id)}&from=hot-radar">资讯库</a>`
                 );
             }
             const error = item.error_message

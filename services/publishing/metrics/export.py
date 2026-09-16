@@ -73,3 +73,21 @@ def build_published_posts_csv(
             ]
         )
     return buffer.getvalue()
+
+
+def build_published_posts_json(
+    session: Session,
+    *,
+    platform: str | None = None,
+    account_id: str | None = None,
+    days: int | None = 30,
+) -> dict:
+    posts, total = list_published_posts(
+        session,
+        platform=platform,
+        account_id=account_id,
+        days=days,
+        limit=500,
+        offset=0,
+    )
+    return {"success": True, "posts": posts, "total": total}
