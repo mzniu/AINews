@@ -3,32 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 · AINews</title>
+    <title>AINews · 登录</title>
     <link rel="icon" type="image/png" href="brand/ainews-mark.png?v=20260914">
+    <link rel="stylesheet" href="/static/css/design-system/fonts.css">
+    <link rel="stylesheet" href="/static/css/design-system/tokens.css">
+    <script src="/static/js/shared/theme.js?v=20260916"></script>
     <style>
         :root {
-            color-scheme: light dark;
-            --bg: #0f1419;
-            --card: #1a2332;
-            --border: #2d3a4f;
-            --text: #e8eef7;
-            --muted: #8b9cb3;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --danger: #f87171;
-            --ok: #4ade80;
+            color-scheme: light;
+            --bg: #f0f3fa;
+            --card: #ffffff;
+            --border: rgba(18, 52, 153, 0.14);
+            --text: #0b1538;
+            --muted: #6b7aa6;
+            --accent: #123499;
+            --accent-hover: #1a45b8;
+            --danger: #c62828;
+            --ok: #0d9f6e;
+        }
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #00072d;
+            --card: rgba(5, 22, 80, 0.92);
+            --border: rgba(18, 52, 153, 0.42);
+            --text: #e8eaf6;
+            --muted: #a8b4d4;
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
             min-height: 100vh;
-            font-family: "Segoe UI", system-ui, sans-serif;
-            background: radial-gradient(ellipse at top, #1e293b 0%, var(--bg) 55%);
+            font-family: var(--font-ui, "Roboto", "Segoe UI", system-ui, sans-serif);
+            background: linear-gradient(165deg, #f4f6fc 0%, #e8edf8 38%, #dde5f5 100%);
             color: var(--text);
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 24px;
+        }
+        [data-theme="dark"] body {
+            background: radial-gradient(ellipse 130% 90% at 50% -10%, #0a2472 0%, #051650 45%, #00072d 100%);
         }
         .card {
             width: 100%;
@@ -60,7 +74,7 @@
             font-size: .9rem;
         }
         .tab.is-active {
-            background: rgba(59,130,246,.15);
+            background: rgba(18, 52, 153, 0.1);
             border-color: var(--accent);
             color: var(--text);
         }
@@ -70,12 +84,12 @@
             padding: 10px 12px;
             border-radius: 8px;
             border: 1px solid var(--border);
-            background: #0f172a;
+            background: var(--color-surface-inset, #eef2fa);
             color: var(--text);
             font-size: 1rem;
             margin-bottom: 14px;
         }
-        input:focus { outline: 2px solid rgba(59,130,246,.45); border-color: var(--accent); }
+        input:focus { outline: 2px solid rgba(18, 52, 153, 0.28); border-color: var(--accent); }
         .row { display: flex; gap: 8px; align-items: flex-start; }
         .row input { flex: 1; margin-bottom: 0; }
         .btn {

@@ -1,6 +1,6 @@
 """主要页面路由"""
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from datetime import datetime
 from loguru import logger
@@ -19,10 +19,21 @@ def _read_static_html(name: str) -> str:
         raise HTTPException(status_code=500, detail=f"页面文件不存在: {path}")
     return path.read_text(encoding="utf-8")
 
+
+def _publish_hub_redirect(tab: str):
+    return RedirectResponse(url=f"/publish-center?tab={tab}", status_code=307)
+
+
 @router.get("/", response_class=HTMLResponse)
 async def root():
-    """主页"""
-    return _read_static_html("index.html")
+    """工作台 Dashboard"""
+    return _read_static_html("dashboard.html")
+
+
+@router.get("/scrape", response_class=HTMLResponse)
+async def scrape_page():
+    """内容抓取（原主页）"""
+    return _read_static_html("scrape.html")
 
 @router.get("/video-maker", response_class=HTMLResponse)
 async def video_maker_page():
@@ -67,31 +78,39 @@ async def model_settings_page():
     return _read_static_html("settings.html")
 
 @router.get("/publish-queue", response_class=HTMLResponse)
-async def publish_queue_page():
-    """发布队列：仅查看待发布任务与改期"""
+async def publish_queue_page(embed: str | None = Query(default=None)):
+    """发布队列：Tab Hub 子页或嵌入模式"""
+    if embed != "1":
+        return _publish_hub_redirect("queue")
     return _read_static_html("publish_queue.html")
 
 
 @router.get("/publish-center", response_class=HTMLResponse)
 async def publish_center_page():
-    """发布中心：自媒体账号管理与半自动发布"""
+    """发布中心 Tab Hub"""
     return _read_static_html("publish_center.html")
 
 
 @router.get("/publish-metrics", response_class=HTMLResponse)
-async def publish_metrics_page():
-    """已发布数据：作品指标同步与趋势"""
+async def publish_metrics_page(embed: str | None = Query(default=None)):
+    """已发布数据：Tab Hub 子页或嵌入模式"""
+    if embed != "1":
+        return _publish_hub_redirect("metrics")
     return _read_static_html("publish_metrics.html")
 
 
 @router.get("/publish-comments", response_class=HTMLResponse)
-async def publish_comments_page():
-    """评论管理：观众评论扫描与回复"""
+async def publish_comments_page(embed: str | None = Query(default=None)):
+    """评论管理：Tab Hub 子页或嵌入模式"""
+    if embed != "1":
+        return _publish_hub_redirect("comments")
     return _read_static_html("publish_comments.html")
 
 @router.get("/candidate-pool", response_class=HTMLResponse)
-async def candidate_pool_page():
-    """候选池：待发布候选管理与调度"""
+async def candidate_pool_page(embed: str | None = Query(default=None)):
+    """候选池：Tab Hub 子页或嵌入模式"""
+    if embed != "1":
+        return _publish_hub_redirect("pool")
     return _read_static_html("candidate_pool.html")
 
 @router.get("/health")

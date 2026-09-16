@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280">
+    <title>AINews · 工作台</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260916">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=20260916">
+    <script src="/static/js/shared/theme.js?v=20260916"></script>
+    <script src="/static/js/shared/ui.js?v=20260916"></script>
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260916" defer></script>
+    <script src="/static/js/dashboard.js?v=20260916" defer></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+    <div class="dashboard-shell">
+        <header class="dashboard-hero">
+            <h1>工作台</h1>
+            <p class="dashboard-lead">一屏掌握内容管线进度、关键指标与快捷操作。抓取工具已移至「内容抓取」。</p>
+        </header>
+
+        <div id="dashboardWorkerBanner" class="app-banner is-warn" hidden role="status"></div>
+
+        <section class="pipeline" aria-label="内容管线">
+            <div class="pipeline-step is-done" data-step="1">
+                <div class="pipeline-dot">1</div>
+                <div class="pipeline-label">发现内容</div>
+                <div class="pipeline-sub">热榜 / 资讯库</div>
+            </div>
+            <div class="pipeline-step is-done" data-step="2">
+                <div class="pipeline-dot">2</div>
+                <div class="pipeline-label">选题评分</div>
+                <div class="pipeline-sub">—</div>
+            </div>
+            <div class="pipeline-step is-active" data-step="3">
+                <div class="pipeline-dot">3</div>
+                <div class="pipeline-label">生成成片</div>
+                <div class="pipeline-sub">—</div>
+            </div>
+            <div class="pipeline-step" data-step="4">
+                <div class="pipeline-dot">4</div>
+                <div class="pipeline-label">审核发布</div>
+                <div class="pipeline-sub">—</div>
+            </div>
+            <div class="pipeline-step" data-step="5">
+                <div class="pipeline-dot">5</div>
+                <div class="pipeline-label">复盘数据</div>
+                <div class="pipeline-sub">—</div>
+            </div>
+        </section>
+
+        <section class="metrics-grid" aria-label="关键指标">
+            <article class="metric-card">
+                <div class="metric-label">资讯库文章</div>
+                <div class="metric-value" id="metricArticles">—</div>
+                <div class="metric-delta is-up">入库总量</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">待发布</div>
+                <div class="metric-value" id="metricPending">—</div>
+                <div class="metric-delta is-warn">发布队列</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">候选池</div>
+                <div class="metric-value" id="metricCandidates">—</div>
+                <div class="metric-delta is-up">待调度</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">近 7 日阅读</div>
+                <div class="metric-value" id="metricViews">—</div>
+                <div class="metric-delta is-up">已发布数据</div>
+            </article>
+        </section>
+
+        <div class="dashboard-grid">
+            <section class="soft-card">
+                <div class="soft-card-header">
+                    <h2>快捷操作</h2>
+                    <a class="btn btn-primary" href="/scrape">新建抓取</a>
+                </div>
+                <div class="soft-card-body">
+                    <div class="quick-actions">
+                        <a href="/scrape" class="quick-action">
+                            <svg class="nav-icon"><use href="/static/icons/sprites.svg#icon-scrape"/></svg>
+                            内容抓取
+                        </a>
+                        <a href="/ingestion-library" class="quick-action">
+                            <svg class="nav-icon"><use href="/static/icons/sprites.svg#icon-library"/></svg>
+                            浏览资讯库
+                        </a>
+                        <a href="/video-maker" class="quick-action">
+                            <svg class="nav-icon"><use href="/static/icons/sprites.svg#icon-film"/></svg>
+                            视频制作
+                        </a>
+                        <a href="/publish-center" class="quick-action">
+                            <svg class="nav-icon"><use href="/static/icons/sprites.svg#icon-send"/></svg>
+                            发布中心
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="soft-card">
+                <div class="soft-card-header">
+                    <h2>热榜 Top 5</h2>
+                    <a class="btn btn-soft" href="/hot-radar">查看全部</a>
+                </div>
+                <div class="soft-card-body">
+                    <ol class="hot-list" id="hotTopList">
+                        <li>加载中…</li>
+                    </ol>
+                </div>
+            </section>
+        </div>
+
+        <section class="soft-card" style="margin-top:16px">
+            <div class="soft-card-header">
+                <h2>最近动态</h2>
+            </div>
+            <div class="soft-card-body">
+                <ul class="activity-list" id="activityList">
+                    <li>加载中…</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

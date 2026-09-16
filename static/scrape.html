@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AINews · 内容抓取</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260916">
+    <script src="/static/js/shared/theme.js?v=20260916"></script>
+    <script src="/static/js/shared/ui.js?v=20260916"></script>
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260916" defer></script>
+    <link rel="stylesheet" href="/static/css/index.css?v=20260815a">
+    <!-- 引用截图功能扩展 -->
+    <script src="/static/js/screenshot_extension.js"></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+<div class="container">
+        <div class="header">
+            <h1>内容抓取</h1>
+            <p>输入任意网址，一键抓取内容和图片</p>
+        </div>
+
+        <div class="card">
+            <!-- 模式切换按钮 -->
+            <div class="mode-switch">
+                <label class="switch-label">
+                    <input type="checkbox" id="fetchModeToggle" onchange="toggleFetchMode()">
+                    <span class="switch-text">
+                        <span class="mode-auto">🤖 自动抓取</span>
+                        <span class="mode-manual">📝 手动粘贴</span>
+                    </span>
+                </label>
+            </div>
+                    
+            <div class="input-group">
+                <input 
+                    type="url" 
+                    id="urlInput" 
+                    placeholder="请输入网页 URL，例如：https://www.36kr.com/p/123456" 
+                    required
+                >
+                <button class="btn" id="fetchBtn" onclick="fetchUrl()">
+                    开始抓取
+                </button>
+            </div>
+        
+            <!-- 手动粘贴模式的输入框 -->
+            <div id="manualInputSection" style="display: none; margin-top: 20px;">
+                <div class="form-group">
+                    <label for="manualContent">文章内容</label>
+                    <textarea 
+                        id="manualContent" 
+                        placeholder="请粘贴文章的 HTML 源码或纯文本内容..."
+                        style="width: 100%; min-height: 200px; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical;"
+                    ></textarea>
+                    <span class="hint" style="display: block; margin-top: 8px; color: #666; font-size: 12px;">
+                        💡 支持 HTML 源码或直接粘贴文字内容，系统会自动识别和处理
+                    </span>
+                </div>
+                <button class="btn" onclick="processManualContent()" style="margin-top: 10px;">
+                    🚀 处理内容
+                </button>
+            </div>
+
+            <div class="examples">
+                <div class="examples-title">示例链接：</div>
+                <div class="example-links">
+                    <a href="#" class="example-link" onclick="fillExample('https://www.36kr.com/p/2492318105786505')">36氪文章</a>
+                    <a href="#" class="example-link" onclick="fillExample('https://www.cnblogs.com/')">博客园</a>
+                    <a href="#" class="example-link" onclick="fillExample('https://www.infoq.cn/article/latest')">InfoQ</a>
+                    <a href="#" class="example-link" onclick="fillExample('https://venturebeat.com/orchestration/new-agent-framework-matches-human-engineered-ai-systems-and-adds-zero')">VentureBeat AI文章</a>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在抓取中，请稍候...</p>
+            </div>
+
+            <div class="error" id="error"></div>
+
+            <div class="result" id="result">
+                <div class="result-header">
+                    <h2 id="resultTitle"></h2>
+                    <div class="result-meta">
+                        <span>🕐 抓取时间: <strong id="crawlTime"></strong></span>
+                        <span>📝 内容长度: <strong id="contentLength"></strong> 字符</span>
+                        <span>🖼️ 图片数量: <strong id="imagesCount"></strong> 张</span>
+                    </div>
+                </div>
+
+                <h3 class="collapsible-header collapsed" onclick="toggleCollapse(this)">📄 内容预览 <span class="toggle-icon">▼</span></h3>
+                <div class="collapsible-body hidden">
+                    <div class="content-preview" id="contentPreview"></div>
+                    <div class="download-links">
+                        <a href="#" class="download-btn" id="downloadContent" target="_blank">
+                            📥 下载完整内容
+                        </a>
+                        <a href="#" class="download-btn" id="downloadMetadata" target="_blank">
+                            📊 下载元数据
+                        </a>
+                    </div>
+                </div>
+
+                <h3 class="collapsible-header collapsed" style="margin-top: 30px;" onclick="toggleCollapse(this)">🎬 网页视频列表 <span class="toggle-icon">▼</span></h3>
+                <div class="collapsible-body hidden" id="videosSection">
+                    <div class="videos-grid" id="videosGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;"></div>
+                </div>
+                
+                <h3 class="collapsible-header collapsed" style="margin-top: 30px;" onclick="toggleCollapse(this)">🖼️ 图片列表 <span class="toggle-icon">▼</span></h3>
+                <div class="collapsible-body hidden">
+                    <div class="images-grid" id="imagesGrid"></div>
+                </div>
+
+                <div class="edit-section" id="editSection">
+                    <h3>✏️ 编辑内容和图片</h3>
+                    
+                    <h4>📝 选择和编辑文章内容</h4>
+                    <div class="content-editor">
+                        <textarea id="contentEditor" placeholder="文章内容将显示在这里，您可以编辑..."></textarea>
+                    </div>
+
+                    <h4 style="margin-top: 20px;">🖼️ 选择图片或视频（点击选择/取消选择）</h4>
+                    
+                    <!-- 上传本地图片/视频区域 -->
+                    <details open style="margin: 15px 0;">
+                        <summary style="padding: 10px 15px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6; cursor: pointer; font-weight: 600; color: #495057; list-style: none;">📤 上传本地图片/视频 <span style="font-size: 12px; color: #888; font-weight: 400;">（JPG/PNG/GIF/MP4 等，可多选）</span></summary>
+                        <div style="padding: 12px 15px 0;">
+                            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                <div>
+                                    <button class="btn" onclick="document.getElementById('localImageInput').click()" style="margin: 0;">
+                                        📤 选择文件
+                                    </button>
+                                    <input type="file" id="localImageInput" accept="image/*,video/*" multiple style="display: none;" onchange="handleLocalImageUpload(event)">
+                                </div>
+                                <div style="font-size: 14px; color: #666;">
+                                    图片：JPG、PNG、GIF 等（单文件≤10MB）；视频：MP4、WebM、MOV 等（单文件≤200MB）；可多选
+                                </div>
+                            </div>
+                            <div id="uploadStatus" style="margin-top: 10px; font-size: 13px; color: #666; min-height: 20px;"></div>
+                        </div>
+                    </details>
+
+                    <details style="margin: 15px 0;">
+                        <summary style="padding: 10px 15px; background: #f5f3ff; border-radius: 8px; border: 1px solid #c4b5fd; cursor: pointer; font-weight: 600; color: #5b21b6; list-style: none;">🎨 AI 封面图（Seedance / 火山文生图）</summary>
+                        <div style="padding: 12px 15px 0;">
+                            <p style="font-size: 12px; color: #64748b; margin: 0 0 10px;">根据上方正文与标题生成横版封面；需服务端配置 <code>SEEDANCE_API_KEY</code> 或 <code>ARK_API_KEY</code>，可选 <code>SEEDANCE_IMAGE_API_URL</code>、<code>SEEDANCE_IMAGE_MODEL</code>。</p>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start;">
+                                <textarea id="coverGenExtraHint" placeholder="可选：补充画面风格/色调（如：偏蓝、扁平插画、留白多）" style="flex: 1; min-width: 200px; min-height: 56px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px;"></textarea>
+                                <button type="button" class="btn" onclick="generateCoverFromPageContent()" id="coverGenBtn" style="margin: 0; align-self: center;">生成封面并加入选区</button>
+                            </div>
+                            <div id="coverGenStatus" style="margin-top: 10px; font-size: 13px; color: #666; min-height: 20px;"></div>
+                        </div>
+                    </details>
+
+                    <details class="dev-only" style="margin: 15px 0;">
+                        <summary style="padding: 10px 15px; background: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd; cursor: pointer; font-weight: 600; color: #0369a1; list-style: none;">🔍 网页搜图（百度，开发用）</summary>
+                        <div style="padding: 12px 15px 0;">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                <input type="text" id="webImageSearchQuery" placeholder="关键词，例如：人工智能" style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;" />
+                                <button type="button" class="btn" onclick="runWebImageSearch()" id="webImageSearchBtn" style="margin: 0;">搜索图片</button>
+                            </div>
+                            <p style="font-size: 12px; color: #64748b; margin: 8px 0 0;">结果依赖第三方接口，易失效；仅供开发验证，使用图片请注意版权。鼠标悬停缩略图可放大预览。</p>
+                            <div id="webImageSearchStatus" style="margin-top: 8px; font-size: 13px; color: #666; min-height: 20px;"></div>
+                            <div id="webImageSearchGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 12px; max-height: 280px; overflow-y: auto;"></div>
+                        </div>
+                    </details>
+
+                    <details style="margin: 15px 0;">
+                        <summary style="padding: 10px 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600; color: #334155; list-style: none;">🌐 全网补充图片（DeepSeek 搜索词 + 打开相关页面抓图）</summary>
+                        <div style="padding: 12px 15px 0;">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                <input type="text" id="relatedImageQuery" placeholder="可选：留空则由 DeepSeek 根据当前标题和正文生成搜索词" style="flex: 1; min-width: 220px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;" />
+                                <label style="font-size: 13px; color: #475569;">每源搜索页数 <input type="number" id="relatedImageMaxPages" min="1" max="10" value="5" style="width: 64px; padding: 7px 8px; border: 1px solid #ccc; border-radius: 6px;"></label>
+                                <label style="font-size: 13px; color: #475569;">每页图片 <input type="number" id="relatedImageMaxPerPage" min="1" max="12" value="6" style="width: 64px; padding: 7px 8px; border: 1px solid #ccc; border-radius: 6px;"></label>
+                                <button type="button" class="btn" onclick="runRelatedImageCrawl()" id="relatedImageBtn" style="margin: 0;">补充图片</button>
+                            </div>
+                            <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: #475569;">
+                                <label style="cursor: pointer;"><input type="checkbox" class="related-image-source" value="baidu" checked> 百度</label>
+                                <label style="cursor: pointer;"><input type="checkbox" class="related-image-source" value="bing" checked> Bing</label>
+                                <label style="cursor: pointer;"><input type="checkbox" class="related-image-source" value="toutiao" checked> 头条</label>
+                            </div>
+                            <p style="font-size: 12px; color: #64748b; margin: 8px 0 0;">会调用大模型生成搜索词，并按所选搜索源分别翻页搜索；“每源搜索页数”表示每个搜索源各搜索几页。候选图片需手动加入选区，发布前请确认版权。</p>
+                            <div id="relatedImageStatus" style="margin-top: 8px; font-size: 13px; color: #666; min-height: 20px;"></div>
+                            <div id="relatedImagePages" style="display: none; margin-top: 10px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #e2e8f0; max-height: 150px; overflow-y: auto; font-size: 12px; color: #475569;"></div>
+                            <div id="relatedImageGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; margin-top: 12px; max-height: 340px; overflow-y: auto;"></div>
+                        </div>
+                    </details>
+                    
+                    <div class="image-selector" id="imageSelector"></div>
+
+                    <div style="margin: 12px 0; padding: 12px 14px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <strong style="color: #495057;">口播稿字数</strong>
+                        <span style="font-size: 12px; color: #888;">（与「摘要」分开生成，用于配音与字幕；生成 AI 时生效）</span>
+                        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px;">
+                            <label style="font-size: 14px; color: #333;">最少 <input type="number" id="voiceoverMinChars" min="20" max="4000" value="120" style="width: 76px; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 6px;"></label>
+                            <label style="font-size: 14px; color: #333;">最多 <input type="number" id="voiceoverMaxChars" min="20" max="8000" value="400" style="width: 76px; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 6px;"></label>
+                            <span style="font-size: 12px; color: #888;">字（中文按字符计）</span>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn" onclick="generateSummary()">
+                            🤖 生成AI标题和摘要
+                        </button>
+                        <button class="btn" id="oneClickBtn" onclick="oneClickGenerate()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            🚀 一键生成视频
+                        </button>
+                    </div>
+                    <div class="aux-actions">
+                        <button class="btn-tertiary" onclick="resetSelection()" title="清空当前选中的图片/视频">
+                            🔄 重置选择
+                        </button>
+                    </div>
+                    
+                    <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 13px; color: #856404;">
+                        💡 提示：选择图片后点击"生成AI标题和摘要"，然后点击"生成视频"，将直接使用当前编辑的内容生成视频
+                    </div>
+
+                    <div class="ai-summary" id="aiSummary" style="display: none;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                            <h4 style="margin:0;">🤖 AI生成内容</h4>
+                            <button class="copy-all-ai-btn" onclick="copyAllAiContent()" title="一键复制：主标题 + 短标题 + 第二行 + 副标题 + 口播稿 + 标签">📋 一键复制</button>
+                        </div>
+                        <div class="loading" id="aiSummaryLoading">
+                            <div class="spinner"></div>
+                            <p>正在生成 AI 标题和摘要...</p>
+                            <small id="aiSummaryStatus">通常需要 5～15 秒</small>
+                        </div>
+                        <details open class="ai-group" style="margin-top: 12px; padding: 10px 14px; background: #fafbff; border: 1px solid #e6e9ff; border-radius: 10px;">
+                            <summary class="ai-group-summary" style="cursor:pointer; font-weight:600; color:#4c1d95; font-size:14px; list-style:none;">🏷️ 标题</summary>
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #667eea;">主标题第一行</strong>
+                            <span style="font-size: 12px; color: #888;">（16～20汉字当量，英文数字计0.5，成片用）</span>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableMainLine1" class="ai-edit-input" placeholder="第一行主标题" maxlength="40" style="font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; flex: 1; min-width: 0;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableMainLine1')" title="复制" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
+                            <details style="margin-top: 6px;">
+                                <summary style="font-size:12px; color:#667eea; cursor:pointer; padding: 4px 0;">🎨 颜色（默认白色，点击展开）</summary>
+                                <div class="title-color-picker">
+                                <span style="font-size:12px;color:#888;">颜色：</span>
+                                <label class="color-swatch-label" title="白色（默认）"><input type="radio" name="mainLine1Color" value="#FFFFFF" checked><span class="color-dot" style="background:#FFFFFF;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="黄色"><input type="radio" name="mainLine1Color" value="#FFFF00"><span class="color-dot" style="background:#FFFF00;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="金色"><input type="radio" name="mainLine1Color" value="#FFD700"><span class="color-dot" style="background:#FFD700;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="青色"><input type="radio" name="mainLine1Color" value="#00FFFF"><span class="color-dot" style="background:#00FFFF;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="橙色"><input type="radio" name="mainLine1Color" value="#FF8C00"><span class="color-dot" style="background:#FF8C00;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="珊瑚红"><input type="radio" name="mainLine1Color" value="#FF6B6B"><span class="color-dot" style="background:#FF6B6B;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="淡绿"><input type="radio" name="mainLine1Color" value="#7FFF7F"><span class="color-dot" style="background:#7FFF7F;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="淡蓝"><input type="radio" name="mainLine1Color" value="#87CEEB"><span class="color-dot" style="background:#87CEEB;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                </div>
+                            </details>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">视频号短标题</strong>
+                            <span style="font-size: 12px; color: #888;">（最多16字含空格，不能有标点，专门给视频号投稿）</span>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableShortTitle" class="ai-edit-input" placeholder="视频号短标题" maxlength="16" style="font-size: 1.05em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; flex: 1; min-width: 0;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableShortTitle')" title="复制" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">主标题第二行</strong>
+                            <span style="font-size: 12px; color: #888;">（9～12汉字当量，以「网友：」开头的尖锐锐评，可空）</span>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableMainLine2" class="ai-edit-input" placeholder="网友：47.2%？先别急着吹" maxlength="44" style="font-size: 1.05em; font-weight: bold; margin: 10px 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; flex: 1; min-width: 0;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableMainLine2')" title="复制" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
+                            <details style="margin-top: 6px;">
+                                <summary style="font-size:12px; color:#667eea; cursor:pointer; padding: 4px 0;">🎨 颜色（默认白色，点击展开）</summary>
+                                <div class="title-color-picker">
+                                <span style="font-size:12px;color:#888;">颜色：</span>
+                                <label class="color-swatch-label" title="白色（默认）"><input type="radio" name="mainLine2Color" value="#FFFFFF" checked><span class="color-dot" style="background:#FFFFFF;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="黄色"><input type="radio" name="mainLine2Color" value="#FFFF00"><span class="color-dot" style="background:#FFFF00;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="金色"><input type="radio" name="mainLine2Color" value="#FFD700"><span class="color-dot" style="background:#FFD700;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="青色"><input type="radio" name="mainLine2Color" value="#00FFFF"><span class="color-dot" style="background:#00FFFF;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="橙色"><input type="radio" name="mainLine2Color" value="#FF8C00"><span class="color-dot" style="background:#FF8C00;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="珊瑚红"><input type="radio" name="mainLine2Color" value="#FF6B6B"><span class="color-dot" style="background:#FF6B6B;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="淡绿"><input type="radio" name="mainLine2Color" value="#7FFF7F"><span class="color-dot" style="background:#7FFF7F;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                <label class="color-swatch-label" title="淡蓝"><input type="radio" name="mainLine2Color" value="#87CEEB"><span class="color-dot" style="background:#87CEEB;display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,0.18);box-sizing:border-box;"></span></label>
+                                </div>
+                            </details>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">主标题字体 &amp; 字号</strong>
+                            <span style="font-size: 12px; color: #888;">（成片主标题两行使用同一字体；字号留空则自动）</span>
+                            <div class="ai-field-row" style="margin-top: 8px; flex-wrap: wrap; gap: 8px;">
+                                <select id="titleFontSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; cursor: pointer; flex: 1; min-width: 160px; max-width: 360px;">
+                                    <option value="msyhbd">微软雅黑 粗体</option>
+                                </select>
+                                <label style="display:flex; align-items:center; gap:5px; font-size:13px; color:#555; white-space:nowrap;">
+                                    字号 <input type="number" id="titleFontSizeInput" min="28" max="120" step="2" placeholder="自动"
+                                        style="width:72px; padding:8px 10px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; text-align:center;">
+                                    px
+                                </label>
+                            </div>
+                            <div class="ai-field-row" style="margin-top: 8px; flex-wrap: wrap; gap: 8px;">
+                                <label style="display:flex; align-items:center; gap:5px; font-size:13px; color:#555; white-space:nowrap;">
+                                    标题/副标题顶部 <input type="number" id="titlePositionPct" min="0" max="45" step="1" value="15"
+                                        style="width:72px; padding:8px 10px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; text-align:center;">
+                                    %
+                                </label>
+                                <label style="display:flex; align-items:center; gap:5px; font-size:13px; color:#555; white-space:nowrap;">
+                                    摘要顶部 <input type="number" id="summaryPositionPct" min="45" max="95" step="1" value="80"
+                                        style="width:72px; padding:8px 10px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; text-align:center;">
+                                    %
+                                </label>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">副标题</strong>
+                            <span style="font-size: 12px; color: #888;">（11～15汉字当量；成片圆角黄底黑字）</span>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableSubTitle" class="ai-edit-input" placeholder="副标题单行" maxlength="32" style="font-size: 1em; font-weight: normal; margin: 10px 0; padding: 12px; border: 2px solid #e6c200; border-radius: 12px; flex: 1; min-width: 0; background: #FFEB3D; color: #000000;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableSubTitle')" title="复制副标题" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
+                            </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #667eea;">副标题第二行（流量钩子）</strong>
+                            <span style="font-size: 12px; color: #888;">（11～15汉字当量；从七种钩子自动挑一种触发评论/转发，可空）</span>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableSubTitle2" class="ai-edit-input" placeholder="副标题第二行（流量钩子，可空）" maxlength="32" style="font-size: 1em; font-weight: normal; margin: 10px 0; padding: 12px; border: 2px solid #e6c200; border-radius: 12px; flex: 1; min-width: 0; background: #FFEB3D; color: #000000;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableSubTitle2')" title="复制副标题第二行" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
+                            </div>
+                        </details>
+                        <details open class="ai-group" style="margin-top: 12px; padding: 10px 14px; background: #fafbff; border: 1px solid #e6e9ff; border-radius: 10px;">
+                            <summary class="ai-group-summary" style="cursor:pointer; font-weight:600; color:#4c1d95; font-size:14px; list-style:none;">✍️ 文案</summary>
+                        <div>
+                            <strong style="color: #667eea;">摘要：</strong>
+                            <div class="ai-field-row">
+                                <textarea id="editableAiSummary" class="ai-edit-input" rows="4" placeholder="AI生成的摘要将显示在这里..." style="flex: 1; min-width: 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; resize: vertical;"></textarea>
+                                <button class="copy-btn" onclick="copyAiContent('editableAiSummary')" title="复制摘要" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <strong style="color: #667eea;">口播稿：</strong>
+                            <span style="font-size: 12px; color: #888;">（长度由上方「口播稿字数」控制；可粘贴到下方「配音与字幕」）</span>
+                            <div class="ai-field-row">
+                                <textarea id="editableVoiceoverScript" class="ai-edit-input" rows="6" placeholder="生成 AI 后口播稿将显示在这里..." style="flex: 1; min-width: 0; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; resize: vertical;"></textarea>
+                                <button class="copy-btn" onclick="copyAiContent('editableVoiceoverScript')" title="复制口播稿" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
+                        </div>
+                        <div>
+                            <strong style="color: #667eea;">标签：</strong>
+                            <span style="font-size: 12px; color: #888;">（固定结构：赛道 + 垂直 + 精准 + 热点 + 个人IP + 5个其他标签；同时会从摘要中选出 3～5 个高亮词用于成片）</span>
+                            <div class="ai-field-row">
+                                <input type="text" id="editableAiTags" class="ai-edit-input" placeholder="#人工智能 #AI编程 #DeepSeek #AIAgent #小牛说 #其他标签..." style="margin-top: 8px; color: #764ba2; font-size: 14px; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; flex: 1; min-width: 0;" />
+                                <button class="copy-btn" onclick="copyAiContent('editableAiTags')" title="复制标签" style="flex-shrink:0;padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:none;cursor:pointer;font-size:15px;">📋</button>
+                            </div>
+                        </div>
+                        </details>
+                        <details open class="ai-group" style="margin-top: 12px; padding: 10px 14px; background: #fafbff; border: 1px solid #e6e9ff; border-radius: 10px;">
+                            <summary class="ai-group-summary" style="cursor:pointer; font-weight:600; color:#4c1d95; font-size:14px; list-style:none;">⚙️ 元数据与生成</summary>
+                        <div style="margin-top: 10px; color: #666; font-size: 12px;" id="aiMeta"></div>
+                        <div id="aiComplianceWarning" style="display: none; margin-top: 10px; padding: 10px 12px; background: #fff8e1; border: 1px solid #f6d365; border-radius: 8px; color: #8a6d1d; font-size: 13px; line-height: 1.5;"></div>
+                        <div id="aiMethodologyInsight" style="display: none; margin-top: 8px; padding: 10px 12px; background: linear-gradient(135deg, #f3e8ff 0%, #e0e7ff 100%); border-radius: 8px; border: 1px solid #c4b5fd; font-size: 13px; color: #4c1d95; line-height: 1.6;">
+                            <div style="font-size: 11px; color: #6b7280; margin-bottom: 6px;">AI 推断的受众、夸赞点与流量钩子，用于指导标题写作；不可编辑，重新生成会刷新。</div>
+                            <span style="font-weight: 600;">🎯 目标受众：</span><span id="aiTargetAudience" style="font-weight: 600; color: #5b21b6;"></span>
+                            <span style="margin: 0 8px; color: #a78bfa;">|</span>
+                            <span style="font-weight: 600;">💬 夸赞点：</span><span id="aiPraiseTags" style="color: #5b21b6;"></span>
+                            <span style="margin: 0 8px; color: #a78bfa;">|</span>
+                            <span style="font-weight: 600;">🎬 流量钩子：</span><span id="aiTrafficHook" style="color: #5b21b6;"></span>
+                        </div>
+                        
+                        <div class="index-video-options" style="margin-top: 16px; padding: 12px 14px; background: #f0f4ff; border-radius: 8px; border: 1px solid #d6e0ff;">
+                            <label style="cursor: pointer; display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #333; line-height: 1.5;">
+                                <input type="checkbox" id="indexShowSummaryOnVideo" checked style="margin-top: 4px; flex-shrink: 0;" />
+                                <span>在成片画面上<strong>显示摘要文字</strong>（关闭则与 GitHub 基底成片类似：仅标题区，摘要留给下方口播与字幕）</span>
+                            </label>
+                        </div>
+                        
+                        <div class="action-buttons" style="margin-top: 20px;">
+                            <button class="btn" onclick="generateVideoDirectly()">
+                                🎬 生成视频
+                            </button>
+                            <select id="renderTemplateSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: var(--fs-md); cursor: pointer; min-width: 200px; max-width: 260px;">
+                                <option value="">成片模板（默认）</option>
+                            </select>
+                            <select id="bgmSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: var(--fs-md); cursor: pointer; min-width: 200px; max-width: 240px; text-overflow: ellipsis;">
+                                <option value="static/music/background.mp3">🎵 默认 BGM</option>
+                                <!-- 其他 BGM 选项将动态加载 -->
+                            </select>
+                            <select id="bgSelect" class="ai-edit-input" style="padding: 10px 15px; border: 2px solid var(--border-soft); border-radius: var(--radius-md); font-size: var(--fs-md); cursor: pointer; min-width: 200px; max-width: 240px; text-overflow: ellipsis;">
+                                <option value="static/imgs/bg.png">🖼️ 默认背景</option>
+                                <!-- 其他背景图选项将动态加载 -->
+                            </select>
+                            <img id="bgPreview" alt="背景图预览" src="/static/imgs/bg.png" onerror="this.style.display='none'" style="width: 60px; height: 107px; border-radius: var(--radius-sm); border: 1px solid var(--border-soft); object-fit: cover;" />
+                        </div>
+                        <div class="aux-actions">
+                            <button class="secondary-btn" onclick="saveEditedContent()" title="保存修改后的内容用于视频生成">
+                                💾 保存修改
+                            </button>
+                            <button class="btn-tertiary" onclick="analyzeSelectedGIFs()" title="分析选中的 GIF 图片属性">
+                                🎞️ 分析 GIF
+                            </button>
+                        </div>
+                        </details>
+                    </div>
+
+                    <div class="ai-summary" id="generatedImage" style="display: none; margin-top: 20px;">
+                        <h4>🎨 生成的视频</h4>
+                        <div id="framesInfo" style="margin: 10px 0; color: #666; font-size: 14px;"></div>
+                        <div id="framesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
+                        </div>                        <button id="createVideoBtn" onclick="createVideo()" 
+                            style="margin-top: 20px; padding: 12px 30px; font-size: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none;">
+                            🎬 合成视频 (2.5秒/帧)
+                        </button>
+
+                        <div id="videoResult" style="display: none; margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <h5 style="margin: 0 0 10px 0; color: #333;">🎥 视频生成成功</h5>
+                            <div id="videoInfo" style="margin: 10px 0; color: #666; font-size: 14px;"></div>
+                            <video id="generatedVideo" controls style="width: 100%; max-width: 600px; border-radius: 8px; margin-top: 10px;"></video>
+                            <div style="margin-top: 10px;">
+                                <a id="downloadVideoBtn" download style="display: inline-block; padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">
+                                    💾 下载视频
+                                </a>
+                                <button type="button" id="publishVideoBtn" style="display:none;margin-left:8px;padding:10px 20px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;">
+                                    📤 发布
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="indexVoiceoverSection" class="index-voiceover-section" style="display: none; margin-top: 24px; padding: 18px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+                            <h4 style="margin: 0 0 10px 0; color: #334155;">🎙️ 配音与字幕（可选）</h4>
+                            <p style="margin: 0 0 14px 0; font-size: 13px; color: #64748b; line-height: 1.5;">基于上方生成的基底视频，使用 IndexTTS 根据参考音频克隆音色生成口播，可与背景音乐混合，并可选将字幕烧录到画面（与 GitHub 成片第五步一致）。</p>
+                            <div style="margin-bottom: 10px;">
+                                <label for="indexVoiceoverScript" style="font-weight: 600; color: #475569;">口播稿</label>
+                                <textarea id="indexVoiceoverScript" rows="8" placeholder="编辑口播文本，或点击下方「填入口播稿 / 摘要」" style="width: 100%; margin-top: 6px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; resize: vertical;"></textarea>
+                            </div>
+                            <button type="button" class="secondary-btn" onclick="fillIndexVoiceoverFromSummary()" style="margin-bottom: 14px;">填入口播稿 / 摘要</button>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                                <div style="grid-column: span 2;">
+                                    <label for="indexVoiceoverCloneAudio" style="font-size: 13px; color: #475569;">声音克隆参考音频（IndexTTS）</label>
+                                    <input type="file" id="indexVoiceoverCloneAudio" accept="audio/wav,audio/mpeg,audio/flac,audio/ogg,audio/webm,audio/mp4,video/mp4,.wav,.mp3,.flac,.ogg,.webm,.m4a,.mp4" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; background: white;" />
+                                    <input type="hidden" id="indexVoiceoverCloneAudioPath" value="" />
+                                    <small id="indexVoiceoverCloneAudioStatus" style="display: block; margin-top: 4px; color: #64748b;">推荐上传 5～20 秒清晰人声；未上传时使用 IndexTTS 默认参考音频。</small>
+                                </div>
+                                <div style="grid-column: span 2;">
+                                    <label for="indexVoiceoverSubtitleFont" style="font-size: 13px; color: #475569;">烧录字幕字体</label>
+                                    <select id="indexVoiceoverSubtitleFont" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                        <option value="Microsoft YaHei">加载中…</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverSubtitleMarginPct" style="font-size: 13px; color: #475569;">字幕距底边（画面高度 %）</label>
+                                    <input type="number" id="indexVoiceoverSubtitleMarginPct" min="8" max="45" value="11" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" />
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverRate" style="font-size: 13px; color: #475569;">语速</label>
+                                    <select id="indexVoiceoverRate" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                        <option value="+0%">正常</option>
+                                        <option value="+15%">略快</option>
+                                        <option value="+25%" selected>较快（默认）</option>
+                                        <option value="+35%">更快</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverSubtitleSize" style="font-size: 13px; color: #475569;">字幕字号档位</label>
+                                    <input type="number" id="indexVoiceoverSubtitleSize" min="10" max="36" value="16" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" />
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverSubtitleMaxChars" style="font-size: 13px; color: #475569;">每条字幕约字数</label>
+                                    <input type="number" id="indexVoiceoverSubtitleMaxChars" min="8" max="40" value="20" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" />
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; font-size: 13px; color: #475569;">
+                                <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="indexVoiceoverMixBgm" checked /> 与原片 BGM 混合（压低 BGM）</label>
+                                <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="indexVoiceoverBurn" checked /> 烧录字幕到画面</label>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px;">
+                                <div>
+                                    <label for="indexVoiceoverBgmGain" style="font-size: 13px; color: #475569;">背景音乐音量（dB）</label>
+                                    <input type="number" id="indexVoiceoverBgmGain" min="-45" max="6" step="1" value="-22" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" title="越大越响，多为负值" />
+                                </div>
+                                <div>
+                                    <label for="indexVoiceoverNarrationGain" style="font-size: 13px; color: #475569;">人声音量（dB）</label>
+                                    <input type="number" id="indexVoiceoverNarrationGain" min="-24" max="24" step="1" value="0" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;" title="TTS 混音前增益" />
+                                </div>
+                            </div>
+                            <button type="button" class="btn" onclick="generateIndexVoiceover()" id="indexVoiceoverGenerateBtn">生成配音与字幕视频</button>
+                            <div id="indexVoiceoverLoading" style="display: none; margin-top: 14px; padding: 16px; background: #fff; border-radius: 8px; border: 1px dashed #94a3b8;">
+                                <p style="margin: 0; color: #64748b;">正在使用 IndexTTS 合成语音与字幕，首次加载模型可能需要数分钟…</p>
+                            </div>
+                            <div id="indexVoiceoverResult" style="display: none; margin-top: 16px;">
+                                <p style="color: #16a34a; font-weight: 600; margin-bottom: 10px;">✅ 配音成片已生成</p>
+                                <div id="indexVoiceoverPreviewArea" style="max-width: 100%;"></div>
+                                <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                                    <a id="indexVoiceoverDownloadFinal" href="#" download class="btn" style="display: inline-block; padding: 10px 18px; background: #667eea; color: white; text-decoration: none; border-radius: 6px;">下载成片</a>
+                                    <a id="indexVoiceoverDownloadSrt" href="#" download style="display: none; padding: 10px 18px; border: 1px solid #cbd5e1; border-radius: 6px; color: #475569; text-decoration: none;">下载 SRT</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧排序面板 -->
+        <div id="sortPanel" class="sort-panel">
+            <div class="panel-header">
+                <h4>🖼️ 已选图片排序<span id="sortPanelCount" class="sort-panel-count"></span></h4>
+                <button id="closeSortPanel" class="close-btn">×</button>
+            </div>
+            <div class="sort-panel-summary">
+                <span class="sort-summary-hint">💡 可拖动排序，可修改每张显示时长</span>
+                <span class="sort-summary-total">总时长 <strong id="sortPanelTotalDuration">0.0</strong> 秒</span>
+            </div>
+            <div id="sortableList" class="sortable-list">
+                <!-- 动态生成的排序项 -->
+            </div>
+            <div class="panel-footer">
+                <button id="resetOrder" class="btn-secondary">🔄 重置顺序</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片查看器 & 去水印模态框 -->
+    <div class="image-modal-overlay" id="imageModalOverlay">
+        <div class="image-modal">
+            <div class="image-modal-header">
+                <h3 id="modalTitle">🔍 图片查看器</h3>
+                <div class="modal-toolbar">
+                    <button type="button" class="modal-btn-zoom" id="zoomOutBtn" title="缩小">➖ 缩小</button>
+                    <button type="button" class="modal-btn-zoom" id="zoomInBtn" title="放大">➕ 放大</button>
+                    <button type="button" class="modal-btn-zoom" id="resetZoomBtn" title="适应">🔄 适应</button>
+                    <button type="button" class="modal-btn-zoom" id="fullscreenBtn" title="切换全屏">🔲 全屏</button>
+                                    
+                    <!-- 编辑模式分隔线和按钮 -->
+                    <span class="modal-toolbar-sep" style="margin: 0 8px;">|</span>
+                    <button type="button" class="modal-btn-draw" id="editModeBtn" title="进入编辑模式">✏️ 编辑图片</button>
+                                    
+                    <!-- 编辑工具栏（默认隐藏） -->
+                    <div id="editTools" style="display: none; align-items: center; gap: 6px; margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--app-border);">
+                        <button type="button" class="modal-btn-draw" id="drawModeBtn" title="框选水印区域">✏️ 框选水印</button>
+                        <button type="button" class="modal-btn-draw" id="cropModeBtn" title="框选裁剪区域">✂️ 剪裁</button>
+                        <button type="button" class="modal-btn-action" id="applyCropBtn" style="display:none;" title="应用裁剪">✅ 应用剪裁</button>
+                        <button type="button" class="modal-btn-action" id="removeWatermarkBtn" disabled title="去除水印">🧹 去除水印</button>
+                        <span class="modal-toolbar-sep">|</span>
+                        <button type="button" class="modal-btn-draw" id="textModeBtn" title="在图片上添加文字">🅰️ 添加文字</button>
+                        <div id="textToolOptions" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <input id="imageTextInput" class="modal-tool-input" type="text" placeholder="输入文字" maxlength="200"
+                                   style="width:130px; padding:4px 8px; font-size:13px;">
+                            <select id="imageTextFontSelect" class="modal-tool-input" title="字体"
+                                    style="padding:4px 6px; font-size:13px; max-width:120px;">
+                                <option value="msyhbd">微软雅黑 粗体</option>
+                            </select>
+                            <input id="imageTextColorPicker" type="color" value="#ffffff" title="文字颜色"
+                                   style="width:32px; height:28px; padding:0; cursor:pointer;">
+                            <input id="imageTextSizeInput" class="modal-tool-input" type="number" min="12" max="200" value="48" title="字号"
+                                   style="width:52px; padding:4px 6px; font-size:13px;">
+                        </div>
+                        <button type="button" class="modal-btn-action" id="applyTextBtn" style="display:none;" title="将文字烧录到图片">✅ 应用文字</button>
+                        <button type="button" class="modal-btn-zoom" id="undoTextBtn" style="display:none;" title="撤销上一条">↩️ 撤销</button>
+                        <span class="modal-toolbar-sep">|</span>
+                        <button type="button" class="modal-btn-zoom" id="rotateImageBtn" title="顺时针旋转 90°">🔄 旋转</button>
+                        <button type="button" class="modal-btn-zoom" id="flipImageBtn" title="水平翻转">↔️ 翻转</button>
+                        <button type="button" class="modal-btn-action" id="saveEditBtn" disabled title="保存编辑">💾 保存修改</button>
+                    </div>
+                                    
+                    <span class="modal-toolbar-sep">|</span>
+                    <button type="button" class="modal-btn-close" id="closeImageModalBtn">✕</button>
+                </div>
+            </div>
+            <div class="image-modal-body" id="modalBody">
+                <img id="modalImage" src="" alt="预览图片" draggable="false">
+                <canvas id="modalCanvas"></canvas>
+                <!-- 水印区域列表面板 -->
+                <div class="region-list-panel" id="regionListPanel">
+                    <div class="region-list-header">
+                        <span>📋 检测区域</span>
+                        <button type="button" class="panel-close" id="closeRegionPanelBtn" title="关闭面板">✕</button>
+                    </div>
+                    <div class="region-list-body" id="regionListBody">
+                        <div class="region-list-empty">暂无检测区域</div>
+                    </div>
+                    <div class="region-list-footer" id="regionListFooter" style="display:none;">
+                        <button type="button" id="clearRegionsBtn">🗑️ 清除全部区域</button>
+                    </div>
+                </div>
+            </div>
+            <div class="image-modal-footer">
+                <div>
+                    <span id="modalImageInfo">-</span>
+                    <span id="regionsCount"></span>
+                </div>
+                <div class="zoom-info" id="zoomLevel">100%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+<!-- 视频查看模态框 -->
+<div class="image-modal-overlay" id="videoModalOverlay" onclick="if(event.target===this)closeVideoModal()" style="display: none;">
+    <div class="image-modal">
+        <div class="image-modal-header">
+            <h3 id="videoModalTitle">🎬 视频预览</h3>
+            <div class="modal-toolbar">
+                <button class="modal-btn-zoom" onclick="downloadCurrentVideo()" title="下载视频">📥 下载</button>
+                <span class="modal-toolbar-sep">|</span>
+                <button class="modal-btn-close" onclick="closeVideoModal()">✕</button>
+            </div>
+        </div>
+        <div class="image-modal-body" id="videoModalBody" style="background: #000;">
+            <video id="videoPlayer" controls style="width: 100%; height: 100%; object-fit: contain;" preload="metadata">
+                您的浏览器不支持视频播放。
+            </video>
+        </div>
+        <div class="image-modal-footer">
+            <div class="image-info" id="videoInfo">
+                加载中...
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script src="/static/js/index/state.js?v=20260815b"></script>
+    <script src="/static/js/shared/publish_modal.js?v=20260816b"></script>
+    <script src="/static/js/index/image_scores.js?v=20260801g"></script>
+    <script src="/static/js/index/main.js?v=20260815b"></script>
+    <script src="/static/js/index/modal.js?v=20260718"></script>
+    <script src="/static/js/index/init.js?v=20260815b"></script>
+    <script src="/static/js/common/back-to-top.js"></script>
+</body>
+</html>
