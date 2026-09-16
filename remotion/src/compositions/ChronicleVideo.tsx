@@ -48,9 +48,9 @@ export const ChronicleVideo: React.FC<ChronicleVideoProps> = ({
 
   return (
     <AbsoluteFill style={{backgroundColor: '#070B10'}}>
-      {coverImagePath && introFrames > 0 ? (
+      {coverImagePath && introFrames > 0 && images.length > 0 ? (
         <Sequence from={0} durationInFrames={introFrames}>
-          <CoverIntro coverImagePath={coverImagePath} />
+          <CoverIntro draft={draft} template={template} heroSrc={images[0].path} />
         </Sequence>
       ) : null}
 
@@ -73,7 +73,7 @@ export const ChronicleVideo: React.FC<ChronicleVideoProps> = ({
               motionEffect={motionEnabled ? effect : 'zoom_in'}
               endScale={motionEnabled ? endScale : 1}
               pan={motionEnabled ? pan : 0}
-              includeSummary={false}
+              includeSummary={true}
             />
           </Sequence>
         );

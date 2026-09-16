@@ -188,9 +188,27 @@ export const ChronicleFrame: React.FC<Props> = ({
       ) : null}
 
       {includeSummary && footerLines.length > 0 ? (
-        <div style={{position: 'absolute', left: 0, right: 0, top: summaryY, textAlign: 'center', padding: '0 10%'}}>
+        <div
+          style={{
+            position: 'absolute',
+            left: '11%',
+            right: '11%',
+            top: summaryY,
+            textAlign: 'center',
+            ...fontStyles.body,
+          }}
+        >
           {footerLines.map((line, i) => (
-            <div key={i} style={{fontSize: footerSize, color: summaryColor, marginBottom: 8}}>
+            <div
+              key={i}
+              style={{
+                fontSize: footerSize,
+                color: summaryColor,
+                marginBottom: 8,
+                lineHeight: 1.3,
+                textShadow: '0 1px 4px rgba(0,0,0,0.35)',
+              }}
+            >
               {renderHighlighted(line, footerSize, summaryColor, accent)}
             </div>
           ))}
@@ -199,7 +217,9 @@ export const ChronicleFrame: React.FC<Props> = ({
 
       <div style={{position: 'absolute', left: pct(0.045, width), top: footerY, display: 'flex', alignItems: 'center', gap: 14}}>
         <div style={{width: 2, height: pct(0.1, height), background: accentDim}} />
-        <div style={{fontSize: Math.round(footerSize * 0.9), color: muted}}>{String(chrome.footer_left || '快讯档案')}</div>
+        <div style={{fontSize: Math.round(footerSize * 0.9), color: muted, ...fontStyles.body}}>
+          {String(chrome.footer_left || '快讯档案')}
+        </div>
       </div>
     </AbsoluteFill>
   );

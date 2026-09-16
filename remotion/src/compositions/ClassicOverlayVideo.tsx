@@ -18,6 +18,7 @@ import {
   pickAnimType,
   textFadeAlpha,
 } from '../lib/classicMotion';
+import {defaultChronicleTemplate} from '../lib/defaultChronicleTemplate';
 import {CoverIntro} from './CoverIntro';
 import {MediaLayer, resolveMediaSrc, isVideoPath} from './MediaLayer';
 
@@ -213,9 +214,21 @@ export const ClassicOverlayVideo: React.FC<ClassicOverlayProps> = ({
 
   return (
     <AbsoluteFill>
-      {coverImagePath && introFrames > 0 ? (
+      {coverImagePath && introFrames > 0 && images.length > 0 ? (
         <Sequence from={0} durationInFrames={introFrames}>
-          <CoverIntro coverImagePath={coverImagePath} />
+          <CoverIntro
+            draft={{
+              main_line1,
+              main_line2,
+              sub_title: subtitle,
+              sub_title2: subtitle2,
+              summary,
+              tags,
+              highlight_keywords: summaryHighlightKeywords,
+            }}
+            template={defaultChronicleTemplate}
+            heroSrc={images[0].path}
+          />
         </Sequence>
       ) : null}
 
