@@ -142,7 +142,10 @@
                     ${navIcon('refresh')}
                 </button>
             </div>
-            <div class="nav-scroll">${groups}</div>
+            <div class="nav-scroll">
+                <div id="global-search-root" class="nav-global-search"></div>
+                ${groups}
+            </div>
             <div class="nav-footer">
                 <div class="nav-theme-row">
                     <span data-theme-label>浅色</span>
@@ -466,10 +469,27 @@
         document.head.appendChild(icon);
     }
 
+    function initGlobalSearch() {
+        const host = document.getElementById('global-search-root');
+        if (!host) return;
+        const mount = () => window.AINewsGlobalSearch?.mount(host);
+        if (window.AINewsGlobalSearch) {
+            mount();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = '/static/js/shared/global_search.js?v=20260916';
+        script.onload = mount;
+        document.head.appendChild(script);
+    }
+
     function init() {
         ensureFavicon();
         const root = document.getElementById('app-nav-root');
-        if (root) renderNav(root);
+        if (root) {
+            renderNav(root);
+            initGlobalSearch();
+        }
     }
 
     if (document.readyState === 'loading') {

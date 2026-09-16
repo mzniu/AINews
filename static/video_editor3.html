@@ -3,13 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AINews - 视频文字编辑器</title>
-    <link rel="stylesheet" href="/static/css/video_editor3.css">
+    <title>AINews · 视频文字编辑器</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260916">
+    <link rel="stylesheet" href="/static/css/components/pipeline_bar.css?v=20260916">
+    <link rel="stylesheet" href="/static/css/video_editor3.css?v=20260916">
+    <script src="/static/js/shared/theme.js?v=20260916"></script>
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260916" defer></script>
+    <script src="/static/js/shared/pipeline_stepper.js?v=20260916" defer></script>
 </head>
-<body class="app-page">
+<body class="app-page video-editor-page">
     <div id="app-nav-root"></div>
 
     <div class="container">
+        <div id="pipeline-bar-root"></div>
 <!-- 主内容区 -->
         <div class="main-content">
             <div class="editor-container">
@@ -159,6 +167,6 @@
         </div>
     </div>
 
-    <script src="js/video_editor3.js"></script>
+    <script src="/static/js/video_editor3.js"></script>
 </body>
 </html>
