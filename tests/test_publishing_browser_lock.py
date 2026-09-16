@@ -61,3 +61,12 @@ def test_browser_lock_timeout_when_held(tmp_path, monkeypatch):
         with pytest.raises(BrowserLockTimeout):
             with browser_lock(timeout_sec=0.6):
                 pass
+
+
+def test_is_process_alive_invalid_pid_does_not_raise():
+    from services.publishing.browser_lock import _is_process_alive
+
+    assert _is_process_alive(0) is False
+    assert _is_process_alive(-1) is False
+    assert _is_process_alive(999_999_999) is False
+

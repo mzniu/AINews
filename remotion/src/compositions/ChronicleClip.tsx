@@ -1,5 +1,6 @@
 import React from 'react';
 import {useCurrentFrame, useVideoConfig} from 'remotion';
+import {SummaryAnimationConfig} from '../lib/summaryTypewriter';
 import {ChronicleTemplate, Draft} from '../lib/types';
 import {ChronicleFrame} from './ChronicleFrame';
 
@@ -11,6 +12,9 @@ type Props = {
   endScale: number;
   pan: number;
   includeSummary?: boolean;
+  clipGlobalStartSec?: number;
+  summaryAnimCfg?: SummaryAnimationConfig;
+  videoDurationSec?: number;
 };
 
 export const ChronicleClip: React.FC<Props> = ({
@@ -21,9 +25,13 @@ export const ChronicleClip: React.FC<Props> = ({
   endScale,
   pan,
   includeSummary = false,
+  clipGlobalStartSec = 0,
+  summaryAnimCfg,
+  videoDurationSec,
 }) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
+  const globalTSec = clipGlobalStartSec + frame / fps;
 
   return (
     <ChronicleFrame
@@ -38,6 +46,9 @@ export const ChronicleClip: React.FC<Props> = ({
       pan={pan}
       includeHero={true}
       includeSummary={includeSummary}
+      globalTSec={globalTSec}
+      summaryAnimCfg={summaryAnimCfg}
+      videoDurationSec={videoDurationSec}
     />
   );
 };

@@ -13,6 +13,7 @@ import json
 from loguru import logger
 from services.video_thumbnail_service import video_thumbnail_service
 from utils.image_format import resolve_image_ext
+from src.utils.beijing_time import beijing_now_iso
 
 
 class CrawlerService:
@@ -602,12 +603,12 @@ class CrawlerService:
         
         content_file = save_dir / "content.txt"
         with open(content_file, 'w', encoding='utf-8') as f:
-            f.write(f"标题: {title}\nURL: {url}\n抓取时间: {datetime.now().isoformat()}\n\n{'='*80}\n\n{content}")
+            f.write(f"标题: {title}\nURL: {url}\n抓取时间: {beijing_now_iso()}\n\n{'='*80}\n\n{content}")
         
         metadata = {
             'url': url,
             'title': title,
-            'crawl_time': datetime.now().isoformat(),
+            'crawl_time': beijing_now_iso(),
             'content_length': len(content),
             'images_count': len([img for img in downloaded_images if img['success']]),
             'images': downloaded_images,

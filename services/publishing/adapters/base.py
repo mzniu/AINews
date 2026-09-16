@@ -21,14 +21,24 @@ class PublishPayload:
     sub_title: str | None = None
     sub_title2: str | None = None
     summary: str | None = None
+    first_comment: str | None = None
+
+
+@dataclass
+class CommentResult:
+    success: bool
+    comment_id: str | None = None
+    error_message: str | None = None
 
 
 @dataclass
 class PublishResult:
     success: bool
     platform_post_id: str | None = None
+    platform_post_url: str | None = None
     error_message: str | None = None
     manual_publish_pending: bool = False
+    comment_result: CommentResult | None = None
 
 
 @dataclass
@@ -44,6 +54,7 @@ class QrLoginContext:
     login_url: str
     qr_dir: Path
     qr_timeout_sec: int = 120
+    account_id: str | None = None
 
 
 @dataclass
@@ -70,6 +81,20 @@ class PlatformAdapter(ABC):
     @abstractmethod
     def publish_video(self, session_path: Path, payload: PublishPayload) -> PublishResult:
         """Upload video and fill metadata."""
+
+    def post_first_comment(
+        self,
+        session_path: Path,
+        *,
+        post_id: str | None,
+        post_url: str | None,
+        title: str | None,
+        text: str,
+        delay_sec: int = 15,
+        wait_max_sec: int = 60,
+    ) -> CommentResult:
+        """Post author first comment in a standalone browser session (P1 retry)."""
+        return CommentResult(success=False, error_message="unsupported")
 
     def persist_storage_state(self, dest: Path, storage_state_json: bytes) -> None:
         from services.publishing.session_store import save_encrypted

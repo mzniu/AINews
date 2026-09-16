@@ -4,6 +4,7 @@
             initializeEventListeners();
             // 加载 BGM 列表
             loadBGMList();
+            loadRenderTemplateList();
             loadBackgroundImageList();
             loadTitleFontList();
             loadIndexSubtitleFonts();
@@ -150,6 +151,7 @@
             if (!draft || !draft.success) return;
             const line1 = draft.main_line1 != null ? draft.main_line1 : (draft.main_title || (draft.title || '').split('|')[0] || '');
             const line2 = draft.main_line2 != null ? draft.main_line2 : '';
+            const shortTitle = draft.short_title != null ? draft.short_title : '';
             const subT = draft.sub_title != null ? draft.sub_title : '';
             const subT2 = draft.sub_title2 != null ? draft.sub_title2 : '';
             const summaryText = draft.summary || '';
@@ -159,6 +161,7 @@
             generatedSummary = summaryText;
 
             const el1 = document.getElementById('editableMainLine1');
+            const elShort = document.getElementById('editableShortTitle');
             const el2 = document.getElementById('editableMainLine2');
             const elSub = document.getElementById('editableSubTitle');
             const elSub2 = document.getElementById('editableSubTitle2');
@@ -168,6 +171,7 @@
             const elMeta = document.getElementById('aiMeta');
 
             if (el1) el1.value = line1;
+            if (elShort) elShort.value = shortTitle || line1;
             if (el2) el2.value = line2;
             if (elSub) elSub.value = subT;
             if (elSub2) elSub2.value = subT2;
@@ -178,6 +182,7 @@
 
             window.lastPublishDraft = {
                 main_line1: line1,
+                short_title: shortTitle || line1,
                 main_line2: line2,
                 sub_title: subT,
                 sub_title2: subT2,
@@ -259,6 +264,27 @@
                 console.error('加载背景图列表失败:', e);
             } finally {
                 if (preview) preview.src = '/' + (sel.value || 'static/imgs/bg.png');
+            }
+        }
+
+        async function loadRenderTemplateList() {
+            const select = document.getElementById('renderTemplateSelect');
+            if (!select) return;
+            try {
+                const response = await fetch('/api/ingestion/render-templates');
+                const data = await response.json();
+                if (!data.success || !Array.isArray(data.templates)) return;
+                select.innerHTML = '';
+                data.templates.forEach((item) => {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    const mark = item.id === data.default_template_id ? '（默认）' : '';
+                    option.textContent = `${item.label || item.id}${mark}`;
+                    select.appendChild(option);
+                });
+                if (data.default_template_id) select.value = data.default_template_id;
+            } catch (error) {
+                console.error('加载成片模板失败:', error);
             }
         }
 

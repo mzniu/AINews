@@ -315,6 +315,41 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
             return JSONResponse(status_code=400,
                                 content={"success": False, "message": "请至少选择一张图片"})
 
+        template_id = getattr(request, "template_id", None)
+        if template_id:
+            from services.ingestion.render_templates import get_render_template
+            from services.ingestion.chronicle_render import render_chronicle_video
+            from services.ingestion.video_render_service import resolve_ingested_clip_durations
+
+            try:
+                template = get_render_template(str(template_id))
+            except ValueError as exc:
+                return JSONResponse(status_code=400, content={"success": False, "message": str(exc)})
+            if template.get("layout_kind") == "chronicle_frame":
+                image_paths = []
+                for item in request.images:
+                    path = item if isinstance(item, str) else getattr(item, "path", None)
+                    if path:
+                        image_paths.append(str(path))
+                durations = resolve_ingested_clip_durations(len(image_paths), template=template)
+                draft = {
+                    "main_line1": request.main_line1 or request.title,
+                    "main_line2": request.main_line2,
+                    "sub_title": request.subtitle,
+                    "sub_title2": request.subtitle2,
+                    "summary": request.summary,
+                    "tags": request.tags,
+                    "highlight_keywords": request.summary_highlight_keywords or [],
+                }
+                return render_chronicle_video(
+                    article_id=f"manual_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    draft=draft,
+                    image_paths=image_paths,
+                    bgm_path=request.audio_path or "static/music/background.mp3",
+                    template=template,
+                    durations=durations,
+                )
+
         # MoviePy 2.x：concatenate 已并入 CompositeVideoClip 模块，请从 moviepy 顶层导入
         from moviepy import (
             VideoClip,
@@ -341,6 +376,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
         title_font, subtitle_font, summary_font = _load_fonts(
             getattr(request, "title_font_key", None),
             getattr(request, "title_font_size", None),
+            getattr(request, "subtitle_font_size", None),
+            getattr(request, "summary_font_size", None),
         )
 
         margin = int(img_width * 0.08)
@@ -917,16 +954,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                 original_duration = audio.duration
                 logger.info(f"🎵 加载音频文件: {audio_path}")
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
-                
-                speed = 1.1
-                audio = audio.with_speed_scaled(speed)
-                new_duration = audio.duration
-                logger.info(f"   🚀 应用{speed}倍速")
-                logger.info(f"   加速后时长: {new_duration:.2f}秒")
-                logger.info(f"   时间压缩: {(original_duration - new_duration) / original_duration * 100:.1f}%")
-                if audio.duration < video_duration:
-                    audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclipped(0, video_duration)
+                from services.ingestion.cover_video_utils import fit_audio_to_duration
+                audio = fit_audio_to_duration(audio, video_duration, speed=1.1)
                 final_clip = final_clip.with_audio(audio)
                 logger.info("背景音乐已添加")
 
@@ -1333,16 +1362,8 @@ async def create_user_video(
                 original_duration = audio.duration
                 logger.info(f"🎵 加载音频文件: {audio_path}")
                 logger.info(f"   原始时长: {original_duration:.2f}秒")
-                
-                speed = 1.1
-                audio = audio.with_speed_scaled(speed)
-                new_duration = audio.duration
-                logger.info(f"   🚀 应用{speed}倍速")
-                logger.info(f"   加速后时长: {new_duration:.2f}秒")
-                logger.info(f"   时间压缩: {(original_duration - new_duration) / original_duration * 100:.1f}%")
-                if audio.duration < video_duration:
-                    audio = concatenate_audioclips([audio] * (int(video_duration / audio.duration) + 1))
-                audio = audio.subclipped(0, video_duration)
+                from services.ingestion.cover_video_utils import fit_audio_to_duration
+                audio = fit_audio_to_duration(audio, video_duration, speed=1.1)
                 final_clip = final_clip.with_audio(audio)
                 logger.info("用户视频背景音乐已添加")
 

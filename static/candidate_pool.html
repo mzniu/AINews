@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>候选池 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
+    <link rel="stylesheet" href="/static/css/candidate_pool.css?v=20260915a">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
+    <script src="/static/js/candidate_pool.js?v=20260915b" defer></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+    <div class="candidate-shell">
+        <header class="candidate-header">
+            <div>
+                <h1>候选池</h1>
+                <p class="candidate-lead">查看、筛选并手动处理待发布候选。</p>
+            </div>
+            <div class="candidate-header-actions">
+                <button type="button" class="btn btn-soft" id="refreshCandidatesBtn">刷新</button>
+                <a class="btn btn-soft" href="/publish-center">发布中心</a>
+                <a class="btn btn-soft" href="/publish-queue">发布队列</a>
+            </div>
+        </header>
+
+        <section class="soft-card">
+            <div class="candidate-toolbar">
+                <select id="filterPlatform" class="form-control" aria-label="平台">
+                    <option value="">全部平台</option>
+                    <option value="douyin">抖音</option>
+                    <option value="kuaishou">快手</option>
+                    <option value="wechat_channels">视频号</option>
+                </select>
+                <select id="filterStatus" class="form-control" aria-label="状态">
+                    <option value="">全部状态</option>
+                    <option value="pending" selected>pending</option>
+                    <option value="deferred">deferred</option>
+                    <option value="skipped">skipped</option>
+                    <option value="dispatched">dispatched</option>
+                </select>
+                <select id="filterRecommended" class="form-control" aria-label="推荐动作">
+                    <option value="">全部推荐</option>
+                    <option value="publish">publish</option>
+                    <option value="defer">defer</option>
+                    <option value="skip">skip</option>
+                </select>
+                <select id="filterSort" class="form-control" aria-label="排序">
+                    <option value="priority" selected>按优先级</option>
+                    <option value="evaluated_at">按评估时间</option>
+                    <option value="created_at">按创建时间</option>
+                </select>
+                <span id="candidateCount" class="candidate-count">—</span>
+            </div>
+            <div class="table-wrap">
+                <table class="candidate-table">
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>平台</th>
+                            <th>推荐动作</th>
+                            <th>状态</th>
+                            <th>优先级</th>
+                            <th>原因</th>
+                            <th>评估时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="candidateTableBody">
+                        <tr><td colspan="8" class="empty-cell">加载中…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="candidatePager" class="candidate-pager"></div>
+        </section>
+    </div>
+
+    <div id="candidateToast" class="candidate-toast" hidden></div>
+</body>
+</html>

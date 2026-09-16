@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 import os
 
 from src.models.github_models import VideoMetadata, GitHubProject
-from utils.title_units import format_main_title_two_lines
+from utils.title_units import format_main_title_two_lines, resolve_short_title, split_main_title_to_two_lines
 
 # 加载环境变量
 load_dotenv()
@@ -47,6 +47,8 @@ class ContentAnalyzer:
 
     def _generate_content_via_json(self, info: Dict) -> VideoMetadata:
         """单次 LLM JSON 调用：复用 utils/content_methodology 的方法论 prompt，一次产出全部字段。"""
+        from services.content_prompts import get_system_role, json_main_line1_hint, json_short_title_hint, json_summary_hint
+        from utils.title_units import resolve_short_title
         from utils.content_methodology import build_methodology_prompt_section
         from utils.tags_normalizer import normalize_structured_tags
         from utils.summary_highlights import normalize_highlight_keywords_from_llm
@@ -57,15 +59,16 @@ class ContentAnalyzer:
 【输出 JSON 格式】（严格遵守，不要返回其他内容）
 {{
   "target_audience": "推断的目标受众（≤12个汉字）",
-  "praise_tags": ["夸赞标签1", "夸赞标签2", "夸赞标签3"],
-  "traffic_hook": "流量钩子类型中文名（如「观众想看结果」），可空字符串",
-  "main_line1": "主标题第一行（9~12汉字当量，必须以感叹词如突发！/炸裂！/爽了！等开头+话题引入，不含emoji）",
-  "main_line2": "主标题第二行（9~12汉字当量，必须以「网友：」开头的尖锐锐评，可空字符串）",
+  "praise_tags": ["夸赞标签，可选0到3个，禁止识货有前瞻性套话"],
+  "traffic_hook": "流量钩子类型中文名（优先「观众想看看真假」或「观众想证明自己」），可空字符串",
+  "main_line1": "{json_main_line1_hint()}",
+  "short_title": "{json_short_title_hint()}",
+  "main_line2": "主标题第二行（有争议钩子才写，以「网友：」开头；没有争议钩子必须空字符串）",
   "sub_title": "副标题第一行（11~15汉字当量，轻观点收尾，不含emoji）",
   "sub_title2": "副标题第二行（11~15汉字当量，七种流量钩子之一，可空字符串）",
-  "summary": "生成的摘要（40-50字，以「小牛说：」开头）",
+  "summary": "{json_summary_hint()}",
   "tags": "#赛道标签 #垂直标签 #精准标签 #热点标签 #小牛说 #其他标签1 #其他标签2 #其他标签3 #其他标签4 #其他标签5",
-  "voiceover_script": "口播稿全文（{vmin}~{vmax}字，以「小牛说：」开头）",
+  "voiceover_script": "口播稿全文（{vmin}~{vmax}字，前3秒点出主体+数字+冲突，不要以「小牛说：」开头，结尾留可回答争议，禁止点赞关注）",
   "highlight_keywords": ["摘要中连续子串1", "子串2", "子串3"]
 }}
 
@@ -87,8 +90,7 @@ Star数: {info['stars']}
         messages = [
             {
                 "role": "system",
-                "content": "你是顶级自媒体爆款文案大师，精通微信视频号的「社交货币 / 夸赞」方法论：通过高情商夸赞目标受众、帮用户立人设来触发社交裂变点赞；同时熟练掌握「制造悬念、列举数字、提出疑问、强调时效、引发争议（中立可讨论）、指向明确」六种辅助标题技法，能在方法论为主、技法为辅的前提下综合运用。主标题第一行必须以贴合正文的感叹词（如突发！、炸裂！、爽了！等）开头抓眼球。你的文案在合规前提下引发点赞与传播，信息密度高。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
-                + "我是小牛，一个专业的AI技术专家，对AI行业有深度的见解，请你根据项目信息为我生成标题、副标题、摘要、标签与口播稿。",
+                "content": get_system_role(),
             },
             {"role": "user", "content": prompt},
         ]
@@ -103,6 +105,7 @@ Star数: {info['stars']}
         self.last_compliance = compliance.to_dict()
 
         main_line1 = (result.get('main_line1') or '').strip()
+        short_title = resolve_short_title(result.get('short_title') or '', main_line1)
         main_line2 = (result.get('main_line2') or '').strip()
         sub_title = (result.get('sub_title') or '').strip()
         sub_title2 = (result.get('sub_title2') or '').strip()
@@ -127,6 +130,7 @@ Star数: {info['stars']}
 
         return VideoMetadata(
             title=format_main_title_two_lines(title_two_lines),
+            short_title=short_title,
             subtitle=sub_title,
             subtitle2=sub_title2,
             summary=summary_text,
@@ -229,8 +233,11 @@ Star数: {info['stars']}
         """生成默认内容（当AI不可用时）"""
         info = self._extract_project_info(project)
         
+        title = format_main_title_two_lines(self._generate_default_title(info))
+        line1, _ = split_main_title_to_two_lines(title)
         return VideoMetadata(
-            title=format_main_title_two_lines(self._generate_default_title(info)),
+            title=title,
+            short_title=resolve_short_title("", line1),
             subtitle=self._generate_default_subtitle(info),
             summary=self._generate_default_summary(info),
             tags=self._generate_default_tags(info),

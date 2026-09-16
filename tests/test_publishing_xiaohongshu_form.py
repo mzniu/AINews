@@ -21,8 +21,12 @@ def test_douyin_video_ready_texts_defined():
 
 
 def test_xhs_publish_selectors_include_web_component():
-    from services.publishing.adapters.xiaohongshu_form import XHS_PUBLISH_BUTTON_SELECTORS
+    from services.publishing.adapters.xiaohongshu_form import (
+        XHS_PUBLISH_BUTTON_SELECTORS,
+        XHS_PUBLISH_INVOKE_METHODS,
+    )
 
     assert "xhs-publish-btn" in XHS_PUBLISH_BUTTON_SELECTORS
+    assert "_onPublish" in XHS_PUBLISH_INVOKE_METHODS
     text = compose_xiaohongshu_description("正文", ["AI"])
     assert text == "正文\n#AI"

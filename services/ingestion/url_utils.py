@@ -41,4 +41,14 @@ def build_list_page_url(source_config: dict, page: int) -> str:
         return urlunparse(
             (parsed.scheme, parsed.netloc, parsed.path or "/", "", urlencode(pairs), "")
         )
+    if pagination.get("type") == "query_page_zero":
+        param = pagination.get("param", "page")
+        start = int(pagination.get("start", 0))
+        list_url = source_config["list_url"]
+        parsed = urlparse(list_url)
+        pairs = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        pairs[param] = str(start + page - 1)
+        return urlunparse(
+            (parsed.scheme, parsed.netloc, parsed.path, "", urlencode(pairs), "")
+        )
     return source_config["list_url"]

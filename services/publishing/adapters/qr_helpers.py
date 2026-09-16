@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import random
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -11,6 +12,27 @@ from loguru import logger
 
 from services.publishing.adapters.base import AccountInfo, QrLoginContext, QrLoginResult
 
+
+@dataclass
+class _QrCaptureTarget:
+    locator: object
+    mode: Literal["img", "element"] = "img"
+
+
+_WECHAT_LOGIN_MARKERS = ("channels.weixin.qq.com/login",)
+_WECHAT_QR_IFRAME = "#wx-oauth-container iframe"
+_WECHAT_QR_IMG_SELECTORS = (
+    "img.js_qrcode_img.web_qrcode_img",
+    "img.js_qrcode_img",
+    "img.web_qrcode_img",
+    'img[class*="qrcode"]',
+    "img",
+)
+_WECHAT_QR_CONTAINER_SELECTORS = (
+    _WECHAT_QR_IFRAME,
+    ".qrcode-wrap",
+    ".login-qrcode-wrap",
+)
 
 @dataclass
 class QrLoginProfile:
@@ -25,7 +47,41 @@ class QrLoginProfile:
     extract_account_info: Callable | None = None
     post_login_url: str | None = None
     post_login_wait_ms: int = 3000
+    cookie_settle_attempts: int = 15
+    cookie_settle_interval_ms: int = 2000
+    use_stealth_browser: bool = True
     required_session_cookies: tuple[str, ...] = ()
+
+
+def build_qr_login_profile(
+    *,
+    platform_id: str,
+    login_url: str,
+    creator_url: str,
+    qr_profile: dict | None = None,
+    extract_account_info: Callable | None = None,
+    default_success_excludes: list[str] | None = None,
+) -> QrLoginProfile:
+    """Build a QR login profile from platform config and optional account extractor."""
+    cfg = qr_profile or {}
+    required = cfg.get("required_session_cookies") or []
+    excludes = list(cfg.get("success_url_excludes") or default_success_excludes or ["login", "passport"])
+    return QrLoginProfile(
+        platform_id=platform_id,
+        login_url=login_url,
+        success_url_excludes=excludes,
+        qr_selector=cfg.get("qr_selector"),
+        qr_switch_selector=cfg.get("qr_switch_selector"),
+        headless=bool(cfg.get("headless", False)),
+        nickname_selector=cfg.get("nickname_selector"),
+        post_login_url=cfg.get("post_login_url") or creator_url,
+        post_login_wait_ms=int(cfg.get("post_login_wait_ms", 3000)),
+        cookie_settle_attempts=int(cfg.get("cookie_settle_attempts", 15)),
+        cookie_settle_interval_ms=int(cfg.get("cookie_settle_interval_ms", 2000)),
+        use_stealth_browser=bool(cfg.get("use_stealth_browser", True)),
+        required_session_cookies=tuple(required),
+        extract_account_info=extract_account_info,
+    )
 
 
 def is_login_success_url(url: str, success_url_excludes: list[str]) -> bool:
@@ -41,97 +97,347 @@ def storage_state_has_session_cookies(storage: dict, cookie_names: Sequence[str]
 
 
 def _capture_login_storage_state(context, page, profile: QrLoginProfile) -> dict:
-    settle_url = profile.post_login_url
-    if settle_url:
+    """Capture session cookies after login. Snapshot early — users often close the window right after scan."""
+    current_url = page.url or ""
+    try:
+        if is_login_success_url(current_url, profile.success_url_excludes):
+            early = context.storage_state()
+            if not profile.required_session_cookies or storage_state_has_session_cookies(
+                early, profile.required_session_cookies
+            ):
+                logger.info("Captured login storage immediately for {}", profile.platform_id)
+                return early
+    except Exception as exc:
+        logger.debug("Early login storage snapshot skipped for {}: {}", profile.platform_id, exc)
+
+    settle_url = (profile.post_login_url or "").strip()
+    if settle_url and settle_url not in current_url:
         page.goto(settle_url, wait_until="domcontentloaded", timeout=60_000)
-        page.wait_for_timeout(max(profile.post_login_wait_ms, 0))
+    _login_page_pause(page, profile, kind="page_load", after_login_success=True)
 
     if not profile.required_session_cookies:
         return context.storage_state()
 
-    for attempt in range(6):
+    attempts = max(profile.cookie_settle_attempts, 1)
+    for attempt in range(attempts):
         storage = context.storage_state()
         if storage_state_has_session_cookies(storage, profile.required_session_cookies):
             return storage
         logger.warning(
             "Login settle attempt %s/%s: missing session cookies %s for %s",
             attempt + 1,
-            6,
+            attempts,
             profile.required_session_cookies,
             profile.platform_id,
         )
-        page.wait_for_timeout(1000)
+        _login_settle_pause(page, profile)
 
     return context.storage_state()
 
 
+def _login_settle_pause(page, profile: QrLoginProfile) -> None:
+    interval_ms = max(profile.cookie_settle_interval_ms, 500)
+    if profile.use_stealth_browser:
+        from services.publishing.human_pacing import human_pause
+
+        human_pause(page, "polling")
+        return
+    page.wait_for_timeout(interval_ms)
+
+
+def _login_page_pause(
+    page,
+    profile: QrLoginProfile,
+    *,
+    kind: str = "page_load",
+    after_login_success: bool = False,
+) -> None:
+    if profile.use_stealth_browser:
+        from services.publishing.human_pacing import human_pause
+
+        if after_login_success:
+            human_pause(page, "after_click")
+            return
+        from services.publishing.human_interaction import human_idle_on_page
+
+        human_pause(page, kind)  # type: ignore[arg-type]
+        if kind == "page_load":
+            human_idle_on_page(page, moves=random.randint(2, 4))
+        return
+    fixed_ms = {"page_load": max(profile.post_login_wait_ms, 0), "step": 1500, "polling": 2000}.get(kind, 2000)
+    page.wait_for_timeout(fixed_ms)
+
+
+def _create_login_browser(playwright, profile: QrLoginProfile):
+    if not profile.use_stealth_browser:
+        browser = playwright.chromium.launch(headless=profile.headless)
+        return browser, browser.new_context()
+    from services.publishing.human_interaction import open_stealth_browser
+
+    return open_stealth_browser(playwright, headless=profile.headless)
+
+
 def run_generic_qr_login(profile: QrLoginProfile, ctx: QrLoginContext) -> QrLoginResult:
-    from playwright.sync_api import sync_playwright
+    from services.publishing.browser_profile import load_browser_profile_config, pending_profile_key
 
     ctx.qr_dir.mkdir(parents=True, exist_ok=True)
     qr_path = ctx.qr_dir / f"{ctx.session_id}.png"
-    deadline = time.time() + ctx.qr_timeout_sec
+    cfg = load_browser_profile_config()
+    use_profile = bool(cfg.get("enabled", True)) and profile.use_stealth_browser
+    if use_profile:
+        profile_key = ctx.account_id or pending_profile_key(ctx.session_id)
+        from services.publishing.browser_session import open_publish_session
+
+        with open_publish_session(profile_key, mode="login") as sess:
+            return _run_qr_login_loop(profile, ctx, qr_path, sess.page, sess.context)
+    return _run_qr_login_legacy(profile, ctx, qr_path)
+
+
+def _run_qr_login_legacy(profile: QrLoginProfile, ctx: QrLoginContext, qr_path: Path) -> QrLoginResult:
+    from playwright.sync_api import sync_playwright
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=profile.headless)
-        context = browser.new_context()
+        browser, context = _create_login_browser(playwright, profile)
         page = context.new_page()
         try:
-            page.goto(profile.login_url or ctx.login_url, wait_until="domcontentloaded")
-            page.wait_for_timeout(1500)
-            if profile.qr_switch_selector:
-                try:
-                    page.locator(profile.qr_switch_selector).first.click(timeout=5000)
-                    page.wait_for_timeout(1000)
-                except Exception as exc:
-                    logger.warning("QR switch click failed for %s: %s", profile.platform_id, exc)
-            _capture_qr(page, qr_path, profile.qr_selector)
-        except Exception as exc:
+            return _run_qr_login_loop(profile, ctx, qr_path, page, context)
+        finally:
             browser.close()
-            return QrLoginResult(status="failed", error_message=str(exc))
 
-        while time.time() < deadline:
-            if is_login_success_url(page.url, profile.success_url_excludes):
+
+def _run_qr_login_loop(
+    profile: QrLoginProfile,
+    ctx: QrLoginContext,
+    qr_path: Path,
+    page,
+    context,
+) -> QrLoginResult:
+    deadline = time.time() + ctx.qr_timeout_sec
+    try:
+        page.goto(profile.login_url or ctx.login_url, wait_until="domcontentloaded")
+        _login_page_pause(page, profile, kind="step")
+        _prepare_login_page_for_qr(page, profile.login_url or ctx.login_url)
+        if profile.qr_switch_selector:
+            try:
+                if profile.use_stealth_browser:
+                    from services.publishing.human_interaction import human_click
+
+                    human_click(page, page.locator(profile.qr_switch_selector).first, timeout_ms=5000)
+                else:
+                    page.locator(profile.qr_switch_selector).first.click(timeout=5000)
+                _login_page_pause(page, profile, kind="step")
+            except Exception as exc:
+                logger.warning("QR switch click failed for %s: %s", profile.platform_id, exc)
+        _capture_qr(page, qr_path, profile.qr_selector)
+    except Exception as exc:
+        return QrLoginResult(status="failed", error_message=str(exc))
+
+    while time.time() < deadline:
+        if is_login_success_url(page.url, profile.success_url_excludes):
+            try:
                 storage = _capture_login_storage_state(context, page, profile)
-                if profile.required_session_cookies and not storage_state_has_session_cookies(
-                    storage, profile.required_session_cookies
-                ):
-                    browser.close()
+            except Exception as exc:
+                if _is_target_closed_error(exc):
                     return QrLoginResult(
                         status="failed",
                         error_message=(
-                            "登录成功但未捕获到完整会话 Cookie（"
-                            f"缺少 {', '.join(profile.required_session_cookies)}），请重试扫码"
+                            "扫码已成功，但浏览器窗口在保存会话前被关闭。"
+                            "请重新扫码并在看到「登录成功」前保持浏览器窗口打开。"
                         ),
                         qr_image_path=str(qr_path),
                     )
-                info = _resolve_account_info(page, profile)
-                browser.close()
+                raise
+            if profile.required_session_cookies and not storage_state_has_session_cookies(
+                storage, profile.required_session_cookies
+            ):
+                remaining = deadline - time.time()
+                if remaining > 8:
+                    logger.info(
+                        "Login URL ok but session cookies not ready for %s, "
+                        "will retry (%.0fs remaining)",
+                        profile.platform_id,
+                        remaining,
+                    )
+                    _login_page_pause(page, profile, kind="polling")
+                    continue
                 return QrLoginResult(
-                    status="confirmed",
+                    status="failed",
+                    error_message=(
+                        "登录成功但未捕获到完整会话 Cookie（"
+                        f"缺少 {', '.join(profile.required_session_cookies)}），请重试扫码"
+                    ),
                     qr_image_path=str(qr_path),
-                    account_info=info,
-                    storage_state_json=json.dumps(storage).encode("utf-8"),
                 )
-            page.wait_for_timeout(2000)
+            info = _resolve_account_info(page, profile)
+            return QrLoginResult(
+                status="confirmed",
+                qr_image_path=str(qr_path),
+                account_info=info,
+                storage_state_json=json.dumps(storage).encode("utf-8"),
+            )
+        _login_page_pause(page, profile, kind="polling")
+        try:
+            _capture_qr(page, qr_path, profile.qr_selector, prepare=False)
+        except Exception:
+            pass
+
+    return QrLoginResult(
+        status="expired",
+        qr_image_path=str(qr_path),
+        error_message=f"扫码超时（{ctx.qr_timeout_sec}s）",
+    )
+
+
+def _qr_selector_candidates(selector: str) -> list[str]:
+    return [part.strip() for part in selector.split(",") if part.strip()]
+
+
+def _is_wechat_login_url(url: str | None) -> bool:
+    lower = (url or "").lower()
+    return any(marker in lower for marker in _WECHAT_LOGIN_MARKERS)
+
+
+def _wechat_qr_visible(page) -> bool:
+    return _find_wechat_qr_target(page, prepare=False) is not None
+
+
+def _prepare_login_page_for_qr(page, login_url: str | None) -> None:
+    if not _is_wechat_login_url(login_url or getattr(page, "url", "")):
+        return
+    page.wait_for_timeout(2000)
+    if _wechat_qr_visible(page):
+        return
+    for attempt in range(3):
+        try:
+            mask = page.locator(".qrcode-wrap .mask").first
+            if not mask.is_visible(timeout=1200):
+                if _wechat_qr_visible(page):
+                    return
+                page.wait_for_timeout(1500)
+                continue
+            page.locator(".refresh-wrap").first.click(timeout=3000)
+            logger.info("WeChat login QR refresh click {}/3", attempt + 1)
+        except Exception as exc:
+            logger.debug("WeChat login QR refresh skipped: {}", exc)
+        page.wait_for_timeout(2500)
+        if _wechat_qr_visible(page):
+            return
+
+
+def _is_target_closed_error(exc: BaseException) -> bool:
+    name = exc.__class__.__name__
+    return name == "TargetClosedError" or "has been closed" in str(exc).lower()
+
+
+def _parse_qr_selector(selector: str) -> tuple[str | None, str]:
+    text = selector.strip()
+    if text.lower().startswith("iframe:"):
+        body = text[len("iframe:") :]
+        if "|" not in body:
+            return body.strip(), "img"
+        iframe_sel, inner_sel = body.split("|", 1)
+        return iframe_sel.strip(), inner_sel.strip()
+    return None, text
+
+
+def _iter_qr_search_specs(selectors: Sequence[str]) -> list[tuple[str | None, str]]:
+    specs: list[tuple[str | None, str]] = []
+    seen: set[tuple[str | None, str]] = set()
+    for raw in selectors:
+        iframe_sel, inner_sel = _parse_qr_selector(raw)
+        key = (iframe_sel, inner_sel)
+        if key not in seen:
+            specs.append(key)
+            seen.add(key)
+    return specs
+
+
+def _find_wechat_qr_target(page, *, prepare: bool = False) -> _QrCaptureTarget | None:
+    if prepare:
+        _prepare_login_page_for_qr(page, page.url)
+    for img_sel in _WECHAT_QR_IMG_SELECTORS:
+        try:
+            loc = page.frame_locator(_WECHAT_QR_IFRAME).locator(img_sel).first
+            loc.wait_for(state="visible", timeout=4000)
+            return _QrCaptureTarget(locator=loc, mode="img")
+        except Exception:
+            continue
+    for container_sel in _WECHAT_QR_CONTAINER_SELECTORS:
+        try:
+            loc = page.locator(container_sel).first
+            loc.wait_for(state="visible", timeout=2000)
+            return _QrCaptureTarget(locator=loc, mode="element")
+        except Exception:
+            continue
+    return None
+
+
+def _find_visible_qr_locator(page, selectors: Sequence[str]) -> _QrCaptureTarget | None:
+    specs = _iter_qr_search_specs(selectors)
+    if _is_wechat_login_url(page.url):
+        specs.extend((iframe_sel, inner) for iframe_sel, inner in (
+            (_WECHAT_QR_IFRAME, img_sel) for img_sel in _WECHAT_QR_IMG_SELECTORS
+        ))
+
+    for iframe_sel, inner_sel in specs:
+        if iframe_sel:
             try:
-                _capture_qr(page, qr_path, profile.qr_selector)
+                loc = page.frame_locator(iframe_sel).locator(inner_sel).first
+                loc.wait_for(state="visible", timeout=4000)
+                return _QrCaptureTarget(locator=loc, mode="img")
             except Exception:
-                pass
+                continue
+            continue
 
-        browser.close()
-        return QrLoginResult(
-            status="expired",
-            qr_image_path=str(qr_path),
-            error_message=f"扫码超时（{ctx.qr_timeout_sec}s）",
+        for frame in page.frames:
+            try:
+                loc = frame.locator(inner_sel).first
+                loc.wait_for(state="visible", timeout=2500)
+                return _QrCaptureTarget(locator=loc, mode="img")
+            except Exception:
+                continue
+
+    if _is_wechat_login_url(page.url):
+        return _find_wechat_qr_target(page, prepare=False)
+    return None
+
+
+def _download_qr_from_img(loc, page, qr_path: Path) -> bool:
+    try:
+        src = loc.evaluate(
+            """(el) => {
+                if (!el || el.tagName !== 'IMG') return '';
+                try { return new URL(el.currentSrc || el.src, document.baseURI).href; }
+                catch { return el.src || ''; }
+            }"""
         )
+    except Exception:
+        return False
+    if not src or src.startswith("data:"):
+        return False
+    response = page.context.request.get(src)
+    if not response.ok:
+        return False
+    qr_path.write_bytes(response.body())
+    return True
 
 
-def _capture_qr(page, qr_path: Path, selector: str | None) -> None:
-    if selector:
-        page.locator(selector).first.screenshot(path=str(qr_path))
-    else:
+def _capture_qr(page, qr_path: Path, selector: str | None, *, prepare: bool = True) -> None:
+    if not selector:
         page.screenshot(path=str(qr_path), full_page=True)
+        return
+
+    if prepare:
+        _prepare_login_page_for_qr(page, page.url)
+    selectors = _qr_selector_candidates(selector)
+    target = _find_visible_qr_locator(page, selectors)
+    if target is None:
+        raise RuntimeError(f"QR element not found: {selector}")
+
+    loc = target.locator
+    if target.mode == "img" and _download_qr_from_img(loc, page, qr_path):
+        return
+    loc.screenshot(path=str(qr_path))
 
 
 def _resolve_account_info(page, profile: QrLoginProfile) -> AccountInfo:

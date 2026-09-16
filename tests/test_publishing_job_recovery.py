@@ -3,7 +3,11 @@ from datetime import datetime, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from services.publishing.job_recovery import recover_stale_publish_jobs, recover_stale_qr_sessions
+from services.publishing.job_recovery import (
+    has_pending_qr_login,
+    recover_stale_publish_jobs,
+    recover_stale_qr_sessions,
+)
 from src.db.engine import Base
 from src.db.models.publishing import PublishJob, PublisherAccount, QrLoginSession
 
@@ -78,3 +82,26 @@ def test_marks_stale_qr_session_expired():
     assert recover_stale_qr_sessions(session, stale_minutes=5) == 1
     session.refresh(row)
     assert row.status == "expired"
+
+
+def test_has_pending_qr_login():
+    session = _session()
+    assert has_pending_qr_login(session) is False
+    session.add(
+        QrLoginSession(
+            id="q2",
+            platform="wechat_channels",
+            status="pending",
+        )
+    )
+    session.commit()
+    assert has_pending_qr_login(session) is True
+    session.add(
+        QrLoginSession(
+            id="q3",
+            platform="douyin",
+            status="processing",
+        )
+    )
+    session.commit()
+    assert has_pending_qr_login(session) is True

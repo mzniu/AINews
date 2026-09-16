@@ -708,6 +708,7 @@
         function saveEditedContent() {
             // 保存用户编辑的内容
             editedMainLine1 = document.getElementById('editableMainLine1').value.trim();
+            editedShortTitle = (document.getElementById('editableShortTitle')?.value || '').trim();
             editedMainLine2 = document.getElementById('editableMainLine2').value.trim();
             editedSubTitle = document.getElementById('editableSubTitle').value.trim();
             editedSubTitle2 = (document.getElementById('editableSubTitle2')?.value || '').trim();
@@ -721,8 +722,16 @@
                 return;
             }
 
+            window.lastPublishDraft = {
+                ...(window.lastPublishDraft || {}),
+                main_line1: editedMainLine1,
+                short_title: editedShortTitle || editedMainLine1,
+                main_line2: editedMainLine2,
+                sub_title: editedSubTitle,
+                sub_title2: editedSubTitle2,
+            };
             showToast('✅ 内容已保存，将在视频生成时使用', 'success');
-            console.log('保存的编辑内容:', { editedMainLine1, editedMainLine2, editedSubTitle, editedSubTitle2, editedSummary, editedVoiceover, editedTags });
+            console.log('保存的编辑内容:', { editedMainLine1, editedShortTitle, editedMainLine2, editedSubTitle, editedSubTitle2, editedSummary, editedVoiceover, editedTags });
         }
         
         // GIF 处理相关函数
@@ -864,6 +873,7 @@
         function copyAllAiContent() {
             const fields = [
                 document.getElementById('editableMainLine1')?.value?.trim() || '',
+                document.getElementById('editableShortTitle')?.value?.trim() || '',
                 document.getElementById('editableMainLine2')?.value?.trim() || '',
                 document.getElementById('editableSubTitle')?.value?.trim() || '',
                 document.getElementById('editableSubTitle2')?.value?.trim() || '',
@@ -1087,7 +1097,7 @@
             const downloadMetadataEl = document.getElementById('downloadMetadata');
             
             if (resultTitleEl) resultTitleEl.textContent = data.title || '未命名文章';
-            if (crawlTimeEl) crawlTimeEl.textContent = data.timestamp ? new Date(data.timestamp).toLocaleString('zh-CN') : new Date().toLocaleString('zh-CN');
+            if (crawlTimeEl) crawlTimeEl.textContent = data.timestamp ? formatBeijingDateTime(data.timestamp) : formatBeijingDateTime(new Date());
             if (contentLengthEl) contentLengthEl.textContent = (data.content ? data.content.length : 0).toLocaleString();
             if (imagesCountEl) imagesCountEl.textContent = (data.images ? data.images.length : 0);
             if (contentPreviewEl) contentPreviewEl.textContent = data.content ? data.content.substring(0, 500) + (data.content.length > 500 ? '...' : '') : '';
@@ -2367,15 +2377,19 @@
                     
                     const line1 = data.main_line1 != null ? data.main_line1 : (data.main_title || (data.title || '').split('|')[0] || '');
                     const line2 = data.main_line2 != null ? data.main_line2 : '';
+                    const shortTitle = data.short_title != null ? data.short_title : '';
                     const subT = data.sub_title != null ? data.sub_title : '';
                     const subT2 = data.sub_title2 != null ? data.sub_title2 : '';
 
                     document.getElementById('editableMainLine1').value = line1;
+                    const shortEl = document.getElementById('editableShortTitle');
+                    if (shortEl) shortEl.value = shortTitle || line1;
                     document.getElementById('editableMainLine2').value = line2;
                     document.getElementById('editableSubTitle').value = subT;
                     document.getElementById('editableSubTitle2').value = subT2;
                     window.lastPublishDraft = {
                         main_line1: line1,
+                        short_title: shortTitle || line1,
                         main_line2: line2,
                         sub_title: subT,
                         sub_title2: subT2,
@@ -2393,7 +2407,7 @@
                         ? data.highlight_keywords.slice()
                         : [];
                     document.getElementById('aiMeta').textContent =
-                        `主L1:${line1.length}字 L2:${line2.length}字 副1:${subT.length}字 副2:${subT2.length}字 | 摘要:${(data.summary || '').length}字 口播:${voText.length}字 高亮:${editedHighlightKeywords.length}词 | ${data.model} | tokens:${data.tokens_used}`;
+                        `主L1:${line1.length}字 短标题:${(shortTitle || line1).length}字 L2:${line2.length}字 副1:${subT.length}字 副2:${subT2.length}字 | 摘要:${(data.summary || '').length}字 口播:${voText.length}字 高亮:${editedHighlightKeywords.length}词 | ${data.model} | tokens:${data.tokens_used}`;
                     setAiMethodologyInsight(data.target_audience, data.praise_tags, data.traffic_hook);
                     renderComplianceWarning(data.compliance);
 
@@ -2579,7 +2593,8 @@
                         ...getLayoutPositionPayload(),
                         show_summary: getShowSummaryOnVideo(),
                         tags: (document.getElementById('editableAiTags') && document.getElementById('editableAiTags').value.trim()) || '',
-                        summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : []
+                        summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : [],
+                        template_id: (document.getElementById('renderTemplateSelect')?.value) || undefined
                     })
                 });
                 
@@ -2758,6 +2773,7 @@
                                     videoPath: data.video_path,
                                     draft: window.lastPublishDraft || {
                                         main_line1: document.getElementById('editableMainLine1')?.value || '',
+                                        short_title: document.getElementById('editableShortTitle')?.value || '',
                                         main_line2: document.getElementById('editableMainLine2')?.value || '',
                                         sub_title: document.getElementById('editableSubTitle')?.value || '',
                                     },
@@ -3058,6 +3074,7 @@
                 generatedTitle = summaryData.title;
                 generatedSummary = summaryData.summary;
                 const l1 = summaryData.main_line1 != null ? summaryData.main_line1 : (summaryData.main_title || (summaryData.title || '').split('|')[0] || '');
+                const shortTitle = summaryData.short_title != null ? summaryData.short_title : '';
                 const l2 = summaryData.main_line2 != null ? summaryData.main_line2 : '';
                 const subT2 = summaryData.sub_title != null ? summaryData.sub_title : '';
                 const subT2Line2 = summaryData.sub_title2 != null ? summaryData.sub_title2 : '';
@@ -3074,6 +3091,8 @@
                 const aiMetaEl = document.getElementById('aiMeta');
 
                 if (aiMainLine1El) aiMainLine1El.value = l1;
+                const aiShortTitleEl = document.getElementById('editableShortTitle');
+                if (aiShortTitleEl) aiShortTitleEl.value = shortTitle || l1;
                 if (aiMainLine2El) aiMainLine2El.value = l2;
                 if (aiSubTitleEl) aiSubTitleEl.value = subT2;
                 if (aiSubTitle2El) aiSubTitle2El.value = subT2Line2;
@@ -3084,7 +3103,7 @@
                     ? summaryData.highlight_keywords.slice()
                     : [];
                 if (aiMetaEl) aiMetaEl.textContent =
-                    `L1:${l1.length} L2:${l2.length} 副1:${subT2.length} 副2:${subT2Line2.length} | 摘要:${(summaryData.summary || '').length}字 口播:${voOne.length}字 高亮:${editedHighlightKeywords.length}词 | ${summaryData.model} | tokens:${summaryData.tokens_used}`;
+                    `L1:${l1.length} 短标题:${(shortTitle || l1).length} L2:${l2.length} 副1:${subT2.length} 副2:${subT2Line2.length} | 摘要:${(summaryData.summary || '').length}字 口播:${voOne.length}字 高亮:${editedHighlightKeywords.length}词 | ${summaryData.model} | tokens:${summaryData.tokens_used}`;
                 setAiMethodologyInsight(summaryData.target_audience, summaryData.praise_tags, summaryData.traffic_hook);
                 renderComplianceWarning(summaryData.compliance);
                 
@@ -3113,7 +3132,8 @@
                         ...getLayoutPositionPayload(),
                         show_summary: getShowSummaryOnVideo(),
                         tags: (document.getElementById('editableAiTags') && document.getElementById('editableAiTags').value.trim()) || '',
-                        summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : []
+                        summary_highlight_keywords: Array.isArray(editedHighlightKeywords) ? editedHighlightKeywords : [],
+                        template_id: (document.getElementById('renderTemplateSelect')?.value) || undefined
                     })
                 });
                 const videoData = await videoResp.json();

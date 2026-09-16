@@ -7,6 +7,7 @@ import {
   DEFAULT_CARD_MOTION_PAN,
   pickCardMotionEffect,
 } from '../lib/motion';
+import {parseSummaryAnimationConfig} from '../lib/summaryTypewriter';
 import {ChronicleClip} from './ChronicleClip';
 import {CoverIntro} from './CoverIntro';
 
@@ -38,13 +39,20 @@ export const ChronicleVideo: React.FC<ChronicleVideoProps> = ({
   const pan = (motionCfg.pan_percent ?? DEFAULT_CARD_MOTION_PAN * 100) / 100;
   const effects = motionCfg.effects || [...DEFAULT_CARD_MOTION_EFFECTS];
   const motionSeed = seed || articleId;
+  const summaryAnimCfg = parseSummaryAnimationConfig(videoCfg);
+  const useTypewriter = summaryAnimCfg.mode === 'typewriter';
 
   const introFrames =
     coverImagePath && coverIntroDurationSec > 0
       ? Math.max(1, Math.round(coverIntroDurationSec * fps))
       : 0;
+  const coverIntroSec = introFrames / fps;
+  const clipDurations = images.map((clip) => clip.duration);
+  const videoDurationSec =
+    coverIntroSec + clipDurations.reduce((sum, duration) => sum + duration, 0);
 
   let cursor = introFrames;
+  let clipGlobalStartSec = coverIntroSec;
 
   return (
     <AbsoluteFill style={{backgroundColor: '#070B10'}}>
@@ -57,7 +65,9 @@ export const ChronicleVideo: React.FC<ChronicleVideoProps> = ({
       {images.map((clip, index) => {
         const durationInFrames = Math.max(1, Math.round(clip.duration * fps));
         const from = cursor;
+        const clipStartSec = clipGlobalStartSec;
         cursor += durationInFrames;
+        clipGlobalStartSec += clip.duration;
         const effect =
           clip.motionEffect ||
           (motionCfg.random
@@ -73,7 +83,10 @@ export const ChronicleVideo: React.FC<ChronicleVideoProps> = ({
               motionEffect={motionEnabled ? effect : 'zoom_in'}
               endScale={motionEnabled ? endScale : 1}
               pan={motionEnabled ? pan : 0}
-              includeSummary={true}
+              includeSummary={!useTypewriter}
+              clipGlobalStartSec={clipStartSec}
+              summaryAnimCfg={useTypewriter ? summaryAnimCfg : undefined}
+              videoDurationSec={useTypewriter ? videoDurationSec : undefined}
             />
           </Sequence>
         );

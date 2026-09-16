@@ -16,7 +16,7 @@ except ImportError as exc:
 
 from src.utils.config import Config
 
-_KEY_FILE = Config.ROOT_DIR / "data" / "publish" / ".session_key"
+_KEY_FILE = Config.DATA_DIR / "publish" / ".session_key"
 _NONCE_SIZE = 12
 
 

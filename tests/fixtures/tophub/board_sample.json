@@ -1,0 +1,28 @@
+{
+  "error": false,
+  "status": 200,
+  "data": {
+    "hashid": "testhashid01",
+    "name": "测试平台",
+    "display": "AI榜",
+    "domain": "example.com",
+    "items": [
+      {
+        "rank": 1,
+        "title": "OpenAI 发布新模型",
+        "url": "https://example.com/a",
+        "extra": "79万",
+        "description": "",
+        "thumbnail": ""
+      },
+      {
+        "rank": 2,
+        "title": "DeepSeek 更新推理能力",
+        "url": "https://example.com/b",
+        "extra": "12万",
+        "description": "",
+        "thumbnail": ""
+      }
+    ]
+  }
+}

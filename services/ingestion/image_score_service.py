@@ -23,6 +23,7 @@ from services.ingestion.image_scorer import (
     rank_evaluations,
 )
 from services.model_config.registry import get_active_vision_profile
+from src.utils.paths import resolve_local_asset_path
 from src.db.models.ingestion import (
     ArticleImage,
     ImageRelevanceEvaluation,
@@ -143,6 +144,7 @@ def _load_cached_results(db: Session, article_id: str) -> list[ImageScoreResult]
                 relevance_rank=int(row.relevance_rank or 0),
                 rank=int(row.relevance_rank or 0),
                 caption=row.caption,
+                content_description=row.content_description,
                 verdict=row.verdict,
                 breakdown=breakdown,
                 is_animated=bool((breakdown or {}).get("is_animated")),
@@ -177,6 +179,7 @@ def _persist_evaluations(
                     if item.breakdown
                     else None,
                     caption=item.caption,
+                    content_description=item.content_description,
                     verdict=item.verdict,
                     vision_profile_id=vision_profile_id,
                     scorer_version=scorer_version,
@@ -212,7 +215,7 @@ def _score_candidates(
     skipped = 0
 
     for image in candidates:
-        local_file = Path(image.local_path) if image.local_path else None
+        local_file = resolve_local_asset_path(image.local_path)
         pre = prefilter_image(image, local_file=local_file, config=cfg)
         if pre.skip:
             skipped += 1

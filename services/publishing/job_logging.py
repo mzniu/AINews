@@ -3,10 +3,12 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Iterator
 
 from loguru import logger
+
+from src.utils.beijing_time import format_beijing_datetime
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import sessionmaker
@@ -24,8 +26,7 @@ _PUBLISH_LOG_PREFIXES = ("services.publishing.",)
 
 
 def format_log_timestamp(when: datetime | None = None) -> str:
-    moment = when or datetime.now()
-    return moment.strftime("%Y-%m-%d %H:%M:%S")
+    return format_beijing_datetime(when or datetime.now(timezone.utc))
 
 
 def format_log_message(message: str, *, when: datetime | None = None) -> str:

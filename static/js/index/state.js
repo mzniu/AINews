@@ -3,6 +3,7 @@
         let generatedTitle = '';
         let generatedSummary = '';
         let editedMainLine1 = '';
+        let editedShortTitle = '';
         let editedMainLine2 = '';
         let editedSubTitle = '';
         let editedSubTitle2 = '';

@@ -169,8 +169,15 @@ class RelatedImageService:
 JSON 格式：
 {{"query":"搜索词", "keywords":["关键词1", "关键词2"]}}
 """
-        response = client.chat.completions.create(
-            model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+        from services.model_config.token_usage import complete_chat, env_language_profile
+
+        model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+        response = complete_chat(
+            client,
+            kind="language",
+            profile=env_language_profile(model),
+            task="related_image_query",
+            model=model,
             messages=[
                 {"role": "system", "content": "你是科技媒体编辑，擅长把文章提炼成适合搜索相关网页和配图素材的关键词。"},
                 {"role": "user", "content": prompt},

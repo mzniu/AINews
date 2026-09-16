@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>热榜雷达 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
+    <link rel="stylesheet" href="/static/css/hot_radar.css?v=20260829a">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+    <div class="hot-radar-shell">
+        <header class="hot-radar-header">
+            <div>
+                <h1>热榜雷达</h1>
+                <p class="hot-radar-lead">TopHub 多榜快照 · 文章命中详情 · 规则评分信号</p>
+            </div>
+            <div class="toolbar-actions">
+                <button class="btn btn-soft" id="refreshSnapshotBtn" type="button">刷新热榜</button>
+                <a class="btn btn-soft" href="/ingestion-library">返回资讯库</a>
+            </div>
+        </header>
+
+        <section class="soft-card hot-radar-meta" id="snapshotMeta">
+            <div class="meta-grid">
+                <div><span class="meta-label">状态</span><span id="snapshotStatus">—</span></div>
+                <div><span class="meta-label">快照时间</span><span id="snapshotTime">—</span></div>
+                <div><span class="meta-label">条目数</span><span id="snapshotCount">—</span></div>
+                <div><span class="meta-label">数据源</span><span id="snapshotBoard">—</span></div>
+            </div>
+            <div class="board-filter-row">
+                <label class="field-label" for="boardFilter">按榜单筛选</label>
+                <select id="boardFilter" class="form-control board-filter-select">
+                    <option value="">全部榜单</option>
+                </select>
+            </div>
+            <div id="snapshotError" class="meta-error" style="display:none;"></div>
+        </section>
+
+        <div class="hot-radar-grid">
+            <section class="soft-card hot-radar-list-card">
+                <div class="panel-head">
+                    <h2 class="panel-title">当前热榜</h2>
+                    <span class="small text-muted" id="listHint"></span>
+                </div>
+                <div class="table-wrap">
+                    <table class="hot-radar-table">
+                        <thead>
+                            <tr>
+                                <th>榜单</th>
+                                <th>#</th>
+                                <th>标题</th>
+                                <th>热度</th>
+                                <th>链接</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hotListBody">
+                            <tr><td colspan="5" class="empty-cell">加载中…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="soft-card hot-radar-match-card">
+                <div class="panel-head">
+                    <h2 class="panel-title">文章命中详情</h2>
+                </div>
+                <div class="match-form">
+                    <label class="field-label" for="articleIdInput">文章 ID</label>
+                    <div class="match-form-row">
+                        <input id="articleIdInput" class="form-control" type="text" placeholder="粘贴资讯库文章 ID">
+                        <button class="btn btn-primary" id="lookupBtn" type="button">查询</button>
+                    </div>
+                </div>
+                <div id="matchPanel" class="match-panel">
+                    <p class="text-muted small">输入文章 ID 查看是否命中当前热榜，以及评分中的热榜维度。</p>
+                </div>
+            </section>
+        </div>
+
+        <section class="soft-card hot-radar-discovery-card">
+            <div class="panel-head">
+                <h2 class="panel-title">热榜发现队列</h2>
+                <div class="discovery-summary" id="discoverySummary">—</div>
+            </div>
+            <p class="hot-radar-lead discovery-lead">热榜刷新后自动入队的抓取任务；worker 运行后约每 5 秒处理 1 条。</p>
+            <div class="table-wrap discovery-table-wrap">
+                <table class="hot-radar-table discovery-table">
+                    <thead>
+                        <tr>
+                            <th>状态</th>
+                            <th>榜单</th>
+                            <th>#</th>
+                            <th>标题</th>
+                            <th>来源</th>
+                            <th>入队时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="discoveryQueueBody">
+                        <tr><td colspan="7" class="empty-cell">加载中…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div id="statusBar" class="status-bar"></div>
+    </div>
+
+    <script src="/static/js/hot_radar.js?v=20260829b"></script>
+</body>
+</html>

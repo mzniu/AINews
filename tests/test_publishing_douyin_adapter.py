@@ -1,3 +1,6 @@
+"""Tests for Douyin adapter profile."""
+from pathlib import Path
+
 from services.publishing.registry import build_adapter, get_platform_config
 
 
@@ -18,6 +21,19 @@ def test_douyin_adapter_overrides_publish_video():
     adapter = build_adapter(cfg)
     assert isinstance(adapter, DouyinAdapter)
     assert adapter.publish_video is not CreatorCenterAdapter.publish_video
+    assert adapter.validate_session is not CreatorCenterAdapter.validate_session
+
+
+def test_douyin_validate_session_uses_work_list_probe(monkeypatch):
+    from services.publishing.adapters.douyin import DouyinAdapter
+
+    cfg = get_platform_config("douyin")
+    adapter = build_adapter(cfg)
+    monkeypatch.setattr(
+        "services.publishing.metrics.adapters.douyin.probe_douyin_creator_session",
+        lambda *_args, **_kwargs: (False, 8),
+    )
+    assert adapter.validate_session(Path("data/publish/sessions/test.enc")) == "expired"
 
 
 def test_build_adapter_wechat():

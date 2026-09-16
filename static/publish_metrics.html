@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>已发布数据 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
+    <link rel="stylesheet" href="/static/css/publish_metrics.css?v=20260914a">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
+    <script src="/static/js/publish_center_metrics.js?v=20260914a" defer></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+    <div class="metrics-shell">
+        <header class="metrics-header">
+            <div>
+                <h1>已发布数据</h1>
+                <p class="metrics-lead">同步各平台作品指标，查看播放、互动与匹配状态。</p>
+            </div>
+            <div class="metrics-header-actions">
+                <a class="btn btn-soft" href="/publish-center">发布中心</a>
+                <a class="btn btn-soft" href="/publish-queue">发布队列</a>
+            </div>
+        </header>
+
+        <section class="soft-card">
+            <div class="metrics-toolbar">
+                <select id="metricsPlatformFilter" class="form-control" aria-label="平台">
+                    <option value="">全部平台</option>
+                </select>
+                <select id="metricsAccountFilter" class="form-control" aria-label="账号">
+                    <option value="">全部账号</option>
+                </select>
+                <select id="metricsDaysFilter" class="form-control" aria-label="时间范围">
+                    <option value="7">近 7 天</option>
+                    <option value="30" selected>近 30 天</option>
+                    <option value="90">近 90 天</option>
+                </select>
+                <span id="metricsSyncStatus">加载中…</span>
+                <button type="button" class="btn-secondary btn" id="metricsExportBtn">导出 CSV</button>
+                <button type="button" class="btn-secondary btn" id="metricsSyncBtn">立即同步</button>
+            </div>
+            <div id="metricsAlerts" class="metrics-alerts soft-banner-warn"></div>
+            <div id="metricsSummaryCards" class="metrics-summary-grid"></div>
+            <div id="metricsPlatformBreakdown" class="metrics-platform-grid"></div>
+            <div class="metrics-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>平台/账号</th>
+                            <th>播放</th>
+                            <th>点赞</th>
+                            <th>评论</th>
+                            <th>收藏</th>
+                            <th>关注</th>
+                            <th>3s%</th>
+                            <th>完播%</th>
+                            <th>发布时间</th>
+                            <th>匹配</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="publishedPostsTable"></tbody>
+                </table>
+            </div>
+            <div id="publishedPostsPager" class="metrics-pager"></div>
+        </section>
+    </div>
+
+    <div id="metricsBindModal" class="metrics-bind-modal">
+        <div class="metrics-bind-box">
+            <h3 style="margin:0 0 8px;">手动绑定平台作品</h3>
+            <p id="metricsBindTitle" style="font-size:13px;margin:0 0 8px;"></p>
+            <label>平台作品 ID</label>
+            <input id="metricsBindPostId" class="form-control" placeholder="如 noteId / aweme_id">
+            <label>作品链接（可选）</label>
+            <input id="metricsBindPostUrl" class="form-control" placeholder="https://...">
+            <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn-secondary btn" id="metricsBindCancelBtn">取消</button>
+                <button type="button" class="btn" id="metricsBindSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="metricsTrendModal" class="metrics-trend-modal">
+        <div class="metrics-trend-box">
+            <h3 id="metricsTrendTitle">作品趋势</h3>
+            <div id="metricsTrendMeta" class="metrics-trend-meta"></div>
+            <canvas id="metricsTrendCanvas" width="680" height="280"></canvas>
+            <div class="metrics-legend">
+                <span><span class="legend-dot" style="background:#667eea;"></span>播放</span>
+                <span><span class="legend-dot" style="background:#f59e0b;"></span>点赞</span>
+                <span><span class="legend-dot" style="background:#10b981;"></span>评论</span>
+            </div>
+            <div style="margin-top:14px;text-align:right;">
+                <button type="button" class="btn-secondary btn" id="metricsTrendCloseBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

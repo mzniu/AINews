@@ -13,6 +13,7 @@ templates:
     typography:
       title_font_size: 72
       subtitle_font_size: 68
+      summary_font_size: 44
       main_line1_color: "#FFFFFF"
       main_line2_color: "#FFFFFF"
       title_y_percent: 12
@@ -46,10 +47,10 @@ templates:
       fps: 24
     background_image: static/imgs/templates/chronicle_tech_blue/bg.png
     palette:
-      bg: "#070B10"
-      bg_glow: "#165A82"
-      accent: "#3DDCFF"
-      accent_dim: "#1A6A8A"
+      bg: "#0A1424"
+      bg_glow: "#1B6F9C"
+      accent: "#4BE4FF"
+      accent_dim: "#1F7FA6"
       text: "#F4F7FA"
       text_muted: "#8B96A8"
       card: "#FFFFFF"
@@ -67,23 +68,32 @@ templates:
         - 小牛说：
     typography:
       title_font_size: 64
-      subtitle_font_size: 47
+      subtitle_font_size: 52
       brand_sub_font_size: 28
       footer_font_size: 40
-      summary_y_percent: 70.2
-      footer_y_percent: 85.2
+      summary_y_percent: 73.2
+      footer_y_percent: 87.0
+      summary_font_size: 38
+      summary_width_percent: 84
+      summary_align: left
       top_pad_percent: 5
       title_highlight_color: "#FFEC30"
+      # 主标题底：同色系抬升表面（介于 bg 与 accent_dim 之间），避免荧光色块突兀
+      title_bg_color: "#1B4058"
+      title_bg_border_color: "#2D708C"
+      title_bg_pad_x: 16
+      title_bg_pad_y: 9
+      title_bg_radius: 4
       main_line1_color: "#F4F7FA"
       main_line2_color: "#F4F7FA"
       subtitle2_color: "#3DDCFF"
       title_y_percent: 12
     layout:
-      card_top_percent: 35
-      card_bottom_percent: 71
-      card_left_percent: 8
-      card_right_percent: 92
-      card_inset_px: 16
+      card_top_percent: 33.2
+      card_bottom_percent: 72.8
+      card_left_percent: 3.8
+      card_right_percent: 96.2
+      card_inset_px: 8
     video:
       show_summary: false
       max_selected_images: 4
@@ -93,6 +103,14 @@ templates:
       cover_intro_frames: 1
       card_ken_burns: true
       ken_burns_end_scale: 1.22
+      summary_animation:
+        mode: typewriter
+        scope: once
+        chars_per_second: 14
+        start_delay_sec: 0.35
+        show_cursor: true
+        cursor_blink_hz: 2
+        cursor_hide_after_done_sec: 0.5
       card_motion:
         enabled: true
         random: true
@@ -133,10 +151,10 @@ templates:
       fps: 24
     background_image: static/imgs/templates/chronicle_tech_blue/bg.png
     palette:
-      bg: "#070B10"
-      bg_glow: "#165A82"
-      accent: "#3DDCFF"
-      accent_dim: "#1A6A8A"
+      bg: "#0A1424"
+      bg_glow: "#1B6F9C"
+      accent: "#4BE4FF"
+      accent_dim: "#1F7FA6"
       text: "#F4F7FA"
       text_muted: "#8B96A8"
       card: "#FFFFFF"
@@ -148,19 +166,28 @@ templates:
       mark_path: static/imgs/templates/chronicle_tech_blue/mark_niu.png
       eyebrow: AI CHRONICLE / ARCHIVE RECORD
       brand_sub: 粉碎AI信息差 / 消除AI焦虑
-      footer_left: AI 快讯
+      footer_left: ""
       card_keyword_fallback: 快讯
       footer_strip_prefixes:
         - 小牛说：
     typography:
       title_font_size: 64
-      subtitle_font_size: 47
+      subtitle_font_size: 52
       brand_sub_font_size: 28
       footer_font_size: 40
       summary_y_percent: 75.0
-      footer_y_percent: 85.2
+      footer_y_percent: 87.0
+      summary_font_size: 38
+      summary_width_percent: 84
+      summary_align: left
       top_pad_percent: 5
       title_highlight_color: "#FFEC30"
+      # 主标题底：同色系抬升表面（介于 bg 与 accent_dim 之间），避免荧光色块突兀
+      title_bg_color: "#1B4058"
+      title_bg_border_color: "#2D708C"
+      title_bg_pad_x: 16
+      title_bg_pad_y: 9
+      title_bg_radius: 4
       main_line1_color: "#F4F7FA"
       main_line2_color: "#F4F7FA"
       subtitle2_color: "#3DDCFF"
@@ -168,7 +195,8 @@ templates:
       summary_color: "#9EC9D8"
     layout:
       title_placement: below_card
-      card_top_percent: 18
+      chrome_placement: footer
+      card_top_percent: 5
       card_bottom_percent: 52
       card_left_percent: 8
       card_right_percent: 92
@@ -185,6 +213,14 @@ templates:
       cover_intro_frames: 1
       card_ken_burns: true
       ken_burns_end_scale: 1.22
+      summary_animation:
+        mode: typewriter
+        scope: once
+        chars_per_second: 14
+        start_delay_sec: 0.35
+        show_cursor: true
+        cursor_blink_hz: 2
+        cursor_hide_after_done_sec: 0.5
       card_motion:
         enabled: true
         random: true
@@ -215,3 +251,4 @@ templates:
       height: 1920
       crop: none
       card_images: 1
+

@@ -231,6 +231,7 @@ def _load_fonts(
     title_font_key: Optional[str] = None,
     title_font_size: Optional[int] = None,
     subtitle_font_size: Optional[int] = None,
+    summary_font_size: Optional[int] = None,
 ):
     """加载字体，返回 (title_font, subtitle_font, summary_font)；主标题字形由 title_font_key 选择。"""
     _size = title_font_size if (title_font_size and 20 <= title_font_size <= 120) else TITLE_MAIN_FONT_SIZE
@@ -239,13 +240,18 @@ def _load_fonts(
         if (subtitle_font_size and 20 <= subtitle_font_size <= 120)
         else 58
     )
+    _summary_size = (
+        summary_font_size
+        if (summary_font_size and 20 <= summary_font_size <= 120)
+        else 44
+    )
     title_font = _load_title_font_truetype(title_font_key, _size)
     try:
         p58 = _find_font_path(["msyhbd.ttc"]) or _find_font_path(["simhei.ttf"])
         p40 = _find_font_path(["msyh.ttc"]) or _find_font_path(["simhei.ttf"])
         if p58 and p40:
             subtitle_font = ImageFont.truetype(p58, _sub_size)
-            summary_font = ImageFont.truetype(p40, 40)
+            summary_font = ImageFont.truetype(p40, _summary_size)
             return title_font, subtitle_font, summary_font
     except OSError:
         pass
@@ -255,7 +261,7 @@ def _load_fonts(
             return (
                 title_font,
                 ImageFont.truetype(p, _sub_size),
-                ImageFont.truetype(p, 40),
+                ImageFont.truetype(p, _summary_size),
             )
     except OSError:
         pass

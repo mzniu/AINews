@@ -12,7 +12,7 @@ from openai import OpenAI
 from src.utils.config import Config
 
 MODELS_TEMPLATE_PATH = Config.ROOT_DIR / "config" / "models.yaml"
-MODELS_LOCAL_PATH = Config.ROOT_DIR / "config" / "models.local.yaml"
+MODELS_LOCAL_PATH = Config.CONFIG_DIR / "models.local.yaml"
 
 PROFILE_FIELDS = (
     "id",
@@ -247,7 +247,13 @@ def test_language_model() -> dict[str, Any]:
     if client is None or profile is None:
         return {"success": False, "message": "未配置可用的语言模型（请填写 API Key 并启用）"}
     try:
-        resp = client.chat.completions.create(
+        from services.model_config.token_usage import complete_chat
+
+        resp = complete_chat(
+            client,
+            kind="language",
+            profile=profile,
+            task="model_test",
             model=profile["model"],
             messages=[{"role": "user", "content": "回复 OK"}],
             max_tokens=16,
@@ -268,7 +274,13 @@ def test_vision_model() -> dict[str, Any]:
     if client is None or profile is None:
         return {"success": False, "message": "未配置可用的视觉模型（请填写 API Key 并启用）"}
     try:
-        resp = client.chat.completions.create(
+        from services.model_config.token_usage import complete_chat
+
+        resp = complete_chat(
+            client,
+            kind="vision",
+            profile=profile,
+            task="model_test",
             model=profile["model"],
             messages=[
                 {

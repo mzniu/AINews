@@ -63,6 +63,7 @@ config/article_scoring.local.yaml
 config/image_scoring.local.yaml
 config/render_templates.local.yaml
 config/content_prompts.local.yaml
+config/hot_radar.local.yaml
 
 # LaMa 模型缓存
 .cache/
@@ -71,6 +72,10 @@ config/content_prompts.local.yaml
 
 # niuclaude-memory
 MEMORY.md
+
+# Desktop release staging
+desktop/src-tauri/bundle-resources/
+desktop/src-tauri/target/
 
 # Node (presentations)
 docs/presentations/node_modules/

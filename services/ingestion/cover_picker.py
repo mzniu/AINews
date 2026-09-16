@@ -29,6 +29,8 @@ def _resolve_local_path(
     evaluation: ImageRelevanceEvaluation,
     article_images: dict[str, ArticleImage],
 ) -> str | None:
+    if evaluation.local_path:
+        return evaluation.local_path
     if evaluation.source_type == "article_image":
         row = article_images.get(evaluation.source_id)
         if row and row.download_status == "ok" and row.local_path:
@@ -36,8 +38,14 @@ def _resolve_local_path(
         return None
     if evaluation.source_type == "story_asset":
         asset = session.get(StoryAsset, evaluation.source_id)
-        if asset and asset.local_path:
-            return asset.local_path
+        if not asset:
+            return None
+        try:
+            payload = json.loads(asset.payload_json or "{}")
+        except json.JSONDecodeError:
+            return None
+        local_path = payload.get("local_path")
+        return str(local_path).strip() if local_path else None
     return None
 
 

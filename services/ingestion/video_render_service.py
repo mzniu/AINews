@@ -9,6 +9,8 @@ from loguru import logger
 
 from api.schemas.request_models import CreateAnimatedVideoRequest, ImageWithDuration
 
+MIN_VIDEO_DURATION_SEC = 8.0
+
 
 def _normalize_image_path(path: str) -> str:
     return str(path or "").strip().lstrip("/").replace("\\", "/")
@@ -59,6 +61,23 @@ def resolve_ingested_clip_durations(
     return [fallback] * image_count
 
 
+def ensure_min_total_duration(
+    durations: list[float],
+    *,
+    min_total: float = MIN_VIDEO_DURATION_SEC,
+) -> list[float]:
+    if not durations:
+        return durations
+    total = sum(float(item) for item in durations)
+    if total >= min_total:
+        return durations
+    if total <= 0:
+        per = min_total / len(durations)
+        return [per] * len(durations)
+    scale = min_total / total
+    return [round(float(item) * scale, 3) for item in durations]
+
+
 def render_ingested_video(
     *,
     article_id: str,
@@ -70,10 +89,32 @@ def render_ingested_video(
     template: dict[str, Any] | None = None,
     renderer: str | None = None,
 ) -> dict[str, Any]:
-    if len(image_paths) < 1:
-        return {"success": False, "error": "insufficient_images", "count": len(image_paths)}
+    from services.ingestion.render_image_utils import is_renderable_local_image
 
-    durations = resolve_ingested_clip_durations(len(image_paths), template=template)
+    renderable_paths = [
+        _normalize_image_path(path)
+        for path in image_paths
+        if is_renderable_local_image(path)
+    ]
+    renderable_paths = [path for path in renderable_paths if path]
+    if len(renderable_paths) < 1:
+        return {
+            "success": False,
+            "error": "insufficient_images",
+            "count": len(renderable_paths),
+        }
+
+    video_cfg = (template or {}).get("video") or {}
+    try:
+        min_total = float(video_cfg.get("min_duration_sec", MIN_VIDEO_DURATION_SEC))
+    except (TypeError, ValueError):
+        min_total = MIN_VIDEO_DURATION_SEC
+
+    durations = resolve_ingested_clip_durations(len(renderable_paths), template=template)
+    if len(durations) < len(renderable_paths):
+        durations = durations + [clip_duration_sec] * (len(renderable_paths) - len(durations))
+    durations = ensure_min_total_duration(durations, min_total=min_total)
+    image_paths = renderable_paths
 
     use_remotion = str(renderer or os.environ.get("VIDEO_RENDERER", "")).strip().lower() == "remotion"
     if use_remotion:
@@ -88,8 +129,6 @@ def render_ingested_video(
             durations=durations,
             template=template,
         )
-    if len(durations) < len(image_paths):
-        durations = durations + [clip_duration_sec] * (len(image_paths) - len(durations))
 
     if (template or {}).get("layout_kind") == "chronicle_frame":
         from services.ingestion.chronicle_render import render_chronicle_video
@@ -123,6 +162,8 @@ def render_ingested_video(
         show_summary=bool(video_cfg.get("show_summary", True)),
         summary_scroll_mode=str(video_cfg.get("summary_scroll_mode") or "line_uniform"),
         title_font_size=typo.get("title_font_size"),
+        subtitle_font_size=typo.get("subtitle_font_size"),
+        summary_font_size=typo.get("summary_font_size"),
         title_y_percent=typo.get("title_y_percent"),
         main_line1_color=str(typo.get("main_line1_color") or "#FFFFFF"),
         main_line2_color=str(typo.get("main_line2_color") or "#FFFFFF"),

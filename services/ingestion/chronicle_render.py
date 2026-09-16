@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from loguru import logger
 from PIL import Image, ImageDraw, ImageFont
 
 from src.utils.config import Config
+from src.utils.paths import path_relative_to_data, resolve_local_asset_path, to_data_url_path, use_writable_workdir
 from utils.summary_highlights import finalize_highlight_keywords
 from utils.video_utils import (
     DEFAULT_SUMMARY_HIGHLIGHT_COLOR,
@@ -99,11 +101,48 @@ def _wrap_line(text: str, font: ImageFont.ImageFont, max_width: int, draw: Image
         else:
             lines.append(current)
             current = char
-        if len(lines) >= 3:
-            break
-    if current and len(lines) < 3:
+    if current:
         lines.append(current)
     return lines
+
+
+def _summary_line_step(font_size: int) -> int:
+    line_gap = max(6, int(round(font_size * 0.28)))
+    return font_size + line_gap
+
+
+def _summary_max_lines(*, summary_y: int, footer_y: int, font_size: int, bottom_pad: int = 12) -> int:
+    available = max(0, footer_y - summary_y - bottom_pad)
+    step = _summary_line_step(font_size)
+    if step <= 0:
+        return 1
+    return max(1, available // step)
+
+
+def _prepare_summary_lines(
+    draw: ImageDraw.ImageDraw,
+    footer: str,
+    *,
+    max_width: int,
+    summary_y: int,
+    footer_y: int,
+    preferred_font_size: int,
+    min_font_size: int = 28,
+) -> tuple[ImageFont.ImageFont, list[str], int]:
+    font_size = max(min_font_size, int(preferred_font_size))
+    while font_size >= min_font_size:
+        font = _truetype(font_size)
+        lines = _wrap_line(footer, font, max_width, draw)
+        budget = _summary_max_lines(summary_y=summary_y, footer_y=footer_y, font_size=font_size)
+        if len(lines) <= budget:
+            return font, lines, font_size
+        if font_size <= min_font_size:
+            return font, lines[:budget], font_size
+        font_size -= 2
+    font = _truetype(min_font_size)
+    lines = _wrap_line(footer, font, max_width, draw)
+    budget = _summary_max_lines(summary_y=summary_y, footer_y=footer_y, font_size=min_font_size)
+    return font, lines[:budget], min_font_size
 
 
 def _strip_prefixes(text: str, prefixes: list[str]) -> str:
@@ -112,6 +151,278 @@ def _strip_prefixes(text: str, prefixes: list[str]) -> str:
         if cleaned.startswith(prefix):
             cleaned = cleaned[len(prefix) :].strip()
     return cleaned
+
+
+DEFAULT_SUMMARY_ANIMATION: dict[str, Any] = {
+    "mode": "static",
+    "scope": "once",
+    "chars_per_second": 14,
+    "start_delay_sec": 0.35,
+    "show_cursor": True,
+    "cursor_blink_hz": 2,
+    "cursor_hide_after_done_sec": 0.5,
+    "fit_video_duration": False,
+    "max_chars_per_second": 28,
+    "tail_margin_sec": 0.5,
+}
+
+
+def parse_summary_animation_config(video_cfg: dict[str, Any] | None) -> dict[str, Any]:
+    raw = dict((video_cfg or {}).get("summary_animation") or {})
+    merged = dict(DEFAULT_SUMMARY_ANIMATION)
+    merged.update(raw)
+    mode = str(merged.get("mode") or "static").strip().lower()
+    merged["mode"] = "typewriter" if mode == "typewriter" else "static"
+    return merged
+
+
+def chronicle_content_global_t(
+    *,
+    cover_intro_sec: float,
+    clip_durations: list[float],
+    clip_index: int,
+    t_within_clip: float,
+) -> float:
+    elapsed = float(cover_intro_sec)
+    for idx in range(max(0, clip_index)):
+        if idx < len(clip_durations):
+            elapsed += float(clip_durations[idx])
+    return elapsed + float(t_within_clip)
+
+
+def summary_visible_chars(
+    global_t: float,
+    *,
+    total_chars: int,
+    anim_cfg: dict[str, Any],
+    content_start_t: float = 0.0,
+    video_duration: float | None = None,
+) -> int:
+    if total_chars <= 0:
+        return 0
+    if str(anim_cfg.get("mode") or "static") != "typewriter":
+        return total_chars
+    delay = float(anim_cfg.get("start_delay_sec", 0.35))
+    cps = max(0.1, float(anim_cfg.get("chars_per_second", 14)))
+    typing_t = float(global_t) - float(content_start_t) - delay
+    if typing_t <= 0:
+        return 0
+    if anim_cfg.get("fit_video_duration") and video_duration is not None:
+        tail = float(anim_cfg.get("tail_margin_sec", 0.5))
+        max_cps = max(cps, float(anim_cfg.get("max_chars_per_second", 28)))
+        budget = max(0.1, float(video_duration) - float(content_start_t) - delay - tail)
+        needed_cps = total_chars / budget
+        effective_cps = min(max_cps, max(cps, needed_cps))
+        visible = int(typing_t * effective_cps)
+        if float(global_t) >= float(video_duration) - tail:
+            return total_chars
+        return min(total_chars, visible)
+    return min(total_chars, int(typing_t * cps))
+
+
+def _partial_summary_lines(lines: list[str], visible_char_count: int) -> list[str]:
+    if visible_char_count <= 0:
+        return []
+    remaining = visible_char_count
+    partial: list[str] = []
+    for line in lines:
+        if remaining <= 0:
+            break
+        take = min(len(line), remaining)
+        partial.append(line[:take])
+        remaining -= take
+    return partial
+
+
+def _cursor_blink_on(global_t: float, anim_cfg: dict[str, Any]) -> bool:
+    hz = max(0.1, float(anim_cfg.get("cursor_blink_hz", 2)))
+    period = 1.0 / hz
+    return int(global_t / (period / 2.0)) % 2 == 0
+
+
+def _should_draw_summary_cursor(
+    global_t: float,
+    visible_char_count: int,
+    total_chars: int,
+    anim_cfg: dict[str, Any],
+    *,
+    content_start_t: float = 0.0,
+) -> bool:
+    if not anim_cfg.get("show_cursor") or visible_char_count <= 0:
+        return False
+    if visible_char_count < total_chars:
+        return _cursor_blink_on(global_t, anim_cfg)
+    delay = float(anim_cfg.get("start_delay_sec", 0.35))
+    cps = max(0.1, float(anim_cfg.get("chars_per_second", 14)))
+    hide_after = float(anim_cfg.get("cursor_hide_after_done_sec", 0.5))
+    done_t = float(content_start_t) + delay + total_chars / cps
+    if global_t > done_t + hide_after:
+        return False
+    return _cursor_blink_on(global_t, anim_cfg)
+
+
+@dataclass
+class SummaryLayout:
+    lines: list[str]
+    font: ImageFont.ImageFont
+    font_size: int
+    line_gap: int
+    width: int
+    summary_x: int
+    summary_align: str
+    summary_y: int
+    summary_fill: tuple[int, int, int]
+    footer_hi: tuple[int, int, int]
+    footer_keywords: list[str]
+    accent: tuple[int, int, int]
+
+    @property
+    def total_chars(self) -> int:
+        return sum(len(line) for line in self.lines)
+
+
+def build_summary_layout(
+    *,
+    draft: dict[str, Any],
+    template: dict[str, Any],
+    width: int,
+    height: int,
+) -> SummaryLayout:
+    chrome = template.get("chrome") or {}
+    typo = template.get("typography") or {}
+    palette = template.get("palette") or {}
+    footer_size = int(typo.get("footer_font_size") or 40)
+    footer = _strip_prefixes(
+        str(draft.get("summary") or ""),
+        list(chrome.get("footer_strip_prefixes") or []),
+    )
+    footer_keywords = finalize_highlight_keywords(
+        merge_summary_highlight_keywords(
+            list(draft.get("highlight_keywords") or []),
+            str(draft.get("tags") or ""),
+        ),
+        footer,
+    )
+    accent = _hex_rgb(palette.get("accent"), (61, 220, 255))
+    footer_hi = _hex_rgb(typo.get("footer_highlight_color"), accent)
+    summary_fill = _hex_rgb(typo.get("summary_color"), _hex_rgb(palette.get("text"), (244, 247, 250)))
+    summary_y_pct = float(typo.get("summary_y_percent", DEFAULT_SUMMARY_Y_PERCENT)) / 100.0
+    summary_y = _pct(summary_y_pct, height)
+    footer_y_pct = float(typo.get("footer_y_percent", DEFAULT_FOOTER_Y_PERCENT)) / 100.0
+    footer_y = _pct(footer_y_pct, height)
+    summary_width_pct = float(typo.get("summary_width_percent") or 84) / 100.0
+    summary_max_width = int(width * summary_width_pct)
+    summary_font_size = int(typo.get("summary_font_size") or footer_size)
+    rule_x = _pct(0.045, width)
+    summary_align = str(typo.get("summary_align") or "left").strip().lower()
+    if summary_align not in {"left", "center"}:
+        summary_align = "left"
+    if typo.get("summary_x_px") is not None:
+        summary_x = int(typo.get("summary_x_px"))
+    elif summary_align == "left":
+        summary_x = rule_x + 18
+    else:
+        summary_x = (width - summary_max_width) // 2
+    scratch = Image.new("RGB", (width, height))
+    draw = ImageDraw.Draw(scratch)
+    summary_font, footer_lines, summary_font_size = _prepare_summary_lines(
+        draw,
+        footer,
+        max_width=summary_max_width,
+        summary_y=summary_y,
+        footer_y=footer_y,
+        preferred_font_size=summary_font_size,
+    )
+    line_gap = max(6, int(round(summary_font_size * 0.28)))
+    return SummaryLayout(
+        lines=footer_lines,
+        font=summary_font,
+        font_size=summary_font_size,
+        line_gap=line_gap,
+        width=width,
+        summary_x=summary_x,
+        summary_align=summary_align,
+        summary_y=summary_y,
+        summary_fill=summary_fill,
+        footer_hi=footer_hi,
+        footer_keywords=footer_keywords,
+        accent=accent,
+    )
+
+
+def _draw_summary_lines_block(
+    draw: ImageDraw.ImageDraw,
+    *,
+    layout: SummaryLayout,
+    visible_char_count: int | None = None,
+    global_t: float = 0.0,
+    anim_cfg: dict[str, Any] | None = None,
+    content_start_t: float = 0.0,
+) -> None:
+    lines = layout.lines
+    if visible_char_count is not None:
+        lines = _partial_summary_lines(layout.lines, visible_char_count)
+    if not lines:
+        return
+    fy = layout.summary_y
+    last_fx = layout.summary_x
+    last_line_w = 0
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=layout.font)
+        line_w = bbox[2] - bbox[0]
+        if layout.summary_align == "center":
+            fx = (layout.width - line_w) // 2
+        else:
+            fx = layout.summary_x
+        last_fx = fx
+        last_line_w = line_w
+        _draw_highlighted_line(
+            draw,
+            fx,
+            fy,
+            line,
+            layout.font,
+            layout.summary_fill,
+            layout.footer_hi,
+            layout.footer_keywords,
+        )
+        fy += layout.font_size + layout.line_gap
+    if (
+        visible_char_count is not None
+        and anim_cfg
+        and _should_draw_summary_cursor(
+            global_t,
+            visible_char_count,
+            layout.total_chars,
+            anim_cfg,
+            content_start_t=content_start_t,
+        )
+    ):
+        cy = fy - layout.font_size - layout.line_gap
+        cx = last_fx + last_line_w
+        draw.rectangle((cx + 2, cy, cx + 4, cy + layout.font_size), fill=layout.accent)
+
+
+def draw_summary_typewriter(
+    frame: Image.Image,
+    *,
+    layout: SummaryLayout,
+    visible_char_count: int,
+    global_t: float,
+    anim_cfg: dict[str, Any],
+    content_start_t: float = 0.0,
+) -> Image.Image:
+    out = frame.copy()
+    draw = ImageDraw.Draw(out)
+    _draw_summary_lines_block(
+        draw,
+        layout=layout,
+        visible_char_count=visible_char_count,
+        global_t=global_t,
+        anim_cfg=anim_cfg,
+        content_start_t=content_start_t,
+    )
+    return out
 
 
 def _layout_top_pad(typo: dict[str, Any] | None = None) -> float:
@@ -130,6 +441,52 @@ def _title_placement(layout: dict[str, Any] | None = None) -> str:
     if value == "below_card":
         return "below_card"
     return DEFAULT_TITLE_PLACEMENT
+
+
+def _chrome_placement(layout: dict[str, Any] | None = None) -> str:
+    value = str((layout or {}).get("chrome_placement") or "header").strip().lower()
+    if value == "footer":
+        return "footer"
+    return "header"
+
+
+def _draw_brand_chrome(
+    draw: ImageDraw.ImageDraw,
+    *,
+    width: int,
+    inset: int,
+    brand: str,
+    glyph: str,
+    brand_sub: str,
+    brand_font: ImageFont.ImageFont,
+    brand_sub_font: ImageFont.ImageFont,
+    small_font: ImageFont.ImageFont,
+    accent: tuple[int, int, int],
+    accent_dim: tuple[int, int, int],
+    text_color: tuple[int, int, int],
+    muted: tuple[int, int, int],
+    mark_y: int,
+    include_brand_sub: bool,
+) -> None:
+    mark_box = (inset + 16, mark_y, inset + 16 + 64, mark_y + 64)
+    draw.rectangle(mark_box, outline=accent, width=2)
+    gb = draw.textbbox((0, 0), glyph, font=brand_font)
+    gx = mark_box[0] + (64 - (gb[2] - gb[0])) // 2
+    gy = mark_box[1] + (64 - (gb[3] - gb[1])) // 2 - gb[1]
+    draw.text((gx, gy), glyph, font=brand_font, fill=text_color)
+    brand_xy = (mark_box[2] + 16, mark_box[1] + 4)
+    draw.text(brand_xy, brand, font=brand_font, fill=text_color)
+    if include_brand_sub and brand_sub:
+        brand_box = draw.textbbox(brand_xy, brand, font=brand_font)
+        sub_y = brand_box[3] + 10
+        draw.text((brand_xy[0], sub_y), brand_sub, font=brand_sub_font, fill=muted)
+    year = str(datetime.now().year)
+    badge = f"RECORD {year}"
+    bw = draw.textbbox((0, 0), badge, font=small_font)
+    badge_w = bw[2] - bw[0] + 24
+    badge_box = (width - inset - 20 - badge_w, mark_box[1] + 8, width - inset - 20, mark_box[1] + 44)
+    draw.rectangle(badge_box, outline=accent_dim, width=1)
+    draw.text((badge_box[0] + 12, badge_box[1] + 6), badge, font=small_font, fill=accent)
 
 
 def _title_top_y(height: int, layout: dict[str, Any], typo: dict[str, Any]) -> int:
@@ -267,6 +624,62 @@ def scaled_hero(
     return hero.crop((x0, y0, x0 + inner_w, y0 + inner_h))
 
 
+def chronicle_hero_at(
+    anim,
+    t: float,
+    *,
+    duration: float,
+    effect: str,
+    end_scale: float,
+    pan: float,
+    apply_motion: bool | None = None,
+) -> tuple[Image.Image, float, float, float]:
+    """Pick the card hero at time `t`. Animated GIFs loop and skip Ken Burns."""
+    from services.ingestion.hero_animation import HeroAnimation, hero_frame_at
+
+    if not isinstance(anim, HeroAnimation):
+        raise TypeError("anim must be a HeroAnimation")
+    src = hero_frame_at(anim, t)
+    use_motion = (not anim.animated) if apply_motion is None else bool(apply_motion)
+    if anim.animated or not use_motion:
+        return src, 1.0, 0.0, 0.0
+    scale, ox, oy = hero_motion_at(
+        t, duration, effect, end_scale=end_scale, pan=pan
+    )
+    return src, scale, ox, oy
+
+
+def compose_chronicle_live_frame(
+    *,
+    chrome: Image.Image,
+    anim,
+    t: float,
+    inner: tuple[int, int, int, int],
+    duration: float,
+    effect: str,
+    end_scale: float,
+    pan: float,
+    apply_motion: bool,
+) -> Image.Image:
+    frame = chrome.copy()
+    inner_w = max(1, inner[2] - inner[0])
+    inner_h = max(1, inner[3] - inner[1])
+    hero, scale, ox, oy = chronicle_hero_at(
+        anim,
+        t,
+        duration=duration,
+        effect=effect,
+        end_scale=end_scale,
+        pan=pan,
+        apply_motion=apply_motion,
+    )
+    frame.paste(
+        scaled_hero(hero, inner_w, inner_h, scale, offset_x=ox, offset_y=oy),
+        (inner[0], inner[1]),
+    )
+    return frame
+
+
 _BACKDROP_CACHE: dict[tuple, Image.Image] = {}
 
 
@@ -279,61 +692,68 @@ def _build_tech_backdrop(
     accent: tuple[int, int, int],
     accent_dim: tuple[int, int, int],
 ) -> Image.Image:
-    yy, xx = np.ogrid[:height, :width]
+    yy, xx = np.mgrid[0:height, 0:width].astype(np.float32)
     cx = width / 2.0
-    cy = height * 0.48
-    nx = (xx - cx) / max(1.0, width * 0.55)
-    ny = (yy - cy) / max(1.0, height * 0.46)
+    cy = height * 0.42
+    nx = (xx - cx) / max(1.0, width * 0.58)
+    ny = (yy - cy) / max(1.0, height * 0.50)
     dist = np.sqrt(nx * nx + ny * ny)
 
+    top_tint = tuple(min(255, int(bg[i] * 0.72 + glow[i] * 0.28)) for i in range(3))
+    bottom_tint = tuple(min(255, int(bg[i] * 0.88 + accent_dim[i] * 0.12)) for i in range(3))
+    vertical = (yy / max(1.0, height - 1))[..., None]
     arr = np.empty((height, width, 3), dtype=np.float32)
-    arr[:] = bg
-    well = np.clip(1.0 - dist * 0.82, 0.0, 1.0) ** 1.45
     for i in range(3):
-        arr[:, :, i] += (glow[i] - arr[:, :, i]) * well * 0.62
-    core = np.clip(1.0 - dist * 1.25, 0.0, 1.0) ** 2.1
+        arr[:, :, i] = top_tint[i] * (1.0 - vertical[:, :, 0]) + bottom_tint[i] * vertical[:, :, 0]
+
+    bloom = np.clip(1.0 - dist * 0.95, 0.0, 1.0) ** 1.85
     for i in range(3):
-        arr[:, :, i] += (accent[i] - arr[:, :, i]) * core * 0.16
-    vignette = np.clip(dist * 0.38, 0.0, 1.0) ** 1.35
-    arr *= (1.0 - vignette * 0.42)[..., None]
-    arr *= (1.0 - ((yy % 3) == 0).astype(np.float32) * 0.055)[..., None]
-    noise = np.random.default_rng(7).normal(0.0, 2.8, (height, width, 1)).astype(np.float32)
+        arr[:, :, i] += (glow[i] - arr[:, :, i]) * bloom * 0.48
+    core = np.clip(1.0 - dist * 1.35, 0.0, 1.0) ** 2.4
+    for i in range(3):
+        arr[:, :, i] += (accent[i] - arr[:, :, i]) * core * 0.12
+
+    # Soft top wash — studio light instead of flat chalkboard matte.
+    top_glow = np.clip(1.0 - (yy / max(1.0, height * 0.72)), 0.0, 1.0) ** 1.6
+    for i in range(3):
+        arr[:, :, i] += (glow[i] - arr[:, :, i]) * top_glow * 0.10
+
+    edge = np.clip(dist * 0.55, 0.0, 1.0) ** 1.25
+    arr *= (1.0 - edge * 0.34)[..., None]
+
+    noise = np.random.default_rng(7).normal(0.0, 1.1, (height, width, 1)).astype(np.float32)
     arr += noise
     frame = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
 
     overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
-    grid = (*accent_dim, 36)
-    grid_hi = (*accent, 28)
-    step_x, step_y = 54, 48
+    fade = np.clip(1.0 - dist * 0.72, 0.12, 1.0)
+
+    step_x, step_y = 72, 64
     for x in range(0, width, step_x):
-        od.line((x, 0, x, height), fill=grid_hi if x % (step_x * 4) == 0 else grid, width=1)
+        alpha = int(18 + 14 * fade[height // 2, min(x, width - 1)])
+        od.line((x, 0, x, height), fill=(*accent_dim, alpha), width=1)
     for y in range(0, height, step_y):
-        od.line((0, y, width, y), fill=grid_hi if y % (step_y * 4) == 0 else grid, width=1)
+        alpha = int(16 + 12 * fade[min(y, height - 1), width // 2])
+        od.line((0, y, width, y), fill=(*accent_dim, alpha), width=1)
 
     cxi, cyi = int(cx), int(cy)
-    rings = ((0.26, 1, 42), (0.40, 2, 58), (0.56, 1, 40), (0.74, 1, 32))
-    for scale, stroke, alpha in rings:
-        rx = int(width * scale * 0.50)
-        ry = int(height * scale * 0.36)
-        color = (*accent, alpha) if stroke == 2 else (*accent_dim, alpha)
-        od.ellipse((cxi - rx, cyi - ry, cxi + rx, cyi + ry), outline=color, width=stroke)
+    for scale, stroke, alpha in ((0.34, 1, 26), (0.52, 1, 20), (0.70, 1, 14)):
+        rx = int(width * scale * 0.46)
+        ry = int(height * scale * 0.30)
+        od.ellipse((cxi - rx, cyi - ry, cxi + rx, cyi + ry), outline=(*accent, alpha), width=stroke)
 
-    rx, ry = int(width * 0.20), int(height * 0.144)
-    tick, tick_color = 16, (*accent, 70)
-    od.line((cxi, cyi - ry - tick, cxi, cyi - ry + tick), fill=tick_color, width=1)
-    od.line((cxi, cyi + ry - tick, cxi, cyi + ry + tick), fill=tick_color, width=1)
-    od.line((cxi - rx - tick, cyi, cxi - rx + tick, cyi), fill=tick_color, width=1)
-    od.line((cxi + rx - tick, cyi, cxi + rx + tick, cyi), fill=tick_color, width=1)
-
-    vanish_y = int(height * 0.60)
-    for i in range(-7, 8):
-        x_bottom = cxi + i * int(width * 0.11)
-        od.line((cxi, vanish_y, x_bottom, height + 30), fill=(*accent_dim, 40), width=1)
-    for frac in (0.76, 0.82, 0.88, 0.93, 0.97):
-        y = int(height * frac)
-        span = int(width * max(0.18, frac - 0.52))
-        od.line((cxi - span, y, cxi + span, y), fill=(*accent_dim, 34), width=1)
+    inset = int(min(width, height) * 0.028)
+    corner = int(min(width, height) * 0.055)
+    corner_color = (*accent, 54)
+    for ox, oy, flip_x, flip_y in (
+        (inset, inset, 1, 1),
+        (width - inset, inset, -1, 1),
+        (inset, height - inset, 1, -1),
+        (width - inset, height - inset, -1, -1),
+    ):
+        od.line((ox, oy, ox + flip_x * corner, oy), fill=corner_color, width=2)
+        od.line((ox, oy, ox, oy + flip_y * corner), fill=corner_color, width=2)
 
     return Image.alpha_composite(frame.convert("RGBA"), overlay).convert("RGB")
 
@@ -369,6 +789,50 @@ def _truetype(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
+def _draw_main_title_background(
+    draw: ImageDraw.ImageDraw,
+    *,
+    title_x: int,
+    title_top: int,
+    title_max_w: int,
+    draft: dict[str, Any],
+    title_font: ImageFont.ImageFont,
+    bg_color: tuple[int, int, int],
+    border_color: tuple[int, int, int] | None,
+    pad_x: int,
+    pad_y: int,
+    radius: int,
+) -> None:
+    lines: list[tuple[str, ImageFont.ImageFont, int]] = []
+    for line in _wrap_line(str(draft.get("main_line1") or ""), title_font, title_max_w, draw)[:2]:
+        if line:
+            lines.append((line, title_font, 8))
+    if not lines:
+        return
+
+    y = title_top
+    min_x = title_x
+    max_x = title_x
+    max_y = title_top
+    for line, font, gap in lines:
+        bbox = draw.textbbox((title_x, y), line, font=font)
+        min_x = min(min_x, bbox[0])
+        max_x = max(max_x, bbox[2])
+        max_y = max(max_y, bbox[3])
+        y = bbox[3] + gap
+
+    box = (min_x - pad_x, title_top - pad_y, max_x + pad_x, max_y + pad_y)
+    if radius <= 0:
+        draw.rectangle(box, fill=bg_color)
+    else:
+        draw.rounded_rectangle(box, radius=radius, fill=bg_color)
+    if border_color is not None:
+        if radius <= 0:
+            draw.rectangle(box, outline=border_color, width=1)
+        else:
+            draw.rounded_rectangle(box, radius=radius, outline=border_color, width=1)
+
+
 def _draw_title_block(
     draw: ImageDraw.ImageDraw,
     *,
@@ -383,11 +847,32 @@ def _draw_title_block(
     title_hi: tuple[int, int, int],
     hook_color: tuple[int, int, int],
     title_keywords: list[str],
+    main_line1_color: tuple[int, int, int] | None = None,
+    title_bg_color: tuple[int, int, int] | None = None,
+    title_bg_border: tuple[int, int, int] | None = None,
+    title_bg_pad_x: int = 14,
+    title_bg_pad_y: int = 8,
+    title_bg_radius: int = 10,
 ) -> int:
+    if title_bg_color is not None:
+        _draw_main_title_background(
+            draw,
+            title_x=title_x,
+            title_top=title_top,
+            title_max_w=title_max_w,
+            draft=draft,
+            title_font=title_font,
+            bg_color=title_bg_color,
+            border_color=title_bg_border,
+            pad_x=title_bg_pad_x,
+            pad_y=title_bg_pad_y,
+            radius=title_bg_radius,
+        )
     y = title_top
+    line1_color = main_line1_color if title_bg_color is not None and main_line1_color is not None else text_color
     for line in _wrap_line(str(draft.get("main_line1") or ""), title_font, title_max_w, draw)[:2]:
         _draw_highlighted_line(
-            draw, title_x, y, line, title_font, text_color, title_hi, title_keywords
+            draw, title_x, y, line, title_font, line1_color, title_hi, title_keywords
         )
         y += (draw.textbbox((0, 0), line, font=title_font)[3] - draw.textbbox((0, 0), line, font=title_font)[1]) + 8
     if draft.get("main_line2"):
@@ -439,6 +924,7 @@ def render_chronicle_frame(
     template: dict[str, Any],
     include_footer: bool = True,
     include_summary: bool | None = None,
+    summary_visible_chars: int | None = None,
     source_name: str | None = None,  # ignored; kept so callers cannot accidentally paint it
     ken_burns_scale: float = 1.0,
     include_hero: bool = True,
@@ -500,31 +986,27 @@ def render_chronicle_frame(
 
     brand = str(chrome.get("brand") or "小牛聊AI")
     glyph = str(chrome.get("mark_glyph") or "牛")
-    top_pad = _layout_top_pad(typo)
-    header_y = _pct(0.038 + top_pad, height)
-    mark_box = (inset + 16, header_y, inset + 16 + 64, header_y + 64)
-    draw.rectangle(mark_box, outline=accent, width=2)
-    gb = draw.textbbox((0, 0), glyph, font=brand_font)
-    gx = mark_box[0] + (64 - (gb[2] - gb[0])) // 2
-    gy = mark_box[1] + (64 - (gb[3] - gb[1])) // 2 - gb[1]
-    draw.text((gx, gy), glyph, font=brand_font, fill=text_color)
-    brand_xy = (mark_box[2] + 16, mark_box[1] + 4)
-    draw.text(brand_xy, brand, font=brand_font, fill=text_color)
     brand_sub = str(chrome.get("brand_sub") or "")
-    if brand_sub:
-        brand_box = draw.textbbox(brand_xy, brand, font=brand_font)
-        sub_y = brand_box[3] + 10
-        draw.text((brand_xy[0], sub_y), brand_sub, font=brand_sub_font, fill=muted)
-
-    year = str(datetime.now().year)
-    badge = f"RECORD {year}"
-    bw = draw.textbbox((0, 0), badge, font=small_font)
-    badge_w = bw[2] - bw[0] + 24
-    badge_box = (width - inset - 20 - badge_w, mark_box[1] + 8, width - inset - 20, mark_box[1] + 44)
-    draw.rectangle(badge_box, outline=accent_dim, width=1)
-    draw.text((badge_box[0] + 12, badge_box[1] + 6), badge, font=small_font, fill=accent)
-
     layout = _layout_section(template)
+    chrome_place = _chrome_placement(layout)
+    brand_kwargs = dict(
+        width=width,
+        inset=inset,
+        brand=brand,
+        glyph=glyph,
+        brand_sub=brand_sub,
+        brand_font=brand_font,
+        brand_sub_font=brand_sub_font,
+        small_font=small_font,
+        accent=accent,
+        accent_dim=accent_dim,
+        text_color=text_color,
+        muted=muted,
+    )
+    if chrome_place != "footer":
+        header_y = _pct(0.038 + _layout_top_pad(typo), height)
+        _draw_brand_chrome(draw, mark_y=header_y, include_brand_sub=True, **brand_kwargs)
+
     placement = _title_placement(layout)
     title_top = _title_top_y(height, layout, typo)
     rule_x = _pct(0.045, width)
@@ -539,6 +1021,12 @@ def render_chronicle_frame(
         title_blob,
     )
     hook_color = _hex_rgb(typo.get("subtitle2_color"), accent)
+    main_line1_color = _hex_rgb(typo.get("main_line1_color"), text_color)
+    title_bg_color = _hex_rgb(typo.get("title_bg_color"), (0, 0, 0)) if typo.get("title_bg_color") else None
+    border_raw = typo.get("title_bg_border_color")
+    title_bg_border = (
+        _hex_rgb(border_raw, accent_dim) if border_raw else None
+    ) if title_bg_color else None
     title_kwargs = dict(
         draft=draft,
         title_x=title_x,
@@ -551,6 +1039,12 @@ def render_chronicle_frame(
         title_hi=title_hi,
         hook_color=hook_color,
         title_keywords=title_keywords,
+        main_line1_color=main_line1_color,
+        title_bg_color=title_bg_color,
+        title_bg_border=title_bg_border,
+        title_bg_pad_x=int(typo.get("title_bg_pad_x") or 16),
+        title_bg_pad_y=int(typo.get("title_bg_pad_y") or 10),
+        title_bg_radius=int(typo.get("title_bg_radius") or 12),
     )
 
     if placement == "above_card":
@@ -577,42 +1071,31 @@ def render_chronicle_frame(
         footer_y_pct = float(typo.get("footer_y_percent", DEFAULT_FOOTER_Y_PERCENT)) / 100.0
         footer_y = _pct(footer_y_pct, height)
         if include_summary:
-            footer = _strip_prefixes(
-                str(draft.get("summary") or ""),
-                list(chrome.get("footer_strip_prefixes") or []),
+            layout = build_summary_layout(
+                draft=draft,
+                template=template,
+                width=width,
+                height=height,
             )
-            footer_keywords = finalize_highlight_keywords(
-                merge_summary_highlight_keywords(
-                    list(draft.get("highlight_keywords") or []),
-                    str(draft.get("tags") or ""),
-                ),
-                footer,
+            _draw_summary_lines_block(
+                draw,
+                layout=layout,
+                visible_char_count=summary_visible_chars,
             )
-            footer_hi = _hex_rgb(typo.get("footer_highlight_color"), accent)
-            summary_fill = _hex_rgb(typo.get("summary_color"), text_color)
-            summary_y_pct = float(typo.get("summary_y_percent", DEFAULT_SUMMARY_Y_PERCENT)) / 100.0
-            summary_y = _pct(summary_y_pct, height)
-            footer_lines = _wrap_line(footer, footer_font, _pct(0.78, width), draw)
-            fy = summary_y
-            line_gap = max(6, int(round(footer_size * 0.28)))
-            for line in footer_lines[:3]:
-                bbox = draw.textbbox((0, 0), line, font=footer_font)
-                fx = (width - (bbox[2] - bbox[0])) // 2
-                _draw_highlighted_line(
-                    draw, fx, fy, line, footer_font, summary_fill, footer_hi, footer_keywords
-                )
-                fy += footer_size + line_gap
-        draw.line(
-            (rule_x, footer_y, rule_x, _pct(footer_y_pct + 0.10, height)),
-            fill=accent_dim,
-            width=2,
-        )
-        draw.text(
-            (rule_x + 14, _pct(footer_y_pct + 0.02, height)),
-            str(chrome.get("footer_left") or "快讯档案"),
-            font=small_font,
-            fill=muted,
-        )
+        if chrome_place == "footer":
+            _draw_brand_chrome(draw, mark_y=footer_y, include_brand_sub=False, **brand_kwargs)
+        else:
+            draw.line(
+                (rule_x, footer_y, rule_x, _pct(footer_y_pct + 0.10, height)),
+                fill=accent_dim,
+                width=2,
+            )
+            draw.text(
+                (rule_x + 14, _pct(footer_y_pct + 0.02, height)),
+                str(chrome.get("footer_left") or "快讯档案"),
+                font=small_font,
+                fill=muted,
+            )
 
     return frame
 
@@ -625,11 +1108,8 @@ def render_chronicle_cover(
     template: dict[str, Any],
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
-    cleaned = str(image_path or "").strip().lstrip("/").replace("\\", "/")
-    asset_path = (Config.ROOT_DIR / cleaned).resolve()
-    if not asset_path.is_file():
-        asset_path = Path(image_path)
-    if not asset_path.is_file():
+    asset_path = resolve_local_asset_path(image_path)
+    if asset_path is None or not asset_path.is_file():
         return {"success": False, "error": f"cover_source_missing: {image_path}"}
 
     canvas = template.get("canvas") or {}
@@ -646,12 +1126,12 @@ def render_chronicle_cover(
         )
     if cover.size != (cover_w, cover_h):
         cover = cover.resize((cover_w, cover_h), Image.Resampling.LANCZOS)
-    out_dir = Path(output_dir) if output_dir else Config.ROOT_DIR / "data" / "publish" / "covers"
+    out_dir = Path(output_dir) if output_dir else Config.DATA_DIR / "publish" / "covers"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{article_id}_cover.jpg"
     cover.save(out_path, format="JPEG", quality=92)
     try:
-        rel = out_path.resolve().relative_to(Config.ROOT_DIR).as_posix()
+        rel = path_relative_to_data(out_path.resolve())
     except ValueError:
         rel = out_path.name
     logger.info(f"Chronicle cover rendered for {article_id}: {rel}")
@@ -664,6 +1144,172 @@ def render_chronicle_cover(
     }
 
 
+def _compose_chronicle_clip_frame(
+    *,
+    chrome: Image.Image,
+    anim,
+    t: float,
+    inner: tuple[int, int, int, int],
+    duration: float,
+    effect: str,
+    end_scale: float,
+    pan: float,
+    apply_motion: bool,
+    summary_layout: SummaryLayout | None,
+    anim_cfg: dict[str, Any],
+    clip_global_start: float,
+    video_duration: float | None,
+) -> np.ndarray:
+    frame = compose_chronicle_live_frame(
+        chrome=chrome,
+        anim=anim,
+        t=t,
+        inner=inner,
+        duration=duration,
+        effect=effect,
+        end_scale=end_scale,
+        pan=pan,
+        apply_motion=apply_motion,
+    )
+    if summary_layout is not None and anim_cfg.get("mode") == "typewriter":
+        global_t = clip_global_start + t
+        visible = summary_visible_chars(
+            global_t,
+            total_chars=summary_layout.total_chars,
+            anim_cfg=anim_cfg,
+            content_start_t=0.0,
+            video_duration=video_duration,
+        )
+        frame = draw_summary_typewriter(
+            frame,
+            layout=summary_layout,
+            visible_char_count=visible,
+            global_t=global_t,
+            anim_cfg=anim_cfg,
+            content_start_t=0.0,
+        )
+    return np.asarray(frame, dtype=np.uint8)
+
+
+def build_chronicle_video_clips(
+    *,
+    article_id: str,
+    draft: dict[str, Any],
+    image_paths: list[str],
+    template: dict[str, Any],
+    durations: list[float],
+    cover_intro_sec: float = 0.0,
+):
+    """Build per-image MoviePy clips. Animated heroes loop inside the card."""
+    from moviepy import ImageClip, VideoClip
+
+    from services.ingestion.hero_animation import load_hero_animation
+
+    canvas = template.get("canvas") or {}
+    fps = int(canvas.get("fps") or 24)
+    video_cfg = template.get("video") or {}
+    anim_cfg = parse_summary_animation_config(video_cfg)
+    use_typewriter = anim_cfg.get("mode") == "typewriter"
+    motion = resolve_card_motion(video_cfg)
+    width = int(canvas.get("width") or CANVAS_W)
+    height = int(canvas.get("height") or CANVAS_H)
+    video_duration = float(cover_intro_sec) + sum(float(d) for d in durations)
+    summary_layout = (
+        build_summary_layout(draft=draft, template=template, width=width, height=height)
+        if use_typewriter
+        else None
+    )
+    clip_starts: list[float] = []
+    elapsed = float(cover_intro_sec)
+    for idx, dur in enumerate(durations):
+        clip_starts.append(elapsed)
+        elapsed += float(dur)
+    clips = []
+    for index, raw_path in enumerate(image_paths):
+        path = resolve_local_asset_path(raw_path)
+        if path is None or not path.is_file():
+            continue
+        duration = float(durations[index]) if index < len(durations) else 2.5
+        try:
+            anim = load_hero_animation(path)
+        except Exception as exc:
+            logger.warning("Chronicle hero animation load failed {}: {}", path, exc)
+            try:
+                with Image.open(path) as src:
+                    still = src.convert("RGB").copy()
+                from services.ingestion.hero_animation import HeroAnimation
+
+                anim = HeroAnimation(
+                    frames=[still],
+                    durations_sec=[0.1],
+                    animated=False,
+                )
+            except Exception:
+                continue
+        src_rgb = anim.frames[0]
+        use_live_clip = anim.animated or motion["enabled"] or use_typewriter
+        chrome = render_chronicle_frame(
+            draft=draft,
+            image=src_rgb,
+            template=template,
+            include_footer=True,
+            include_summary=not use_typewriter,
+            include_hero=False,
+        )
+        clip_global_start = clip_starts[index] if index < len(clip_starts) else float(cover_intro_sec)
+        if use_live_clip:
+            inner = hero_inner_box(width, height, template)
+            if motion["random"]:
+                effect = pick_card_motion_effect(
+                    motion["effects"],
+                    seed=article_id,
+                    index=index,
+                )
+            else:
+                effect = motion["effects"][index % len(motion["effects"])]
+            apply_motion = motion["enabled"] and not anim.animated
+
+            def make_frame(
+                t,
+                _anim=anim,
+                _chrome=chrome,
+                _inner=inner,
+                _dur=duration,
+                _effect=effect,
+                _end=motion["end_scale"],
+                _pan=motion["pan"],
+                _apply=apply_motion,
+                _clip_start=clip_global_start,
+            ):
+                return _compose_chronicle_clip_frame(
+                    chrome=_chrome,
+                    anim=_anim,
+                    t=t,
+                    inner=_inner,
+                    duration=_dur,
+                    effect=_effect,
+                    end_scale=_end,
+                    pan=_pan,
+                    apply_motion=_apply,
+                    summary_layout=summary_layout,
+                    anim_cfg=anim_cfg,
+                    clip_global_start=_clip_start,
+                    video_duration=video_duration,
+                )
+
+            clips.append(VideoClip(make_frame, duration=duration).with_fps(fps))
+        else:
+            still = render_chronicle_frame(
+                draft=draft,
+                image=src_rgb,
+                template=template,
+                include_footer=True,
+                include_summary=not use_typewriter,
+            )
+            clips.append(ImageClip(np.asarray(still, dtype=np.uint8)).with_duration(duration))
+    return clips
+
+
 def render_chronicle_video(
     *,
     article_id: str,
@@ -673,89 +1319,32 @@ def render_chronicle_video(
     template: dict[str, Any],
     durations: list[float],
 ) -> dict[str, Any]:
-    from moviepy import AudioFileClip, ImageClip, VideoClip, concatenate_videoclips
+    from moviepy import AudioFileClip, concatenate_videoclips
 
     canvas = template.get("canvas") or {}
     fps = int(canvas.get("fps") or 24)
-    video_cfg = template.get("video") or {}
-    motion = resolve_card_motion(video_cfg)
-    width = int(canvas.get("width") or CANVAS_W)
-    height = int(canvas.get("height") or CANVAS_H)
-    clips = []
-    for index, raw_path in enumerate(image_paths):
-        cleaned = str(raw_path or "").strip().lstrip("/").replace("\\", "/")
-        path = (Config.ROOT_DIR / cleaned).resolve()
-        if not path.is_file():
-            path = Path(raw_path)
-        if not path.is_file():
-            continue
-        duration = float(durations[index]) if index < len(durations) else 2.5
-        src_rgb = Image.open(path).convert("RGB")
-        if motion["enabled"]:
-            chrome = render_chronicle_frame(
-                draft=draft,
-                image=src_rgb,
-                template=template,
-                include_footer=True,
-                include_hero=False,
-            )
-            inner = hero_inner_box(width, height, template)
-            inner_w = max(1, inner[2] - inner[0])
-            inner_h = max(1, inner[3] - inner[1])
-            if motion["random"]:
-                effect = pick_card_motion_effect(
-                    motion["effects"],
-                    seed=article_id,
-                    index=index,
-                )
-            else:
-                effect = motion["effects"][index % len(motion["effects"])]
-
-            def make_frame(
-                t,
-                _src=src_rgb,
-                _chrome=chrome,
-                _inner=inner,
-                _iw=inner_w,
-                _ih=inner_h,
-                _dur=duration,
-                _effect=effect,
-                _end=motion["end_scale"],
-                _pan=motion["pan"],
-            ):
-                frame = _chrome.copy()
-                scale, ox, oy = hero_motion_at(
-                    t, _dur, _effect, end_scale=_end, pan=_pan
-                )
-                frame.paste(
-                    scaled_hero(_src, _iw, _ih, scale, offset_x=ox, offset_y=oy),
-                    (_inner[0], _inner[1]),
-                )
-                return np.asarray(frame)
-
-            clips.append(VideoClip(make_frame, duration=duration).with_fps(fps))
-        else:
-            still = render_chronicle_frame(
-                draft=draft,
-                image=src_rgb,
-                template=template,
-                include_footer=True,
-            )
-            clips.append(ImageClip(np.asarray(still, dtype=np.uint8)).with_duration(duration))
+    clips = build_chronicle_video_clips(
+        article_id=article_id,
+        draft=draft,
+        image_paths=image_paths,
+        template=template,
+        durations=durations,
+    )
     if not clips:
         return {"success": False, "error": "insufficient_images"}
     video = concatenate_videoclips(clips, method="compose").with_fps(fps)
-    audio_file = Path(str(bgm_path or "").lstrip("/"))
-    if not audio_file.is_file():
+    audio_file = resolve_local_asset_path(bgm_path)
+    if audio_file is None:
         audio_file = Config.ROOT_DIR / str(bgm_path or "").lstrip("/").replace("\\", "/")
     if audio_file.is_file():
         from services.ingestion.cover_video_utils import fit_audio_to_duration
 
         audio = AudioFileClip(str(audio_file))
         video = video.with_audio(fit_audio_to_duration(audio, float(video.duration)))
-    out_dir = Config.ROOT_DIR / "data" / "videos"
+    out_dir = Config.DATA_DIR / "videos"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{article_id}_chronicle.mp4"
-    video.write_videofile(str(out_path), fps=fps, codec="libx264", audio_codec="aac", logger=None)
-    rel = f"/{out_path.relative_to(Config.ROOT_DIR).as_posix()}"
+    with use_writable_workdir("videos"):
+        video.write_videofile(str(out_path), fps=fps, codec="libx264", audio_codec="aac", logger=None)
+    rel = to_data_url_path(path_relative_to_data(out_path))
     return {"success": True, "video_path": rel, "duration": float(video.duration)}

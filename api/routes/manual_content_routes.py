@@ -12,6 +12,8 @@ import asyncio
 import re
 from datetime import datetime
 
+from src.utils.beijing_time import beijing_now_iso
+
 router = APIRouter(prefix="/api", tags=["手动内容处理"])
 
 @router.post("/process-manual-content")
@@ -45,7 +47,7 @@ async def process_manual_content(data: Dict):
             result = await asyncio.to_thread(process_text_content, content, url)
         
         # 添加时间戳
-        result['timestamp'] = datetime.now().isoformat()
+        result['timestamp'] = beijing_now_iso()
         result['success'] = True
         
         logger.success(f"手动内容处理成功：{result.get('title', '无标题')}")

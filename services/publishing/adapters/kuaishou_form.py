@@ -6,6 +6,15 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from services.publishing.human_form import (
+    human_click_element,
+    human_clear_field,
+    human_fill,
+    human_fill_contenteditable,
+    human_upload_file,
+)
+from services.publishing.human_pacing import human_pause
+
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
 
@@ -167,20 +176,8 @@ def _description_has_text(locator: Locator) -> bool:
         return False
 
 
-def _set_field_text(locator: Locator, text: str) -> None:
-    locator.scroll_into_view_if_needed(timeout=5000)
-    locator.click(timeout=5000)
-    tag_name = locator.evaluate("(el) => el.tagName")
-    if tag_name in {"TEXTAREA", "INPUT"}:
-        locator.fill(text)
-        locator.evaluate(
-            """(el) => {
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-            }"""
-        )
-        return
-    _set_contenteditable_text(locator, text)
+def _set_field_text(page: Page, locator: Locator, text: str) -> None:
+    human_fill(page, locator, text)
 
 
 def _first_visible_locator(page: Page, selectors: tuple[str, ...]) -> Locator | None:
@@ -249,8 +246,8 @@ def dismiss_kuaishou_guide_tooltips(page: Page, *, max_rounds: int = 4) -> bool:
             try:
                 skip = page.locator(selector).first
                 if skip.is_visible(timeout=500):
-                    skip.click(timeout=3000)
-                    page.wait_for_timeout(500)
+                    human_click_element(page, skip, timeout_ms=3000)
+                    human_pause(page, "modal")
                     logger.info("Kuaishou onboarding tooltip dismissed via %s", selector)
                     closed = True
                     dismissed = True
@@ -260,7 +257,7 @@ def dismiss_kuaishou_guide_tooltips(page: Page, *, max_rounds: int = 4) -> bool:
         if not closed:
             try:
                 page.keyboard.press("Escape")
-                page.wait_for_timeout(500)
+                human_pause(page, "modal")
                 if not _is_kuaishou_guide_tooltip_visible(page):
                     dismissed = True
             except Exception:
@@ -299,9 +296,9 @@ def _click_upload_trigger_with_file_chooser(
             if not trigger.is_visible(timeout=1500):
                 continue
             with page.expect_file_chooser(timeout=min(timeout_ms, 15_000)) as chooser_info:
-                trigger.click(timeout=5000)
+                human_click_element(page, trigger, timeout_ms=5000)
             chooser_info.value.set_files(video_path)
-            page.wait_for_timeout(2000)
+            human_pause(page, "after_upload")
             logger.info("Kuaishou video set via file chooser (%s)", text)
             return True
         except Exception as exc:
@@ -318,8 +315,7 @@ def upload_kuaishou_video(page: Page, video_path: str, *, timeout_ms: int) -> bo
     file_input = _locate_kuaishou_file_input(page)
     if file_input is not None:
         try:
-            file_input.set_input_files(video_path, timeout=timeout_ms)
-            page.wait_for_timeout(2000)
+            human_upload_file(page, file_input, video_path, timeout_ms=timeout_ms)
             logger.info("Kuaishou video set via hidden file input")
             return True
         except Exception as exc:
@@ -330,8 +326,7 @@ def upload_kuaishou_video(page: Page, video_path: str, *, timeout_ms: int) -> bo
 
     try:
         fallback = page.locator('input[type="file"]').first
-        fallback.set_input_files(video_path, timeout=timeout_ms)
-        page.wait_for_timeout(2000)
+        human_upload_file(page, fallback, video_path, timeout_ms=timeout_ms)
         logger.info("Kuaishou video set via fallback file input")
         return True
     except Exception as exc:
@@ -348,8 +343,8 @@ def _click_kuaishou_advance_buttons(page: Page) -> bool:
         try:
             btn = page.get_by_role("button", name=re.compile(re.escape(label))).first
             if btn.is_visible(timeout=500):
-                btn.click(timeout=3000)
-                page.wait_for_timeout(1200)
+                human_click_element(page, btn, timeout_ms=3000)
+                human_pause(page, "polling")
                 clicked = True
                 break
         except Exception:
@@ -360,8 +355,8 @@ def _click_kuaishou_advance_buttons(page: Page) -> bool:
         try:
             link = page.get_by_text(label, exact=True).first
             if link.is_visible(timeout=500):
-                link.click(timeout=3000)
-                page.wait_for_timeout(1200)
+                human_click_element(page, link, timeout_ms=3000)
+                human_pause(page, "polling")
                 return True
         except Exception:
             continue
@@ -382,7 +377,7 @@ def advance_past_kuaishou_upload_window(page: Page, *, timeout_ms: int) -> bool:
 
         try:
             if page.get_by_text(UPLOADING_PATTERN).first.is_visible(timeout=500):
-                page.wait_for_timeout(2000)
+                human_pause(page, "after_upload")
                 continue
         except Exception:
             pass
@@ -391,7 +386,7 @@ def advance_past_kuaishou_upload_window(page: Page, *, timeout_ms: int) -> bool:
             if _is_kuaishou_editor_visible(page):
                 return True
 
-        page.wait_for_timeout(2000)
+        human_pause(page, "after_upload")
 
     return _is_kuaishou_editor_visible(page)
 
@@ -418,7 +413,7 @@ def wait_for_kuaishou_video_ready(page: Page, *, timeout_ms: int) -> bool:
             pass
         if advance_past_kuaishou_upload_window(page, timeout_ms=5000):
             return True
-        page.wait_for_timeout(2000)
+        human_pause(page, "after_upload")
     return _is_kuaishou_editor_visible(page)
 
 
@@ -428,7 +423,7 @@ def wait_for_kuaishou_editor(page: Page, *, timeout_ms: int) -> bool:
         dismiss_kuaishou_guide_tooltips(page)
         if advance_past_kuaishou_upload_window(page, timeout_ms=5000):
             return True
-        page.wait_for_timeout(2000)
+        human_pause(page, "after_upload")
     dismiss_kuaishou_guide_tooltips(page)
     return _is_kuaishou_editor_visible(page)
 
@@ -449,7 +444,7 @@ def fill_kuaishou_title(page: Page, title: str, *, timeout_ms: int, max_length: 
         return False
     try:
         title_loc.wait_for(state="visible", timeout=timeout_ms)
-        _set_field_text(title_loc, text)
+        _set_field_text(page, title_loc, text)
         return True
     except Exception as exc:
         logger.warning(f"Fill Kuaishou title failed: {exc}")
@@ -473,19 +468,16 @@ def fill_kuaishou_description(page: Page, description: str, *, timeout_ms: int) 
     try:
         desc_loc.wait_for(state="visible", timeout=timeout_ms)
         desc_loc.scroll_into_view_if_needed(timeout=5000)
-        desc_loc.click(timeout=5000)
         tag_name = desc_loc.evaluate("(el) => el.tagName")
         if tag_name in {"TEXTAREA", "INPUT"}:
-            desc_loc.fill("")
-            desc_loc.press_sequentially(description, delay=15)
+            human_clear_field(page, desc_loc, timeout_ms=5000)
+            human_fill(page, desc_loc, description, timeout_ms=timeout_ms)
         else:
-            _set_contenteditable_text(desc_loc, description)
+            human_fill_contenteditable(page, desc_loc, description, timeout_ms=timeout_ms)
             if not _description_has_text(desc_loc):
-                desc_loc.click(timeout=3000)
-                page.keyboard.press("Control+A")
-                page.keyboard.press("Backspace")
-                page.keyboard.insert_text(description)
-        page.wait_for_timeout(500)
+                human_clear_field(page, desc_loc, timeout_ms=3000)
+                human_fill(page, desc_loc, description, timeout_ms=timeout_ms)
+        human_pause(page, "modal")
         if _description_has_text(desc_loc):
             return True
         logger.warning("Kuaishou description editor still empty after fill attempt")
@@ -493,7 +485,7 @@ def fill_kuaishou_description(page: Page, description: str, *, timeout_ms: int) 
     except Exception as exc:
         logger.warning(f"Fill Kuaishou description failed: {exc}")
         try:
-            _set_field_text(desc_loc, description)
+            _set_field_text(page, desc_loc, description)
             return _description_has_text(desc_loc)
         except Exception as fallback_exc:
             logger.warning(f"Fill Kuaishou description fallback failed: {fallback_exc}")

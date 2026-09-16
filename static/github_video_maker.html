@@ -5,23 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub项目视频生成器</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
     <link rel="stylesheet" href="/static/css/github_video_maker.css">
 </head>
-<body>
-    <!-- 导航栏 -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-brand">🎬 AINews</a>
-            <div class="nav-menu">
-                <a href="/" class="nav-link">🏠 主页</a>
-                <a href="/video-maker" class="nav-link">📹 视频制作</a>
-                <a href="/github-video-maker" class="nav-link active">🐙 GitHub项目</a>
-                <a href="/digital-human" class="nav-link">🧑‍💼 数字人</a>
-            </div>
-        </div>
-    </nav>
-    
-    <div class="container">
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+<div class="container">
         <div class="header">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
@@ -118,8 +110,12 @@
             
             <div class="content-preview">
                 <div class="preview-field">
-                    <label for="generated-main-line1">主标题第一行</label>
+                    <label for="generated-main-line1">主标题第一行 <small style="font-weight:400;color:#888;">（16～20字当量，成片用）</small></label>
                     <input type="text" id="generated-main-line1" class="form-control github-title-input" placeholder="第一行主标题" maxlength="40" value="">
+                </div>
+                <div class="preview-field">
+                    <label for="generated-short-title">视频号短标题 <small style="font-weight:400;color:#888;">（最多16字含空格，不能有标点）</small></label>
+                    <input type="text" id="generated-short-title" class="form-control github-title-input" placeholder="视频号短标题" maxlength="16" value="">
                 </div>
                 <div class="preview-field">
                     <label for="generated-main-line2">主标题第二行 <small style="font-weight:400;color:#888;">（「网友：」开头锐评，9～12字当量，可空）</small></label>
@@ -363,7 +359,7 @@
         <video id="ghLightboxVideo" controls playsinline style="display:none;max-width:92vw;max-height:90vh;border-radius:8px;"></video>
     </div>
 
-    <script src="/static/js/github_video_maker.js"></script>
+    <script src="/static/js/github_video_maker.js?v=20260815b"></script>
     <script src="/static/js/common/back-to-top.js"></script>
 </body>
 </html>

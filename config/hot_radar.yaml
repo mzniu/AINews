@@ -1,0 +1,119 @@
+# 热榜雷达：TopHub 多榜 -> 文章规则评分
+enabled: true
+provider: tophub
+api_base_url: "https://api.tophubdata.com"
+refresh_cron: "0 8 * * *"
+max_age_minutes: 1440
+title_match_threshold: 0.72
+
+boards:
+  - id: sina_ai
+    hashid: MZd77QpdrO
+    name: 新浪热榜
+    display: AI榜
+    enabled: true
+    weight: 1.0
+  - id: ithome_ai
+    hashid: 47o8762eMm
+    name: IT之家
+    display: AI
+    enabled: true
+    weight: 0.95
+  - id: readhub_ai
+    hashid: b0vmrPldB1
+    name: Readhub
+    display: AI
+    enabled: true
+    weight: 0.9
+  - id: kr36_ai
+    hashid: x9oz2O1oXb
+    name: 36氪
+    display: AI频道
+    enabled: true
+    weight: 0.9
+  - id: qbitai_daily
+    hashid: MZd7azPorO
+    name: 量子位
+    display: 每日最新
+    enabled: true
+    weight: 0.95
+  - id: aibase_daily
+    hashid: ENeYylkeY4
+    name: AIbase
+    display: AI日报
+    enabled: true
+    weight: 0.85
+  - id: ifeng_ai
+    hashid: 5PdMP7pvmg
+    name: 凤凰科技
+    display: 人工智能
+    enabled: true
+    weight: 0.85
+
+scoring:
+  unmatched: 0.0
+  rank_1_3: 10.0
+  rank_4_10: 8.5
+  rank_11_20: 7.0
+  rank_21_50: 5.5
+
+bonuses:
+  top3_points: 3
+  top10_points: 1
+
+matching:
+  min_confidence: 0.6
+  medium_confidence: 0.8
+  low_confidence_rank_penalty: 20
+  medium_confidence_rank_penalty: 5
+  title_exact: 1.0
+  title_contains: 0.88
+  title_similarity_threshold: 0.72
+  entity_overlap_min: 2
+  entity_overlap_boost: 0.12
+  entity_overlap_floor: 0.65
+  gray_zone_low: 0.55
+  gray_zone_high: 0.72
+  use_embedding_in_gray: true
+  embedding_threshold: 0.78
+  embedding:
+    dimensions: 256
+  time_window_hours: 48
+  time_decay_per_day: 0.15
+  time_factor_floor: 0.6
+
+batch:
+  rescore_days: 7
+  rescore_on_refresh: true
+
+inheritance:
+  enabled: true
+  confidence_factor: 0.85
+  rank_penalty: 3
+
+discovery:
+  enabled: true
+  max_rank: 20
+  max_urls_per_refresh: 35
+  per_board_max: 5
+  domain_source_map:
+    ithome.com: ithome_it
+    it.ithome.com: ithome_it
+    36kr.com: kr36_ai
+    qbitai.com: qbitai
+    leiphone.com: leiphone_ai
+    techcrunch.com: techcrunch_ai
+    venturebeat.com: venturebeat_ai
+    readhub.cn: readhub_ai
+    aibase.com: aibase_daily
+    ifeng.com: ifeng_ai
+    tech.ifeng.com: ifeng_ai
+    sina.cn: sina_tech
+    sina.com.cn: sina_tech
+    k.sina.cn: sina_tech
+  blocked_domains:
+    - weibo.com
+    - s.weibo.com
+    - zhihu.com
+    - douyin.com
+    - baidu.com

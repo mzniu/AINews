@@ -25,10 +25,11 @@ from fastapi import HTTPException, UploadFile
 from loguru import logger
 
 from services.lip_sync import lip_sync_engine_manager
+from src.utils.paths import get_data_dir, get_resource_dir, resolve_data_path
 
 
-PROJECT_ROOT = Path.cwd()
-DIGITAL_HUMAN_DIR = Path("data/digital_human")
+PROJECT_ROOT = get_resource_dir()
+DIGITAL_HUMAN_DIR = get_data_dir() / "digital_human"
 AVATAR_DIR = DIGITAL_HUMAN_DIR / "avatars"
 AUDIO_DIR = DIGITAL_HUMAN_DIR / "audio"
 OUTPUT_DIR = DIGITAL_HUMAN_DIR / "outputs"
@@ -67,7 +68,8 @@ def _resolve_project_path(value: str) -> Path:
 
     resolved = path.resolve()
     root = PROJECT_ROOT.resolve()
-    allowed = [root / "data", root / "static", *_reference_roots()]
+    data_root = get_data_dir().resolve()
+    allowed = [data_root, root / "static", *_reference_roots()]
     if not any(base in resolved.parents or resolved == base for base in allowed):
         raise ValueError("仅允许使用项目 data/static 目录下的文件")
     if not resolved.is_file():

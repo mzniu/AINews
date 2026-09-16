@@ -4,6 +4,12 @@ import {ChronicleTemplate, Draft} from '../lib/types';
 import {hexToRgb} from '../lib/colors';
 import {mergeHighlightKeywords, splitHighlightSegments, wrapLine} from '../lib/text';
 import {fontStyles} from '../lib/fonts';
+import {
+  partialSummaryLines,
+  shouldDrawSummaryCursor,
+  SummaryAnimationConfig,
+  summaryVisibleChars,
+} from '../lib/summaryTypewriter';
 import {HeroImage} from './HeroImage';
 import {TechBackdrop} from './TechBackdrop';
 
@@ -21,6 +27,9 @@ type Props = {
   pan?: number;
   includeHero?: boolean;
   includeSummary?: boolean;
+  globalTSec?: number;
+  summaryAnimCfg?: SummaryAnimationConfig;
+  videoDurationSec?: number;
 };
 
 const pct = (value: number, total: number): number => Math.round(total * value);
@@ -39,6 +48,9 @@ export const ChronicleFrame: React.FC<Props> = ({
   pan = 0.7,
   includeHero = true,
   includeSummary = true,
+  globalTSec = 0,
+  summaryAnimCfg,
+  videoDurationSec,
 }) => {
   const canvas = template.canvas || {};
   const width = canvas.width || 1080;
@@ -101,10 +113,39 @@ export const ChronicleFrame: React.FC<Props> = ({
   ];
 
   const footerText = (draft.summary || '').replace(/^小牛说：/, '').trim();
-  const footerLines = wrapLine(footerText, 22).slice(0, 3);
+  const summaryFontSize = Number(typo.summary_font_size || footerSize);
+  const summaryWidthPct = Number(typo.summary_width_percent || 84) / 100;
+  const summaryMaxChars = Math.max(8, Math.floor((width * summaryWidthPct) / (summaryFontSize * 0.55)));
+  const footerLines = wrapLine(footerText, summaryMaxChars).slice(0, 3);
+  const totalSummaryChars = footerLines.reduce((sum, line) => sum + line.length, 0);
   const summaryY = pct(Number(typo.summary_y_percent || 75.2) / 100, height);
   const footerY = pct(Number(typo.footer_y_percent || 85.2) / 100, height);
+  const summaryAlign = String(typo.summary_align || 'left').trim().toLowerCase() === 'center'
+    ? 'center'
+    : 'left';
+  const summaryX = typo.summary_x_px !== undefined
+    ? Number(typo.summary_x_px)
+    : pct(0.045, width) + 18;
+  const summaryLineGap = Math.max(6, Math.round(summaryFontSize * 0.28));
   const placement = String(layout.title_placement || 'above_card');
+
+  const useTypewriter = summaryAnimCfg?.mode === 'typewriter';
+  const visibleCharCount = useTypewriter
+    ? summaryVisibleChars(globalTSec, {
+        totalChars: totalSummaryChars,
+        animCfg: summaryAnimCfg!,
+        contentStartT: 0,
+        videoDuration: videoDurationSec,
+      })
+    : totalSummaryChars;
+  const displayLines = useTypewriter
+    ? partialSummaryLines(footerLines, visibleCharCount)
+    : footerLines;
+  const showSummary = (includeSummary || useTypewriter) && displayLines.length > 0;
+  const showCursor =
+    useTypewriter &&
+    summaryAnimCfg &&
+    shouldDrawSummaryCursor(globalTSec, visibleCharCount, totalSummaryChars, summaryAnimCfg, 0);
 
   return (
     <AbsoluteFill>
@@ -187,29 +228,45 @@ export const ChronicleFrame: React.FC<Props> = ({
         </div>
       ) : null}
 
-      {includeSummary && footerLines.length > 0 ? (
+      {showSummary ? (
         <div
           style={{
             position: 'absolute',
-            left: '11%',
-            right: '11%',
+            left: summaryAlign === 'left' ? summaryX : '8%',
+            right: summaryAlign === 'center' ? '8%' : undefined,
             top: summaryY,
-            textAlign: 'center',
+            maxWidth: summaryAlign === 'center' ? undefined : width * summaryWidthPct,
+            textAlign: summaryAlign,
             ...fontStyles.body,
           }}
         >
-          {footerLines.map((line, i) => (
+          {displayLines.map((line, i) => (
             <div
               key={i}
               style={{
-                fontSize: footerSize,
+                fontSize: summaryFontSize,
                 color: summaryColor,
-                marginBottom: 8,
+                marginBottom: summaryLineGap,
                 lineHeight: 1.3,
                 textShadow: '0 1px 4px rgba(0,0,0,0.35)',
+                position: 'relative',
+                display: summaryAlign === 'center' ? 'block' : 'inline-block',
+                width: summaryAlign === 'center' ? '100%' : 'auto',
               }}
             >
-              {renderHighlighted(line, footerSize, summaryColor, accent)}
+              {renderHighlighted(line, summaryFontSize, summaryColor, accent)}
+              {showCursor && i === displayLines.length - 1 ? (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 2,
+                    height: summaryFontSize,
+                    marginLeft: 2,
+                    background: accent,
+                    verticalAlign: 'text-bottom',
+                  }}
+                />
+              ) : null}
             </div>
           ))}
         </div>

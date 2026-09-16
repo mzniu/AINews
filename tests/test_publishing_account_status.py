@@ -63,7 +63,7 @@ def test_check_account_status_updates_to_expired(client):
     data = resp.json()
     assert data["success"] is True
     assert data["status"] == "expired"
-    assert "过期" in data["message"]
+    assert "失效" in data["message"] or "过期" in data["message"]
 
 
 def test_check_account_status_keeps_active(client):

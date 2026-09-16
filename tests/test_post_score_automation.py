@@ -55,7 +55,9 @@ def test_maybe_run_post_score_automation_enqueues(mock_enqueue, db_session):
 
 
 @patch("services.ingestion.score_service.maybe_run_post_score_automation")
-def test_apply_score_triggers_automation(mock_auto, db_session):
+@patch("services.ingestion.score_service.match_article_hot_radar", return_value=None)
+@patch("services.ingestion.score_service.ensure_fresh_hot_radar")
+def test_apply_score_triggers_automation(mock_ensure, mock_match, mock_auto, db_session):
     article = IngestedArticle(
         id="art_auto",
         source_id="src1",
@@ -85,3 +87,11 @@ def test_apply_score_triggers_automation(mock_auto, db_session):
 
     mock_auto.assert_called_once()
     assert result["score_grade"] == "S"
+    assert "viral_score_grade" in result
+    assert result["score_breakdown"]["viral"]["grade"]
+    assert result["publish_tier"] in {
+        "viral_priority",
+        "industry_priority",
+        "standard",
+        "skip",
+    }

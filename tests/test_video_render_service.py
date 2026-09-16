@@ -42,7 +42,8 @@ def test_resolve_ingested_clip_durations_reads_custom_template_table():
 
 
 @patch("services.ingestion.chronicle_render.render_chronicle_video")
-def test_render_ingested_video_allows_single_image(mock_chronicle):
+@patch("services.ingestion.render_image_utils.is_renderable_local_image", return_value=True)
+def test_render_ingested_video_allows_single_image(mock_renderable, mock_chronicle):
     mock_chronicle.return_value = {"success": True, "video_path": "/data/videos/one.mp4"}
     result = render_ingested_video(
         article_id="art1",
@@ -53,5 +54,5 @@ def test_render_ingested_video_allows_single_image(mock_chronicle):
     )
     assert result["success"] is True
     mock_chronicle.assert_called_once()
-    assert mock_chronicle.call_args.kwargs["image_paths"] == ["/data/a.jpg"]
-    assert mock_chronicle.call_args.kwargs["durations"] == [7.0]
+    assert mock_chronicle.call_args.kwargs["image_paths"] == ["data/a.jpg"]
+    assert mock_chronicle.call_args.kwargs["durations"] == [8.0]

@@ -1,0 +1,1641 @@
+{
+  "data": [
+    {
+      "id": "20260810A0BO7100",
+      "articletype": "525",
+      "title": "热点精选",
+      "pic_style": 31,
+      "sub_item": [
+        {
+          "id": "20260810A0BO7100",
+          "articletype": "0",
+          "title": "Meta开源30B智能体模型Muse Glimmer，性能超Qwen3.6-27B",
+          "pic_style": 0,
+          "publish_time": "2026-08-10 19:43:37",
+          "pic_info": {
+            "big_img": [
+              "https://inews.gtimg.com/news_ls/OUZs_RncxJ55bj7RMzeZ5W4Z7zmmDdiwfsbTTgVrtnw58AA_870492/0"
+            ],
+            "small_img": [
+              "https://inews.gtimg.com/news_ls/OUZs_RncxJ55bj7RMzeZ5W4Z7zmmDdiwfsbTTgVrtnw58AA_294195/0"
+            ],
+            "three_img": [
+              "https://inews.gtimg.com/news_ls/OUZs_RncxJ55bj7RMzeZ5W4Z7zmmDdiwfsbTTgVrtnw58AA_197130/0"
+            ],
+            "ls_img_exp_type": "1",
+            "ext": {
+              "196x130": "https://inews.gtimg.com/news_ls/OUZs_RncxJ55bj7RMzeZ5W4Z7zmmDdiwfsbTTgVrtnw58AA_196130/0",
+              "360x240": "https://inews.gtimg.com/news_ls/OUZs_RncxJ55bj7RMzeZ5W4Z7zmmDdiwfsbTTgVrtnw58AA_360240/0",
+              "330x330": "https://inews.gtimg.com/news_ls/OUZs_RncxJ55bj7RMzeZ5W4Z7zmmDdiwfsbTTgVrtnw58AA_330330/0"
+            },
+            "share_img": "https://inews.gtimg.com/news_ls/OqLhW328LOyrKMOnQf3QE8o9DEd2hytsFlNnltbVC-NKoAA_240240/0",
+            "img_count": 11
+          },
+          "link_info": {
+            "share_url": "https://view.inews.qq.com/a/20260810A0BO7100",
+            "url": "https://view.inews.qq.com/a/20260810A0BO7100",
+            "short_url": "https://view.inews.qq.com/a/20260810A0BO7100",
+            "org_url": "https://view.inews.qq.com/a/20260810A0BO7100"
+          },
+          "media_info": {
+            "chl_id": "24417327",
+            "chl_name": "AGIHunt",
+            "icon": "https://inews.gtimg.com/news_ls/OX9eqccUN7tws2M_3EejGB-qP1hatz3ku0Zt1xBHGC1R4AA_200200/0",
+            "sicon": "https://inews.gtimg.com/news_ls/OX9eqccUN7tws2M_3EejGB-qP1hatz3ku0Zt1xBHGC1R4AA_200200/0",
+            "mrk": "关注AGI 的沿途风景",
+            "last_art_update": "0",
+            "encoded_suid": "8QIf3n5c7IYcuDvY4ws=",
+            "vip_type": "30011",
+            "vip_type_new": "30011",
+            "vip_desc": "科技领域创作者",
+            "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876048581/0",
+            "medal_info": {
+              "type_id": 24,
+              "medal_id": 38,
+              "medal_level": 1,
+              "medal_name": "初露锋芒",
+              "medal_desc": "腾讯新闻粉丝数达到100",
+              "night_url": "http://inews.gtimg.com/newsapp_ls/0/14465631212/0",
+              "daytime_url": "http://inews.gtimg.com/newsapp_ls/0/14465629718/0"
+            }
+          },
+          "interation_info": {
+            "comment_id": "1260810605206333",
+            "commet_num": 2,
+            "read_num": 26,
+            "share_num": 2,
+            "share_wechat_num": 2
+          },
+          "doc_info": {
+            "first_cate_id": "16",
+            "first_cate_name": "tech",
+            "sec_cate_id": "1605",
+            "sec_cate_name": "tech_ai"
+          },
+          "update_time": "2026-08-10 20:43:10",
+          "news724_feature": null,
+          "desc": "刚刚，Meta 开源了一个 30B 的智能体模型，Muse Glimmer。      Muse Glimmer      Apache 2.0 协议，权重已经发布到了 Hugging Face，只....",
+          "safe_control": {
+            "close_all_ad": 0,
+            "close_all_favorite": 0,
+            "close_all_rel": 0,
+            "close_share_pull": 0,
+            "close_relate_thing": 0,
+            "close_all_emoticon_comment": 0,
+            "political_option": "0",
+            "pc_not_display": ""
+          },
+          "category": {
+            "cate1_name": "科技",
+            "cate1_en_name": "tech",
+            "cate1_id": "20786087",
+            "cate2_name": "人工智能",
+            "cate2_id": "8441946"
+          },
+          "declare": {},
+          "pub_info": {
+            "source": "1",
+            "sub_source": "117"
+          },
+          "payment_info": {},
+          "user_address": "北京",
+          "dislike_options": [
+            {
+              "menu_id": "0",
+              "menu_name": "不感兴趣",
+              "menu_items": [
+                {
+                  "type": "dislike_cp",
+                  "name": "不推荐该作者",
+                  "id": "40033"
+                },
+                {
+                  "type": "dislike_content",
+                  "name": "减少此类内容",
+                  "id": "40022"
+                }
+              ]
+            }
+          ],
+          "cp_info": {
+            "tnews_self_made": -1
+          },
+          "flag": {},
+          "extra_property": {},
+          "share_info": {
+            "share_title": "Meta开源30B智能体模型Muse Glimmer，性能超Qwen3.6-27B",
+            "share_subtitle": "刚刚，Meta 开源了一个 30B 的智能体模型，Muse Glimmer。      Muse Glimmer      Apache 2.0 协议，权重已经发布到了 Hugging Face，只...."
+          },
+          "long_summary": "刚刚，Meta开源了一个30B的智能体模型，Muse Glimmer。Apache 2.0协议，权重已经发布到了Hugging Face，只需要一张24GB的消费级显卡就能跑起来，地址是：https://huggingface.co/meta-models。而这也是继Llama之后，Meta再一次回到开源社区的牌桌。先来看眼模型的成绩单。也就是说，在工具调用、检索、软件工程等智能体相关场景上，Muse Glimmer确实超过了Qwen3.6-27B，但在桌面和终端操作上，还是Qwen胜出。"
+        },
+        {
+          "id": "20260810A04WOP00",
+          "articletype": "0",
+          "title": "硅谷模型厂正在比谁的Agent更能闯祸，背后全是营销剧本",
+          "pic_style": 0,
+          "publish_time": "2026-08-10 17:10:12",
+          "pic_info": {
+            "big_img": [
+              "https://inews.gtimg.com/om_ls/OeOZy5GtNnvoQ52q9nRv8sjC6myZSfa22GVGcx8SuwgnQAA_870492/0"
+            ],
+            "small_img": [
+              "https://inews.gtimg.com/om_ls/OeOZy5GtNnvoQ52q9nRv8sjC6myZSfa22GVGcx8SuwgnQAA_294195/0"
+            ],
+            "three_img": [
+              "https://inews.gtimg.com/om_ls/OeOZy5GtNnvoQ52q9nRv8sjC6myZSfa22GVGcx8SuwgnQAA_197130/0"
+            ],
+            "ls_img_exp_type": "1",
+            "ext": {
+              "196x130": "https://inews.gtimg.com/om_ls/OeOZy5GtNnvoQ52q9nRv8sjC6myZSfa22GVGcx8SuwgnQAA_196130/0",
+              "360x240": "https://inews.gtimg.com/om_ls/OeOZy5GtNnvoQ52q9nRv8sjC6myZSfa22GVGcx8SuwgnQAA_360240/0",
+              "330x330": "https://inews.gtimg.com/om_ls/OeOZy5GtNnvoQ52q9nRv8sjC6myZSfa22GVGcx8SuwgnQAA_330330/0"
+            },
+            "share_img": "https://inews.gtimg.com/news_ls/O3XDGdTQ8QhoJs2E4K-3JTyM5Cx1hzXke_WQkE5vzCxWcAA_240240/0",
+            "img_count": 8
+          },
+          "link_info": {
+            "share_url": "https://view.inews.qq.com/a/20260810A04WOP00",
+            "url": "https://view.inews.qq.com/a/20260810A04WOP00",
+            "short_url": "https://view.inews.qq.com/a/20260810A04WOP00",
+            "org_url": "https://view.inews.qq.com/a/20260810A04WOP00"
+          },
+          "media_info": {
+            "chl_id": "23489717",
+            "chl_name": "硅星人Pro",
+            "icon": "https://inews.gtimg.com/om_ls/OsTHjUzX1w6mT47c6sysx3v7gZ5o-O1vRnzes--dEcnPcAA_200200/0",
+            "sicon": "https://inews.gtimg.com/om_ls/OsTHjUzX1w6mT47c6sysx3v7gZ5o-O1vRnzes--dEcnPcAA_200200/0",
+            "mrk": "硅（Si）是创造未来的基础，欢迎来到这个星球。",
+            "last_art_update": "0",
+            "encoded_suid": "8QMc339d5IMbvDfY5gVx",
+            "vip_type": "0",
+            "vip_type_new": "0",
+            "medal_info": {
+              "type_id": 25,
+              "medal_id": 39,
+              "medal_level": 1,
+              "medal_name": "千锤百炼",
+              "medal_desc": "腾讯新闻粉丝数达到1000",
+              "night_url": "http://inews.gtimg.com/newsapp_ls/0/14465639253/0",
+              "daytime_url": "http://inews.gtimg.com/newsapp_ls/0/14465637934/0"
+            }
+          },
+          "interation_info": {
+            "comment_id": "1260810604890745",
+            "commet_num": 1,
+            "read_num": 89,
+            "share_num": 4,
+            "share_wechat_num": 3
+          },
+          "doc_info": {
+            "first_cate_id": "16",
+            "first_cate_name": "tech",
+            "sec_cate_id": "1605",
+            "sec_cate_name": "tech_ai"
+          },
+          "update_time": "2026-08-10 20:43:10",
+          "news724_feature": null,
+          "desc": "作者｜周一笑微信｜smiletalker过去三周，OpenAI、Anthropic、Meta 接连承认自家 AI 模型在安全测试中攻入了外部的真实系统。OpenAI 的两个模型利用了一个此前无人知晓的软件漏洞逃出沙箱，链式入侵了开源 AI 平台 Hugging Face 的生产数据库，窃取了评测答案。Anthropic 的 Claude 在测试中攻入了三家公司，上传了恶意 Py...",
+          "safe_control": {
+            "close_all_ad": 0,
+            "close_all_favorite": 0,
+            "close_all_rel": 0,
+            "close_share_pull": 0,
+            "close_relate_thing": 0,
+            "close_all_emoticon_comment": 0,
+            "political_option": "0",
+            "pc_not_display": ""
+          },
+          "category": {
+            "cate1_name": "科技",
+            "cate1_en_name": "tech",
+            "cate1_id": "20786087",
+            "cate2_name": "人工智能",
+            "cate2_id": "8441946"
+          },
+          "declare": {},
+          "pub_info": {
+            "source": "1",
+            "sub_source": "0"
+          },
+          "payment_info": {},
+          "user_address": "北京",
+          "dislike_options": [
+            {
+              "menu_id": "0",
+              "menu_name": "不感兴趣",
+              "menu_items": [
+                {
+                  "type": "dislike_cp",
+                  "name": "不推荐该作者",
+                  "id": "40033"
+                },
+                {
+                  "type": "dislike_content",
+                  "name": "减少此类内容",
+                  "id": "40022"
+                }
+              ]
+            }
+          ],
+          "cp_info": {
+            "tnews_self_made": -1
+          },
+          "flag": {},
+          "extra_property": {},
+          "share_info": {
+            "share_title": "硅谷模型厂正在比谁的Agent更能闯祸，背后全是营销剧本",
+            "share_subtitle": "作者｜周一笑微信｜smiletalker过去三周，OpenAI、Anthropic、Meta 接连承认自家 AI 模型在安全测试中攻入了外部的真实系统。OpenAI 的两个模型利用了一个此前无人知晓的软件漏洞逃出沙箱，链式入侵了开源 AI 平台 Hugging Face 的生产数据库，窃取了评测答案。Anthropic 的 Claude 在测试中攻入了三家公司，上传了恶意 Py..."
+          },
+          "long_summary": "过去三周，OpenAI、Anthropic、Meta接连承认自家AI模型在安全测试中攻入了外部的真实系统。OpenAI的两个模型利用了一个此前无人知晓的软件漏洞逃出沙箱，链式入侵了开源AI平台Hugging Face的生产数据库，窃取了评测答案。Anthropic的Claude在测试中攻入了三家公司，上传了恶意Python包到PyPI，窃取了安全公司的凭证。措辞各异，但如果你把三篇放在一起读，会发现剧本结构几乎重合。它们讲述事故的方式，和事故本身一样值得关注。三周，三家公司，剧本结构几乎一致。"
+        },
+        {
+          "id": "20260810A0AE7000",
+          "articletype": "0",
+          "title": "Claude Tag可能是一个10x Claude Code级别的产品",
+          "pic_style": 0,
+          "publish_time": "2026-08-10 18:03:24",
+          "pic_info": {
+            "big_img": [
+              "https://inews.gtimg.com/news_ls/OjwOHEXHfqadpRdR6Gir22Z6AlMHUcptrAKKxFbE1QkKIAA_870492/0"
+            ],
+            "small_img": [
+              "https://inews.gtimg.com/news_ls/OjwOHEXHfqadpRdR6Gir22Z6AlMHUcptrAKKxFbE1QkKIAA_294195/0"
+            ],
+            "three_img": [
+              "https://inews.gtimg.com/news_ls/OjwOHEXHfqadpRdR6Gir22Z6AlMHUcptrAKKxFbE1QkKIAA_197130/0"
+            ],
+            "ls_img_exp_type": "1",
+            "ext": {
+              "196x130": "https://inews.gtimg.com/news_ls/OjwOHEXHfqadpRdR6Gir22Z6AlMHUcptrAKKxFbE1QkKIAA_196130/0",
+              "360x240": "https://inews.gtimg.com/news_ls/OjwOHEXHfqadpRdR6Gir22Z6AlMHUcptrAKKxFbE1QkKIAA_360240/0",
+              "330x330": "https://inews.gtimg.com/news_ls/OjwOHEXHfqadpRdR6Gir22Z6AlMHUcptrAKKxFbE1QkKIAA_330330/0"
+            },
+            "share_img": "https://inews.gtimg.com/news_ls/Oh2oxc_fpEsGcK8L1U34jZaIZVgJ-D0nvICSKFA1pGjGAAA_240240/0",
+            "img_count": 10
+          },
+          "link_info": {
+            "share_url": "https://view.inews.qq.com/a/20260810A0AE7000",
+            "url": "https://view.inews.qq.com/a/20260810A0AE7000",
+            "short_url": "https://view.inews.qq.com/a/20260810A0AE7000",
+            "org_url": "https://view.inews.qq.com/a/20260810A0AE7000"
+          },
+          "media_info": {
+            "chl_id": "22843243",
+            "chl_name": "海外独角兽",
+            "icon": "http://inews.gtimg.com/newsapp_ls/0/15459676461_200200/0",
+            "sicon": "http://inews.gtimg.com/newsapp_ls/0/15459676461_200200/0",
+            "mrk": "积极推动中国企业参与科技大航海，打造全球领先的资产配置平台",
+            "last_art_update": "0",
+            "uin": "eceaa5fa85276199208c5fbd7a570b86ec",
+            "encoded_suid": "8QIf3n9V6o0Vuz3e4AU=",
+            "vip_type": "30012",
+            "vip_type_new": "30012",
+            "vip_desc": "海外独角兽官方账号",
+            "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876051701/0",
+            "medal_info": {
+              "type_id": 24,
+              "medal_id": 38,
+              "medal_level": 1,
+              "medal_name": "初露锋芒",
+              "medal_desc": "腾讯新闻粉丝数达到100",
+              "night_url": "http://inews.gtimg.com/newsapp_ls/0/14465631212/0",
+              "daytime_url": "http://inews.gtimg.com/newsapp_ls/0/14465629718/0"
+            }
+          },
+          "interation_info": {
+            "comment_id": "1260810605146716",
+            "commet_num": 1,
+            "read_num": 33,
+            "collect_num": 3,
+            "share_num": 2,
+            "share_wechat_num": 2
+          },
+          "doc_info": {
+            "first_cate_id": "16",
+            "first_cate_name": "tech",
+            "sec_cate_id": "1605",
+            "sec_cate_name": "tech_ai"
+          },
+          "update_time": "2026-08-10 20:43:10",
+          "news724_feature": null,
+          "desc": "作者：Celia编辑：SiqiAI 的产品形态可能又到了一个新的范式迁移点。 ⁠一个月前，Anthropic 在 Slack 里上线了 Claude Tag，这个产品并没有引起太多讨论和关注，外界只是把它当成 Anthropic 随手发的小功能。 ⁠但实际上， Anthropic 内部对这个产品的期待远远超过外界感知，他们正在明确地把它当作下一代爆款产品来建设。在他们看来，Tag 可能是一种 10x Claude Code 的产品形态，对应万亿美元级别的市场空间。 ⁠借用 Andrej Karpathy 的判断，Claude Tag 意味着 AI 产品的交互方式会真正开始迈入第三个阶段: Ch...",
+          "safe_control": {
+            "close_all_ad": 0,
+            "close_all_favorite": 0,
+            "close_all_rel": 0,
+            "close_share_pull": 0,
+            "close_relate_thing": 0,
+            "close_all_emoticon_comment": 0,
+            "political_option": "0",
+            "pc_not_display": ""
+          },
+          "category": {
+            "cate1_name": "科技",
+            "cate1_en_name": "tech",
+            "cate1_id": "20786087",
+            "cate2_name": "人工智能",
+            "cate2_id": "8441946"
+          },
+          "declare": {},
+          "pub_info": {
+            "source": "1",
+            "sub_source": "0"
+          },
+          "payment_info": {},
+          "user_address": "北京",
+          "dislike_options": [
+            {
+              "menu_id": "0",
+              "menu_name": "不感兴趣",
+              "menu_items": [
+                {
+                  "type": "dislike_cp",
+                  "name": "不推荐该作者",
+                  "id": "40033"
+                },
+                {
+                  "type": "dislike_content",
+                  "name": "减少此类内容",
+                  "id": "40022"
+                }
+              ]
+            }
+          ],
+          "cp_info": {
+            "tnews_self_made": -1
+          },
+          "flag": {},
+          "extra_property": {},
+          "share_info": {
+            "share_title": "Claude Tag可能是一个10x Claude Code级别的产品",
+            "share_subtitle": "作者：Celia编辑：SiqiAI 的产品形态可能又到了一个新的范式迁移点。 ⁠一个月前，Anthropic 在 Slack 里上线了 Claude Tag，这个产品并没有引起太多讨论和关注，外界只是把它当成 Anthropic 随手发的小功能。 ⁠但实际上， Anthropic 内部对这个产品的期待远远超过外界感知，他们正在明确地把它当作下一代爆款产品来建设。在他们看来，Tag 可能是一种 10x Claude Code 的产品形态，对应万亿美元级别的市场空间。 ⁠借用 Andrej Karpathy 的判断，Claude Tag 意味着 AI 产品的交互方式会真正开始迈入第三个阶段: Ch..."
+          },
+          "long_summary": "在他们看来，Tag可能是一种10x Claude Code的产品形态，对应万亿美元级别的市场空间。未来，这套机制也完全可以复制到Claude Tag。•最新模型优先在Claude Tag等产品上开放使用 。•同款模型在Claude Tag中获得更高的thinking budget。Mythos的能力跳变叠加Claude Tag的形态跃迁，让AI Coworker从一个概念变成了真正可用的产品，这种变化不亚于去年底Opus 4.5+Claude Code Harness的成熟。"
+        },
+        {
+          "id": "20260810A02VSW00",
+          "articletype": "0",
+          "title": "奥特曼笑疯！Claude Code之父“挖角”OpenAI网红高管，惨遭秒拒",
+          "pic_style": 0,
+          "publish_time": "2026-08-10 17:34:18",
+          "pic_info": {
+            "big_img": [
+              "https://inews.gtimg.com/news_ls/OyesiprU_C04kB1N5owdihdXC0Z_bcu6_OxtU0yPELA-MAA_870492/0"
+            ],
+            "small_img": [
+              "https://inews.gtimg.com/news_ls/OyesiprU_C04kB1N5owdihdXC0Z_bcu6_OxtU0yPELA-MAA_294195/0"
+            ],
+            "three_img": [
+              "https://inews.gtimg.com/news_ls/OyesiprU_C04kB1N5owdihdXC0Z_bcu6_OxtU0yPELA-MAA_197130/0"
+            ],
+            "ls_img_exp_type": "1",
+            "ext": {
+              "196x130": "https://inews.gtimg.com/news_ls/OyesiprU_C04kB1N5owdihdXC0Z_bcu6_OxtU0yPELA-MAA_196130/0",
+              "360x240": "https://inews.gtimg.com/news_ls/OyesiprU_C04kB1N5owdihdXC0Z_bcu6_OxtU0yPELA-MAA_360240/0",
+              "330x330": "https://inews.gtimg.com/news_ls/OyesiprU_C04kB1N5owdihdXC0Z_bcu6_OxtU0yPELA-MAA_330330/0"
+            },
+            "share_img": "https://inews.gtimg.com/news_ls/O-mk8DtHel-ewXTptJUkFMLlj8wX9hMJvYFvLmD192HY0AA_240240/0",
+            "img_count": 18
+          },
+          "link_info": {
+            "share_url": "https://view.inews.qq.com/a/20260810A02VSW00",
+            "url": "https://view.inews.qq.com/a/20260810A02VSW00",
+            "short_url": "https://view.inews.qq.com/a/20260810A02VSW00",
+            "org_url": "https://view.inews.qq.com/a/20260810A02VSW00"
+          },
+          "media_info": {
+            "chl_id": "5022548",
+            "chl_name": "新智元",
+            "icon": "http://inews.gtimg.com/newsapp_ls/0/107560864_100100/0",
+            "sicon": "http://inews.gtimg.com/newsapp_ls/0/107560864_100100/0",
+            "mrk": "主要关注人工智能、机器人、虚拟现实、量子计算等前沿资讯。",
+            "last_art_update": "0",
+            "uin": "ec92dcc4fe944ed9c2c21bdfe87cbcdc08",
+            "encoded_suid": "8QMc2Hpa6oYVujjQ",
+            "vip_type": "30013",
+            "vip_type_new": "30013",
+            "vip_desc": "新智元官方账号",
+            "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876049251/0",
+            "medal_info": {
+              "type_id": 31,
+              "medal_id": 45,
+              "medal_level": 1,
+              "medal_name": "别具慧眼",
+              "medal_desc": "成为荐评手，一起建设腾讯新闻社区！",
+              "night_url": "https://new.inews.gtimg.com/tnews/8c3d00f9/7f36/8c3d00f9-7f36-44a9-82c4-be357b54fe9b.png",
+              "daytime_url": "https://new.inews.gtimg.com/tnews/45af77fe/a73d/45af77fe-a73d-42d2-ab80-feaa383611de.png"
+            }
+          },
+          "interation_info": {
+            "comment_id": "1260810604796288",
+            "commet_num": 2,
+            "read_num": 1395,
+            "like_num": 6,
+            "collect_num": 17,
+            "share_num": 11,
+            "share_wechat_num": 10
+          },
+          "doc_info": {
+            "first_cate_id": "16",
+            "first_cate_name": "tech",
+            "sec_cate_id": "1605",
+            "sec_cate_name": "tech_ai"
+          },
+          "update_time": "2026-08-10 20:43:10",
+          "news724_feature": null,
+          "desc": "新智元报道 「欢迎来Anthropic上班！」就在刚刚，Claude Code之父Boris Cherny亲自下场，当着几十万人的面，向OpenAI核心产品负责人甩出了入职邀请。起因荒诞到离谱。一个头铁的开发者照着OpenAI高管的教程，硬生生把GPT-5.6 Sol塞进了Claude Code的harness里跑。Anthropic反手就是一记封号。50分钟后，被挖的Tibo当场拒绝...",
+          "safe_control": {
+            "close_all_ad": 0,
+            "close_all_favorite": 0,
+            "close_all_rel": 0,
+            "close_share_pull": 0,
+            "close_relate_thing": 0,
+            "close_all_emoticon_comment": 0,
+            "political_option": "0",
+            "pc_not_display": ""
+          },
+          "category": {
+            "cate1_name": "科技",
+            "cate1_en_name": "tech",
+            "cate1_id": "20786087",
+            "cate2_name": "在线服务",
+            "cate2_id": "20112142"
+          },
+          "declare": {},
+          "pub_info": {
+            "source": "1",
+            "sub_source": "0"
+          },
+          "payment_info": {},
+          "user_address": "北京",
+          "dislike_options": [
+            {
+              "menu_id": "0",
+              "menu_name": "不感兴趣",
+              "menu_items": [
+                {
+                  "type": "dislike_cp",
+                  "name": "不推荐该作者",
+                  "id": "40033"
+                },
+                {
+                  "type": "dislike_content",
+                  "name": "减少此类内容",
+                  "id": "40022"
+                }
+              ]
+            }
+          ],
+          "cp_info": {
+            "tnews_self_made": -1
+          },
+          "flag": {},
+          "extra_property": {},
+          "share_info": {
+            "share_title": "奥特曼笑疯！Claude Code之父“挖角”OpenAI网红高管，惨遭秒拒",
+            "share_subtitle": "新智元报道 「欢迎来Anthropic上班！」就在刚刚，Claude Code之父Boris Cherny亲自下场，当着几十万人的面，向OpenAI核心产品负责人甩出了入职邀请。起因荒诞到离谱。一个头铁的开发者照着OpenAI高管的教程，硬生生把GPT-5.6 Sol塞进了Claude Code的harness里跑。Anthropic反手就是一记封号。50分钟后，被挖的Tibo当场拒绝..."
+          },
+          "long_summary": "“欢迎来Anthropic上班！”就在刚刚，Claude Code之父Boris Cherny亲自下场，当着几十万人的面，向OpenAI核心产品负责人甩出了入职邀请。起因荒诞到离谱。一个头铁的开发者照着OpenAI高管的教程，硬生生把GPT-5.6 Sol塞进了Claude Code的harness里跑。Anthropic反手就是一记封号。50分钟后，被挖的Tibo当场拒绝。又过了7分钟，他一不做二不休，直接重置了全体付费用户的额度。"
+        },
+        {
+          "id": "20260810A07QG300",
+          "articletype": "0",
+          "title": "马斯克的新生图模型，让我笑了一整晚",
+          "pic_style": 0,
+          "publish_time": "2026-08-10 15:28:59",
+          "pic_info": {
+            "big_img": [
+              "https://inews.gtimg.com/news_ls/OQa0FQOYdHPjGEJQ8J-vqwFKVsZ6At5YtL7iA2EoQqmZsAA_870492/0"
+            ],
+            "small_img": [
+              "https://inews.gtimg.com/news_ls/OQa0FQOYdHPjGEJQ8J-vqwFKVsZ6At5YtL7iA2EoQqmZsAA_294195/0"
+            ],
+            "three_img": [
+              "https://inews.gtimg.com/news_ls/OQa0FQOYdHPjGEJQ8J-vqwFKVsZ6At5YtL7iA2EoQqmZsAA_197130/0"
+            ],
+            "ls_img_exp_type": "1",
+            "ext": {
+              "196x130": "https://inews.gtimg.com/news_ls/OQa0FQOYdHPjGEJQ8J-vqwFKVsZ6At5YtL7iA2EoQqmZsAA_196130/0",
+              "360x240": "https://inews.gtimg.com/news_ls/OQa0FQOYdHPjGEJQ8J-vqwFKVsZ6At5YtL7iA2EoQqmZsAA_360240/0",
+              "330x330": "https://inews.gtimg.com/news_ls/OQa0FQOYdHPjGEJQ8J-vqwFKVsZ6At5YtL7iA2EoQqmZsAA_330330/0"
+            },
+            "share_img": "https://inews.gtimg.com/news_ls/OarjWafK6ffGWfPesb7ECSgxBbbpP2_t_0Y4krXfxBZ78AA_240240/0",
+            "img_count": 15
+          },
+          "link_info": {
+            "share_url": "https://view.inews.qq.com/a/20260810A07QG300",
+            "url": "https://view.inews.qq.com/a/20260810A07QG300",
+            "short_url": "https://view.inews.qq.com/a/20260810A07QG300",
+            "org_url": "https://view.inews.qq.com/a/20260810A07QG300"
+          },
+          "media_info": {
+            "chl_id": "70",
+            "chl_name": "爱范儿",
+            "icon": "http://inews.gtimg.com/newsapp_ls/0/15140422140_200200/0",
+            "sicon": "http://inews.gtimg.com/newsapp_ls/0/15140422140_200200/0",
+            "mrk": "爱范儿是一个科技与生活方式媒体，探索明日生活方式的数字潮牌，我们关注科技、城市、工具、艺术、观念，推动生活方式的无限更新。",
+            "last_art_update": "0",
+            "uin": "ec4fc99aa40afdcc6cbc1b0fde2ae4f35c",
+            "encoded_suid": "8QMY3Hxd7YMbvTY=",
+            "vip_type": "30012",
+            "vip_type_new": "30012",
+            "vip_desc": "爱范儿官方账号",
+            "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876051701/0",
+            "medal_info": {
+              "type_id": 57,
+              "medal_id": 89,
+              "medal_level": 1,
+              "medal_name": "金蛇兆瑞",
+              "medal_desc": "2025.1.28-2025.2.4登录即可获得",
+              "night_url": "https://inews.gtimg.com/newsapp_bt/0/0124143012850_5524/0",
+              "daytime_url": "https://inews.gtimg.com/newsapp_bt/0/0124143012850_5524/0"
+            }
+          },
+          "interation_info": {
+            "comment_id": "1260810605022627",
+            "commet_num": 2,
+            "read_num": 1088,
+            "like_num": 1,
+            "collect_num": 7
+          },
+          "doc_info": {
+            "first_cate_id": "16",
+            "first_cate_name": "tech",
+            "sec_cate_id": "1605",
+            "sec_cate_name": "tech_ai"
+          },
+          "update_time": "2026-08-10 20:43:10",
+          "news724_feature": null,
+          "desc": "毫无疑问，四月份发布的生图模型 GPT-Image-2，现在依然是当之无愧的 AI 生图之王。      无论是各种复杂的信息图，还有普通用户用来做一些简单的 PS，到处都有 GPT-Image-2....",
+          "safe_control": {
+            "close_all_ad": 0,
+            "close_all_favorite": 0,
+            "close_all_rel": 0,
+            "close_share_pull": 0,
+            "close_relate_thing": 0,
+            "close_all_emoticon_comment": 0,
+            "political_option": "0",
+            "pc_not_display": ""
+          },
+          "category": {
+            "cate1_name": "科技",
+            "cate1_en_name": "tech",
+            "cate1_id": "20786087",
+            "cate2_name": "人工智能",
+            "cate2_id": "8441946"
+          },
+          "declare": {},
+          "pub_info": {
+            "source": "1",
+            "sub_source": "117"
+          },
+          "payment_info": {},
+          "user_address": "日本",
+          "dislike_options": [
+            {
+              "menu_id": "0",
+              "menu_name": "不感兴趣",
+              "menu_items": [
+                {
+                  "type": "dislike_cp",
+                  "name": "不推荐该作者",
+                  "id": "40033"
+                },
+                {
+                  "type": "dislike_content",
+                  "name": "减少此类内容",
+                  "id": "40022"
+                }
+              ]
+            }
+          ],
+          "cp_info": {
+            "tnews_self_made": -1
+          },
+          "flag": {},
+          "extra_property": {},
+          "share_info": {
+            "share_title": "马斯克的新生图模型，让我笑了一整晚",
+            "share_subtitle": "毫无疑问，四月份发布的生图模型 GPT-Image-2，现在依然是当之无愧的 AI 生图之王。      无论是各种复杂的信息图，还有普通用户用来做一些简单的 PS，到处都有 GPT-Image-2...."
+          },
+          "long_summary": "毫无疑问，四月份发布的生图模型GPT-Image-2，现在依然是当之无愧的AI生图之王。无论是各种复杂的信息图，还有普通用户用来做一些简单的PS，到处都有GPT-Image-2的痕迹。一般的生图模型想要突出重围，光拼质量肯定不够。这几天，马斯克在X上疯狂推广的Imagine Image 2.0就凭借着能做表情包出圈了。这款新的生图模型，在大模型竞技场上，文本转图像生成和图像编辑两个类别均位列世界第二。"
+        }
+      ],
+      "news724_feature": null,
+      "safe_control": null,
+      "category": null
+    },
+    {
+      "id": "20260810A08QTT00",
+      "articletype": "0",
+      "title": "马斯克的芯片梦，要靠这个清华人来落地",
+      "pic_style": 0,
+      "publish_time": "2026-08-10 16:30:53",
+      "pic_info": {
+        "big_img": [
+          "https://inews.gtimg.com/news_ls/OHdw6AOf_ZZPSZ2dXs6tUbz8xxid7JIoXrVyWNiR84Xc8AA_870492/0"
+        ],
+        "small_img": [
+          "https://inews.gtimg.com/news_ls/OHdw6AOf_ZZPSZ2dXs6tUbz8xxid7JIoXrVyWNiR84Xc8AA_294195/0"
+        ],
+        "three_img": [
+          "https://inews.gtimg.com/news_ls/OHdw6AOf_ZZPSZ2dXs6tUbz8xxid7JIoXrVyWNiR84Xc8AA_197130/0"
+        ],
+        "ls_img_exp_type": "1",
+        "ext": {
+          "196x130": "https://inews.gtimg.com/news_ls/OHdw6AOf_ZZPSZ2dXs6tUbz8xxid7JIoXrVyWNiR84Xc8AA_196130/0",
+          "360x240": "https://inews.gtimg.com/news_ls/OHdw6AOf_ZZPSZ2dXs6tUbz8xxid7JIoXrVyWNiR84Xc8AA_360240/0",
+          "330x330": "https://inews.gtimg.com/news_ls/OHdw6AOf_ZZPSZ2dXs6tUbz8xxid7JIoXrVyWNiR84Xc8AA_330330/0"
+        },
+        "share_img": "https://inews.gtimg.com/news_ls/Ot1zndnoO_IInWuTFjHBqzPTx6Dj9DOEe3NeM0y8rCU6kAA_240240/0",
+        "img_count": 9
+      },
+      "link_info": {
+        "share_url": "https://view.inews.qq.com/a/20260810A08QTT00",
+        "url": "https://new.qq.com/rain/a/20260810A08QTT00",
+        "short_url": "https://view.inews.qq.com/a/20260810A08QTT00",
+        "org_url": "https://view.inews.qq.com/a/20260810A08QTT00"
+      },
+      "media_info": {
+        "chl_id": "24394723",
+        "chl_name": "字母AI",
+        "icon": "https://inews.gtimg.com/om_ls/OL2WVeZciqy4ovw0c7CILnvgVWCYgtA4ebxo53p5CmmCcAA_200200/0",
+        "sicon": "https://inews.gtimg.com/om_ls/OL2WVeZciqy4ovw0c7CILnvgVWCYgtA4ebxo53p5CmmCcAA_200200/0",
+        "mrk": "聚焦前沿科技，抢先看到未来。",
+        "last_art_update": "0",
+        "encoded_suid": "8QIf3n5d6YMVvT7a5AE=",
+        "vip_type": "30011",
+        "vip_type_new": "30011",
+        "vip_desc": "科技领域创作者",
+        "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876048581/0",
+        "medal_info": {
+          "type_id": 25,
+          "medal_id": 39,
+          "medal_level": 1,
+          "medal_name": "千锤百炼",
+          "medal_desc": "腾讯新闻粉丝数达到1000",
+          "night_url": "http://inews.gtimg.com/newsapp_ls/0/14465639253/0",
+          "daytime_url": "http://inews.gtimg.com/newsapp_ls/0/14465637934/0"
+        }
+      },
+      "interation_info": {
+        "comment_id": "1260810605069777",
+        "read_num": 194,
+        "like_num": 1,
+        "collect_num": 3,
+        "share_num": 1,
+        "share_wechat_num": 1
+      },
+      "doc_info": {
+        "first_cate_id": "16",
+        "first_cate_name": "tech",
+        "sec_cate_id": "1607",
+        "sec_cate_name": "tech_communication"
+      },
+      "update_time": "2026-08-10 20:43:10",
+      "news724_feature": null,
+      "desc": "几天前，SpaceX和特斯拉正式公布Terafab的建设计划。这座位于美国得州的超级芯片工厂，将获得168亿美元初始投资，未来目标是成为支撑特斯拉机器人、自动驾驶以及SpaceX AI基础设施的计算底座。过去十几年，马斯克通过SpaceX证明了私人企业也能挑战传统航天工业。而现在，Terafab把目标对准了另一片艰难的领域：半导体制造。对马斯克而言，建造一座晶圆厂，资金是最不值一提的难点。一座先进晶圆厂真正棘手的地方，在于如何把复杂的制程、设备和工程流程整合起来，让芯片从设计图走向稳定量产。在Terafab正式公布之前，特斯拉已经开始组建一支围绕半导体制造能力的团。其中最受关注的一名成员，是一...",
+      "safe_control": {
+        "close_all_ad": 0,
+        "close_all_favorite": 0,
+        "close_all_rel": 0,
+        "close_share_pull": 0,
+        "close_relate_thing": 0,
+        "close_all_emoticon_comment": 0,
+        "political_option": "0",
+        "pc_not_display": ""
+      },
+      "category": {
+        "cate1_name": "科技",
+        "cate1_en_name": "tech",
+        "cate1_id": "20786087",
+        "cate2_name": "IT半导体",
+        "cate2_id": "65998493"
+      },
+      "declare": {},
+      "pub_info": {
+        "source": "0",
+        "sub_source": "0"
+      },
+      "payment_info": {},
+      "user_address": "北京",
+      "dislike_options": [
+        {
+          "menu_id": "0",
+          "menu_name": "不感兴趣",
+          "menu_items": [
+            {
+              "type": "dislike_cp",
+              "name": "不推荐该作者",
+              "id": "40033"
+            },
+            {
+              "type": "dislike_content",
+              "name": "减少此类内容",
+              "id": "40022"
+            }
+          ]
+        }
+      ],
+      "cp_info": {
+        "tnews_self_made": -1
+      },
+      "flag": {},
+      "extra_property": {},
+      "share_info": {
+        "share_title": "马斯克的芯片梦，要靠这个清华人来落地",
+        "share_subtitle": "几天前，SpaceX和特斯拉正式公布Terafab的建设计划。这座位于美国得州的超级芯片工厂，将获得168亿美元初始投资，未来目标是成为支撑特斯拉机器人、自动驾驶以及SpaceX AI基础设施的计算底座。过去十几年，马斯克通过SpaceX证明了私人企业也能挑战传统航天工业。而现在，Terafab把目标对准了另一片艰难的领域：半导体制造。对马斯克而言，建造一座晶圆厂，资金是最不值一提的难点。一座先进晶圆厂真正棘手的地方，在于如何把复杂的制程、设备和工程流程整合起来，让芯片从设计图走向稳定量产。在Terafab正式公布之前，特斯拉已经开始组建一支围绕半导体制造能力的团。其中最受关注的一名成员，是一..."
+      },
+      "long_summary": "几天前，SpaceX和特斯拉正式公布Terafab的建设计划。这座位于美国得州的超级芯片工厂，将获得168亿美元初始投资，未来目标是成为支撑特斯拉机器人、自动驾驶以及SpaceX AI基础设施的计算底座。过去十几年，马斯克通过SpaceX证明了私人企业也能挑战传统航天工业。而现在，Terafab把目标对准了另一片艰难的领域：半导体制造。对马斯克而言，建造一座晶圆厂，资金是最不值一提的难点。一座先进晶圆厂真正棘手的地方，在于如何把复杂的制程、设备和工程流程整合起来，让芯片从设计图走向稳定量产。"
+    },
+    {
+      "id": "20260810V05NY500",
+      "articletype": "4",
+      "title": "DeepSeek用3美分，打破美国人定的规则！",
+      "pic_style": 4,
+      "publish_time": "2026-08-10 12:12:35",
+      "pic_info": {
+        "big_img": [
+          "https://inews.gtimg.com/om_ls/OI_o1J2nRQ9KGGsBoKUd-YPKOPJZ8ErcoyIlJy781xmXEAA_870492_compress/0"
+        ],
+        "small_img": [
+          "https://inews.gtimg.com/om_ls/O8tue85Z6cyeQDoeaNsj458GUdUQERW691pcXyrLayJP8AA_294195_compress/0"
+        ],
+        "three_img": [
+          "https://inews.gtimg.com/om_ls/OvWyBgUNofD3S6uIwgjRvhalUf8urZm0Y0RN2EszmMu9MAA_150120/0"
+        ],
+        "ls_img_exp_type": "1",
+        "ext": {
+          "640x360": "https://inews.gtimg.com/om_ls/OsGmmp4MXTtGNmLFkWPjAxrSYQADupvly7eIpDuHIW1roAA_640360/0",
+          "196x130": "https://inews.gtimg.com/om_ls/OsGmmp4MXTtGNmLFkWPjAxrSYQADupvly7eIpDuHIW1roAA_196130/0",
+          "330x330": "https://inews.gtimg.com/om_ls/OsGmmp4MXTtGNmLFkWPjAxrSYQADupvly7eIpDuHIW1roAA_330330/0",
+          "480x640": "https://inews.gtimg.com/om_ls/OsGmmp4MXTtGNmLFkWPjAxrSYQADupvly7eIpDuHIW1roAA_480640/0"
+        },
+        "share_img": "https://inews.gtimg.com/news_ls/OMaVAgaQ8vtPh68xtt0aQi0_mMAOswy6ou0141e8HKyXcAA_240240/0",
+        "aspect": "0.56",
+        "pic_first": "https://puui.qpic.cn/vpic_cover/w1282iqzq9y/w1282iqzq9y_first.jpg/720"
+      },
+      "link_info": {
+        "share_url": "https://view.inews.qq.com/a/20260810V05NY500",
+        "url": "https://new.qq.com/rain/a/20260810V05NY500",
+        "short_url": "https://view.inews.qq.com/a/20260810V05NY500",
+        "org_url": "https://view.inews.qq.com/a/20260810V05NY500"
+      },
+      "media_info": {
+        "chl_id": "5094895",
+        "chl_name": "红衣大叔周鸿祎",
+        "icon": "http://inews.gtimg.com/newsapp_ls/0/1551666762_200200/0",
+        "sicon": "http://inews.gtimg.com/newsapp_ls/0/1551666762_200200/0",
+        "mrk": "360集团创始人\n不装，不端，有点二",
+        "last_art_update": "0",
+        "uin": "ec32bb18b210f8208578e42f2be6a9ce14",
+        "encoded_suid": "8QMc3HdZ74EVvjY=",
+        "vip_type": "30013",
+        "vip_type_new": "30013",
+        "vip_desc": "360公司董事长兼CEO",
+        "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876049251/0",
+        "medal_info": {
+          "type_id": 26,
+          "medal_id": 40,
+          "medal_level": 1,
+          "medal_name": "万众瞩目",
+          "medal_desc": "腾讯新闻粉丝数达到1w",
+          "night_url": "http://inews.gtimg.com/newsapp_ls/0/14465644517/0",
+          "daytime_url": "http://inews.gtimg.com/newsapp_ls/0/14465643388/0"
+        }
+      },
+      "interation_info": {
+        "comment_id": "12608101874715773",
+        "commet_num": 1,
+        "like_num": 2,
+        "collect_num": 2
+      },
+      "video_info": {
+        "vid": "w1282iqzq9y",
+        "img": "https://inews.gtimg.com/om_ls/OvWyBgUNofD3S6uIwgjRvhalUf8urZm0Y0RN2EszmMu9MAA_640480/0",
+        "play_url": "http://inews.qq.com/webVideo?vid=w1282iqzq9y&img=https://inews.gtimg.com/om_ls/OvWyBgUNofD3S6uIwgjRvhalUf8urZm0Y0RN2EszmMu9MAA_640480/0&appver=",
+        "play_num": 298,
+        "duration": "04:03",
+        "content": "",
+        "wxplugin_content_status": 0
+      },
+      "doc_info": {},
+      "update_time": "2026-08-10 20:43:10",
+      "news724_feature": null,
+      "desc": "DeepSeek用3美分，打破美国人定的规则！ #大有学问 #红衣聊AI",
+      "safe_control": {
+        "close_all_ad": 0,
+        "close_all_favorite": 0,
+        "close_all_rel": 0,
+        "close_share_pull": 0,
+        "close_relate_thing": 0,
+        "close_all_emoticon_comment": 0,
+        "political_option": "0",
+        "pc_not_display": ""
+      },
+      "category": {
+        "cate1_name": "科技",
+        "cate1_en_name": "tech",
+        "cate1_id": "20786087",
+        "cate2_name": "人工智能",
+        "cate2_id": "8441946"
+      },
+      "declare": {},
+      "pub_info": {},
+      "payment_info": {},
+      "user_address": "北京",
+      "dislike_options": [
+        {
+          "menu_id": "0",
+          "menu_name": "不感兴趣",
+          "menu_items": [
+            {
+              "type": "dislike_cp",
+              "name": "不推荐该作者",
+              "id": "40033"
+            },
+            {
+              "type": "dislike_content",
+              "name": "减少此类内容",
+              "id": "40022"
+            }
+          ]
+        }
+      ],
+      "cp_info": {
+        "tnews_self_made": -1
+      },
+      "flag": {},
+      "extra_property": {},
+      "share_info": {
+        "share_title": "DeepSeek用3美分，打破美国人定的规则！",
+        "share_subtitle": "【视频】作者：红衣大叔周鸿祎"
+      },
+      "declares": [
+        {
+          "type": "ai",
+          "text": "该内容疑似使用了AI生成技术，请谨慎甄别"
+        }
+      ]
+    },
+    {
+      "id": "20260810A09ZPR00",
+      "articletype": "0",
+      "title": "张一鸣反对梁文锋",
+      "pic_style": 0,
+      "publish_time": "2026-08-10 17:42:41",
+      "pic_info": {
+        "big_img": [
+          "https://inews.gtimg.com/om_ls/OeGGvHHSZLTm8O9M72AfPFdnImj2zcj2lJOxY0_JqoCH0AA_870492/0"
+        ],
+        "small_img": [
+          "https://inews.gtimg.com/om_ls/OeGGvHHSZLTm8O9M72AfPFdnImj2zcj2lJOxY0_JqoCH0AA_294195/0"
+        ],
+        "three_img": [
+          "https://inews.gtimg.com/om_ls/OeGGvHHSZLTm8O9M72AfPFdnImj2zcj2lJOxY0_JqoCH0AA_197130/0"
+        ],
+        "ls_img_exp_type": "1",
+        "ext": {
+          "196x130": "https://inews.gtimg.com/om_ls/OeGGvHHSZLTm8O9M72AfPFdnImj2zcj2lJOxY0_JqoCH0AA_196130/0",
+          "360x240": "https://inews.gtimg.com/om_ls/OeGGvHHSZLTm8O9M72AfPFdnImj2zcj2lJOxY0_JqoCH0AA_360240/0",
+          "330x330": "https://inews.gtimg.com/om_ls/OeGGvHHSZLTm8O9M72AfPFdnImj2zcj2lJOxY0_JqoCH0AA_330330/0"
+        },
+        "share_img": "https://inews.gtimg.com/news_ls/OOt-GR9RPM08Wxzo_qJM_g24rEDqxDKBSFnBv1T-vD97wAA_240240/0",
+        "img_count": 4
+      },
+      "link_info": {
+        "share_url": "https://view.inews.qq.com/a/20260810A09ZPR00",
+        "url": "https://new.qq.com/rain/a/20260810A09ZPR00",
+        "short_url": "https://view.inews.qq.com/a/20260810A09ZPR00",
+        "org_url": "https://view.inews.qq.com/a/20260810A09ZPR00"
+      },
+      "media_info": {
+        "chl_id": "16850169",
+        "chl_name": "字母榜",
+        "icon": "http://inews.gtimg.com/newsapp_ls/0/10547423891_200200/0",
+        "sicon": "http://inews.gtimg.com/newsapp_ls/0/10547423891_200200/0",
+        "mrk": "让未来不止于大。关注巨头企业的进化、生态和战争。",
+        "last_art_update": "0",
+        "uin": "ecb0cc798382bcd0a272b9b51a7b8d3218",
+        "encoded_suid": "8QMc1ndZ64YYvTzY",
+        "vip_type": "30011",
+        "vip_type_new": "30011",
+        "vip_desc": "科技领域创作者",
+        "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876048581/0",
+        "medal_info": {
+          "type_id": 52,
+          "medal_id": 81,
+          "medal_level": 3,
+          "medal_name": "连续阅读60天",
+          "medal_desc": "连续登录60天达成，若中断将重新累计进度",
+          "night_url": "https://inews.gtimg.com/newsapp_bt/0/0107171006629_1439/0",
+          "daytime_url": "https://inews.gtimg.com/newsapp_bt/0/0107171006629_1439/0"
+        }
+      },
+      "interation_info": {
+        "comment_id": "1260810605127951",
+        "commet_num": 211,
+        "read_num": 142729,
+        "like_num": 511,
+        "collect_num": 570,
+        "share_num": 413,
+        "share_wechat_num": 343
+      },
+      "doc_info": {
+        "first_cate_id": "16",
+        "first_cate_name": "tech",
+        "sec_cate_id": "1605",
+        "sec_cate_name": "tech_ai"
+      },
+      "update_time": "2026-08-10 20:43:10",
+      "news724_feature": null,
+      "desc": "当今国内AI圈子里，谁还和掌舵DeepSeek的“梁圣”公开唱反调？目前来看，似乎只有张一鸣。7月底，张一鸣罕见露面，与字节AI部门Seed负责人吴永辉共同召开了Seed全员会。字节旗下的视频生成模型Seedance被点名表扬。在张一鸣看来，Seedance在市场上很特别，也有领先的技术优势。相比追随其他领先模型的既有路线，他更鼓励Seed做出有自己特色的模型。也就是说，字节将继续把多模态模型作为发展重点之一，而这恰恰是梁文锋不太看重的分支。张一鸣还点评了眼下火热的AI编程。他认可AI编程是当前的关键方向，但也提醒，编程只是眼下的热点之一，不应该完全被它牵着走，编程之外还有更多更大的机会。作为...",
+      "safe_control": {
+        "close_all_ad": 0,
+        "close_all_favorite": 0,
+        "close_all_rel": 0,
+        "close_share_pull": 0,
+        "close_relate_thing": 0,
+        "close_all_emoticon_comment": 0,
+        "political_option": "0",
+        "pc_not_display": ""
+      },
+      "category": {
+        "cate1_name": "科技",
+        "cate1_en_name": "tech",
+        "cate1_id": "20786087",
+        "cate2_name": "人工智能",
+        "cate2_id": "8441946"
+      },
+      "declare": {},
+      "pub_info": {
+        "source": "0",
+        "sub_source": "0"
+      },
+      "payment_info": {},
+      "user_address": "北京",
+      "dislike_options": [
+        {
+          "menu_id": "0",
+          "menu_name": "不感兴趣",
+          "menu_items": [
+            {
+              "type": "dislike_cp",
+              "name": "不推荐该作者",
+              "id": "40033"
+            },
+            {
+              "type": "dislike_content",
+              "name": "减少此类内容",
+              "id": "40022"
+            },
+            {
+              "type": "dislike_block",
+              "name": "不推荐: 张一鸣",
+              "id": "2542502"
+            }
+          ]
+        }
+      ],
+      "cp_info": {
+        "tnews_self_made": -1
+      },
+      "flag": {},
+      "extra_property": {},
+      "share_info": {
+        "share_title": "张一鸣反对梁文锋",
+        "share_subtitle": "当今国内AI圈子里，谁还和掌舵DeepSeek的“梁圣”公开唱反调？目前来看，似乎只有张一鸣。7月底，张一鸣罕见露面，与字节AI部门Seed负责人吴永辉共同召开了Seed全员会。字节旗下的视频生成模型Seedance被点名表扬。在张一鸣看来，Seedance在市场上很特别，也有领先的技术优势。相比追随其他领先模型的既有路线，他更鼓励Seed做出有自己特色的模型。也就是说，字节将继续把多模态模型作为发展重点之一，而这恰恰是梁文锋不太看重的分支。张一鸣还点评了眼下火热的AI编程。他认可AI编程是当前的关键方向，但也提醒，编程只是眼下的热点之一，不应该完全被它牵着走，编程之外还有更多更大的机会。作为..."
+      },
+      "long_summary": "7月底，张一鸣罕见露面，与字节AI部门Seed负责人吴永辉共同召开了Seed全员会。张一鸣要求字节“以追求智能上限为目标”，梁文锋直言DeepSeek真正的长期目标是AGI，做对人类有用的事情。字节倾向于以系统的力量取胜——更大的参数规模、更全面的产品矩阵、更多的用户、更完整的生态。如今，字节和DeepSeek也处于类似的起点上。AI也需要闭源的字节和开源的DeepSeek，沿着不同的路线向AGI发起冲击。他们或许并不完全认同对方，但这种不认同激发的斗志和想象力，将会持续推动双方和整个行业向前。"
+    },
+    {
+      "id": "20260810A048R300",
+      "articletype": "0",
+      "title": "Sonnet 5.5大泄露！对标DeepSeek，新一代性价比之王",
+      "pic_style": 0,
+      "publish_time": "2026-08-10 10:32:14",
+      "pic_info": {
+        "big_img": [
+          "https://inews.gtimg.com/news_ls/O0aM6XEbB2e5OomJrS4tsj2HxGoVEJjaUO9rS-YrhxaRIAA_870492/0"
+        ],
+        "small_img": [
+          "https://inews.gtimg.com/news_ls/O0aM6XEbB2e5OomJrS4tsj2HxGoVEJjaUO9rS-YrhxaRIAA_294195/0"
+        ],
+        "three_img": [
+          "https://inews.gtimg.com/news_ls/O0aM6XEbB2e5OomJrS4tsj2HxGoVEJjaUO9rS-YrhxaRIAA_197130/0"
+        ],
+        "ls_img_exp_type": "1",
+        "ext": {
+          "196x130": "https://inews.gtimg.com/news_ls/O0aM6XEbB2e5OomJrS4tsj2HxGoVEJjaUO9rS-YrhxaRIAA_196130/0",
+          "360x240": "https://inews.gtimg.com/news_ls/O0aM6XEbB2e5OomJrS4tsj2HxGoVEJjaUO9rS-YrhxaRIAA_360240/0",
+          "330x330": "https://inews.gtimg.com/news_ls/O0aM6XEbB2e5OomJrS4tsj2HxGoVEJjaUO9rS-YrhxaRIAA_330330/0"
+        },
+        "share_img": "https://inews.gtimg.com/news_ls/OkgJTK1XV_l9cvLYRe4dsmP3gWRHT9z8k6Hw7rR9WdAa0AA_240240/0",
+        "img_count": 4
+      },
+      "link_info": {
+        "share_url": "https://view.inews.qq.com/a/20260810A048R300",
+        "url": "https://new.qq.com/rain/a/20260810A048R300",
+        "short_url": "https://view.inews.qq.com/a/20260810A048R300",
+        "org_url": "https://view.inews.qq.com/a/20260810A048R300"
+      },
+      "media_info": {
+        "chl_id": "5007404",
+        "chl_name": "机器之心",
+        "icon": "http://inews.gtimg.com/newsapp_ls/0/87740813_100100/0",
+        "sicon": "http://inews.gtimg.com/newsapp_ls/0/87740813_100100/0",
+        "mrk": "专业的前沿科技媒体与产业服务平台",
+        "last_art_update": "1786354265",
+        "encoded_suid": "8QMc3XlV5YcauTjR",
+        "vip_type": "30012",
+        "vip_type_new": "30012",
+        "vip_desc": "机器之心官方账号",
+        "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876051701/0",
+        "medal_info": {
+          "type_id": 31,
+          "medal_id": 45,
+          "medal_level": 1,
+          "medal_name": "别具慧眼",
+          "medal_desc": "成为荐评手，一起建设腾讯新闻社区！",
+          "night_url": "https://new.inews.gtimg.com/tnews/8c3d00f9/7f36/8c3d00f9-7f36-44a9-82c4-be357b54fe9b.png",
+          "daytime_url": "https://new.inews.gtimg.com/tnews/45af77fe/a73d/45af77fe-a73d-42d2-ab80-feaa383611de.png"
+        }
+      },
+      "interation_info": {
+        "comment_id": "1260810604859727",
+        "commet_num": 4,
+        "read_num": 916,
+        "like_num": 1,
+        "collect_num": 3,
+        "share_num": 5,
+        "share_wechat_num": 3
+      },
+      "doc_info": {
+        "first_cate_id": "16",
+        "first_cate_name": "tech",
+        "sec_cate_id": "1605",
+        "sec_cate_name": "tech_ai"
+      },
+      "update_time": "2026-08-10 20:43:10",
+      "news724_feature": null,
+      "desc": "编辑｜冷猫Anthropic 和 OpenAI 的竞争愈发白热化。自从 DeepSeek V4 Flash 带着超级性价比之王的身份入局之后，海外大厂似乎没有一个坐得住的。Anthropic 的最新 Sonnet 5.5 模型被爆出已经箭在弦上，内部代号「Fennec」（一种沙漠狐），爆料称大概率下个月发布。简单概括一下目前爆出的内容：200 万 token 上下文窗口、更快的推理速度和更低延迟、长上下文推理与多步规划能力增强、浏览器和终端等工具调用大幅改善。能力逼近 Fable 5，价格仍然维持在 Sonnet 档位。根据目前流出的消息：发布时间： 最早可能于下个月发布开发进度： 据称已进入...",
+      "safe_control": {
+        "close_all_ad": 0,
+        "close_all_favorite": 0,
+        "close_all_rel": 0,
+        "close_share_pull": 0,
+        "close_relate_thing": 0,
+        "close_all_emoticon_comment": 0,
+        "political_option": "0",
+        "pc_not_display": ""
+      },
+      "category": {
+        "cate1_name": "科技",
+        "cate1_en_name": "tech",
+        "cate1_id": "20786087",
+        "cate2_name": "人工智能",
+        "cate2_id": "8441946"
+      },
+      "declare": {},
+      "pub_info": {
+        "source": "0",
+        "sub_source": "0"
+      },
+      "payment_info": {},
+      "user_address": "北京",
+      "dislike_options": [
+        {
+          "menu_id": "0",
+          "menu_name": "不感兴趣",
+          "menu_items": [
+            {
+              "type": "dislike_cp",
+              "name": "不推荐该作者",
+              "id": "40033"
+            },
+            {
+              "type": "dislike_content",
+              "name": "减少此类内容",
+              "id": "40022"
+            }
+          ]
+        }
+      ],
+      "cp_info": {
+        "tnews_self_made": -1
+      },
+      "flag": {},
+      "extra_property": {},
+      "share_info": {
+        "share_title": "Sonnet 5.5大泄露！对标DeepSeek，新一代性价比之王",
+        "share_subtitle": "编辑｜冷猫Anthropic 和 OpenAI 的竞争愈发白热化。自从 DeepSeek V4 Flash 带着超级性价比之王的身份入局之后，海外大厂似乎没有一个坐得住的。Anthropic 的最新 Sonnet 5.5 模型被爆出已经箭在弦上，内部代号「Fennec」（一种沙漠狐），爆料称大概率下个月发布。简单概括一下目前爆出的内容：200 万 token 上下文窗口、更快的推理速度和更低延迟、长上下文推理与多步规划能力增强、浏览器和终端等工具调用大幅改善。能力逼近 Fable 5，价格仍然维持在 Sonnet 档位。根据目前流出的消息：发布时间： 最早可能于下个月发布开发进度： 据称已进入..."
+      },
+      "long_summary": "Anthropic和OpenAI的竞争愈发白热化。自从DeepSeek V4 Flash带着超级性价比之王的身份入局之后，海外大厂似乎没有一个坐得住的。Anthropic的最新Sonnet 5.5模型被爆出已经箭在弦上，内部代号「Fennec」，爆料称大概率下个月发布。我们有理由相信，全新的Sonnet 5.5在定位上对标DeepSeek V4 Flash。如果目前泄露的信息大体属实，Sonnet 5.5有望在主流AI模型与高价前沿系统之间占据一个极具吸引力的位置。"
+    },
+    {
+      "id": "20260810A091T800",
+      "articletype": "0",
+      "title": "95后中国科大博士造光芯片，融资数亿，百度投了",
+      "pic_style": 0,
+      "publish_time": "2026-08-10 16:48:13",
+      "pic_info": {
+        "big_img": [
+          "https://inews.gtimg.com/om_ls/O6Gw144Vdub1pkpbMFD3GROlk1aZWlb4UwPq5f1o0PcCIAA_870492/0"
+        ],
+        "small_img": [
+          "https://inews.gtimg.com/om_ls/O6Gw144Vdub1pkpbMFD3GROlk1aZWlb4UwPq5f1o0PcCIAA_294195/0"
+        ],
+        "three_img": [
+          "https://inews.gtimg.com/om_ls/O6Gw144Vdub1pkpbMFD3GROlk1aZWlb4UwPq5f1o0PcCIAA_197130/0"
+        ],
+        "ls_img_exp_type": "1",
+        "ext": {
+          "196x130": "https://inews.gtimg.com/om_ls/O6Gw144Vdub1pkpbMFD3GROlk1aZWlb4UwPq5f1o0PcCIAA_196130/0",
+          "360x240": "https://inews.gtimg.com/om_ls/O6Gw144Vdub1pkpbMFD3GROlk1aZWlb4UwPq5f1o0PcCIAA_360240/0",
+          "330x330": "https://inews.gtimg.com/om_ls/O6Gw144Vdub1pkpbMFD3GROlk1aZWlb4UwPq5f1o0PcCIAA_330330/0"
+        },
+        "share_img": "https://inews.gtimg.com/news_ls/Oq-0Fk2Q1X2DZBDnLo1FB5FSQ5cxYadjqeqw9YyWllOQwAA_240240/0",
+        "img_count": 4
+      },
+      "link_info": {
+        "share_url": "https://view.inews.qq.com/a/20260810A091T800",
+        "url": "https://new.qq.com/rain/a/20260810A091T800",
+        "short_url": "https://view.inews.qq.com/a/20260810A091T800",
+        "org_url": "https://view.inews.qq.com/a/20260810A091T800"
+      },
+      "media_info": {
+        "chl_id": "5643813",
+        "chl_name": "芯东西",
+        "icon": "http://inews.gtimg.com/newsapp_ls/0/10886265660_200200/0",
+        "sicon": "http://inews.gtimg.com/newsapp_ls/0/10886265660_200200/0",
+        "mrk": "智东西AI媒体矩阵品牌。芯东西，芯片产业新媒体。我们是一群追芯人，专注报道AI芯片和半导体产业创新，尤其是以芯片设计创新引领的计算新革命和国产替代浪潮。",
+        "last_art_update": "0",
+        "uin": "ec984da7dd9083bfbc8446efa3bd6a48d9",
+        "encoded_suid": "8QMd331e6YYdvjk=",
+        "vip_type": "30012",
+        "vip_type_new": "30012",
+        "vip_desc": "芯东西官方账号",
+        "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876051701/0",
+        "medal_info": {
+          "type_id": 25,
+          "medal_id": 39,
+          "medal_level": 1,
+          "medal_name": "千锤百炼",
+          "medal_desc": "腾讯新闻粉丝数达到1000",
+          "night_url": "http://inews.gtimg.com/newsapp_ls/0/14465639253/0",
+          "daytime_url": "http://inews.gtimg.com/newsapp_ls/0/14465637934/0"
+        }
+      },
+      "interation_info": {
+        "comment_id": "1260810605084012",
+        "read_num": 228,
+        "like_num": 1,
+        "collect_num": 5,
+        "share_num": 1
+      },
+      "doc_info": {
+        "first_cate_id": "16",
+        "first_cate_name": "tech",
+        "sec_cate_id": "1604",
+        "sec_cate_name": "tech_investment"
+      },
+      "update_time": "2026-08-10 20:43:10",
+      "news724_feature": null,
+      "desc": "芯东西（公众号：aichip001） 作者 | 刘煜 编辑 | 陈骏达芯东西8月10日报道，今日，上海AI光计算芯片研发企业奇算光启宣布，其已于近日完成天使轮及天使+轮融资。自成立以来，该公司累计融资金额已达数亿元。其中，奇算光启的天使轮融资由高瓴创投领投，BV百度风投、张江高科跟投；天使+轮融资由高瓴创投、真格基金、上海未...",
+      "safe_control": {
+        "close_all_ad": 0,
+        "close_all_favorite": 0,
+        "close_all_rel": 0,
+        "close_share_pull": 0,
+        "close_relate_thing": 0,
+        "close_all_emoticon_comment": 0,
+        "political_option": "0",
+        "pc_not_display": ""
+      },
+      "category": {
+        "cate1_name": "科技",
+        "cate1_en_name": "tech",
+        "cate1_id": "20786087",
+        "cate2_name": "人工智能",
+        "cate2_id": "8441946"
+      },
+      "declare": {},
+      "pub_info": {
+        "source": "2",
+        "sub_source": "0"
+      },
+      "payment_info": {},
+      "user_address": "北京",
+      "dislike_options": [
+        {
+          "menu_id": "0",
+          "menu_name": "不感兴趣",
+          "menu_items": [
+            {
+              "type": "dislike_cp",
+              "name": "不推荐该作者",
+              "id": "40033"
+            },
+            {
+              "type": "dislike_content",
+              "name": "减少此类内容",
+              "id": "40022"
+            }
+          ]
+        }
+      ],
+      "cp_info": {
+        "tnews_self_made": -1
+      },
+      "flag": {},
+      "extra_property": {},
+      "share_info": {
+        "share_title": "95后中国科大博士造光芯片，融资数亿，百度投了",
+        "share_subtitle": "芯东西（公众号：aichip001） 作者 | 刘煜 编辑 | 陈骏达芯东西8月10日报道，今日，上海AI光计算芯片研发企业奇算光启宣布，其已于近日完成天使轮及天使+轮融资。自成立以来，该公司累计融资金额已达数亿元。其中，奇算光启的天使轮融资由高瓴创投领投，BV百度风投、张江高科跟投；天使+轮融资由高瓴创投、真格基金、上海未..."
+      },
+      "long_summary": "今日，上海AI光计算芯片研发企业奇算光启宣布，其已于近日完成天使轮及天使+轮融资。自成立以来，该公司累计融资金额已达数亿元。其中，奇算光启的天使轮融资由高瓴创投领投，BV百度风投、张江高科跟投；天使+轮融资由高瓴创投、真格基金、上海未来产业基金联合领投，同创伟业跟投，老股东深流资本、张江高科与BV百度风投持续加注。明德资本担任独家财务顾问。相关融资资金将重点投入核心技术研发与人才建设。奇算光启成立于2024年，其创始人兼CEO是钟翰森。他出生于1995年，博士毕业于中国科学技术大学。"
+    },
+    {
+      "id": "20260810V07PA300",
+      "articletype": "4",
+      "title": "认知科学家Joscha Bach：人类本身就是AI",
+      "pic_style": 4,
+      "publish_time": "2026-08-10 15:29:18",
+      "pic_info": {
+        "big_img": [
+          "https://inews.gtimg.com/news_ls/OgUMqDs52ef5n29YZnPUr6j93NxblRvNcKJYCv5o0_3dQAA_870492/0"
+        ],
+        "small_img": [
+          "https://inews.gtimg.com/news_ls/OgUMqDs52ef5n29YZnPUr6j93NxblRvNcKJYCv5o0_3dQAA_294195/0"
+        ],
+        "three_img": [
+          "https://inews.gtimg.com/news_ls/OgUMqDs52ef5n29YZnPUr6j93NxblRvNcKJYCv5o0_3dQAA_150120/0"
+        ],
+        "ls_img_exp_type": "2",
+        "ext": {
+          "640x360": "https://inews.gtimg.com/news_ls/OgUMqDs52ef5n29YZnPUr6j93NxblRvNcKJYCv5o0_3dQAA_640360/0",
+          "196x130": "https://inews.gtimg.com/news_ls/OgUMqDs52ef5n29YZnPUr6j93NxblRvNcKJYCv5o0_3dQAA_196130/0",
+          "330x330": "https://inews.gtimg.com/news_ls/OgUMqDs52ef5n29YZnPUr6j93NxblRvNcKJYCv5o0_3dQAA_330330/0",
+          "480x640": "https://inews.gtimg.com/news_ls/OgUMqDs52ef5n29YZnPUr6j93NxblRvNcKJYCv5o0_3dQAA_480640/0"
+        },
+        "share_img": "https://inews.gtimg.com/news_ls/OF-QleyUI3wguRbaMEOEnz-EOyO5DZJgzMQRKHYuGeHoUAA_240240/0",
+        "aspect": "1.78",
+        "pic_first": "https://puui.qpic.cn/vpic_cover/g1282xvickc/g1282xvickc_first.jpg/720"
+      },
+      "link_info": {
+        "share_url": "https://view.inews.qq.com/a/20260810V07PA300",
+        "url": "https://new.qq.com/rain/a/20260810V07PA300",
+        "short_url": "https://view.inews.qq.com/a/20260810V07PA300",
+        "org_url": "https://view.inews.qq.com/a/20260810V07PA300"
+      },
+      "media_info": {
+        "chl_id": "20242581",
+        "chl_name": "硬核翻译局",
+        "icon": "http://inews.gtimg.com/newsapp_ls/0/13659958533_200200/0",
+        "sicon": "http://inews.gtimg.com/newsapp_ls/0/13659958533_200200/0",
+        "mrk": "硬核技术视频科普，让所有人都能看懂",
+        "last_art_update": "0",
+        "uin": "ec2c68e4bc91c4d4ea182ba25e683a978b",
+        "encoded_suid": "8QMf2H1V64wesDva",
+        "vip_type": "30011",
+        "vip_type_new": "30011",
+        "vip_desc": "科技领域创作者",
+        "vip_icon": "http://inews.gtimg.com/newsapp_ls/0/14876048581/0",
+        "medal_info": {
+          "type_id": 26,
+          "medal_id": 40,
+          "medal_level": 1,
+          "medal_name": "万众瞩目",
+          "medal_desc": "腾讯新闻粉丝数达到1w",
+          "night_url": "http://inews.gtimg.com/newsapp_ls/0/14465644517/0",
+          "daytime_url": "http://inews.gtimg.com/newsapp_ls/0/14465643388/0"
+        }
+      },
+      "interation_info": {
+        "comment_id": "12608101874810811",
+        "commet_num": 3,
+        "like_num": 1,
+        "collect_num": 2
+      },
+      "video_info": {
+        "vid": "g1282xvickc",
+        "desc": "8月8日，Joscha Bach受访表示，AI并非完全陌生的异类，它是人类已有的思维与信息处理能力的泛化与延伸。",
+        "img": "http://puui.qpic.cn/vpic_cover/g1282xvickc/g1282xvickc_hz.jpg/496",
+        "play_url": "http://inews.qq.com/webVideo?vid=g1282xvickc&img=http://puui.qpic.cn/vpic_cover/g1282xvickc/g1282xvickc_hz.jpg/496&appver=",
+        "play_num": 990,
+        "duration": "01:27",
+        "content": "8月8日，Joscha Bach受访表示，AI并非完全陌生的异类，它是人类已有的思维与信息处理能力的泛化与延伸。",
+        "wxplugin_content_status": 0
+      },
+      "doc_info": {},
+      "update_time": "2026-08-10 20:43:10",
+      "news724_feature": null,
+      "desc": "8月8日，Joscha Bach受访表示，AI并非完全陌生的异类，它是人类已有的思维与信息处理能力的泛化与延伸。",
+      "safe_control": {
+        "close_all_ad": 0,
+        "close_all_favorite": 0,
+        "close_all_rel": 0,
+        "close_share_pull": 0,
+        "close_relate_thing": 0,
+        "close_all_emoticon_comment": 0,
+        "political_option": "0",
+        "pc_not_display": ""
+      },
+      "category": {
+        "cate1_name": "科技",
+        "cate1_en_name": "tech",
+        "cate1_id": "20786087",
+        "cate2_name": "人工智能",
+        "cate2_id": "8441946"
+      },
+      "declare": {},
+      "pub_info": {},
+      "payment_info": {},
+      "user_address": "北京",
+      "dislike_options": [
+        {
+          "menu_id": "0",
+          "menu_name": "不感兴趣",
+          "menu_items": [
+            {
+              "type": "dislike_cp",
+              "name": "不推荐该作者",
+              "id": "40033"
+            },
+            {
+              "type": "dislike_content",
+              "name": "减少此类内容",
+              "id": "40022"
+            }
+          ]
+        }
+      ],
+      "cp_info": {
+        "tnews_self_made": 4
+      },
+      "flag": {},
+      "extra_property": {},
+      "share_info": {
+        "share_title": "认知科学家Joscha Bach：人类本身就是AI",
+        "share_subtitle": "【视频】8月8日，Joscha Bach受访表示，AI并非完全陌生的异类，它是人类已有的思维与信息处理能力的泛化与延伸。"
+      }
+    },
+    {
+      "id": "20260810A0AIJU00",
+      "articletype": "0",
+      "title": "张一鸣罕见现身，字节要干把大的",
+      "pic_style": 0,
+      "publish_time": "2026-08-10 18:12:59",
+      "pic_info": {
+        "big_img": [
+          "https://inews.gtimg.com/om_ls/OVpW_o3El4NJOOaXB3fyhc4D6WQaqyrr-YvoeZNBZo7awAA_870492/0"
+        ],
+        "small_img": [
+          "https://inews.gtimg.com/om_ls/OVpW_o3El4NJOOaXB3fyhc4D6WQaqyrr-YvoeZNBZo7awAA_294195/0"
+        ],
+        "three_img": [
+          "https://inews.gtimg.com/om_ls/OVpW_o3El4NJOOaXB3fyhc4D6WQaqyrr-YvoeZNBZo7awAA_197130/0"
+        ],
+        "ls_img_exp_type": "1",
+        "ext": {
+          "196x130": "https://inews.gtimg.com/om_ls/OVpW_o3El4NJOOaXB3fyhc4D6WQaqyrr-YvoeZNBZo7awAA_196130/0",
+          "360x240": "https://inews.gtimg.com/om_ls/OVpW_o3El4NJOOaXB3fyhc4D6WQaqyrr-YvoeZNBZo7awAA_360240/0",
+          "330x330": "https://inews.gtimg.com/om_ls/OVpW_o3El4NJOOaXB3fyhc4D6WQaqyrr-YvoeZNBZo7awAA_330330/0"
+        },
+        "share_img": "https://inews.gtimg.com/news_ls/O2o6I15ky16Qyr_DUiXfaIT_6sDlptptVKjrqlbOdMRiIAA_240240/0",
+        "img_count": 3
+      },
+      "link_info": {
+        "share_url": "https://view.inews.qq.com/a/20260810A0AIJU00",
+        "url": "https://new.qq.com/rain/a/20260810A0AIJU00",
+        "short_url": "https://view.inews.qq.com/a/20260810A0AIJU00",
+        "org_url": "https://view.inews.qq.com/a/20260810A0AIJU00"
+      },
+      "media_info": {
+        "chl_id": "1406",
+        "chl_name": "财天COVER",
+        "icon": "https://inews.gtimg.com/om_ls/OgRaopYrzWFMdBCj5mzJtdlWMzSJ3V9qGcifyI-yYu5MMAA_200200/0",
+        "sicon": "https://inews.gtimg.com/om_ls/OgRaopYrzWFMdBCj5mzJtdlWMzSJ3V9qGcifyI-yYu5MMAA_200200/0",
+        "mrk": "专业、有价值的商业观察！",
+        "last_art_update": "0",
+        "encoded_suid": "8QMf2n5f7Y0cvTbe",
+        "vip_type": "0",
+        "vip_type_new": "0",
+        "medal_info": {
+          "type_id": 31,
+          "medal_id": 45,
+          "medal_level": 1,
+          "medal_name": "别具慧眼",
+          "medal_desc": "成为荐评手，一起建设腾讯新闻社区！",
+          "night_url": "https://new.inews.gtimg.com/tnews/8c3d00f9/7f36/8c3d00f9-7f36-44a9-82c4-be357b54fe9b.png",
+          "daytime_url": "https://new.inews.gtimg.com/tnews/45af77fe/a73d/45af77fe-a73d-42d2-ab80-feaa383611de.png"
+        }
+      },
+      "interation_info": {
+        "comment_id": "1260810605152362",
+        "commet_num": 2,
+        "read_num": 106,
+        "share_num": 1,
+        "share_wechat_num": 1
+      },
+      "doc_info": {
+        "first_cate_id": "16",
+        "first_cate_name": "tech",
+        "sec_cate_id": "1604",
+        "sec_cate_name": "tech_investment"
+      },
+      "update_time": "2026-08-10 20:43:10",
+      "news724_feature": null,
+      "desc": "01、字节跳动的AI战略已非常清晰AI浪潮汹涌而至，大厂动作连连，就连久未露面的张一鸣都罕见现身了。多方信息显示，两周前，字节跳动创始人张一鸣在内部会上告诉“Seed”AI研究团队，要避免蒸馏竞争对手的模型。所谓蒸馏，是指用市场上先进的大模型训练自己的小模型。蒸馏能以较低的成本，在短时间内把模型能力提升上来，这在行业内是一条心照不宣的“捷径”。放弃用模型蒸馏这一手段来提速，字节跳动的模型可能会在短期内落后于对手。但张一鸣并不在乎。他认为，依赖蒸馏会阻碍真正的技术突破，构建真正的能力需要“长期主义和延迟满足，而不是利用他人的成果来获得短期的排行榜排名”。他还告诉Seed团队，公司应该愿意“为长期...",
+      "safe_control": {
+        "close_all_ad": 0,
+        "close_all_favorite": 0,
+        "close_all_rel": 0,
+        "close_share_pull": 0,
+        "close_relate_thing": 0,
+        "close_all_emoticon_comment": 0,
+        "political_option": "0",
+        "pc_not_display": ""
+      },
+      "category": {
+        "cate1_name": "科技",
+        "cate1_en_name": "tech",
+        "cate1_id": "20786087",
+        "cate2_name": "人工智能",
+        "cate2_id": "8441946"
+      },
+      "declare": {},
+      "pub_info": {
+        "source": "0",
+        "sub_source": "0"
+      },
+      "payment_info": {},
+      "user_address": "北京",
+      "dislike_options": [
+        {
+          "menu_id": "0",
+          "menu_name": "不感兴趣",
+          "menu_items": [
+            {
+              "type": "dislike_cp",
+              "name": "不推荐该作者",
+              "id": "40033"
+            },
+            {
+              "type": "dislike_content",
+              "name": "减少此类内容",
+              "id": "40022"
+            },
+            {
+              "type": "dislike_block",
+              "name": "不推荐: 张一鸣",
+              "id": "2542502"
+            }
+          ]
+        }
+      ],
+      "cp_info": {
+        "tnews_self_made": -1
+      },
+      "flag": {},
+      "extra_property": {},
+      "share_info": {
+        "share_title": "张一鸣罕见现身，字节要干把大的",
+        "share_subtitle": "01、字节跳动的AI战略已非常清晰AI浪潮汹涌而至，大厂动作连连，就连久未露面的张一鸣都罕见现身了。多方信息显示，两周前，字节跳动创始人张一鸣在内部会上告诉“Seed”AI研究团队，要避免蒸馏竞争对手的模型。所谓蒸馏，是指用市场上先进的大模型训练自己的小模型。蒸馏能以较低的成本，在短时间内把模型能力提升上来，这在行业内是一条心照不宣的“捷径”。放弃用模型蒸馏这一手段来提速，字节跳动的模型可能会在短期内落后于对手。但张一鸣并不在乎。他认为，依赖蒸馏会阻碍真正的技术突破，构建真正的能力需要“长期主义和延迟满足，而不是利用他人的成果来获得短期的排行榜排名”。他还告诉Seed团队，公司应该愿意“为长期..."
+      },
+      "long_summary": "AI浪潮汹涌而至，大厂动作连连，就连久未露面的张一鸣都罕见现身了。多方信息显示，两周前，字节跳动创始人张一鸣在内部会上告诉“Seed”AI研究团队，要避免蒸馏竞争对手的模型。这背后，是豆包企业版在部分飞书客户中开启内测。豆包能否成功整合B端的业务，成为字节跳动真正的“主干”，还需要在未来见分晓。但结合豆包、Seedance视频生成模型的全栈应用，以及闭源自研、不蒸馏的模型研发方式，张一鸣给字节划定了通向AGI的路线图：宁可以阶段性落后为代价，也要赢取一张拥有原创内核与长期价值的AI时代通行证。"
+    },
+    {
+      "id": "20260810A04WOW00",
+      "articletype": "0",
+      "title": "第一批转行做FDE的人，赚肥了",
+      "pic_style": 0,
+      "publish_time": "2026-08-10 11:13:03",
+      "pic_info": {
+        "big_img": [
+          "https://inews.gtimg.com/om_ls/Omqt3cUsm52YZicUl7-6fS5uhq5nIieOqJ9AjUUuhzTdkAA_870492/0"
+        ],
+        "small_img": [
+          "https://inews.gtimg.com/om_ls/Omqt3cUsm52YZicUl7-6fS5uhq5nIieOqJ9AjUUuhzTdkAA_294195/0"
+        ],
+        "three_img": [
+          "https://inews.gtimg.com/om_ls/Omqt3cUsm52YZicUl7-6fS5uhq5nIieOqJ9AjUUuhzTdkAA_197130/0"
+        ],
+        "ls_img_exp_type": "1",
+        "ext": {
+          "196x130": "https://inews.gtimg.com/om_ls/Omqt3cUsm52YZicUl7-6fS5uhq5nIieOqJ9AjUUuhzTdkAA_196130/0",
+          "360x240": "https://inews.gtimg.com/om_ls/Omqt3cUsm52YZicUl7-6fS5uhq5nIieOqJ9AjUUuhzTdkAA_360240/0",
+          "330x330": "https://inews.gtimg.com/om_ls/Omqt3cUsm52YZicUl7-6fS5uhq5nIieOqJ9AjUUuhzTdkAA_330330/0"
+        },
+        "share_img": "https://inews.gtimg.com/news_ls/OUnQvtF2d-osY5dhP4vXCL3CZCpRW-UGn0OmpiJP-gwzcAA_240240/0",
+        "img_count": 3
+      },
+      "link_info": {
+        "share_url": "https://view.inews.qq.com/a/20260810A04WOW00",
+        "url": "https://new.qq.com/rain/a/20260810A04WOW00",
+        "short_url": "https://view.inews.qq.com/a/20260810A04WOW00",
+        "org_url": "https://view.inews.qq.com/a/20260810A04WOW00"
+      },
+      "media_info": {
+        "chl_id": "23489717",
+        "chl_name": "硅星人Pro",
+        "icon": "https://inews.gtimg.com/om_ls/OsTHjUzX1w6mT47c6sysx3v7gZ5o-O1vRnzes--dEcnPcAA_200200/0",
+        "sicon": "https://inews.gtimg.com/om_ls/OsTHjUzX1w6mT47c6sysx3v7gZ5o-O1vRnzes--dEcnPcAA_200200/0",
+        "mrk": "硅（Si）是创造未来的基础，欢迎来到这个星球。",
+        "last_art_update": "0",
+        "encoded_suid": "8QMc339d5IMbvDfY5gVx",
+        "vip_type": "0",
+        "vip_type_new": "0",
+        "medal_info": {
+          "type_id": 25,
+          "medal_id": 39,
+          "medal_level": 1,
+          "medal_name": "千锤百炼",
+          "medal_desc": "腾讯新闻粉丝数达到1000",
+          "night_url": "http://inews.gtimg.com/newsapp_ls/0/14465639253/0",
+          "daytime_url": "http://inews.gtimg.com/newsapp_ls/0/14465637934/0"
+        }
+      },
+      "interation_info": {
+        "comment_id": "1260810604890752",
+        "commet_num": 3,
+        "read_num": 3239,
+        "like_num": 34,
+        "collect_num": 103,
+        "share_num": 85,
+        "share_wechat_num": 75
+      },
+      "doc_info": {
+        "first_cate_id": "16",
+        "first_cate_name": "tech",
+        "sec_cate_id": "1605",
+        "sec_cate_name": "tech_ai"
+      },
+      "update_time": "2026-08-10 20:43:08",
+      "news724_feature": null,
+      "desc": "以下文章来源于AI故事计划，作者钟楚笛",
+      "safe_control": {
+        "close_all_ad": 0,
+        "close_all_favorite": 0,
+        "close_all_rel": 0,
+        "close_share_pull": 0,
+        "close_relate_thing": 0,
+        "close_all_emoticon_comment": 0,
+        "political_option": "0",
+        "pc_not_display": ""
+      },
+      "category": {
+        "cate1_name": "科技",
+        "cate1_en_name": "tech",
+        "cate1_id": "20786087",
+        "cate2_name": "人工智能",
+        "cate2_id": "8441946"
+      },
+      "declare": {},
+      "pub_info": {
+        "source": "1",
+        "sub_source": "0"
+      },
+      "payment_info": {},
+      "user_address": "北京",
+      "dislike_options": [
+        {
+          "menu_id": "0",
+          "menu_name": "不感兴趣",
+          "menu_items": [
+            {
+              "type": "dislike_cp",
+              "name": "不推荐该作者",
+              "id": "40033"
+            },
+            {
+              "type": "dislike_content",
+              "name": "减少此类内容",
+              "id": "40022"
+            }
+          ]
+        }
+      ],
+      "cp_info": {
+        "tnews_self_made": -1
+      },
+      "flag": {},
+      "extra_property": {},
+      "share_info": {
+        "share_title": "第一批转行做FDE的人，赚肥了",
+        "share_subtitle": "以下文章来源于AI故事计划，作者钟楚笛"
+      },
+      "long_summary": "FDE，成为今年最火的AI新岗位。这个职位的任务是驻场在客户现场，解决AI落地的问题。那些靠帮企业落地大模型赚钱的公司，已经把它做成了业务标配。从OpenAI、Anthropic等海外大模型公司，到字节、阿里、腾讯等国内大厂，都在抢人。社交平台上，“单人接单月入十万”“零基础转行年薪百万”的故事满天飞。更何况很多企业的问题不在技术，在流程本身，FDE作为外人很难摸清其中的关卡。不同于现在大厂把FDE当作售卖产品的附赠服务，它或许会成为长期驻在公司内部、持续运行AI流程的角色。"
+    }
+  ],
+  "ad_list": "",
+  "trace_id": "",
+  "fixed_nums": 0,
+  "is_deleted": 0,
+  "code": 0,
+  "message": "",
+  "timestamp": "",
+  "hot_list": null,
+  "plugin_audio": null,
+  "native_ad_data": null
+}

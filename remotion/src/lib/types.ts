@@ -30,6 +30,18 @@ export type ChronicleTemplate = {
       pan_percent?: number;
       effects?: string[];
     };
+    summary_animation?: {
+      mode?: string;
+      scope?: string;
+      chars_per_second?: number;
+      start_delay_sec?: number;
+      show_cursor?: boolean;
+      cursor_blink_hz?: number;
+      cursor_hide_after_done_sec?: number;
+      fit_video_duration?: boolean;
+      max_chars_per_second?: number;
+      tail_margin_sec?: number;
+    };
   };
 };
 

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发布队列 - AINews</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
+    <link rel="stylesheet" href="/static/css/publish_queue.css?v=20260828a">
+    <script src="/static/js/shared/datetime.js?v=20260813f"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
+    <script src="/static/js/publish_queue.js?v=20260828a" defer></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+    <div class="queue-shell">
+        <header class="queue-header">
+            <div>
+                <h1>发布队列</h1>
+                <p class="queue-lead">查看待发布任务，调整定时发布时间。自动发布按文章排期，同篇各平台共用档期。</p>
+            </div>
+            <div class="queue-header-actions">
+                <button type="button" class="btn btn-soft" id="refreshQueueBtn">刷新</button>
+                <a class="btn btn-soft" href="/publish-center">发布中心</a>
+            </div>
+        </header>
+
+        <div id="workerBanner" class="queue-banner soft-banner-warn" hidden>
+            ⚠️ 发布 worker 未运行，队列中的任务暂时不会执行。
+        </div>
+
+        <section class="soft-card queue-summary" id="queueSummary">
+            <div class="summary-grid">
+                <div><span class="meta-label">待发布</span><span id="pendingCount">—</span></div>
+                <div><span class="meta-label">上传中</span><span id="uploadingCount">—</span></div>
+                <div class="summary-wide"><span class="meta-label">下一篇</span><span id="nextPublishText">—</span></div>
+            </div>
+        </section>
+
+        <section class="soft-card">
+            <div class="panel-head">
+                <h2 class="panel-title">当前队列</h2>
+                <span class="small text-muted" id="queueHint"></span>
+            </div>
+            <div class="table-wrap">
+                <table class="queue-table">
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>平台</th>
+                            <th>状态</th>
+                            <th>定时发布</th>
+                            <th>入队时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queueTableBody">
+                        <tr><td colspan="6" class="empty-cell">加载中…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="soft-card">
+            <div class="panel-head">
+                <h2 class="panel-title">首评待重试</h2>
+                <span class="small text-muted">已发布但首评失败的任务</span>
+            </div>
+            <div class="table-wrap">
+                <table class="queue-table">
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>平台</th>
+                            <th>首评状态</th>
+                            <th>重试次数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="commentRetryTableBody">
+                        <tr><td colspan="5" class="empty-cell">加载中…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <div id="scheduleModal" class="schedule-modal" hidden>
+        <div class="schedule-box soft-card">
+            <h3>改期</h3>
+            <p id="scheduleModalTitle" class="hint schedule-modal-title"></p>
+            <p id="scheduleModalNote" class="hint schedule-modal-note"></p>
+            <label for="scheduleDatetime">发布时间（北京时间）</label>
+            <input type="datetime-local" id="scheduleDatetime" class="form-control" />
+            <label class="schedule-cascade">
+                <input type="checkbox" id="scheduleCascade" checked>
+                <span>顺延后续自动发布任务</span>
+            </label>
+            <div class="schedule-actions">
+                <button type="button" class="btn btn-soft" id="scheduleCancelBtn">取消</button>
+                <button type="button" class="btn" id="scheduleSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

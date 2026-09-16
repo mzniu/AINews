@@ -11,10 +11,29 @@ defaults:
   max_images_per_article: 20
   max_image_bytes: 10485760
   stop_after_existing: 5
+  ingest_performance:
+    auto_llm_for_sa_on_ingest: false
+    story_cluster_llm_on_ingest: false
   story_cluster:
     enabled: true
     title_threshold: 0.72
     hours_window: 72
+    gray_low: 0.55
+    embedding:
+      enabled: true
+      method: hashing
+      rule_weight: 0.55
+      embedding_weight: 0.45
+      dimensions: 256
+    llm:
+      enabled: true
+      gray_low: 0.55
+      gray_high: 0.85
+      min_confidence: 0.7
+    review:
+      enabled: true
+      scan_limit: 30
+      merge_candidate_threshold: 0.62
 
 sources:
   - id: aitnt_travel
@@ -69,5 +88,115 @@ sources:
     list_pagination:
       type: single_page
     schedule_cron: "45 * * * *"
+    requires_playwright: false
+    max_list_pages: 1
+
+  - id: qq_news_fx
+    slug: qq_news_fx
+    display_name: 腾讯新闻·财经
+    enabled: true
+    adapter: qq_news
+    base_url: https://news.qq.com
+    list_url: https://news.qq.com/ch/fx
+    channel_id: news_news_fx
+    list_pagination:
+      type: query_page_zero
+      param: page
+      start: 0
+    schedule_cron: "5 * * * *"
+    requires_playwright: false
+    max_list_pages: 2
+
+  - id: ithome_it
+    slug: ithome_it
+    display_name: IT之家·IT资讯
+    enabled: true
+    adapter: ithome_news
+    base_url: https://it.ithome.com
+    list_url: https://it.ithome.com/
+    list_pagination:
+      type: single_page
+    schedule_cron: "10 * * * *"
+    requires_playwright: false
+    max_list_pages: 1
+
+  - id: techcrunch_ai
+    slug: techcrunch_ai
+    display_name: TechCrunch AI
+    enabled: true
+    adapter: techcrunch_news
+    base_url: https://techcrunch.com
+    list_url: https://techcrunch.com/category/artificial-intelligence/
+    category_id: 577047203
+    list_pagination:
+      type: query_paged
+      param: page
+      start: 1
+    schedule_cron: "20 * * * *"
+    requires_playwright: false
+    max_list_pages: 1
+
+  - id: venturebeat_ai
+    slug: venturebeat_ai
+    display_name: VentureBeat AI
+    enabled: true
+    adapter: venturebeat_news
+    base_url: https://venturebeat.com
+    list_url: https://venturebeat.com/category/ai/feed/
+    list_pagination:
+      type: single_page
+    schedule_cron: "35 * * * *"
+    requires_playwright: false
+    max_list_pages: 1
+
+  - id: readhub_ai
+    slug: readhub_ai
+    display_name: Readhub AI
+    enabled: true
+    adapter: readhub_news
+    base_url: https://readhub.cn
+    list_url: https://readhub.cn/
+    list_pagination:
+      type: single_page
+    schedule_cron: "40 * * * *"
+    requires_playwright: false
+    max_list_pages: 1
+
+  - id: aibase_daily
+    slug: aibase_daily
+    display_name: AIbase 日报
+    enabled: true
+    adapter: aibase_news
+    base_url: https://www.aibase.com
+    list_url: https://www.aibase.com/zh/news
+    list_pagination:
+      type: single_page
+    schedule_cron: "42 * * * *"
+    requires_playwright: false
+    max_list_pages: 1
+
+  - id: ifeng_ai
+    slug: ifeng_ai
+    display_name: 凤凰网科技
+    enabled: true
+    adapter: ifeng_news
+    base_url: https://tech.ifeng.com
+    list_url: https://tech.ifeng.com/
+    list_pagination:
+      type: single_page
+    schedule_cron: "48 * * * *"
+    requires_playwright: false
+    max_list_pages: 1
+
+  - id: sina_tech
+    slug: sina_tech
+    display_name: 新浪科技
+    enabled: true
+    adapter: sina_tech_news
+    base_url: https://tech.sina.cn
+    list_url: https://tech.sina.cn/
+    list_pagination:
+      type: single_page
+    schedule_cron: "52 * * * *"
     requires_playwright: false
     max_list_pages: 1

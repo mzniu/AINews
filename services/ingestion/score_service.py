@@ -8,15 +8,81 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from services.ingestion.article_score_llm import generate_score_review
+from services.ingestion.hot_radar_service import (
+    ensure_fresh_hot_radar,
+    load_hot_radar_config,
+    match_article_hot_radar,
+)
 from services.ingestion.post_score_automation import maybe_run_post_score_automation
 from services.ingestion.article_scorer import (
     grade_from_total,
     load_scoring_config,
     score_article,
 )
+from services.ingestion.publish_tier import compute_publish_tier
+from services.ingestion.viral_scorer import score_viral_potential
 from src.db.models.ingestion import ArticleImage, IngestedArticle, Story, StoryArticle
 
 SA_GRADES = frozenset({"S", "A"})
+
+
+def _prominence_score(rule_result) -> float:
+    for dim in rule_result.dimensions:
+        if dim.key == "prominence":
+            return float(dim.score)
+    return 0.0
+
+
+def _build_dual_breakdown(
+    *,
+    rule_result,
+    viral_result,
+    rule_total: float,
+    rule_grade: str,
+    final_total: float,
+    final_grade: str,
+    adjusted_by: str,
+    hot_radar_payload: dict[str, Any] | None = None,
+    llm_payload: dict[str, Any] | None = None,
+    cfg: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    industry = rule_result.to_dict()
+    viral = viral_result.to_dict()
+    publish_tier = compute_publish_tier(
+        industry_grade=final_grade,
+        industry_total=final_total,
+        viral_grade=viral_result.grade,
+        hook_gate_passed=viral_result.hook_gate.passed,
+        config=cfg,
+    )
+    breakdown: dict[str, Any] = {
+        "profile": industry.get("profile"),
+        "industry": industry,
+        "viral": viral,
+        "rule": {"total": round(rule_total, 1), "grade": rule_grade},
+        "final": {
+            "industry_total": round(final_total, 1),
+            "industry_grade": final_grade,
+            "viral_total": round(viral_result.total, 1),
+            "viral_grade": viral_result.grade,
+            "publish_tier": publish_tier,
+            "total": round(final_total, 1),
+            "grade": final_grade,
+            "adjusted_by": adjusted_by,
+        },
+        # backward compatibility for legacy readers
+        "total": round(final_total, 1),
+        "grade": final_grade,
+        "dimensions": industry.get("dimensions", []),
+        "bonuses": industry.get("bonuses", []),
+        "penalties": industry.get("penalties", []),
+        "recommendation": industry.get("recommendation"),
+    }
+    if hot_radar_payload is not None:
+        breakdown["hot_radar"] = hot_radar_payload
+    if llm_payload is not None:
+        breakdown["llm"] = llm_payload
+    return breakdown
 
 
 def _story_article_count(db: Session, article: IngestedArticle) -> int:
@@ -91,6 +157,18 @@ def _apply_llm_adjustment(
     return final_total, final_grade, adjusted
 
 
+def _merge_scoring_config() -> dict[str, Any]:
+    cfg = load_scoring_config()
+    radar_cfg = load_hot_radar_config()
+    if radar_cfg.get("enabled", True):
+        cfg = {**cfg, "hot_radar": radar_cfg}
+    else:
+        weights = dict(cfg.get("weights") or {})
+        weights["hot_radar"] = 0.0
+        cfg = {**cfg, "weights": weights}
+    return cfg
+
+
 def apply_score_to_article(
     db: Session,
     article: IngestedArticle,
@@ -98,7 +176,19 @@ def apply_score_to_article(
     use_llm: bool = False,
     auto_llm_for_sa: bool = False,
 ) -> dict[str, Any]:
-    cfg = load_scoring_config()
+    cfg = _merge_scoring_config()
+    radar_cfg = cfg.get("hot_radar") or {}
+    hot_match = None
+    if radar_cfg.get("enabled", True):
+        ensure_fresh_hot_radar(db, config=radar_cfg)
+        hot_match = match_article_hot_radar(
+            db,
+            title=article.title or "",
+            url=article.canonical_url,
+            config=radar_cfg,
+            article_id=article.id,
+        )
+
     rule_result = score_article(
         title=article.title or "",
         summary=article.summary,
@@ -108,6 +198,18 @@ def apply_score_to_article(
         view_count=article.view_count,
         story_article_count=_story_article_count(db, article),
         image_count=_image_count(db, article.id),
+        hot_radar_match=hot_match,
+        config=cfg,
+    )
+
+    story_count = _story_article_count(db, article)
+    viral_result = score_viral_potential(
+        title=article.title or "",
+        summary=article.summary,
+        content_text=article.content_text,
+        prominence_score=_prominence_score(rule_result),
+        story_article_count=story_count,
+        hot_radar_match=hot_match,
         config=cfg,
     )
 
@@ -116,8 +218,23 @@ def apply_score_to_article(
     final_total = rule_total
     final_grade = rule_grade
 
-    breakdown = rule_result.to_dict()
-    breakdown["rule"] = {"total": round(rule_total, 1), "grade": rule_grade}
+    hot_radar_payload: dict[str, Any] | None = None
+    if hot_match is not None:
+        hot_radar_payload = {
+            "rank": hot_match.rank,
+            "effective_rank": getattr(hot_match, "effective_rank", hot_match.rank),
+            "confidence": getattr(hot_match, "confidence", 1.0),
+            "heat_label": hot_match.heat_label,
+            "heat_value": hot_match.heat_value,
+            "hot_title": hot_match.hot_title,
+            "match_method": hot_match.match_method,
+            "board": hot_match.board,
+            "source": hot_match.source,
+            "board_id": hot_match.board_id,
+            "board_name": hot_match.board_name,
+            "board_display": hot_match.board_display,
+            "inherited_from_article_id": getattr(hot_match, "inherited_from_article_id", None),
+        }
 
     llm_payload: dict[str, Any] | None = None
     llm_adjusted = False
@@ -132,22 +249,33 @@ def apply_score_to_article(
             content_excerpt=article.content_text,
         )
         if llm_payload:
-            breakdown["llm"] = llm_payload
             final_total, final_grade, llm_adjusted = _apply_llm_adjustment(
                 rule_total, rule_grade, llm_payload, cfg
             )
 
-    breakdown["final"] = {
-        "total": round(final_total, 1),
-        "grade": final_grade,
-        "adjusted_by": "llm" if llm_adjusted else "rule",
-    }
+    breakdown = _build_dual_breakdown(
+        rule_result=rule_result,
+        viral_result=viral_result,
+        rule_total=rule_total,
+        rule_grade=rule_grade,
+        final_total=final_total,
+        final_grade=final_grade,
+        adjusted_by="llm" if llm_adjusted else "rule",
+        hot_radar_payload=hot_radar_payload,
+        llm_payload=llm_payload,
+        cfg=cfg,
+    )
 
     article.score_total = final_total
     article.score_grade = final_grade
     article.score_breakdown_json = json.dumps(breakdown, ensure_ascii=False)
     article.score_comment = (llm_payload or {}).get("comment") if llm_payload else None
     article.scored_at = datetime.utcnow()
+
+    if article.story_id:
+        from services.ingestion.story_primary import refresh_story_primary
+
+        refresh_story_primary(db, article.story_id)
 
     automation = maybe_run_post_score_automation(
         db,
@@ -161,6 +289,9 @@ def apply_score_to_article(
         "article_id": article.id,
         "score_total": article.score_total,
         "score_grade": article.score_grade,
+        "viral_score_total": viral_result.total,
+        "viral_score_grade": viral_result.grade,
+        "publish_tier": breakdown["final"]["publish_tier"],
         "rule_grade": rule_grade,
         "rule_total": rule_total,
         "score_breakdown": breakdown,

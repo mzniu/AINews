@@ -10,7 +10,7 @@ import yaml
 from src.utils.config import Config
 
 INGESTION_BASE_PATH = Config.ROOT_DIR / "config" / "ingestion_sources.yaml"
-INGESTION_LOCAL_PATH = Config.ROOT_DIR / "config" / "ingestion.local.yaml"
+INGESTION_LOCAL_PATH = Config.CONFIG_DIR / "ingestion.local.yaml"
 
 DEFAULT_WORKER = {
     "poll_interval_sec": 5,
@@ -27,6 +27,10 @@ DEFAULT_DEFAULTS = {
     "max_images_per_article": 20,
     "max_image_bytes": 10485760,
     "stop_after_existing": 5,
+    "ingest_performance": {
+        "auto_llm_for_sa_on_ingest": False,
+        "story_cluster_llm_on_ingest": False,
+    },
     "story_cluster": {
         "enabled": True,
         "title_threshold": 0.72,

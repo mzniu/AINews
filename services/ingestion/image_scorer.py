@@ -8,20 +8,27 @@ from typing import Any, Literal
 import yaml
 
 from src.utils.config import Config
+from src.utils.paths import resolve_local_asset_path
 
 _CONFIG_PATH = Config.ROOT_DIR / "config" / "image_scoring.yaml"
+_IMAGE_LOCAL_PATH = Config.CONFIG_DIR / "image_scoring.local.yaml"
 
 VALID_GRADES = frozenset({"A", "B", "C", "D"})
 
-_DIMENSION_KEYS = (
-    "topic_relevance",
-    "info_value",
-    "visual_quality",
-    "flash_fit",
-    "cover_fit",
-    "figure_prominence",
-    "compliance",
-)
+DIMENSION_LABELS: dict[str, str] = {
+    "topic_relevance": "主题相关度",
+    "info_value": "信息价值",
+    "visual_quality": "画质可用性",
+    "flash_fit": "短视频主画面",
+    "cover_fit": "封面适配度",
+    "figure_prominence": "人物突出度",
+    "compliance": "合规安全",
+}
+
+DIMENSION_KEYS: tuple[str, ...] = tuple(DIMENSION_LABELS.keys())
+_DIMENSION_KEYS = DIMENSION_KEYS
+_ANIMATED_BONUS_REASONS = frozenset({"animated", "gif_boost"})
+DEFAULT_GIF_BOOST_POINTS = 25.0
 
 
 @dataclass
@@ -56,6 +63,7 @@ class ImageScoreResult:
     sort_order: int = 0
     origin: str = "article_body"
     caption: str | None = None
+    content_description: str | None = None
     verdict: str | None = None
     breakdown: dict[str, Any] | None = None
     local_path: str | None = None
@@ -85,6 +93,7 @@ class ImageScoreResult:
             "relevance_grade": self.grade,
             "relevance_rank": self.relevance_rank,
             "caption": self.caption,
+            "content_description": self.content_description,
             "verdict": self.verdict,
             "breakdown": self.breakdown,
             "auto_selected": False,
@@ -99,11 +108,15 @@ class ImageScoreResult:
 
 
 def load_image_scoring_config(path: Path | None = None) -> dict[str, Any]:
-    cfg_path = path or _CONFIG_PATH
-    if not cfg_path.exists():
-        return {}
-    with open(cfg_path, "r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+    if path is not None:
+        if not path.exists():
+            return {}
+        with open(path, "r", encoding="utf-8") as handle:
+            return yaml.safe_load(handle) or {}
+
+    from services.ingestion.image_scoring_settings import load_merged_image_scoring_config
+
+    return load_merged_image_scoring_config()
 
 
 def grade_from_total(total: float, cfg: dict[str, Any] | None = None) -> str:
@@ -159,8 +172,12 @@ def compute_media_bonuses(
     if not is_animation_raster(local_file):
         return []
     bonus_cfg = cfg.get("bonuses") or {}
+    suffix = local_file.suffix.lower() if local_file else ""
+    if bool(cfg.get("prefer_gif_boost")) and suffix == ".gif":
+        pts = float(bonus_cfg.get("gif_boost", DEFAULT_GIF_BOOST_POINTS))
+        return [{"reason": "gif_boost", "points": pts, "signal": suffix}]
     pts = float(bonus_cfg.get("animated", 8))
-    return [{"reason": "animated", "points": pts, "signal": local_file.suffix.lower() if local_file else ""}]
+    return [{"reason": "animated", "points": pts, "signal": suffix}]
 
 
 def prefilter_image(
@@ -177,7 +194,7 @@ def prefilter_image(
 
     path = local_file
     if path is None and image.local_path:
-        path = Path(image.local_path)
+        path = resolve_local_asset_path(image.local_path)
     if path is None or not path.exists():
         return PreFilterResult(skip=True)
 
@@ -196,6 +213,9 @@ def prefilter_image(
             )
 
     width, height = _image_dimensions(path)
+    if width <= 0 or height <= 0:
+        return PreFilterResult(skip=True)
+
     min_w = int(prefilter.get("min_width", 220))
     min_h = int(prefilter.get("min_height", 140))
     if width and height and (width < min_w or height < min_h):
@@ -301,6 +321,7 @@ def compute_final_score(
             total=total,
             grade=grade,
             caption=vl_payload.get("caption"),
+            content_description=vl_payload.get("content_description") or vl_payload.get("caption"),
             verdict=vl_payload.get("verdict"),
             breakdown=breakdown,
         )
@@ -348,7 +369,8 @@ def compute_final_score(
         "weighted_sum": round(weighted_sum, 2),
         "width": width,
         "height": height,
-        "is_animated": any(b.get("reason") == "animated" for b in all_bonuses),
+        "is_animated": any(b.get("reason") in _ANIMATED_BONUS_REASONS for b in all_bonuses),
+        "content_description": vl_payload.get("content_description") or vl_payload.get("caption"),
     }
     return ImageScoreResult(
         source_type="",
@@ -357,10 +379,12 @@ def compute_final_score(
         total=total,
         grade=grade,
         caption=vl_payload.get("caption"),
+        content_description=vl_payload.get("content_description") or vl_payload.get("caption"),
         verdict=vl_payload.get("verdict"),
         breakdown=breakdown,
         width=width,
         height=height,
+        is_animated=bool(breakdown.get("is_animated")),
     )
 
 
@@ -386,7 +410,7 @@ def _is_animated_item(item: ImageScoreResult) -> bool:
     if (item.breakdown or {}).get("is_animated"):
         return True
     bonuses = (item.breakdown or {}).get("bonuses") or []
-    return any(b.get("reason") == "animated" for b in bonuses)
+    return any(b.get("reason") in _ANIMATED_BONUS_REASONS for b in bonuses)
 
 
 def rank_evaluations(items: list[ImageScoreResult]) -> list[ImageScoreResult]:
@@ -411,6 +435,22 @@ def rank_evaluations(items: list[ImageScoreResult]) -> list[ImageScoreResult]:
     return ordered
 
 
+def _grade_rank(grade: str) -> int:
+    order = {"S": -1, "A": 0, "B": 1, "C": 2, "D": 3}
+    return order.get(str(grade or "D").upper(), 9)
+
+
+def _evaluation_is_rejected(item: ImageScoreResult) -> bool:
+    breakdown = item.breakdown or {}
+    if breakdown.get("reject"):
+        return True
+    penalties = breakdown.get("penalties") or []
+    for penalty in penalties:
+        if str(penalty.get("reason") or "") == "bad_url_hint":
+            return True
+    return False
+
+
 def pick_auto_selected(
     evaluations: list[ImageScoreResult],
     *,
@@ -418,31 +458,34 @@ def pick_auto_selected(
 ) -> list[ImageScoreResult]:
     cfg = config or load_image_scoring_config()
     auto = cfg.get("auto_select") or {}
-    max_count = int(auto.get("max_count", 6))
-    min_count = int(auto.get("min_count", 0))
+    max_count = int(auto.get("max_count", 4))
+    min_count = int(auto.get("min_count", 3))
+    preferred_count = int(auto.get("preferred_count", max_count))
     min_grade = str(auto.get("min_grade", "A"))
     fallback = str(auto.get("fallback_grade", "B"))
-    supplement_grade = str(auto.get("supplement_grade", "C"))
+    supplement_grade = str(auto.get("supplement_grade", "D"))
 
-    ranked = rank_evaluations(list(evaluations))
-    picked: list[ImageScoreResult] = []
-    for grade in (min_grade, fallback):
-        tier = [e for e in ranked if e.grade == grade]
-        if tier:
-            picked = tier[:max_count]
+    ranked = [item for item in rank_evaluations(list(evaluations)) if not _evaluation_is_rejected(item)]
+    worst_preferred = max(_grade_rank(min_grade), _grade_rank(fallback))
+    preferred = [item for item in ranked if _grade_rank(item.grade) <= worst_preferred]
+    picked = preferred[:max_count]
+
+    if len(picked) >= min(preferred_count, max_count):
+        return picked[:max_count]
+    if len(picked) >= min_count:
+        return picked
+
+    picked_keys = {(item.source_type, item.source_id) for item in picked}
+    worst_allowed = _grade_rank(supplement_grade)
+    for item in ranked:
+        key = (item.source_type, item.source_id)
+        if key in picked_keys:
+            continue
+        if _grade_rank(item.grade) > worst_allowed:
+            continue
+        picked.append(item)
+        picked_keys.add(key)
+        if len(picked) >= min(min_count, max_count):
             break
-
-    if min_count > 0 and len(picked) < min_count:
-        picked_keys = {(item.source_type, item.source_id) for item in picked}
-        for item in ranked:
-            if item.grade != supplement_grade:
-                continue
-            key = (item.source_type, item.source_id)
-            if key in picked_keys:
-                continue
-            picked.append(item)
-            picked_keys.add(key)
-            if len(picked) >= min(min_count, max_count):
-                break
 
     return picked[:max_count]

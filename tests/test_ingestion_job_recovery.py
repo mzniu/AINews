@@ -68,3 +68,31 @@ def test_marks_stale_running_job_failed():
     session.refresh(job)
     assert job.status == "failed"
     assert "回收" in (job.error_message or "")
+
+
+def test_recovers_stale_running_crawl_run():
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    session.add(
+        IngestionSource(
+            id="kr36_ai",
+            slug="kr36_ai",
+            display_name="36kr",
+            adapter_class="kr36_news",
+            config_json="{}",
+        )
+    )
+    session.add(
+        CrawlRun(
+            source_id="kr36_ai",
+            status="running",
+            started_at=datetime.utcnow() - timedelta(hours=2),
+        )
+    )
+    session.commit()
+
+    assert recover_stale_jobs(session, stale_minutes=30) == 1
+    run = session.query(CrawlRun).first()
+    assert run.status == "failed"
+    assert run.finished_at is not None

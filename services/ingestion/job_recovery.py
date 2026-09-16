@@ -1,17 +1,37 @@
-"""Recover ingestion jobs stuck in running state."""
+"""Recover ingestion jobs and crawl runs stuck in running state."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from src.db.models.ingestion import CrawlRun, IngestionJob
+from src.db.models.ingestion import CrawlRun, IngestionJob, IngestionSource
 
 DEFAULT_STALE_MINUTES = 30
 
 
+def _recover_stale_crawl_runs(session: Session, *, now: datetime, cutoff: datetime) -> int:
+    updated = 0
+    stuck_runs = (
+        session.query(CrawlRun)
+        .filter_by(status="running")
+        .filter(CrawlRun.started_at < cutoff)
+        .all()
+    )
+    for run in stuck_runs:
+        run.status = "failed"
+        run.finished_at = now
+        run.error_message = run.error_message or "抓取运行超时或 worker 异常退出，已自动回收"
+        source = session.get(IngestionSource, run.source_id)
+        if source:
+            source.last_run_at = now
+            source.last_error = run.error_message
+        updated += 1
+    return updated
+
+
 def recover_stale_jobs(session: Session, *, stale_minutes: int = DEFAULT_STALE_MINUTES) -> int:
-    """Reconcile running jobs with finished crawl runs or mark stale ones failed."""
+    """Reconcile running jobs / crawl runs or mark stale ones failed."""
     now = datetime.utcnow()
     cutoff = now - timedelta(minutes=stale_minutes)
     updated = 0
@@ -39,6 +59,8 @@ def recover_stale_jobs(session: Session, *, stale_minutes: int = DEFAULT_STALE_M
             job.finished_at = now
             job.error_message = job.error_message or "任务超时或 worker 未运行，已自动回收"
             updated += 1
+
+    updated += _recover_stale_crawl_runs(session, now=now, cutoff=cutoff)
 
     if updated:
         session.commit()

@@ -1,5 +1,6 @@
 # Web framework
 fastapi>=0.104.0
+python-multipart>=0.0.9
 uvicorn>=0.24.0
 
 # Web scraping

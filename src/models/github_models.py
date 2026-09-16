@@ -54,6 +54,7 @@ class ProjectVideo(BaseModel):
 class VideoMetadata(BaseModel):
     """视频元数据"""
     title: str
+    short_title: Optional[str] = None  # 视频号投稿短标题
     subtitle: Optional[str] = None
     subtitle2: Optional[str] = None  # 副标题第二行：流量钩子（11-15 汉字当量）
     summary: str

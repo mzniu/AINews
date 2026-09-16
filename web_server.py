@@ -14,7 +14,11 @@ if sys.platform == 'win32':
 from dotenv import load_dotenv
 
 # 加载环境变量（须在日志配置前，以便读取 LOG_LEVEL / UVICORN_WORKERS）
-load_dotenv()
+from src.utils.paths import ensure_runtime_dirs, load_runtime_dotenv
+
+load_runtime_dotenv()
+
+ensure_runtime_dirs()
 
 # 统一日志配置（须在路由导入前，避免多 handler / 多进程抢同一日志文件）
 from src.utils.logger import configure_logging, logger
@@ -24,6 +28,7 @@ configure_logging()
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 # 导入路由模块
 from api.routes.main_routes import router as main_router
@@ -44,6 +49,8 @@ from api.routes.ingestion_routes import router as ingestion_router
 from api.routes.render_template_routes import router as render_template_router
 from api.routes.publishing_routes import router as publishing_router
 from api.routes.model_config_routes import router as model_config_router
+from api.routes.health_routes import router as health_router
+from src.utils.config import Config
 from src.utils.uvicorn_workers import effective_uvicorn_workers
 
 # 创建FastAPI应用
@@ -65,11 +72,32 @@ app.add_middleware(
 )
 
 # 挂载静态文件
-app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/data", StaticFiles(directory="data"), name="data")
+app.mount("/static", StaticFiles(directory=str(Config.ROOT_DIR / "static")), name="static")
+app.mount("/data", StaticFiles(directory=str(Config.DATA_DIR)), name="data")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(Config.ROOT_DIR / "static" / "favicon.ico")
+
+
+@app.get("/auth.html", include_in_schema=False)
+async def auth_page():
+    return FileResponse(Config.ROOT_DIR / "static" / "auth.html")
+
+
+@app.get("/favicon.png", include_in_schema=False)
+async def favicon_png():
+    return FileResponse(Config.ROOT_DIR / "static" / "favicon.png")
+
+
+@app.get("/js/auth.js", include_in_schema=False)
+async def auth_js():
+    return FileResponse(Config.ROOT_DIR / "static" / "js" / "auth.js")
 
 # 注册路由
 print("正在注册路由...")
+app.include_router(health_router)
 app.include_router(crawler_router)
 app.include_router(video_router)
 app.include_router(watermark_router)

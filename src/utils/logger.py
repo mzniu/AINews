@@ -10,6 +10,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from loguru import logger as _logger
 
+from src.utils.paths import get_data_dir
+
 _configured = False
 
 
@@ -35,7 +37,7 @@ def configure_logging():
     load_dotenv()
     _configured = True
 
-    log_dir = Path("data/logs")
+    log_dir = get_data_dir() / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
     _logger.remove()
@@ -48,17 +50,29 @@ def configure_logging():
     )
     file_fmt = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
 
-    _logger.add(
-        sys.stdout,
-        format=console_fmt,
-        level=log_level,
-        colorize=True,
-        enqueue=True,
-        catch=True,
-    )
+    if not os.getenv("AINEWS_NO_CONSOLE_LOG", "").strip():
+        _logger.add(
+            sys.stdout,
+            format=console_fmt,
+            level=log_level,
+            colorize=True,
+            enqueue=True,
+            catch=True,
+        )
 
-    base_log = os.getenv("LOG_FILE", "data/logs/ainews.log")
-    log_path = _resolve_log_path(base_log)
+    base_log = os.getenv("LOG_FILE", "").strip()
+    if base_log:
+        log_file = Path(base_log)
+        if not log_file.is_absolute():
+            parts = log_file.parts
+            if parts and parts[0] == "data":
+                log_file = get_data_dir() / Path(*parts[1:])
+            else:
+                log_file = get_data_dir() / log_file
+    else:
+        log_file = get_data_dir() / "logs" / "ainews.log"
+
+    log_path = _resolve_log_path(str(log_file))
     _logger.add(
         log_path,
         format=file_fmt,

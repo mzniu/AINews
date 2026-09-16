@@ -1,0 +1,206 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 · AINews</title>
+    <link rel="icon" type="image/png" href="brand/ainews-mark.png?v=20260914">
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #0f1419;
+            --card: #1a2332;
+            --border: #2d3a4f;
+            --text: #e8eef7;
+            --muted: #8b9cb3;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger: #f87171;
+            --ok: #4ade80;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            background: radial-gradient(ellipse at top, #1e293b 0%, var(--bg) 55%);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px 28px;
+            box-shadow: 0 24px 48px rgba(0,0,0,.35);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .brand img { width: 32px; height: 32px; }
+        .brand h1 { margin: 0; font-size: 1.35rem; font-weight: 600; }
+        .subtitle { color: var(--muted); font-size: .9rem; margin: 0 0 24px; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+        .tab {
+            flex: 1;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: .9rem;
+        }
+        .tab.is-active {
+            background: rgba(59,130,246,.15);
+            border-color: var(--accent);
+            color: var(--text);
+        }
+        label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px; }
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #0f172a;
+            color: var(--text);
+            font-size: 1rem;
+            margin-bottom: 14px;
+        }
+        input:focus { outline: 2px solid rgba(59,130,246,.45); border-color: var(--accent); }
+        .row { display: flex; gap: 8px; align-items: flex-start; }
+        .row input { flex: 1; margin-bottom: 0; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: .95rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .btn-primary {
+            width: 100%;
+            background: var(--accent);
+            color: #fff;
+            margin-top: 8px;
+        }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+        .btn-secondary {
+            background: #334155;
+            color: var(--text);
+            white-space: nowrap;
+            min-width: 108px;
+        }
+        .btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
+        .msg {
+            min-height: 1.25rem;
+            font-size: .85rem;
+            margin: 10px 0 0;
+            color: var(--muted);
+        }
+        .msg.error { color: var(--danger); }
+        .msg.ok { color: var(--ok); }
+        .panel[hidden] { display: none !important; }
+        .offline-section {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+        .offline-section h2 { font-size: .95rem; margin: 0 0 10px; font-weight: 500; }
+        .captcha-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,.55);
+            display: flex; align-items: center; justify-content: center; z-index: 10;
+        }
+        .captcha-modal[hidden] { display: none !important; }
+        .captcha-box {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px; width: min(360px, 92vw);
+        }
+        .captcha-svg { margin: 12px 0; background: #fff; border-radius: 6px; padding: 8px; }
+        .boot-wait { text-align: center; color: var(--muted); font-size: .9rem; }
+    </style>
+</head>
+<body>
+    <div class="card" id="auth-card">
+        <div class="brand">
+            <img src="brand/ainews-mark.png?v=20260914" alt="" width="32" height="32">
+            <h1>AINews</h1>
+        </div>
+        <p class="subtitle">登录后即可使用资讯抓取、视频制作与多平台发布</p>
+
+        <div id="boot-wait" class="boot-wait" hidden>正在检查登录状态…</div>
+
+        <div id="auth-forms" hidden>
+            <div class="tabs" role="tablist">
+                <button type="button" class="tab is-active" data-tab="phone-login">手机登录</button>
+                <button type="button" class="tab" data-tab="email-login">邮箱登录</button>
+            </div>
+
+            <div id="panel-phone-login" class="panel">
+                <label for="phone">手机号</label>
+                <input id="phone" type="tel" inputmode="numeric" maxlength="11" placeholder="11 位手机号" autocomplete="tel">
+
+                <label for="phone-code">验证码</label>
+                <div class="row">
+                    <input id="phone-code" type="text" inputmode="numeric" maxlength="6" placeholder="6 位验证码">
+                    <button type="button" class="btn btn-secondary" id="btn-send-code">发送验证码</button>
+                </div>
+
+                <button type="button" class="btn btn-primary" id="btn-phone-login">登录</button>
+                <p class="msg" id="phone-msg"></p>
+            </div>
+
+            <div id="panel-email-login" class="panel" hidden>
+                <label for="email">邮箱</label>
+                <input id="email" type="email" placeholder="user@example.com" autocomplete="email" list="remembered-emails">
+
+                <label for="password">密码</label>
+                <input id="password" type="password" placeholder="密码" autocomplete="current-password">
+
+                <label style="display:flex;align-items:center;gap:8px;color:var(--text);margin-bottom:14px;">
+                    <input type="checkbox" id="remember-password" style="width:auto;margin:0;">
+                    记住密码
+                </label>
+
+                <button type="button" class="btn btn-primary" id="btn-email-login">登录</button>
+                <p class="msg" id="email-msg"></p>
+                <datalist id="remembered-emails"></datalist>
+            </div>
+
+            <div class="offline-section">
+                <h2>离线授权</h2>
+                <label for="offline-code">授权码</label>
+                <input id="offline-code" type="text" placeholder="AINEWS1-..." autocomplete="off">
+                <button type="button" class="btn btn-primary" id="btn-offline-redeem">使用授权码</button>
+                <p class="msg" id="offline-msg"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="captcha-modal" id="captcha-modal" hidden>
+        <div class="captcha-box">
+            <strong>请完成验证</strong>
+            <div class="captcha-svg" id="captcha-svg"></div>
+            <input id="captcha-answer" type="text" placeholder="计算结果" autocomplete="off">
+            <div style="display:flex;gap:8px;margin-top:12px;">
+                <button type="button" class="btn btn-secondary" id="captcha-cancel">取消</button>
+                <button type="button" class="btn btn-primary" id="captcha-confirm" style="flex:1;margin-top:0;">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/auth.js"></script>
+</body>
+</html>

@@ -9,21 +9,22 @@ from typing import Any
 class PublishDraftMetadata:
     main_line1: str = ""
     main_line2: str = ""
+    short_title: str = ""
     sub_title: str = ""
     sub_title2: str = ""
     summary: str = ""
     praise_tags: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     tags_text: str = ""
+    first_comment: str = ""
 
 
-def normalize_wechat_title(main_line1: str, *, max_title_length: int = 30) -> str:
-    """WeChat Channels title punctuation rules (other platforms unchanged)."""
-    title = (main_line1 or "").strip()
-    title = title.replace("！", "？").replace("-", "").replace(".", "点")
-    if len(title) > max_title_length:
-        title = title[:max_title_length]
-    return title
+def normalize_wechat_title(main_line1: str, *, max_title_length: int = 16) -> str:
+    """WeChat Channels short title: no punctuation, at most 16 chars including spaces."""
+    from utils.title_units import SHORT_TITLE_MAX_CHARS, sanitize_short_title
+
+    limit = min(int(max_title_length or SHORT_TITLE_MAX_CHARS), SHORT_TITLE_MAX_CHARS)
+    return sanitize_short_title(main_line1, max_chars=limit)
 
 
 def _format_hashtag_line(items: list[str]) -> str:
@@ -47,8 +48,8 @@ def _tags_description_line(draft: PublishDraftMetadata) -> str:
 
 def build_wechat_description(draft: PublishDraftMetadata) -> str:
     parts = [
-        (draft.main_line2 or "").strip(),
         (draft.sub_title or "").strip(),
+        (draft.main_line2 or "").strip(),
         (draft.sub_title2 or "").strip(),
         (draft.summary or "").strip(),
         _tags_description_line(draft),
@@ -93,12 +94,14 @@ def draft_from_video_draft(data: dict[str, Any]) -> PublishDraftMetadata:
     return PublishDraftMetadata(
         main_line1=str(data.get("main_line1") or ""),
         main_line2=str(data.get("main_line2") or ""),
+        short_title=str(data.get("short_title") or ""),
         sub_title=str(data.get("sub_title") or ""),
         sub_title2=str(data.get("sub_title2") or ""),
         summary=str(data.get("summary") or ""),
         praise_tags=praise_tags,
         tags=tags_list,
         tags_text=tags_text,
+        first_comment=str(data.get("first_comment") or "").strip(),
     )
 
 
@@ -109,10 +112,11 @@ def draft_to_publish_fields(
     max_tags: int = 10,
     platform_id: str | None = None,
 ) -> dict:
-    raw_title = (draft.main_line1 or "").strip()
     if platform_id in (None, "wechat_channels"):
+        raw_title = (draft.short_title or "").strip() or (draft.main_line1 or "").strip()
         title = normalize_wechat_title(raw_title, max_title_length=max_title_length)
     else:
+        raw_title = (draft.main_line1 or "").strip()
         title = raw_title[:max_title_length] if len(raw_title) > max_title_length else raw_title
     description = build_wechat_description(draft)
     tags = _parse_tag_list(draft, max_tags=max_tags)

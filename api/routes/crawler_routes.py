@@ -45,6 +45,7 @@ async def fetch_venturebeat(request: FetchRequest):
         
         # 构造返回数据格式与现有接口一致
         from datetime import datetime
+        from src.utils.beijing_time import beijing_now_iso
         metadata = {
             "url": article_data.url,
             "title": article_data.title,
@@ -58,7 +59,7 @@ async def fetch_venturebeat(request: FetchRequest):
             "videos": [],  # VentureBeat文章通常没有视频
             "videos_count": 0,
             "tags": article_data.tags,
-            "crawl_time": datetime.now().isoformat(),
+            "crawl_time": beijing_now_iso(),
             "source": "VentureBeat",
             "summary": article_data.summary
         }
@@ -124,21 +125,24 @@ async def generate_summary(request: GenerateSummaryRequest):
 
         vmin = request.voiceover_min_chars
         vmax = request.voiceover_max_chars
+        from services.content_prompts import get_system_role, json_main_line1_hint, json_short_title_hint, json_summary_hint
+        from utils.title_units import resolve_short_title
         from utils.content_methodology import build_methodology_prompt_section
 
         json_template = f"""
 【输出 JSON 格式】（严格遵守，不要返回其他内容）
 {{
   "target_audience": "推断的目标受众（≤12个汉字）",
-  "praise_tags": ["夸赞标签1", "夸赞标签2", "夸赞标签3"],
-  "traffic_hook": "流量钩子类型中文名（如「观众想看结果」），可空字符串",
-  "main_line1": "主标题第一行（9~12汉字当量，必须以感叹词如突发！/炸裂！/爽了！等开头+话题引入，不含emoji）",
-  "main_line2": "主标题第二行（9~12汉字当量，必须以「网友：」开头的尖锐锐评，可空字符串）",
+  "praise_tags": ["夸赞标签，可选0到3个，禁止识货有前瞻性套话"],
+  "traffic_hook": "流量钩子类型中文名（优先「观众想看看真假」或「观众想证明自己」），可空字符串",
+  "main_line1": "{json_main_line1_hint()}",
+  "short_title": "{json_short_title_hint()}",
+  "main_line2": "主标题第二行（有争议钩子才写，以「网友：」开头；没有争议钩子必须空字符串）",
   "sub_title": "副标题第一行（11~15汉字当量，轻观点收尾，不含emoji）",
   "sub_title2": "副标题第二行（11~15汉字当量，七种流量钩子之一，可空字符串）",
-  "summary": "生成的摘要（40-50字，以「小牛说：」开头）",
+  "summary": "{json_summary_hint()}",
   "tags": "#赛道标签 #垂直标签 #精准标签 #热点标签 #小牛说 #其他标签1 #其他标签2 #其他标签3 #其他标签4 #其他标签5",
-  "voiceover_script": "口播稿全文（{vmin}~{vmax}字，以「小牛说：」开头）",
+  "voiceover_script": "口播稿全文（{vmin}~{vmax}字，前3秒点出主体+数字+冲突，不要以「小牛说：」开头，结尾留可回答争议，禁止点赞关注）",
   "highlight_keywords": ["摘要中连续子串1", "子串2", "子串3"]
 }}
 
@@ -156,8 +160,7 @@ async def generate_summary(request: GenerateSummaryRequest):
         messages = [
             {
                 "role": "system",
-                "content": "你是顶级自媒体爆款文案大师，精通微信视频号的「社交货币 / 夸赞」方法论：通过高情商夸赞目标受众、帮用户立人设来触发社交裂变点赞；同时熟练掌握「制造悬念、列举数字、提出疑问、强调时效、引发争议（中立可讨论）、指向明确」六种辅助标题技法，能在方法论为主、技法为辅的前提下综合运用。主标题第一行必须以贴合正文的感叹词（如突发！、炸裂！、爽了！等）开头抓眼球。你的文案在合规前提下引发点赞与传播，信息密度高。绝对不使用任何emoji表情符号。请严格按照JSON格式返回结果。"
-                + "我是小牛，一个专业的AI技术专家，对AI行业有深度的见解，请你根据正文为我生成标题、副标题、摘要、标签与口播稿。",
+                "content": get_system_role(),
             },
             {"role": "user", "content": prompt},
         ]
@@ -170,6 +173,7 @@ async def generate_summary(request: GenerateSummaryRequest):
                 temperature=0.85,
                 max_tokens=int(os.getenv("DEEPSEEK_MAX_TOKENS", "8192")),
                 response_format={"type": "json_object"},
+                task="crawler_content",
             )
         except ValueError as exc:
             logger.error(f"LLM 返回空内容 | model={model} base_url={base_url} error={exc}")
@@ -193,6 +197,7 @@ async def generate_summary(request: GenerateSummaryRequest):
 
         tags = normalize_structured_tags(result.get('tags', ''))
         main_line1 = ((result.get('main_line1') or result.get('main_title') or result.get('title', '')) or '').strip()
+        short_title = resolve_short_title(result.get('short_title') or '', main_line1)
         main_line2 = (result.get('main_line2') or '').strip()
         sub_title = (result.get('sub_title') or '').strip()
         sub_title2 = (result.get('sub_title2') or '').strip()
@@ -222,6 +227,7 @@ async def generate_summary(request: GenerateSummaryRequest):
             "success": True,
             "title": combined_title,
             "main_line1": main_line1,
+            "short_title": short_title,
             "main_line2": main_line2,
             "main_title": main_line1,
             "sub_title": sub_title,
@@ -278,3 +284,32 @@ async def process_image(request: ProcessImageRequest):
     except Exception as e:
         logger.error(f"图片处理失败: {e}")
         raise HTTPException(status_code=500, detail=f"图片处理失败: {str(e)}")
+
+
+@router.get("/content-prompts")
+def get_content_prompts_route():
+    from services.content_prompts import get_title_prompt_settings
+
+    return {"success": True, **get_title_prompt_settings()}
+
+
+@router.put("/content-prompts")
+def update_content_prompts_route(body: dict):
+    from services.content_prompts import TITLE_PROMPT_KEYS, get_title_prompt_settings, save_title_prompts
+
+    payload = {key: body[key] for key in TITLE_PROMPT_KEYS if key in body}
+    if not payload:
+        raise HTTPException(status_code=400, detail="没有可保存的标题提示词字段")
+    try:
+        save_title_prompts(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"success": True, "message": "标题与摘要提示词已保存", **get_title_prompt_settings()}
+
+
+@router.post("/content-prompts/reset")
+def reset_content_prompts_route():
+    from services.content_prompts import get_title_prompt_settings, reset_title_prompts
+
+    reset_title_prompts()
+    return {"success": True, "message": "已恢复默认标题与摘要提示词", **get_title_prompt_settings()}

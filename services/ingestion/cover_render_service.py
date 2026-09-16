@@ -18,6 +18,7 @@ from api.routes.video_routes import (
 )
 from api.schemas.request_models import CreateAnimatedVideoRequest
 from src.utils.config import Config
+from src.utils.paths import path_relative_to_data, resolve_local_asset_path
 from utils.video_utils import _render_frame_animated
 
 DEFAULT_COVER_WIDTH = 1080
@@ -42,8 +43,10 @@ def crop_center_to_aspect(image: Image.Image, target_w: int, target_h: int) -> I
 
 
 def _resolve_asset_path(path_str: str) -> Path:
-    cleaned = str(path_str or "").strip().lstrip("/").replace("\\", "/")
-    return (Config.ROOT_DIR / cleaned).resolve()
+    resolved = resolve_local_asset_path(path_str)
+    if resolved is None:
+        raise FileNotFoundError(path_str)
+    return resolved
 
 
 def render_article_cover(
@@ -171,11 +174,11 @@ def render_article_cover(
     )
     final = Image.fromarray(np.asarray(frame_np, dtype=np.uint8))
 
-    out_dir = Config.ROOT_DIR / "data" / "publish" / "covers"
+    out_dir = Config.DATA_DIR / "publish" / "covers"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{article_id}_cover.jpg"
     final.save(out_path, format="JPEG", quality=92)
-    rel = out_path.relative_to(Config.ROOT_DIR).as_posix()
+    rel = path_relative_to_data(out_path)
     logger.info(f"Cover rendered for {article_id}: {rel}")
     return {
         "success": True,

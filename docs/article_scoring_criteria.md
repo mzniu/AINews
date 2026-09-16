@@ -20,6 +20,7 @@
 | 传播钩子 | 12% | 标题数字、反差词、疑问句 |
 | 话题相关 | 10% | 与 AI 垂类关键词匹配 |
 | 数据信号 | 5% | 浏览量、同题多篇 |
+| 热榜雷达 | 4% | 是否命中 TopHub 多榜热榜及排名 |
 | 可创作性 | 2% | 摘要/配图数量（≥3 张满分加成） |
 
 ## 扣分项
@@ -41,7 +42,7 @@
 
 ## 配置
 
-词表与权重见 `config/article_scoring.yaml`，可按账号调优。
+词表与权重见 `config/article_scoring.yaml`，可按账号调优。TopHub 热榜雷达配置见 `config/hot_radar.yaml`（默认每天 8:00 刷新；API Key 保存在 `config/hot_radar.local.yaml` 或环境变量 `TOPHUB_ACCESS_KEY`）。
 
 ## 自动流程（抓取后）
 
