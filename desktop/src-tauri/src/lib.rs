@@ -3,7 +3,6 @@ mod backend;
 mod commands;
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -30,16 +29,17 @@ pub struct AppState {
     app_dir: PathBuf,
     install_dir: PathBuf,
     user_data: PathBuf,
-    backend_started: AtomicBool,
 }
 
 impl AppState {
+    /// Start the embedded Python API if needed and block until `/api/health` succeeds.
+    ///
+    /// Concurrent callers (e.g. login handler + `auth://status-changed`) share the same
+    /// mutex so only one spawn/health-wait runs and late callers wait for readiness
+    /// instead of navigating to 127.0.0.1 before the port is listening.
     pub fn ensure_backend_running(&self) -> Result<String, String> {
-        if self
-            .backend_started
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_ok()
-        {
+        let mut guard = self.backend.lock().unwrap();
+        if guard.is_none() {
             let backend = backend::spawn_backend(
                 &self.python,
                 &self.app_dir,
@@ -50,7 +50,7 @@ impl AppState {
             .map_err(|e| format!("启动 Python 后端失败: {e}"))?;
             backend::wait_for_health(self.port, Duration::from_secs(90))
                 .map_err(|e| format!("后端健康检查失败: {e}"))?;
-            *self.backend.lock().unwrap() = Some(backend);
+            *guard = Some(backend);
         }
         Ok(format!("http://127.0.0.1:{}", self.port))
     }
@@ -61,7 +61,6 @@ impl AppState {
                 proc.shutdown();
             }
         }
-        self.backend_started.store(false, Ordering::SeqCst);
     }
 }
 
@@ -196,7 +195,6 @@ pub fn run() {
         app_dir,
         install_dir,
         user_data: user_data.clone(),
-        backend_started: AtomicBool::new(false),
     };
 
     let initial_url = if skip_auth {

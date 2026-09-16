@@ -14,6 +14,7 @@
     let pendingCaptcha = null;
     let phoneMode = 'login';
     let emailMode = 'login';
+    let appEnterInProgress = false;
 
     const MIN_PASSWORD_LENGTH = 8;
 
@@ -97,10 +98,16 @@
     }
 
     async function enterApp() {
+        if (appEnterInProgress) return;
+        appEnterInProgress = true;
         setMsg($('phone-msg'), '正在启动应用…', null);
-        const url = await invoke('auth_start_app');
-        if (url) {
-            window.location.href = url;
+        try {
+            // Rust `auth_start_app` starts the backend, waits for health, and navigates.
+            await invoke('auth_start_app');
+        } catch (e) {
+            appEnterInProgress = false;
+            setMsg($('phone-msg'), String(e), 'error');
+            throw e;
         }
     }
 
@@ -343,6 +350,7 @@
         });
         const tauri = window.__TAURI__;
         tauri?.event?.listen?.('auth://status-changed', () => {
+            if (appEnterInProgress) return;
             refreshAuthUi().catch(() => {});
         });
     }

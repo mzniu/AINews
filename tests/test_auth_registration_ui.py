@@ -57,3 +57,11 @@ def test_auth_js_password_minimum_length():
 def test_static_and_remotion_auth_assets_stay_in_sync():
     assert _read(AUTH_HTML) == _read(REMOTION_AUTH_HTML)
     assert _read(AUTH_JS) == _read(REMOTION_AUTH_JS)
+
+
+def test_auth_js_enter_app_defers_navigation_to_tauri():
+    js = _read(AUTH_JS)
+    assert "appEnterInProgress" in js
+    assert "window.location.href" not in js
+    assert "await invoke('auth_start_app')" in js
+    assert "if (appEnterInProgress) return" in js
