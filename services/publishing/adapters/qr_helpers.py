@@ -33,6 +33,9 @@ _WECHAT_QR_CONTAINER_SELECTORS = (
     ".qrcode-wrap",
     ".login-qrcode-wrap",
 )
+_WECHAT_MOBILE_LOGIN_PATH = "/mobile/mobile.html"
+_WECHAT_OAUTH_LOAD_FAIL_MARKERS = ("加载失败", "点击重试")
+_MOBILE_UA_PATTERN = ("mobile", "android", "iphone", "ipad", "phone")
 
 @dataclass
 class QrLoginProfile:
@@ -205,6 +208,83 @@ def _run_qr_login_legacy(profile: QrLoginProfile, ctx: QrLoginContext, qr_path: 
             browser.close()
 
 
+def _is_mobile_user_agent(user_agent: str | None) -> bool:
+    lower = (user_agent or "").lower()
+    return any(token in lower for token in _MOBILE_UA_PATTERN)
+
+
+def _is_wechat_mobile_login_url(url: str | None) -> bool:
+    return _WECHAT_MOBILE_LOGIN_PATH in (url or "")
+
+
+def _desktop_publish_user_agent() -> str:
+    from services.publishing.human_interaction import DEFAULT_PUBLISH_USER_AGENT
+
+    return DEFAULT_PUBLISH_USER_AGENT
+
+
+def _normalize_wechat_persona_user_agent(account_id: str | None) -> None:
+    if not account_id:
+        return
+    from services.publishing.persona import load_persona, save_persona
+
+    persona = load_persona(account_id)
+    ua = str(persona.get("user_agent") or "")
+    if not _is_mobile_user_agent(ua):
+        return
+    persona["user_agent"] = _desktop_publish_user_agent()
+    save_persona(account_id, persona)
+    logger.info("WeChat login: normalized mobile persona user_agent for {}", account_id)
+
+
+def _ensure_wechat_desktop_login(page, context, *, account_id: str | None) -> None:
+    """Force desktop UA/viewport so channels login.html does not redirect to mobile."""
+    _normalize_wechat_persona_user_agent(account_id)
+    desktop_ua = _desktop_publish_user_agent()
+    try:
+        current_ua = page.evaluate("() => navigator.userAgent")
+    except Exception:
+        current_ua = ""
+    if _is_mobile_user_agent(current_ua):
+        logger.warning("WeChat login: overriding mobile browser UA with desktop Chrome UA")
+
+    try:
+        cdp = context.new_cdp_session(page)
+        cdp.send(
+            "Emulation.setDeviceMetricsOverride",
+            {
+                "width": 1440,
+                "height": 900,
+                "deviceScaleFactor": 1,
+                "mobile": False,
+            },
+        )
+        cdp.send("Network.setUserAgentOverride", {"userAgent": desktop_ua})
+    except Exception as exc:
+        logger.debug("WeChat login CDP desktop override skipped: {}", exc)
+
+    try:
+        context.add_init_script(
+            f"""(() => {{
+  const ua = {json.dumps(desktop_ua)};
+  try {{
+    Object.defineProperty(navigator, 'userAgent', {{ get: () => ua }});
+  }} catch (e) {{}}
+}})();"""
+        )
+    except Exception as exc:
+        logger.debug("WeChat login init-script UA override skipped: {}", exc)
+
+
+def _goto_wechat_login_page(page, context, login_url: str, *, account_id: str | None) -> None:
+    _ensure_wechat_desktop_login(page, context, account_id=account_id)
+    page.goto(login_url, wait_until="domcontentloaded")
+    if _is_wechat_mobile_login_url(page.url):
+        logger.warning("WeChat login redirected to mobile page; retrying with desktop UA")
+        _ensure_wechat_desktop_login(page, context, account_id=account_id)
+        page.goto(login_url, wait_until="domcontentloaded")
+
+
 def _run_qr_login_loop(
     profile: QrLoginProfile,
     ctx: QrLoginContext,
@@ -213,10 +293,19 @@ def _run_qr_login_loop(
     context,
 ) -> QrLoginResult:
     deadline = time.time() + ctx.qr_timeout_sec
+    login_url = profile.login_url or ctx.login_url
+    profile_key = ctx.account_id
+    if not profile_key and profile.platform_id == "wechat_channels":
+        from services.publishing.browser_profile import pending_profile_key
+
+        profile_key = pending_profile_key(ctx.session_id)
     try:
-        page.goto(profile.login_url or ctx.login_url, wait_until="domcontentloaded")
+        if profile.platform_id == "wechat_channels":
+            _goto_wechat_login_page(page, context, login_url, account_id=profile_key)
+        else:
+            page.goto(login_url, wait_until="domcontentloaded")
         _login_page_pause(page, profile, kind="step")
-        _prepare_login_page_for_qr(page, profile.login_url or ctx.login_url)
+        _prepare_login_page_for_qr(page, login_url)
         if profile.qr_switch_selector:
             try:
                 if profile.use_stealth_browser:
@@ -301,6 +390,34 @@ def _wechat_qr_visible(page) -> bool:
     return _find_wechat_qr_target(page, prepare=False) is not None
 
 
+def _wechat_oauth_load_failed(page) -> bool:
+    if not _is_wechat_login_url(page.url) or _is_wechat_mobile_login_url(page.url):
+        return False
+    if _find_wechat_qr_img_target(page) is not None:
+        return False
+    try:
+        body = page.locator("body").inner_text(timeout=2000)
+    except Exception:
+        return False
+    return all(marker in body for marker in _WECHAT_OAUTH_LOAD_FAIL_MARKERS)
+
+
+def _raise_qr_capture_error(page, selector: str | None) -> None:
+    url = page.url or ""
+    if "channels.weixin.qq.com" in url and _is_wechat_mobile_login_url(url):
+        raise RuntimeError(
+            "视频号登录被重定向到移动端页面（/mobile/mobile.html）。"
+            "请重置浏览器指纹 User-Agent 为桌面 Chrome 后重试。"
+        )
+    if _is_wechat_login_url(url):
+        if _wechat_oauth_load_failed(page):
+            raise RuntimeError(
+                "微信 OAuth 二维码加载失败（页面显示「加载失败，点击重试」）。"
+                "请检查本机网络能否访问 open.weixin.qq.com，或在本地浏览器重试扫码登录。"
+            )
+    raise RuntimeError(f"QR element not found: {selector}")
+
+
 def _prepare_login_page_for_qr(page, login_url: str | None) -> None:
     if not _is_wechat_login_url(login_url or getattr(page, "url", "")):
         return
@@ -340,6 +457,44 @@ def _parse_qr_selector(selector: str) -> tuple[str | None, str]:
     return None, text
 
 
+def _first_visible_locator(locator, *, timeout_ms: int = 4000):
+    deadline = time.time() + max(timeout_ms, 0) / 1000
+    while time.time() < deadline:
+        try:
+            count = locator.count()
+        except Exception:
+            return None
+        for index in range(count):
+            try:
+                item = locator.nth(index)
+                if item.is_visible(timeout=200):
+                    return item
+            except Exception:
+                continue
+        time.sleep(0.25)
+    return None
+
+
+def _find_wechat_qr_img_target(page) -> _QrCaptureTarget | None:
+    try:
+        iframe_visible = page.locator(_WECHAT_QR_IFRAME).first.is_visible(timeout=1500)
+    except Exception:
+        iframe_visible = False
+    if not iframe_visible:
+        return None
+    for img_sel in _WECHAT_QR_IMG_SELECTORS:
+        try:
+            loc = _first_visible_locator(
+                page.frame_locator(_WECHAT_QR_IFRAME).locator(img_sel),
+                timeout_ms=4000,
+            )
+            if loc is not None:
+                return _QrCaptureTarget(locator=loc, mode="img")
+        except Exception:
+            continue
+    return None
+
+
 def _iter_qr_search_specs(selectors: Sequence[str]) -> list[tuple[str | None, str]]:
     specs: list[tuple[str | None, str]] = []
     seen: set[tuple[str | None, str]] = set()
@@ -355,13 +510,9 @@ def _iter_qr_search_specs(selectors: Sequence[str]) -> list[tuple[str | None, st
 def _find_wechat_qr_target(page, *, prepare: bool = False) -> _QrCaptureTarget | None:
     if prepare:
         _prepare_login_page_for_qr(page, page.url)
-    for img_sel in _WECHAT_QR_IMG_SELECTORS:
-        try:
-            loc = page.frame_locator(_WECHAT_QR_IFRAME).locator(img_sel).first
-            loc.wait_for(state="visible", timeout=4000)
-            return _QrCaptureTarget(locator=loc, mode="img")
-        except Exception:
-            continue
+    img_target = _find_wechat_qr_img_target(page)
+    if img_target is not None:
+        return img_target
     for container_sel in _WECHAT_QR_CONTAINER_SELECTORS:
         try:
             loc = page.locator(container_sel).first
@@ -382,18 +533,21 @@ def _find_visible_qr_locator(page, selectors: Sequence[str]) -> _QrCaptureTarget
     for iframe_sel, inner_sel in specs:
         if iframe_sel:
             try:
-                loc = page.frame_locator(iframe_sel).locator(inner_sel).first
-                loc.wait_for(state="visible", timeout=4000)
-                return _QrCaptureTarget(locator=loc, mode="img")
+                loc = _first_visible_locator(
+                    page.frame_locator(iframe_sel).locator(inner_sel),
+                    timeout_ms=4000,
+                )
+                if loc is not None:
+                    return _QrCaptureTarget(locator=loc, mode="img")
             except Exception:
                 continue
             continue
 
         for frame in page.frames:
             try:
-                loc = frame.locator(inner_sel).first
-                loc.wait_for(state="visible", timeout=2500)
-                return _QrCaptureTarget(locator=loc, mode="img")
+                loc = _first_visible_locator(frame.locator(inner_sel), timeout_ms=2500)
+                if loc is not None:
+                    return _QrCaptureTarget(locator=loc, mode="img")
             except Exception:
                 continue
 
@@ -432,7 +586,7 @@ def _capture_qr(page, qr_path: Path, selector: str | None, *, prepare: bool = Tr
     selectors = _qr_selector_candidates(selector)
     target = _find_visible_qr_locator(page, selectors)
     if target is None:
-        raise RuntimeError(f"QR element not found: {selector}")
+        _raise_qr_capture_error(page, selector)
 
     loc = target.locator
     if target.mode == "img" and _download_qr_from_img(loc, page, qr_path):
