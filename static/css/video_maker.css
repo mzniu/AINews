@@ -1,0 +1,216 @@
+/* Video maker — aligned to AINews design tokens */
+.video-maker-shell,
+.video-maker-shell .container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.video-maker-header,
+.video-maker-shell .header {
+    margin-bottom: 24px;
+}
+
+.video-maker-header h1 {
+    font-family: var(--font-display, 'Newsreader', serif);
+    font-size: 1.75rem;
+    margin: 0 0 8px;
+    color: var(--app-off-white, var(--color-text));
+}
+
+.video-maker-header p {
+    margin: 0;
+    color: var(--app-text-soft, var(--color-text-soft));
+    font-size: 14px;
+}
+
+.video-maker-header a {
+    color: var(--app-vibrant-blue, var(--color-brand-vibrant));
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.video-maker-card,
+.video-maker-shell .card.soft-card,
+.video-maker-shell .soft-card {
+    margin-bottom: 20px;
+}
+
+.video-maker-card h2 {
+    font-size: 1.15rem;
+    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.upload-zone {
+    border: 2px dashed var(--app-border, var(--color-border));
+    border-radius: var(--app-radius-lg, var(--radius-card));
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 16px;
+    background: var(--app-surface-inset, var(--color-surface-inset));
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: var(--app-vibrant-blue, var(--color-brand-vibrant));
+    background: rgba(18, 52, 153, 0.06);
+}
+
+.upload-zone .icon { font-size: 2.5rem; margin-bottom: 10px; }
+.upload-zone .text { color: var(--app-text-soft, var(--color-text-soft)); font-size: 1rem; }
+.upload-zone .hint { color: var(--app-text-muted, var(--color-text-muted)); font-size: 0.85rem; margin-top: 8px; }
+
+.preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.preview-item {
+    position: relative;
+    border-radius: var(--app-radius-md, var(--radius-control));
+    overflow: hidden;
+    box-shadow: var(--app-shadow-raised, var(--shadow-raised));
+    aspect-ratio: 1;
+    background: var(--app-surface-inset, var(--color-surface-inset));
+    border: 1px solid var(--app-border, var(--color-border));
+}
+
+.preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.preview-item .remove-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.preview-item:hover .remove-btn { opacity: 1; }
+
+.preview-item .order-badge {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    background: var(--app-vibrant-blue, var(--color-brand-vibrant));
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.video-maker-form-row,
+.video-maker-shell .form-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    align-items: center;
+}
+
+.video-maker-form-row label {
+    min-width: 80px;
+    font-weight: 600;
+    color: var(--app-text-soft, var(--color-text-soft));
+    font-size: 0.9rem;
+}
+
+.video-maker-form-row input[type="text"],
+.video-maker-form-row select {
+    flex: 1;
+}
+
+.video-maker-form-row .hint {
+    color: var(--app-text-muted, var(--color-text-muted));
+    font-size: 0.8rem;
+    margin-left: 4px;
+}
+
+.video-maker-actions,
+.video-maker-shell .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    align-items: center;
+}
+
+.video-maker-progress,
+.video-maker-shell .progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--app-surface-inset, var(--color-surface-inset));
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 12px 0;
+    display: none;
+}
+
+.video-maker-progress .fill {
+    height: 100%;
+    background: var(--app-vibrant-blue, var(--color-brand-vibrant));
+    width: 0%;
+    transition: width 0.5s;
+    border-radius: 3px;
+}
+
+.video-maker-status,
+.video-maker-shell .status-text {
+    color: var(--app-text-soft, var(--color-text-soft));
+    font-size: 0.9rem;
+    margin-top: 8px;
+    min-height: 20px;
+}
+
+.video-maker-result,
+.video-maker-shell .result-card { display: none; }
+
+.video-maker-result video {
+    width: 100%;
+    max-height: 600px;
+    border-radius: var(--app-radius-md, var(--radius-control));
+    background: #000;
+}
+
+.video-maker-result-meta,
+.video-maker-shell .result-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    color: var(--app-text-soft, var(--color-text-soft));
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.video-maker-result-meta span {
+    background: var(--app-surface-inset, var(--color-surface-inset));
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--app-border, var(--color-border));
+}
+
+[data-theme="dark"] .upload-zone:hover,
+[data-theme="dark"] .upload-zone.dragover {
+    background: rgba(18, 52, 153, 0.18);
+}

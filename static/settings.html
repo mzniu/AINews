@@ -8,18 +8,19 @@
     <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
     <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
-    <link rel="stylesheet" href="/static/css/model_settings.css?v=20260824a">
+    <link rel="stylesheet" href="/static/css/model_settings.css?v=20260916">
 </head>
 <body class="app-page">
     <div id="app-nav-root"></div>
 
-<div class="container">
+    <div class="container">
         <div class="page-hero">
             <h1>⚙️ 系统配置</h1>
             <p>管理 AI 模型与资讯爬取参数。爬取 Worker 默认内嵌在 <code>web_server</code> 中运行（<code>INGESTION_WORKER_MODE=embedded</code>）。</p>
         </div>
 
-        <div class="settings-tabs">
+        <div class="settings-layout">
+        <nav class="settings-subnav settings-tabs" aria-label="配置分类">
             <button type="button" class="settings-tab active" data-tab="models">🗣️ 模型配置</button>
             <button type="button" class="settings-tab" data-tab="usage">📈 用量统计</button>
             <button type="button" class="settings-tab" data-tab="title-prompts">📝 标题文案</button>
@@ -28,8 +29,9 @@
             <button type="button" class="settings-tab" data-tab="render-templates">🎬 成片模板</button>
             <button type="button" class="settings-tab" data-tab="ingestion">🕷️ 爬取设定</button>
             <button type="button" class="settings-tab" data-tab="hot-radar">📡 热榜雷达</button>
-        </div>
+        </nav>
 
+        <div class="settings-content">
         <div id="panel-models" class="settings-panel">
             <div class="card">
                 <div class="section-head">
@@ -466,6 +468,7 @@
                 <div id="usageByTask"></div>
                 <div id="usageStatusBar" class="status-bar"></div>
             </div>
+        </div>
         </div>
     </div>
     <script src="/static/js/model_settings.js?v=20260813d"></script>

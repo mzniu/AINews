@@ -142,6 +142,46 @@
     margin-top: 8px;
 }
 
+.settings-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settings-subnav.settings-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 0;
+    flex-wrap: wrap;
+}
+
+.settings-content {
+    flex: 1;
+    min-width: 0;
+}
+
+@media (min-width: 1280px) {
+    .settings-layout {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 24px;
+    }
+
+    .settings-subnav.settings-tabs {
+        flex-direction: column;
+        flex: 0 0 200px;
+        flex-wrap: nowrap;
+        position: sticky;
+        top: 24px;
+    }
+
+    .settings-subnav .settings-tab {
+        width: 100%;
+        text-align: left;
+        border-radius: var(--app-radius-md);
+    }
+}
+
 .settings-tabs {
     display: flex;
     gap: 8px;

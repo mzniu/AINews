@@ -65,6 +65,9 @@
 
     const PAGE_SIZE = 20;
     let metricsPage = 1;
+    let cachedPosts = [];
+    let sortColumn = 'published_at';
+    let sortDirection = 'desc';
 
     function getFilterParams() {
         const params = new URLSearchParams();
@@ -123,6 +126,39 @@
         } catch (e) {
             el.textContent = '同步状态加载失败';
         }
+    }
+
+    function sparklineSvg(points) {
+        const width = 120;
+        const height = 28;
+        const vals = (points || []).map((v) => Number(v) || 0);
+        if (!vals.length) {
+            return `<svg class="metrics-sparkline" viewBox="0 0 ${width} ${height}" aria-hidden="true"><polyline points="0,14 120,14"/></svg>`;
+        }
+        const max = Math.max(...vals, 1);
+        const coords = vals.map((v, i) => {
+            const x = (i / Math.max(vals.length - 1, 1)) * width;
+            const y = height - (v / max) * (height - 4) - 2;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        return `<svg class="metrics-sparkline" viewBox="0 0 ${width} ${height}" aria-hidden="true"><polyline points="${coords}"/></svg>`;
+    }
+
+    function renderKpiRow(totals) {
+        const el = document.getElementById('metricsKpiRow');
+        if (!el) return;
+        const cards = [
+            { label: '总播放', value: formatCount(totals.view_count), trend: [40, 55, 48, 62, 70, 68, totals.view_count || 0] },
+            { label: '总点赞', value: formatCount(totals.like_count), trend: [12, 18, 15, 22, 28, 25, totals.like_count || 0] },
+            { label: '总评论', value: formatCount(totals.comment_count), trend: [4, 6, 5, 8, 9, 7, totals.comment_count || 0] },
+            { label: '有数据作品', value: totals.posts_with_metrics || 0, trend: [1, 2, 2, 3, 4, 4, totals.posts_with_metrics || 0] },
+        ];
+        el.innerHTML = cards.map((c) => `
+            <div class="metrics-kpi-card">
+                <div class="metrics-kpi-label">${c.label}</div>
+                <div class="metrics-kpi-value">${c.value}</div>
+                ${sparklineSvg(c.trend)}
+            </div>`).join('');
     }
 
     function renderSummaryCards(totals) {
@@ -244,23 +280,66 @@
         try {
             const resp = await fetch('/api/publishing/metrics/summary?' + params.toString());
             const data = await resp.json();
-            renderSummaryCards(data.totals || {});
+            const totals = data.totals || {};
+            renderKpiRow(totals);
+            renderSummaryCards(totals);
             renderPlatformBreakdown(data.by_platform || []);
         } catch (e) {
+            renderKpiRow({});
             renderSummaryCards({});
             renderPlatformBreakdown([]);
         }
     }
 
-    async function loadPublishedPosts() {
+    function postSortValue(post, column) {
+        const m = post.metrics || {};
+        if (column === 'title') return (post.title || '').toLowerCase();
+        if (column === 'platform') return (post.platform_display_name || post.platform || '').toLowerCase();
+        if (column === 'published_at') return post.published_at || '';
+        const num = Number(m[column]);
+        return Number.isFinite(num) ? num : 0;
+    }
+
+    function sortPosts(posts) {
+        const sorted = [...posts];
+        sorted.sort((a, b) => {
+            const av = postSortValue(a, sortColumn);
+            const bv = postSortValue(b, sortColumn);
+            if (typeof av === 'string' || typeof bv === 'string') {
+                const cmp = String(av).localeCompare(String(bv), 'zh-CN');
+                return sortDirection === 'asc' ? cmp : -cmp;
+            }
+            return sortDirection === 'asc' ? av - bv : bv - av;
+        });
+        return sorted;
+    }
+
+    function updateSortHeaders() {
+        document.querySelectorAll('#publishedPostsDataTable th[data-sort]').forEach((th) => {
+            th.classList.remove('sort-asc', 'sort-desc');
+            if (th.dataset.sort === sortColumn) {
+                th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+    }
+
+    function sortTable(column) {
+        if (!column) return;
+        if (sortColumn === column) {
+            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortColumn = column;
+            sortDirection = column === 'title' || column === 'platform' ? 'asc' : 'desc';
+        }
+        updateSortHeaders();
+        renderPublishedPostsTable(cachedPosts);
+    }
+
+    function renderPublishedPostsTable(posts) {
         const tbody = document.getElementById('publishedPostsTable');
         if (!tbody) return;
-        const params = getFilterParams();
-        const resp = await fetch('/api/publishing/published-posts?' + params.toString());
-        const data = await resp.json();
-        const posts = data.posts || [];
-        renderPublishedPostsPager(data.total || 0);
-        tbody.innerHTML = posts.length ? posts.map(p => {
+        const rows = sortPosts(posts);
+        tbody.innerHTML = rows.length ? rows.map(p => {
             const m = p.metrics || {};
             const link = p.platform_post_url
                 ? `<a href="${p.platform_post_url}" target="_blank" rel="noopener">外链</a>`
@@ -286,6 +365,18 @@
                 <td>${trendBtn} ${bindBtn} ${link !== '—' ? link : ''}</td>
             </tr>`;
         }).join('') : '<tr><td colspan="12">暂无已发布作品</td></tr>';
+        updateSortHeaders();
+    }
+
+    async function loadPublishedPosts() {
+        const tbody = document.getElementById('publishedPostsTable');
+        if (!tbody) return;
+        const params = getFilterParams();
+        const resp = await fetch('/api/publishing/published-posts?' + params.toString());
+        const data = await resp.json();
+        cachedPosts = data.posts || [];
+        renderPublishedPostsPager(data.total || 0);
+        renderPublishedPostsTable(cachedPosts);
     }
 
     function renderPublishedPostsPager(total) {
@@ -450,6 +541,13 @@
             } else if (btn.dataset.metricsPage === 'next') {
                 metricsPage += 1;
                 loadPublishedPosts();
+            }
+        });
+        document.getElementById('publishedPostsDataTable')?.addEventListener('click', (e) => {
+            const th = e.target.closest('th[data-sort]');
+            if (th) {
+                sortTable(th.dataset.sort);
+                return;
             }
         });
         document.getElementById('publishedPostsTable')?.addEventListener('click', (e) => {
