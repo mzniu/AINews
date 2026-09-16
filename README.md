@@ -12,7 +12,7 @@
 - 🌐 **智能网页抓取** - 基于 Playwright，支持 JavaScript 渲染页面，自动提取正文和图片
 - 🤖 **AI 内容总结** - 接入 DeepSeek API，自动生成标题、摘要、口播稿，以及「赛道+垂直+精准+热点+个人IP+5个其他」结构的 10 个标签
 - 🎨 **关键帧生成** - 自动合成竖屏关键帧（1080×1920），包含背景模板、文章图片、标题和摘要
-- 🎬 **视频合成** - MoviePy 2.x 一键合成 MP4，支持背景音乐和智能帧时长控制
+- 🎬 **视频合成** - Remotion（默认）一键合成 MP4，支持纪年模板、打字机摘要、GIF/BGM；MoviePy 路径可回退
 - 🧹 **图片去水印** - 基于 LaMa 模型的 AI 图片修复，框选区域即可去除水印
 - 📱 **Web 可视化界面** - 全流程浏览器操作，无需命令行
 
@@ -102,7 +102,7 @@ python web_server.py
 | 网页抓取 | Playwright (Chromium) + BeautifulSoup4 |
 | AI 引擎 | DeepSeek API（OpenAI SDK 兼容） |
 | 图像处理 | Pillow（合成、文字渲染、半透明遮罩） |
-| 视频合成 | MoviePy 2.x（ImageClip → 拼接 → MP4） |
+| 视频合成 | Remotion（默认，`VIDEO_RENDERER=remotion`）+ MoviePy 回退 |
 | 去水印 | simple-lama-inpainting（LaMa 模型） |
 | 前端 | 原生 HTML/CSS/JavaScript |
 
@@ -116,7 +116,7 @@ AINews/
 │   ├── imgs/
 │   │   └── bg.png         # 背景模板（1080×1920）
 │   └── music/
-│       └── background.mp3 # 背景音乐（需自行添加）
+│       └── Memories.mp3   # 内置案例 BGM（Git 跟踪）
 ├── create_default_bg.py   # 生成默认背景图
 ├── src/
 │   ├── crawlers/          # 爬虫模块
@@ -160,7 +160,8 @@ AINews/
 
 - **DeepSeek API Key** - 必须在 `.env` 中配置，建议控制日调用成本
 - **Playwright 浏览器** - 首次使用需运行 `playwright install chromium`
-- **背景音乐** - `static/music/background.mp3` 需自行提供（已 gitignore）
+- **背景音乐** - 内置 `static/music/Memories.mp3`；其他 MP3 可放入 `static/music/`（默认 gitignore）
+- **视频渲染** - 默认 Remotion（`VIDEO_RENDERER=remotion`）；回退 Python：`VIDEO_RENDERER=python`
 - **磁盘空间** - 生成的视频约 50-100MB/个，注意清理 `data/videos/`
 - **LaMa 模型** - 首次去水印时会自动下载模型（约 200MB）
 

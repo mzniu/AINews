@@ -48,11 +48,15 @@ Pass JSON via `--props=path/to/props.json`. See `sample-props.json`.
 Image paths should be repo-relative (`static/imgs/...`) or are staged automatically by
 `services/ingestion/remotion_render_service.py` into `public/runtime/<article_id>/`.
 
-## Enable in ingestion pipeline
+## Ingestion pipeline (production default)
+
+Remotion is the **default** renderer for `render_ingested_video()`.
+
+Override to Python/MoviePy:
 
 ```bash
-export VIDEO_RENDERER=remotion
-# or pass renderer="remotion" to render_ingested_video()
+export VIDEO_RENDERER=python
+# or pass renderer="python" to render_ingested_video()
 ```
 
-Python path remains default until parity is verified.
+If Remotion dependencies are missing or a render fails, the pipeline falls back to Python automatically.
