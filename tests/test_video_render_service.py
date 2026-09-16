@@ -1,6 +1,10 @@
 from unittest.mock import patch
 
-from services.ingestion.video_render_service import render_ingested_video, resolve_ingested_clip_durations
+from services.ingestion.video_render_service import (
+    render_ingested_video,
+    resolve_ingested_clip_durations,
+    resolve_video_renderer,
+)
 
 
 def test_resolve_ingested_clip_durations_two_images():
@@ -51,8 +55,21 @@ def test_render_ingested_video_allows_single_image(mock_renderable, mock_chronic
         image_paths=["/data/a.jpg"],
         bgm_path="static/music/a.mp3",
         template={"layout_kind": "chronicle_frame", "canvas": {"fps": 24}, "video": {"fallback_clip_sec": 7.0}},
+        renderer="python",
     )
     assert result["success"] is True
     mock_chronicle.assert_called_once()
     assert mock_chronicle.call_args.kwargs["image_paths"] == ["data/a.jpg"]
     assert mock_chronicle.call_args.kwargs["durations"] == [8.0]
+
+
+def test_resolve_video_renderer_defaults_to_remotion(monkeypatch):
+    monkeypatch.delenv("VIDEO_RENDERER", raising=False)
+    assert resolve_video_renderer() == "remotion"
+    assert resolve_video_renderer(None) == "remotion"
+
+
+def test_resolve_video_renderer_python_override(monkeypatch):
+    monkeypatch.setenv("VIDEO_RENDERER", "python")
+    assert resolve_video_renderer() == "python"
+    assert resolve_video_renderer("remotion") == "remotion"

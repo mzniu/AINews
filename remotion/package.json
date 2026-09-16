@@ -1,0 +1,29 @@
+{
+  "name": "ai-news-remotion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion video renderer for AI News ingestion pipeline",
+  "scripts": {
+    "start": "remotion studio",
+    "build": "remotion bundle",
+    "render:chronicle": "remotion render ChronicleVideo out/chronicle.mp4",
+    "render:classic": "remotion render ClassicOverlayVideo out/classic.mp4",
+    "render:sample": "remotion render ChronicleVideo out/sample.mp4 --props=sample-props.json",
+    "render:bgm": "remotion render ChronicleVideo out/cjk-bgm-sample.mp4 --props=sample-props-with-bgm.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.525",
+    "@remotion/gif": "^4.0.525",
+    "@remotion/google-fonts": "^4.0.525",
+    "@remotion/media-utils": "^4.0.525",
+    "@remotion/renderer": "^4.0.525",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "^4.0.525"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "typescript": "5.6.3"
+  }
+}

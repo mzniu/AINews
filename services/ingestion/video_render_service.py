@@ -1,6 +1,7 @@
 """Render ingested article video using the homepage animated-video pipeline."""
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi.responses import JSONResponse
@@ -9,6 +10,17 @@ from loguru import logger
 from api.schemas.request_models import CreateAnimatedVideoRequest, ImageWithDuration
 
 MIN_VIDEO_DURATION_SEC = 8.0
+DEFAULT_VIDEO_RENDERER = "remotion"
+PYTHON_VIDEO_RENDERER_ALIASES = frozenset({"python", "moviepy"})
+
+
+def resolve_video_renderer(renderer: str | None = None) -> str:
+    """Return ``remotion`` (default) or ``python`` when explicitly requested."""
+    raw = renderer if renderer is not None else os.environ.get("VIDEO_RENDERER", DEFAULT_VIDEO_RENDERER)
+    choice = str(raw).strip().lower()
+    if choice in PYTHON_VIDEO_RENDERER_ALIASES:
+        return "python"
+    return "remotion"
 
 
 def _normalize_image_path(path: str) -> str:
@@ -86,6 +98,7 @@ def render_ingested_video(
     background_image: str = "static/imgs/bg.png",
     clip_duration_sec: float = 2.5,
     template: dict[str, Any] | None = None,
+    renderer: str | None = None,
 ) -> dict[str, Any]:
     from services.ingestion.render_image_utils import is_renderable_local_image
 
@@ -113,6 +126,29 @@ def render_ingested_video(
         durations = durations + [clip_duration_sec] * (len(renderable_paths) - len(durations))
     durations = ensure_min_total_duration(durations, min_total=min_total)
     image_paths = renderable_paths
+
+    if resolve_video_renderer(renderer) == "remotion":
+        from services.ingestion.remotion_render_service import remotion_available, render_with_remotion
+
+        if remotion_available():
+            remotion_result = render_with_remotion(
+                article_id=article_id,
+                draft=draft,
+                image_paths=image_paths,
+                bgm_path=bgm_path,
+                background_image=background_image,
+                durations=durations,
+                template=template,
+            )
+            if remotion_result.get("success"):
+                return remotion_result
+            logger.warning(
+                "Remotion render failed for article={}: {}; falling back to Python",
+                article_id,
+                remotion_result.get("error"),
+            )
+        else:
+            logger.warning("Remotion not installed; falling back to Python renderer for article={}", article_id)
 
     if (template or {}).get("layout_kind") == "chronicle_frame":
         from services.ingestion.chronicle_render import render_chronicle_video
