@@ -12,7 +12,7 @@
     {"path": "static/imgs/bg-2.png", "duration": 3.0},
     {"path": "static/imgs/bg.png", "duration": 3.0}
   ],
-  "audioPath": "static/music/background.mp3",
+  "audioPath": "static/music/Memories.mp3",
   "template": {
     "canvas": {"width": 1080, "height": 1920, "fps": 24},
     "palette": {

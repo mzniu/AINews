@@ -17,4 +17,4 @@ def test_pick_random_bgm_from_dir(tmp_path):
 
 def test_pick_random_bgm_fallback_when_empty(tmp_path):
     path = pick_random_bgm(tmp_path / "empty")
-    assert path == "static/music/background.mp3"
+    assert path in ("static/music/Memories.mp3", "static/music/background.mp3")

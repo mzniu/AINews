@@ -25,15 +25,21 @@ QA_DIR = ROOT / "data" / "qa" / "remotion-comparison"
 QA_ARTIFACTS = ROOT / "remotion" / "qa-artifacts"
 VENTUREBEAT_FIXTURE = ROOT / "venturebeat_article_complete.json"
 DEFAULT_TEMPLATE_ID = "chronicle_archive_tech_blue"
-BGM_PATH = "static/music/background.mp3"
+FEATURED_BGM_PATH = "static/music/Memories.mp3"
+FALLBACK_BGM_PATH = "static/music/background.mp3"
 GIF_PATH = "data/test_gifs/moving_circle.gif"
 
 
 def _repo_bgm() -> str:
-    bgm = ROOT / BGM_PATH
-    test_link = ROOT / "remotion" / "public" / "static" / "music" / "test-bgm.mp3"
-    test_link.parent.mkdir(parents=True, exist_ok=True)
-    if not bgm.is_file():
+    """Resolve featured BGM (Memories.mp3) for QA; symlink test-bgm for npm render:bgm."""
+    for rel in (FEATURED_BGM_PATH, FALLBACK_BGM_PATH):
+        candidate = ROOT / rel
+        if candidate.is_file():
+            bgm_path = rel
+            break
+    else:
+        fallback = ROOT / FALLBACK_BGM_PATH
+        fallback.parent.mkdir(parents=True, exist_ok=True)
         sine = QA_DIR / "generated-test-bgm.mp3"
         sine.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
@@ -42,10 +48,21 @@ def _repo_bgm() -> str:
             capture_output=True,
         )
         if sine.is_file():
-            shutil.copy2(sine, bgm)
-    if bgm.is_file() and not test_link.exists():
-        test_link.symlink_to(bgm.resolve())
-    return BGM_PATH if bgm.is_file() else ""
+            shutil.copy2(sine, fallback)
+        bgm_path = FALLBACK_BGM_PATH if fallback.is_file() else ""
+
+    if not bgm_path:
+        return ""
+
+    test_link = ROOT / "remotion" / "public" / "static" / "music" / "test-bgm.mp3"
+    test_link.parent.mkdir(parents=True, exist_ok=True)
+    resolved = (ROOT / bgm_path).resolve()
+    if test_link.is_symlink() or test_link.exists():
+        if test_link.is_symlink() and test_link.resolve() == resolved:
+            return bgm_path
+        test_link.unlink(missing_ok=True)
+    test_link.symlink_to(resolved)
+    return bgm_path
 
 
 def _latest_from_db() -> dict | None:

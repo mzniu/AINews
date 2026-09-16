@@ -122,11 +122,14 @@ async def list_music_files():
         # 获取所有 mp3 文件
         mp3_files = list(music_dir.glob("*.mp3"))
         
+        featured = {"Memories": "Memories（案例）"}
         files_info = []
-        for mp3_file in sorted(mp3_files):
+        for mp3_file in sorted(mp3_files, key=lambda p: (p.stem not in featured, p.stem.lower())):
+            stem = mp3_file.stem
+            display = featured.get(stem) or stem.replace("_", " ").title()
             files_info.append({
                 "path": str(mp3_file).replace("\\", "/"),  # 统一使用正斜杠
-                "name": mp3_file.stem.replace('_', ' ').title()  # 美化文件名
+                "name": display,
             })
         
         return {

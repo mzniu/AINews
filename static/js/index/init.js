@@ -384,6 +384,7 @@
         function loadFallbackBGMList() {
             const bgmSelect = document.getElementById('bgmSelect');
             const fallbackFiles = [
+                { path: 'static/music/Memories.mp3', name: '🎵 Memories（案例）' },
                 { path: 'static/music/background.mp3', name: '🎵 默认背景音乐' },
                 { path: 'static/music/background3.mp3', name: '🎵 背景音乐 3' },
                 { path: 'static/music/background4.mp3', name: '🎵 背景音乐 4' }
