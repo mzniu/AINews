@@ -65,3 +65,25 @@ def test_auth_js_enter_app_defers_navigation_to_tauri():
     assert "window.location.href" not in js
     assert "await invoke('auth_start_app')" in js
     assert "if (appEnterInProgress) return" in js
+
+
+@pytest.mark.parametrize(
+    "html_path",
+    [AUTH_HTML, REMOTION_AUTH_HTML],
+    ids=["static", "remotion"],
+)
+def test_auth_html_startup_loading_overlay(html_path: Path):
+    html = _read(html_path)
+    assert 'id="startup-loading"' in html
+    assert 'class="ripple-ring"' in html
+    assert 'id="startup-status"' in html
+    assert 'aria-live="polite"' in html
+    assert "ainews-mark.png" in html
+
+
+def test_auth_js_startup_loading_helpers():
+    js = _read(AUTH_JS)
+    assert "showStartupLoading" in js
+    assert "hideStartupLoading" in js
+    assert "STARTUP_STATUS_MESSAGES" in js
+    assert "showStartupLoading('正在启动应用…')" in js
