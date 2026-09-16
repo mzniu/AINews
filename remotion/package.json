@@ -5,6 +5,7 @@
   "description": "Remotion video renderer for AI News ingestion pipeline",
   "scripts": {
     "start": "remotion studio",
+    "typecheck": "tsc --noEmit",
     "build": "remotion bundle",
     "render:chronicle": "remotion render ChronicleVideo out/chronicle.mp4",
     "render:classic": "remotion render ClassicOverlayVideo out/classic.mp4",
