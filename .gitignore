@@ -47,6 +47,7 @@ htmlcov/
 static/music/*.mp3
 static/music/*.wav
 static/music/*.m4a
+!static/music/Memories.mp3
 
 # 临时文件
 *.tmp
