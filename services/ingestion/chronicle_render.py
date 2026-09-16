@@ -477,8 +477,7 @@ def _draw_brand_chrome(
     brand_xy = (mark_box[2] + 16, mark_box[1] + 4)
     draw.text(brand_xy, brand, font=brand_font, fill=text_color)
     if include_brand_sub and brand_sub:
-        brand_size = int(getattr(brand_font, "size", 0) or getattr(brand_sub_font, "size", 28))
-        sub_y = brand_xy[1] + brand_size + 12
+        sub_y = brand_xy[1] + 48
         draw.text((brand_xy[0], sub_y), brand_sub, font=brand_sub_font, fill=muted)
     year = str(datetime.now().year)
     badge = f"RECORD {year}"
