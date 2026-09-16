@@ -416,6 +416,92 @@ body.desktop-auth-page {
     box-shadow: 0 4px 16px rgba(18, 52, 153, 0.55);
 }
 
+.app-page .nav-collapse-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid rgba(232, 234, 246, 0.14);
+    border-radius: 10px;
+    background: rgba(18, 52, 153, 0.25);
+    color: var(--app-off-white);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.app-page .nav-top-bar {
+    display: none;
+}
+
+body.app-page.nav-collapsed .app-nav {
+    width: var(--nav-width-collapsed);
+}
+
+body.app-page.nav-collapsed .nav-brand span,
+body.app-page.nav-collapsed .nav-group-label,
+body.app-page.nav-collapsed .nav-label,
+body.app-page.nav-collapsed .nav-user-copy,
+body.app-page.nav-collapsed .nav-theme-row span[data-theme-label],
+body.app-page.nav-collapsed .nav-global-search,
+body.app-page.nav-collapsed .nav-footer .nav-theme-row {
+    display: none;
+}
+
+body.app-page.nav-collapsed .nav-link {
+    justify-content: center;
+    padding: 10px 8px;
+}
+
+body.app-page.nav-collapsed .nav-link .nav-icon {
+    margin: 0;
+}
+
+body.app-page.nav-top-bar {
+    padding-top: calc(var(--nav-topbar-height) + var(--space-page));
+}
+
+body.app-page.nav-top-bar .nav-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: fixed;
+    top: 0;
+    left: var(--nav-width-collapsed);
+    right: 0;
+    height: var(--nav-topbar-height);
+    padding: 0 16px;
+    z-index: 999;
+    background: var(--nav-bg);
+    border-bottom: 1px solid var(--nav-border);
+    backdrop-filter: blur(18px);
+    overflow-x: auto;
+}
+
+body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
+    left: var(--nav-width-collapsed);
+}
+
+.app-page .nav-top-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--app-text-soft);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.app-page .nav-top-link.active,
+.app-page .nav-top-link:hover {
+    background: rgba(18, 52, 153, 0.12);
+    color: var(--app-vibrant-blue);
+}
+
 @media (max-width: 720px) {
     body.app-page {
         padding: 16px 16px 24px 16px;

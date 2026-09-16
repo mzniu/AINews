@@ -62,6 +62,7 @@
     ];
 
     const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
+    const NAV_COLLAPSE_KEY = 'ainews-nav-collapsed';
     const APP_VERSION_FALLBACK = '1.0.2';
     let userMenuOpen = false;
     let userMenuDocListenerBound = false;
@@ -106,6 +107,46 @@
         window.location.replace(url.toString());
     }
 
+    function getNavCollapsed() {
+        try {
+            return localStorage.getItem(NAV_COLLAPSE_KEY) === '1';
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function setNavCollapsed(collapsed) {
+        const isCollapsed = Boolean(collapsed);
+        document.body.classList.toggle('nav-collapsed', isCollapsed);
+        document.body.classList.toggle('nav-top-bar', isCollapsed);
+        document.body.dataset.navCollapsed = isCollapsed ? 'true' : 'false';
+        try {
+            localStorage.setItem(NAV_COLLAPSE_KEY, isCollapsed ? '1' : '0');
+        } catch (_) {
+            /* ignore */
+        }
+        const btn = document.getElementById('app-nav-collapse');
+        if (btn) {
+            btn.setAttribute('aria-pressed', isCollapsed ? 'true' : 'false');
+            btn.title = isCollapsed ? '展开侧栏' : '收起侧栏';
+            btn.setAttribute('aria-label', btn.title);
+        }
+    }
+
+    function toggleNavCollapse() {
+        setNavCollapsed(!getNavCollapsed());
+    }
+
+    function bindNavCollapseButton(root) {
+        const btn = root.querySelector('#app-nav-collapse');
+        if (!btn || btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            toggleNavCollapse();
+        });
+    }
+
     function bindRefreshButton(root) {
         const btn = root.querySelector('#app-nav-refresh');
         if (!btn) return;
@@ -118,7 +159,7 @@
     function renderGroup(group, pathname) {
         const links = group.items.map((item) => {
             const cls = isActive(item, pathname) ? 'nav-link active' : 'nav-link';
-            return `<a href="${item.href}" class="${cls}">${navIcon(item.icon)}${esc(item.label)}</a>`;
+            return `<a href="${item.href}" class="${cls}">${navIcon(item.icon)}<span class="nav-label">${esc(item.label)}</span></a>`;
         }).join('');
         const label = group.label
             ? `<div class="nav-group-label">${esc(group.label)}</div>`
@@ -141,6 +182,15 @@
                 <button type="button" class="nav-refresh-btn" id="app-nav-refresh" title="强制刷新" aria-label="强制刷新">
                     ${navIcon('refresh')}
                 </button>
+                <button type="button" class="nav-collapse-btn" id="app-nav-collapse" title="收起侧栏" aria-label="收起侧栏" aria-pressed="false">
+                    ${navIcon('settings')}
+                </button>
+            </div>
+            <div class="nav-top-bar" aria-label="快捷导航">
+                ${NAV_ITEMS.map((item) => {
+                    const cls = isActive(item, pathname) ? 'nav-top-link active' : 'nav-top-link';
+                    return `<a href="${item.href}" class="${cls}" title="${esc(item.label)}">${navIcon(item.icon)}<span>${esc(item.label)}</span></a>`;
+                }).join('')}
             </div>
             <div class="nav-scroll">
                 <div id="global-search-root" class="nav-global-search"></div>
@@ -172,6 +222,8 @@
     </nav>`;
 
         bindRefreshButton(root);
+        bindNavCollapseButton(root);
+        setNavCollapsed(getNavCollapsed());
         bindUserMenu(root);
         bindAuthStatusListener(root);
         bindVersion(root);
@@ -498,5 +550,15 @@
         init();
     }
 
-    window.AppNav = { NAV_ITEMS, NAV_GROUPS, renderNav, normalizePath, isActive, forceRefresh };
+    window.AppNav = {
+        NAV_ITEMS,
+        NAV_GROUPS,
+        renderNav,
+        normalizePath,
+        isActive,
+        forceRefresh,
+        getNavCollapsed,
+        setNavCollapsed,
+        toggleNavCollapse,
+    };
 })();

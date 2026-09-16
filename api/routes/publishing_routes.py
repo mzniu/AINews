@@ -861,6 +861,23 @@ def export_published_posts_csv(
     )
 
 
+@router.get("/published-posts/export.json")
+def export_published_posts_json(
+    platform: Optional[str] = Query(None),
+    account_id: Optional[str] = Query(None),
+    days: Optional[int] = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    from services.publishing.metrics.export import build_published_posts_json
+
+    return build_published_posts_json(
+        db,
+        platform=platform,
+        account_id=account_id,
+        days=days,
+    )
+
+
 @router.post("/published-posts/{job_id}/bind")
 def bind_published_post_route(
     job_id: str,

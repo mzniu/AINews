@@ -15,6 +15,7 @@
     let articleOffset = 0;
     const ARTICLE_PAGE = 50;
     let detailImageCache = [];
+    let hotRadarHighlightId = null;
 
     const IMAGE_DIMENSION_LABELS = {
         topic_relevance: '主题相关度',
@@ -801,6 +802,27 @@
         }
     }
 
+    function articleGradeLetter(article) {
+        const breakdown = article?.score_breakdown || {};
+        const final = breakdown.final || {};
+        const viral = breakdown.viral || {};
+        return (
+            final.viral_grade
+            || viral.grade
+            || article?.viral_score_grade
+            || final.grade
+            || breakdown.grade
+            || article?.score_grade
+            || ''
+        ).toString().trim().charAt(0).toLowerCase();
+    }
+
+    function renderArticleGradeBar(article) {
+        const grade = articleGradeLetter(article);
+        const cls = grade ? `grade-${grade}` : 'grade-c';
+        return `<div class="article-grade-bar ${cls}" aria-hidden="true"></div>`;
+    }
+
     function buildArticleItemHtml(a, showSource) {
         const thumbSrc = mediaUrl(a.generated_cover_path || a.cover_local_path || '');
         const thumb = thumbSrc
@@ -829,9 +851,11 @@
         const publishedBadge = a.has_published
             ? '<span class="badge badge-published ml-1" title="已发布到平台">已发布</span>'
             : '';
+        const hotHighlight = a.id === hotRadarHighlightId ? ' hot-radar-highlight' : '';
         return `
-            <div class="article-item ${selectedArticleId === a.id ? 'selected' : ''}"
+            <div class="article-item ${selectedArticleId === a.id ? 'selected' : ''}${hotHighlight}"
                  data-id="${a.id}">
+                ${renderArticleGradeBar(a)}
                 ${thumb}
                 <div class="flex-grow-1">
                     <div class="font-weight-bold">${escapeHtml(a.title)}</div>
@@ -1453,6 +1477,7 @@
         const articleId = params.get('article_id');
         const q = params.get('q');
         const sourceId = params.get('source_id');
+        const fromHotRadar = params.get('from') === 'hot-radar' || params.get('highlight') === 'hot-radar';
         if (sourceId && $('sourceSelect')) {
             $('sourceSelect').value = sourceId;
             updateSourceToolbar();
@@ -1464,8 +1489,15 @@
             await loadArticles();
         }
         if (articleId) {
+            hotRadarHighlightId = fromHotRadar ? articleId : null;
             try {
                 await selectArticle(articleId);
+                if (hotRadarHighlightId) {
+                    const row = document.querySelector(`.article-item[data-id="${CSS.escape(articleId)}"]`);
+                    row?.classList.add('hot-radar-highlight');
+                    row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    setStatus('已从热榜雷达跳转并高亮该文章', 'ok');
+                }
             } catch (err) {
                 setStatus(`无法打开文章 ${articleId}: ${err.message}`, 'error');
             }
