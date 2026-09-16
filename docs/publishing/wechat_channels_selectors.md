@@ -6,7 +6,9 @@
 
 ## 登录
 
-- QR 图片：嵌在 `#wx-oauth-container iframe`（`open.weixin.qq.com/connect/qrconnect`）内，优先 `img.js_qrcode_img.web_qrcode_img`；加载失败时点 `.refresh-wrap` 重试；兜底截 `.qrcode-wrap`
+- 登录 URL 必须使用**桌面 Chrome User-Agent**；若 UA 含 mobile/android/iphone 等关键字，`login.html` 会重定向到 `/mobile/mobile.html` 且无 QR DOM（`qr_helpers` 会在扫码前强制桌面 UA 并重试）
+- QR 图片：嵌在 `#wx-oauth-container iframe`（`open.weixin.qq.com/connect/qrconnect`）内，优先 `img.js_qrcode_img.web_qrcode_img`（WeChat 会渲染多个隐藏副本，自动化取**第一个 visible** 节点）；加载失败时点 `.refresh-wrap` 重试；兜底截 `.qrcode-wrap`
+- OAuth 加载失败时页面文案为「加载失败，点击重试」——此时应检查 `open.weixin.qq.com` 网络，而非仅更新选择器
 - 登录成功判定：跳转离开 login 页或出现创作者中心元素
 
 ## 上传

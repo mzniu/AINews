@@ -67,6 +67,83 @@ def test_parse_qr_selector_supports_iframe_pipe_syntax():
     )
 
 
+def test_is_mobile_user_agent():
+    from services.publishing.adapters.qr_helpers import _is_mobile_user_agent
+
+    assert _is_mobile_user_agent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)")
+    assert _is_mobile_user_agent("Mozilla/5.0 (Linux; Android 14; Pixel 7)")
+    assert not _is_mobile_user_agent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36"
+    )
+
+
+def test_first_visible_locator_skips_hidden_nodes():
+    from services.publishing.adapters.qr_helpers import _first_visible_locator
+
+    class FakeItem:
+        def __init__(self, visible: bool):
+            self.visible = visible
+
+        def is_visible(self, **kwargs):
+            return self.visible
+
+    class FakeLocator:
+        def __init__(self, items):
+            self._items = items
+
+        def count(self):
+            return len(self._items)
+
+        def nth(self, index):
+            return self._items[index]
+
+    hidden = FakeItem(False)
+    visible = FakeItem(True)
+    loc = _first_visible_locator(FakeLocator([hidden, visible]), timeout_ms=500)
+    assert loc is visible
+
+
+def test_raise_qr_capture_error_wechat_mobile_redirect():
+    from services.publishing.adapters.qr_helpers import _raise_qr_capture_error
+    import pytest
+
+    class FakePage:
+        url = "https://channels.weixin.qq.com/mobile/mobile.html"
+
+        def locator(self, selector):
+            raise AssertionError("should not read body on mobile redirect")
+
+    with pytest.raises(RuntimeError, match="移动端页面"):
+        _raise_qr_capture_error(FakePage(), "img.qr")
+
+
+def test_raise_qr_capture_error_wechat_oauth_load_failed():
+    from services.publishing.adapters.qr_helpers import _raise_qr_capture_error
+    import pytest
+
+    class FakeBody:
+        def inner_text(self, **kwargs):
+            return "登录视频号助手\n加载失败，点击重试"
+
+    class FakeIframeLoc:
+        def first(self):
+            return self
+
+        def is_visible(self, **kwargs):
+            return False
+
+    class FakePage:
+        url = "https://channels.weixin.qq.com/login.html"
+
+        def locator(self, selector):
+            if selector == "body":
+                return FakeBody()
+            return FakeIframeLoc()
+
+    with pytest.raises(RuntimeError, match="OAuth 二维码加载失败"):
+        _raise_qr_capture_error(FakePage(), "img.qr")
+
+
 def test_capture_qr_downloads_img_src(monkeypatch, tmp_path):
     from services.publishing.adapters.qr_helpers import _capture_qr
 
@@ -87,10 +164,18 @@ def test_capture_qr_downloads_img_src(monkeypatch, tmp_path):
             return FakeResponse()
 
     class FakeLocator:
-        first = None
-
         def __init__(self):
             self.first = self
+
+        def count(self):
+            return 1
+
+        def nth(self, index):
+            assert index == 0
+            return self
+
+        def is_visible(self, **kwargs):
+            return True
 
         def wait_for(self, **kwargs):
             return None
