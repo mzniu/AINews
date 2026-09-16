@@ -1,5 +1,5 @@
 import React from 'react';
-import {Composition} from 'remotion';
+import {CalculateMetadataFunction, Composition} from 'remotion';
 import {ChronicleVideo} from './compositions/ChronicleVideo';
 import {ClassicOverlayVideo} from './compositions/ClassicOverlayVideo';
 import {ChronicleVideoProps, ClassicOverlayProps} from './lib/types';
@@ -92,8 +92,29 @@ const defaultClassicProps: ClassicOverlayProps = {
   showSummary: true,
 };
 
-const totalDuration = (images: {duration: number}[]): number =>
-  Math.max(1, images.reduce((sum, img) => sum + img.duration, 0));
+const clipDurationSec = (images: {duration: number}[]): number =>
+  Math.max(0.1, images.reduce((sum, img) => sum + img.duration, 0));
+
+const chronicleMetadata: CalculateMetadataFunction<ChronicleVideoProps> = ({props}) => {
+  const fps = props.template?.canvas?.fps || 24;
+  const intro = props.coverImagePath ? props.coverIntroDurationSec || 1 : 0;
+  return {
+    durationInFrames: Math.max(1, Math.round((intro + clipDurationSec(props.images)) * fps)),
+    fps,
+    width: props.template?.canvas?.width || 1080,
+    height: props.template?.canvas?.height || 1920,
+  };
+};
+
+const classicMetadata: CalculateMetadataFunction<ClassicOverlayProps> = ({props}) => {
+  const intro = props.coverImagePath ? props.coverIntroDurationSec || 1 : 0;
+  return {
+    durationInFrames: Math.max(1, Math.round((intro + clipDurationSec(props.images)) * 24)),
+    fps: 24,
+    width: 1080,
+    height: 1920,
+  };
+};
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -101,20 +122,22 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="ChronicleVideo"
         component={ChronicleVideo}
-        durationInFrames={Math.round(totalDuration(defaultChronicleProps.images) * 24)}
+        durationInFrames={Math.round(clipDurationSec(defaultChronicleProps.images) * 24)}
         fps={24}
         width={1080}
         height={1920}
         defaultProps={defaultChronicleProps}
+        calculateMetadata={chronicleMetadata}
       />
       <Composition
         id="ClassicOverlayVideo"
         component={ClassicOverlayVideo}
-        durationInFrames={Math.round(totalDuration(defaultClassicProps.images) * 24)}
+        durationInFrames={Math.round(clipDurationSec(defaultClassicProps.images) * 24)}
         fps={24}
         width={1080}
         height={1920}
         defaultProps={defaultClassicProps}
+        calculateMetadata={classicMetadata}
       />
     </>
   );

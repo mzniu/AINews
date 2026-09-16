@@ -1,6 +1,6 @@
 import React from 'react';
-import {Img, staticFile} from 'remotion';
 import {heroMotionAt} from '../lib/motion';
+import {MediaLayer} from './MediaLayer';
 
 type Props = {
   src: string;
@@ -12,14 +12,6 @@ type Props = {
   effect: string;
   endScale: number;
   pan: number;
-};
-
-const resolveSrc = (path: string): string => {
-  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('file://')) {
-    return path;
-  }
-  const cleaned = path.replace(/^\//, '').replace(/^workspace\//, '');
-  return staticFile(cleaned);
 };
 
 export const HeroImage: React.FC<Props> = ({
@@ -50,12 +42,13 @@ export const HeroImage: React.FC<Props> = ({
         backgroundColor: '#111',
       }}
     >
-      <Img
-        src={resolveSrc(src)}
+      <MediaLayer
+        src={src}
+        width="100%"
+        height="100%"
+        objectFit="cover"
+        playbackRate={1}
         style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
           transform,
           transformOrigin: 'center center',
         }}

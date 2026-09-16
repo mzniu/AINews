@@ -3,9 +3,7 @@ import {
   AbsoluteFill,
   Audio,
   Img,
-  OffthreadVideo,
   Sequence,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion';
@@ -20,16 +18,8 @@ import {
   pickAnimType,
   textFadeAlpha,
 } from '../lib/classicMotion';
-
-const resolveSrc = (path: string): string => {
-  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('file://')) {
-    return path;
-  }
-  return staticFile(path.replace(/^\//, '').replace(/^workspace\//, ''));
-};
-
-const isVideoPath = (path: string): boolean => /\.(mp4|webm|mov)$/i.test(path);
-const isGifPath = (path: string): boolean => /\.gif$/i.test(path);
+import {CoverIntro} from './CoverIntro';
+import {MediaLayer, resolveMediaSrc, isVideoPath} from './MediaLayer';
 
 type ClipProps = {
   src: string;
@@ -59,52 +49,58 @@ const ClassicClip: React.FC<ClipProps> = ({
   const frame = useCurrentFrame();
   const {fps, width, height} = useVideoConfig();
   const t = frame / fps;
-  const slotTop = height * 0.28;
-  const slotBottom = height * 0.78;
-  const slotH = slotBottom - slotTop;
-  const motion = computeImageMotion(t, durationInFrames / fps, anim as typeof ANIM_TYPES[number], width * 0.84, slotH);
+  const titleBottom = height * 0.22;
+  const summaryTop = height * 0.82;
+  const slotTop = titleBottom + 20;
+  const slotBottom = summaryTop - 20;
+  const slotH = Math.max(120, slotBottom - slotTop);
+  const slotW = Math.max(120, width - 40);
+  const motion = computeImageMotion(t, durationInFrames / fps, anim as typeof ANIM_TYPES[number], slotW, slotH);
   const titleOffset = titleSlideEntrance ? computeTitleSlideOffset(t) : 0;
   const summaryAlpha = textFadeAlpha(t);
+  const pip = isVideoPath(src);
 
-  const imgStyle: React.CSSProperties = {
-    width: '84%',
-    maxHeight: slotH,
-    objectFit: 'contain',
-    margin: '0 auto',
-    display: 'block',
+  const mediaStyle: React.CSSProperties = {
     opacity: motion.opacity,
     transform: motion.transform,
     transformOrigin: 'center center',
     clipPath: motion.clipPath,
+    margin: '0 auto',
+    display: 'block',
   };
 
   const summaryLines = summary.split('\n').filter(Boolean);
 
   return (
     <AbsoluteFill>
-      <Img src={resolveSrc(backgroundImagePath)} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+      <Img src={resolveMediaSrc(backgroundImagePath)} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
       <div style={{position: 'absolute', left: 0, right: 0, top: 0, transform: `translateY(${titleOffset}px)`}}>
         {titleBlock}
       </div>
       <div
         style={{
           position: 'absolute',
-          left: '8%',
-          right: '8%',
+          left: (width - slotW) / 2,
+          width: slotW,
           top: slotTop + imageYPercent * height * 0.01,
           height: slotH,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          overflow: 'hidden',
         }}
       >
-        {isVideoPath(src) ? (
-          <OffthreadVideo src={resolveSrc(src)} style={imgStyle} muted />
-        ) : isGifPath(src) ? (
-          <Img src={resolveSrc(src)} style={imgStyle} />
-        ) : (
-          <Img src={resolveSrc(src)} style={imgStyle} />
-        )}
+        <MediaLayer
+          src={src}
+          width={pip ? slotW : '100%'}
+          height={pip ? slotH : 'auto'}
+          objectFit="contain"
+          style={{
+            ...mediaStyle,
+            maxWidth: slotW,
+            maxHeight: slotH,
+          }}
+        />
       </div>
       {showSummary && summary ? (
         <div
@@ -154,10 +150,16 @@ export const ClassicOverlayVideo: React.FC<ClassicOverlayProps> = ({
   titleYPercent = 12,
   mainLine1Color = '#FFFFFF',
   mainLine2Color = '#FFFFFF',
+  coverImagePath,
+  coverIntroDurationSec = 0,
 }) => {
   const {fps} = useVideoConfig();
   const keywords = mergeHighlightKeywords(summaryHighlightKeywords, tags);
-  let cursor = 0;
+  const introFrames =
+    coverImagePath && coverIntroDurationSec > 0
+      ? Math.max(1, Math.round(coverIntroDurationSec * fps))
+      : 0;
+  let cursor = introFrames;
 
   const titleBlock = (
     <div
@@ -211,13 +213,20 @@ export const ClassicOverlayVideo: React.FC<ClassicOverlayProps> = ({
 
   return (
     <AbsoluteFill>
+      {coverImagePath && introFrames > 0 ? (
+        <Sequence from={0} durationInFrames={introFrames}>
+          <CoverIntro coverImagePath={coverImagePath} />
+        </Sequence>
+      ) : null}
+
       {images.map((clip, index) => {
         const durationInFrames = Math.max(1, Math.round(clip.duration * fps));
         const from = cursor;
         cursor += durationInFrames;
-        const anim = clip.animation && clip.animation !== 'auto'
-          ? clip.animation
-          : pickAnimType(index, images.length);
+        const anim =
+          clip.animation && clip.animation !== 'auto'
+            ? clip.animation
+            : pickAnimType(index, images.length);
         return (
           <Sequence key={`${clip.path}-${index}`} from={from} durationInFrames={durationInFrames}>
             <ClassicClip
@@ -235,7 +244,7 @@ export const ClassicOverlayVideo: React.FC<ClassicOverlayProps> = ({
           </Sequence>
         );
       })}
-      {audioPath ? <Audio src={resolveSrc(audioPath)} /> : null}
+      {audioPath ? <Audio src={resolveMediaSrc(audioPath)} /> : null}
     </AbsoluteFill>
   );
 };

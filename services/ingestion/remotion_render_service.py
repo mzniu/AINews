@@ -14,6 +14,7 @@ from src.utils.config import Config
 REMOTION_DIR = Config.ROOT_DIR / "remotion"
 NODE_MODULES = REMOTION_DIR / "node_modules"
 RUNTIME_PUBLIC_DIR = REMOTION_DIR / "public" / "runtime"
+DEFAULT_COVER_INTRO_SEC = 1.0
 
 
 def remotion_available() -> bool:
@@ -27,6 +28,44 @@ def _composition_for_layout(layout_kind: str) -> str:
     return "ClassicOverlayVideo"
 
 
+def _cover_intro_sec(template: dict[str, Any] | None) -> float:
+    video_cfg = (template or {}).get("video") or {}
+    if not video_cfg.get("prepend_cover_intro", True):
+        return 0.0
+    if video_cfg.get("cover_intro_duration_sec") is not None:
+        try:
+            return max(0.0, float(video_cfg["cover_intro_duration_sec"]))
+        except (TypeError, ValueError):
+            pass
+    # Match media_pipeline default (1.0s); template cover_intro_frames is not sub-second.
+    return DEFAULT_COVER_INTRO_SEC
+
+
+def _maybe_render_cover(
+    *,
+    article_id: str,
+    draft: dict[str, Any],
+    image_paths: list[str],
+    template: dict[str, Any],
+) -> str:
+    cover_cfg = template.get("cover") or {}
+    if not cover_cfg.get("enabled", True):
+        return ""
+    if not image_paths:
+        return ""
+    from services.ingestion.chronicle_render import render_chronicle_cover
+
+    result = render_chronicle_cover(
+        article_id=article_id,
+        draft=draft,
+        image_path=image_paths[0],
+        template=template,
+    )
+    if not result.get("success"):
+        return ""
+    return str(result.get("cover_path") or "")
+
+
 def _build_chronicle_props(
     *,
     article_id: str,
@@ -35,12 +74,14 @@ def _build_chronicle_props(
     durations: list[float],
     bgm_path: str,
     template: dict[str, Any],
+    cover_image_path: str = "",
 ) -> dict[str, Any]:
     images = []
     for index, path in enumerate(image_paths):
         duration = float(durations[index]) if index < len(durations) else 2.5
         rel_path = _rel_asset_path(path, article_id=article_id, index=index)
         images.append({"path": rel_path, "duration": duration})
+    intro_sec = _cover_intro_sec(template) if cover_image_path else 0.0
     return {
         "articleId": article_id,
         "draft": draft,
@@ -48,17 +89,23 @@ def _build_chronicle_props(
         "audioPath": _rel_asset_path(bgm_path, article_id=article_id, index=99) if bgm_path else "",
         "template": template,
         "seed": article_id,
+        "coverImagePath": _rel_asset_path(cover_image_path, article_id=article_id, index=200)
+        if cover_image_path
+        else "",
+        "coverIntroDurationSec": intro_sec,
     }
 
 
 def _build_classic_props(
     *,
+    article_id: str,
     draft: dict[str, Any],
     image_paths: list[str],
     durations: list[float],
     bgm_path: str,
     background_image: str,
     template: dict[str, Any] | None,
+    cover_image_path: str = "",
 ) -> dict[str, Any]:
     typo = (template or {}).get("typography") or {}
     video_cfg = (template or {}).get("video") or {}
@@ -66,8 +113,9 @@ def _build_classic_props(
     for index, path in enumerate(image_paths):
         duration = float(durations[index]) if index < len(durations) else 2.5
         images.append(
-            {"path": _rel_asset_path(path, article_id="classic", index=index), "duration": duration}
+            {"path": _rel_asset_path(path, article_id=article_id, index=index), "duration": duration}
         )
+    intro_sec = _cover_intro_sec(template) if cover_image_path else 0.0
     return {
         "summary": draft.get("summary") or "",
         "main_line1": draft.get("main_line1") or "",
@@ -75,8 +123,8 @@ def _build_classic_props(
         "subtitle": draft.get("sub_title") or "",
         "subtitle2": draft.get("sub_title2") or "",
         "images": images,
-        "audioPath": _rel_asset_path(bgm_path, article_id="classic", index=99) if bgm_path else "",
-        "backgroundImagePath": _rel_asset_path(background_image, article_id="classic", index=100),
+        "audioPath": _rel_asset_path(bgm_path, article_id=article_id, index=99) if bgm_path else "",
+        "backgroundImagePath": _rel_asset_path(background_image, article_id=article_id, index=100),
         "tags": draft.get("tags") or "",
         "summaryHighlightKeywords": draft.get("highlight_keywords") or [],
         "showSummary": bool(video_cfg.get("show_summary", True)),
@@ -84,6 +132,10 @@ def _build_classic_props(
         "titleYPercent": typo.get("title_y_percent"),
         "mainLine1Color": str(typo.get("main_line1_color") or "#FFFFFF"),
         "mainLine2Color": str(typo.get("main_line2_color") or "#FFFFFF"),
+        "coverImagePath": _rel_asset_path(cover_image_path, article_id=article_id, index=200)
+        if cover_image_path
+        else "",
+        "coverIntroDurationSec": intro_sec,
     }
 
 
@@ -142,6 +194,7 @@ def render_with_remotion(
     background_image: str = "static/imgs/bg.png",
     durations: list[float] | None = None,
     template: dict[str, Any] | None = None,
+    cover_image_path: str | None = None,
 ) -> dict[str, Any]:
     """Render ingested article video via Remotion CLI."""
     if not remotion_available():
@@ -155,6 +208,15 @@ def render_with_remotion(
     composition = _composition_for_layout(layout_kind)
     clip_durations = durations or [2.5] * len(image_paths)
 
+    cover_path = cover_image_path or ""
+    if not cover_path and layout_kind == "chronicle_frame":
+        cover_path = _maybe_render_cover(
+            article_id=article_id,
+            draft=draft,
+            image_paths=image_paths,
+            template=spec,
+        )
+
     if layout_kind == "chronicle_frame":
         props = _build_chronicle_props(
             article_id=article_id,
@@ -163,16 +225,19 @@ def render_with_remotion(
             durations=clip_durations,
             bgm_path=bgm_path,
             template=spec,
+            cover_image_path=cover_path,
         )
         suffix = "chronicle"
     else:
         props = _build_classic_props(
+            article_id=article_id,
             draft=draft,
             image_paths=image_paths,
             durations=clip_durations,
             bgm_path=bgm_path,
             background_image=background_image,
             template=spec,
+            cover_image_path=cover_path,
         )
         suffix = "classic"
 
@@ -226,7 +291,8 @@ def render_with_remotion(
     if not out_path.is_file() or out_path.stat().st_size == 0:
         return {"success": False, "error": "remotion_output_missing"}
 
-    total_duration = sum(clip_durations[: len(image_paths)])
+    intro_sec = float(props.get("coverIntroDurationSec") or 0)
+    total_duration = intro_sec + sum(clip_durations[: len(image_paths)])
     rel = f"/{out_path.relative_to(Config.ROOT_DIR).as_posix()}"
     return {
         "success": True,
@@ -234,4 +300,6 @@ def render_with_remotion(
         "duration": float(total_duration),
         "renderer": "remotion",
         "composition": composition,
+        "cover_image_path": cover_path or None,
+        "cover_intro_sec": intro_sec,
     }

@@ -8,6 +8,7 @@ import {
   pickCardMotionEffect,
 } from '../lib/motion';
 import {ChronicleClip} from './ChronicleClip';
+import {CoverIntro} from './CoverIntro';
 
 const resolveAudio = (path?: string): string | undefined => {
   if (!path) {
@@ -26,6 +27,8 @@ export const ChronicleVideo: React.FC<ChronicleVideoProps> = ({
   audioPath,
   template,
   seed,
+  coverImagePath,
+  coverIntroDurationSec = 0,
 }) => {
   const {fps} = useVideoConfig();
   const videoCfg = template.video || {};
@@ -36,10 +39,21 @@ export const ChronicleVideo: React.FC<ChronicleVideoProps> = ({
   const effects = motionCfg.effects || [...DEFAULT_CARD_MOTION_EFFECTS];
   const motionSeed = seed || articleId;
 
-  let cursor = 0;
+  const introFrames =
+    coverImagePath && coverIntroDurationSec > 0
+      ? Math.max(1, Math.round(coverIntroDurationSec * fps))
+      : 0;
+
+  let cursor = introFrames;
 
   return (
     <AbsoluteFill style={{backgroundColor: '#070B10'}}>
+      {coverImagePath && introFrames > 0 ? (
+        <Sequence from={0} durationInFrames={introFrames}>
+          <CoverIntro coverImagePath={coverImagePath} />
+        </Sequence>
+      ) : null}
+
       {images.map((clip, index) => {
         const durationInFrames = Math.max(1, Math.round(clip.duration * fps));
         const from = cursor;

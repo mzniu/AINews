@@ -40,6 +40,8 @@ export type ChronicleVideoProps = {
   audioPath?: string;
   template: ChronicleTemplate;
   seed?: string;
+  coverImagePath?: string;
+  coverIntroDurationSec?: number;
 };
 
 export type ClassicOverlayProps = {
@@ -58,4 +60,6 @@ export type ClassicOverlayProps = {
   titleYPercent?: number;
   mainLine1Color?: string;
   mainLine2Color?: string;
+  coverImagePath?: string;
+  coverIntroDurationSec?: number;
 };

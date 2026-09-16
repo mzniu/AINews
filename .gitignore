@@ -77,6 +77,8 @@ docs/presentations/node_modules/
 remotion/node_modules/
 remotion/out/
 remotion/public/runtime/
+!remotion/qa-artifacts/
+!remotion/qa-artifacts/**
 
 # 临时导入数据
 tmp_import_payload.json

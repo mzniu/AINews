@@ -1,17 +1,26 @@
-# 背景音乐目录
+# 背景音乐目录 / Background music
 
-请在此目录下放置背景音乐文件：
+## Python pipeline (default)
 
-## 推荐格式
-- MP3格式（最佳兼容性）
-- 文件名：background.mp3
-- 时长：建议30秒以上循环音乐
+Place loopable MP3 files here. The ingestion pipeline picks from this directory via `bgm_picker`.
 
-## 使用说明
-系统会自动使用 static/music/background.mp3 作为默认背景音乐。
-如果该文件不存在，视频将不包含背景音乐。
+- Recommended: MP3, 30s+ loop
+- Default fallback: `static/music/background.mp3`
 
-## 音乐来源建议
-- 免费版权音乐网站
-- 自制音乐
-- 确保符合使用许可
+## Remotion test BGM
+
+Upload a test track for Remotion renders:
+
+```
+remotion/public/static/music/test-bgm.mp3
+```
+
+(same file as `static/music/test-bgm.mp3` when `remotion/public/static` symlink is present)
+
+Render with audio:
+
+```bash
+cd remotion && npm run render:bgm
+```
+
+If missing, `scripts/remotion_visual_qa.py` generates a short sine-wave MP3 via ffmpeg.

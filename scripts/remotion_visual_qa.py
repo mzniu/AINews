@@ -3,50 +3,49 @@
 from __future__ import annotations
 
 import json
-import os
+import shutil
 import subprocess
 import sys
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.db.engine import get_session_factory, init_db
-from src.db.models.ingestion import ArticleImage, IngestedArticle
+from services.ingestion.chronicle_render import render_chronicle_cover
+from services.ingestion.cover_video_utils import prepend_cover_intro_to_video
 from services.ingestion.render_templates import get_render_template
 from services.ingestion.video_render_service import render_ingested_video, resolve_ingested_clip_durations
-
+from src.db.engine import get_session_factory, init_db
+from src.db.models.ingestion import ArticleImage, IngestedArticle
 
 QA_DIR = ROOT / "data" / "qa" / "remotion-comparison"
+QA_ARTIFACTS = ROOT / "remotion" / "qa-artifacts"
 VENTUREBEAT_FIXTURE = ROOT / "venturebeat_article_complete.json"
 DEFAULT_TEMPLATE_ID = "chronicle_archive_tech_blue"
-TEST_BGM = ROOT / "remotion" / "public" / "static" / "music" / "test-bgm.mp3"
+BGM_PATH = "static/music/background.mp3"
+GIF_PATH = "data/test_gifs/moving_circle.gif"
 
 
-def _ensure_test_bgm() -> str:
-    TEST_BGM.parent.mkdir(parents=True, exist_ok=True)
-    if TEST_BGM.is_file() and TEST_BGM.stat().st_size > 0:
-        return f"static/music/test-bgm.mp3"
-    sine = QA_DIR / "generated-test-bgm.mp3"
-    sine.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "sine=frequency=440:duration=8",
-        "-q:a",
-        "5",
-        str(sine),
-    ]
-    subprocess.run(cmd, check=False, capture_output=True)
-    if sine.is_file():
-        TEST_BGM.write_bytes(sine.read_bytes())
-    return "static/music/test-bgm.mp3" if TEST_BGM.is_file() else ""
+def _repo_bgm() -> str:
+    bgm = ROOT / BGM_PATH
+    test_link = ROOT / "remotion" / "public" / "static" / "music" / "test-bgm.mp3"
+    test_link.parent.mkdir(parents=True, exist_ok=True)
+    if not bgm.is_file():
+        sine = QA_DIR / "generated-test-bgm.mp3"
+        sine.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=8", "-q:a", "5", str(sine)],
+            check=False,
+            capture_output=True,
+        )
+        if sine.is_file():
+            shutil.copy2(sine, bgm)
+    if bgm.is_file() and not test_link.exists():
+        test_link.symlink_to(bgm.resolve())
+    return BGM_PATH if bgm.is_file() else ""
 
 
 def _latest_from_db() -> dict | None:
@@ -91,30 +90,42 @@ def _latest_from_db() -> dict | None:
         session.close()
 
 
+def _download_fixture_images(asset_dir: Path, urls: list[str]) -> list[str]:
+    image_paths: list[str] = []
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; AINews-QA/1.0)"}
+    for index, url in enumerate(urls[:3], start=1):
+        dest = asset_dir / f"img_{index:02d}.jpg"
+        if not dest.is_file():
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    dest.write_bytes(resp.read())
+            except Exception:
+                continue
+        if dest.is_file() and dest.stat().st_size > 0:
+            image_paths.append(dest.relative_to(ROOT).as_posix())
+    return image_paths
+
+
 def _latest_from_fixture() -> dict:
     payload = json.loads(VENTUREBEAT_FIXTURE.read_text(encoding="utf-8"))
     article_id = "qa-venturebeat-gea"
     asset_dir = QA_DIR / article_id / "images"
     asset_dir.mkdir(parents=True, exist_ok=True)
-    image_paths: list[str] = []
-    for index, image in enumerate(payload.get("images", [])[:3], start=1):
-        url = image.get("url")
-        if not url:
-            continue
-        dest = asset_dir / f"img_{index:02d}.jpg"
-        if not dest.is_file():
-            try:
-                urllib.request.urlretrieve(url, dest)
-            except Exception:
-                continue
-        if dest.is_file():
-            image_paths.append(dest.relative_to(ROOT).as_posix())
+    urls = [str(item.get("url") or "") for item in payload.get("images", []) if item.get("url")]
+    image_paths = _download_fixture_images(asset_dir, urls)
+
     if len(image_paths) < 2:
         for fallback in ("static/imgs/bg-2.png", "static/imgs/bg.png"):
             p = ROOT / fallback
             if p.is_file():
                 image_paths.append(fallback)
         image_paths = list(dict.fromkeys(image_paths))[:3]
+
+    gif = ROOT / GIF_PATH
+    if gif.is_file() and GIF_PATH not in image_paths:
+        image_paths = [image_paths[0], GIF_PATH] + image_paths[1:3]
+
     title = payload.get("title") or "AI agent framework breakthrough"
     draft = {
         "main_line1": "突发！Agent框架新突破",
@@ -131,7 +142,7 @@ def _latest_from_fixture() -> dict:
         "title": title,
         "created_at": payload.get("publish_date"),
         "draft": draft,
-        "image_paths": image_paths,
+        "image_paths": image_paths[:4],
         "template_id": DEFAULT_TEMPLATE_ID,
     }
 
@@ -147,16 +158,46 @@ def _resolve_subject() -> dict:
     return fixture
 
 
+def _render_cover(article_id: str, draft: dict, image_paths: list[str], template: dict) -> str:
+    if not image_paths:
+        return ""
+    result = render_chronicle_cover(
+        article_id=article_id,
+        draft=draft,
+        image_path=image_paths[0],
+        template=template,
+    )
+    if result.get("success"):
+        return str(result.get("cover_path") or "")
+    return ""
+
+
+def _publish_artifacts(article_id: str, python_path: str, remotion_path: str) -> dict[str, str]:
+    QA_ARTIFACTS.mkdir(parents=True, exist_ok=True)
+    published: dict[str, str] = {}
+    for label, src in (("python", python_path), ("remotion", remotion_path)):
+        raw = str(src or "").lstrip("/")
+        source = ROOT / raw
+        if not source.is_file():
+            continue
+        dest = QA_ARTIFACTS / f"{article_id}_{label}_qa.mp4"
+        shutil.copy2(source, dest)
+        published[label] = str(dest.resolve())
+    return published
+
+
 def main() -> int:
     QA_DIR.mkdir(parents=True, exist_ok=True)
     subject = _resolve_subject()
     article_id = subject["article_id"]
     template = get_render_template(subject["template_id"])
     durations = resolve_ingested_clip_durations(len(subject["image_paths"]), template=template)
-    bgm = _ensure_test_bgm()
+    bgm = _repo_bgm()
+    cover_path = _render_cover(article_id, subject["draft"], subject["image_paths"], template)
+    intro_sec = 1.0
 
     meta_path = QA_DIR / f"{article_id}_meta.json"
-    meta_path.write_text(json.dumps(subject, ensure_ascii=False, indent=2), encoding="utf-8")
+    meta_path.write_text(json.dumps({**subject, "cover_path": cover_path, "bgm_path": bgm}, ensure_ascii=False, indent=2), encoding="utf-8")
 
     python_out = render_ingested_video(
         article_id=article_id,
@@ -166,6 +207,16 @@ def main() -> int:
         template=template,
         renderer="python",
     )
+    if python_out.get("success") and cover_path:
+        intro = prepend_cover_intro_to_video(
+            video_path=str(python_out["video_path"]).lstrip("/"),
+            cover_path=cover_path,
+            intro_duration=intro_sec,
+        )
+        python_out["cover_intro"] = intro
+        if intro.get("success") and intro.get("video_path"):
+            python_out["video_path"] = intro["video_path"]
+
     remotion_out = render_ingested_video(
         article_id=article_id,
         draft=subject["draft"],
@@ -175,12 +226,22 @@ def main() -> int:
         renderer="remotion",
     )
 
+    published = _publish_artifacts(
+        article_id,
+        str(python_out.get("video_path") or ""),
+        str(remotion_out.get("video_path") or ""),
+    )
+
     report = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "subject": subject,
         "bgm_path": bgm,
+        "cover_path": cover_path,
+        "cover_intro_sec": intro_sec,
+        "gif_included": GIF_PATH in subject["image_paths"],
         "python": python_out,
         "remotion": remotion_out,
+        "published_artifacts": published,
     }
     report_path = QA_DIR / f"{article_id}_comparison.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
