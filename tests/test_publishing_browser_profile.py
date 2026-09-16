@@ -43,7 +43,12 @@ def test_account_id_from_session_path():
 
 
 def test_resolve_profile_dir_and_pending_key(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
     monkeypatch.setattr(Config, "ROOT_DIR", tmp_path)
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
     profile_dir = resolve_profile_dir("acc1")
     assert profile_dir == tmp_path / "data" / "publish" / "profiles" / "acc1"
     assert pending_profile_key("qr1") == "_pending_qr1"

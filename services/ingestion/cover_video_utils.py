@@ -109,7 +109,7 @@ def shift_audio_for_cover_intro(audio, intro_duration: float):
     return fit_audio_to_duration(audio, total)
 
 
-def fit_audio_to_duration(audio_clip, duration: float):
+def fit_audio_clip_to_duration(audio_clip, duration: float):
     """Trim or loop audio to match video duration (MoviePy 2.x clip)."""
     target = max(0.01, float(duration))
     try:
@@ -190,7 +190,7 @@ def prepend_cover_intro_to_video(
     intro = ImageClip(np.asarray(frame, dtype=np.uint8)).with_duration(intro_duration).with_fps(fps)
 
     if video.audio is not None:
-        extended_audio = fit_audio_to_duration(
+        extended_audio = fit_audio_clip_to_duration(
             video.audio, float(video.duration) + float(intro_duration)
         )
         body = video.without_audio()

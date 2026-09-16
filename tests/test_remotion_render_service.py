@@ -89,7 +89,7 @@ def test_render_with_remotion_success(mock_run, mock_avail, tmp_path, monkeypatc
     )
 
     def _fake_run(cmd, **kwargs):
-        out = Path(cmd[3])
+        out = Path(cmd[4])
         out.write_bytes(b"mp4")
         return MagicMock(returncode=0, stdout="", stderr="")
 

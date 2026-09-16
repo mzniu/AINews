@@ -477,8 +477,8 @@ def _draw_brand_chrome(
     brand_xy = (mark_box[2] + 16, mark_box[1] + 4)
     draw.text(brand_xy, brand, font=brand_font, fill=text_color)
     if include_brand_sub and brand_sub:
-        brand_box = draw.textbbox(brand_xy, brand, font=brand_font)
-        sub_y = brand_box[3] + 10
+        brand_size = int(getattr(brand_font, "size", 0) or getattr(brand_sub_font, "size", 28))
+        sub_y = brand_xy[1] + brand_size + 12
         draw.text((brand_xy[0], sub_y), brand_sub, font=brand_sub_font, fill=muted)
     year = str(datetime.now().year)
     badge = f"RECORD {year}"
@@ -779,8 +779,12 @@ def _tech_backdrop(
 
 def _truetype(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
     size = max(12, int(size))
-    names = ["msyhbd.ttc", "simhei.ttf"] if bold else ["msyh.ttc", "simhei.ttf"]
-    path = _find_font_path(names) or _find_font_path(["simhei.ttf"])
+    names = (
+        ["msyhbd.ttc", "simhei.ttf", "wqy-microhei.ttc", "DroidSansFallbackFull.ttf"]
+        if bold
+        else ["msyh.ttc", "simhei.ttf", "wqy-microhei.ttc", "DroidSansFallbackFull.ttf"]
+    )
+    path = _find_font_path(names) or _find_font_path(["simhei.ttf", "wqy-microhei.ttc"])
     if path:
         try:
             return ImageFont.truetype(path, size)
@@ -1337,10 +1341,10 @@ def render_chronicle_video(
     if audio_file is None:
         audio_file = Config.ROOT_DIR / str(bgm_path or "").lstrip("/").replace("\\", "/")
     if audio_file.is_file():
-        from services.ingestion.cover_video_utils import fit_audio_to_duration
+        from services.ingestion.cover_video_utils import fit_audio_clip_to_duration
 
         audio = AudioFileClip(str(audio_file))
-        video = video.with_audio(fit_audio_to_duration(audio, float(video.duration)))
+        video = video.with_audio(fit_audio_clip_to_duration(audio, float(video.duration)))
     out_dir = Config.DATA_DIR / "videos"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{article_id}_chronicle.mp4"

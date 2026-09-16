@@ -26,8 +26,13 @@ def _load_publishing_router():
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     db_path = tmp_path / "test_account_status.db"
+    data_dir = tmp_path / "data"
     monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
     monkeypatch.setattr(Config, "ROOT_DIR", tmp_path)
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
     init_db()
     factory = get_session_factory()
     session = factory()

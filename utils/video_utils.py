@@ -193,12 +193,15 @@ def title_font_presets_for_api() -> List[Dict[str, str]]:
 
 
 def _find_font_path(candidates: List[str]) -> Optional[str]:
-    """在 cwd、static/fonts、Windows Fonts 中查找首个存在的字体文件。"""
+    """在 cwd、static/fonts、Windows/Linux 系统字体目录中查找首个存在的字体文件。"""
     windir = os.environ.get("WINDIR", "C:/Windows")
     font_dirs = [
         Path("."),
         Path("static/fonts"),
         Path(windir) / "Fonts",
+        Path("/usr/share/fonts/truetype/wqy"),
+        Path("/usr/share/fonts/truetype/droid"),
+        Path("/usr/share/fonts/opentype/noto"),
     ]
     for name in candidates:
         for base in font_dirs:

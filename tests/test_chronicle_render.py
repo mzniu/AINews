@@ -611,7 +611,7 @@ def test_evidence_title_rule_uses_accent(tmp_path):
         template=template,
         include_footer=False,
     )
-    sample = frame.getpixel((rule_x + 1, title_top + 20))
+    sample = frame.getpixel((rule_x + 1, title_top + 5))
     assert sample[2] > sample[0] + 40
     assert sample[1] > 150
 

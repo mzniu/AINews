@@ -1,6 +1,6 @@
 """API tests for publish metrics endpoints."""
 import importlib.util
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -35,6 +35,7 @@ def client(tmp_path, monkeypatch):
 def _seed_published(client):
     from src.db.engine import get_session_factory
 
+    now = datetime.utcnow()
     factory = get_session_factory()
     with factory() as session:
         session.add(
@@ -58,7 +59,7 @@ def _seed_published(client):
                 platform_post_id="note123",
                 platform_post_url="https://www.xiaohongshu.com/explore/note123",
                 metrics_match_status="matched",
-                published_at=datetime(2026, 8, 10, 12, 0, 0),
+                published_at=now - timedelta(days=5),
             )
         )
         session.flush()
@@ -67,7 +68,7 @@ def _seed_published(client):
             job_id="job1",
             account_id="acc1",
             platform="xiaohongshu",
-            snapshot_date=datetime(2026, 8, 11).date(),
+            snapshot_date=(now - timedelta(days=4)).date(),
             metrics=PostMetricsItem(
                 platform_post_id="note123",
                 view_count=100,

@@ -846,7 +846,9 @@ def test_windows_publication_uses_write_through_move(
         raising=False,
     )
     rebuild._publish_temp_exclusive(source, target)
-    assert calls == [(source, target)]
+    assert [(src.as_posix(), dst.as_posix()) for src, dst in calls] == [
+        (source.as_posix(), target.as_posix())
+    ]
 
 
 def test_aware_and_naive_equivalent_instants_score_identically(queue_db: Path) -> None:

@@ -23,7 +23,9 @@ def test_load_publish_warmup_config_defaults():
 
 
 def test_ensure_persona_for_account_creates_file(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
     monkeypatch.setattr(Config, "ROOT_DIR", tmp_path)
+    monkeypatch.setattr(Config, "DATA_DIR", data_dir)
     persona = ensure_persona_for_account("acc1")
     assert persona["typing_delay_scale"] > 0
     path = tmp_path / "data" / "publish" / "persona" / "acc1.json"
