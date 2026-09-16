@@ -1,41 +1,35 @@
-/* 全站 Soft UI 外壳 — 品牌深蓝配色
- * Rich Black #00072d · Deep Navy #051650 · Royal Blue #0a2472
- * Vibrant Blue #123499 · Off-White #e8eaf6
- */
+/* 全站 Soft UI 外壳 — unified design tokens (light default, dark via data-theme) */
+@import url('design-system/fonts.css');
+@import url('design-system/tokens.css');
 
 .app-page {
-    --app-rich-black: #00072d;
-    --app-deep-navy: #051650;
-    --app-royal-blue: #0a2472;
-    --app-vibrant-blue: #123499;
-    --app-off-white: #e8eaf6;
+    --app-rich-black: var(--color-brand-rich);
+    --app-deep-navy: var(--color-brand-deep);
+    --app-royal-blue: var(--color-brand-royal);
+    --app-vibrant-blue: var(--color-brand-vibrant);
+    --app-off-white: var(--color-brand-tint);
 
-    /* 语义别名（资讯库等页面沿用的 token 名） */
-    --app-cyan: var(--app-vibrant-blue);
-    --app-cyan-deep: var(--app-royal-blue);
-    --app-cyan-soft: #1a45b8;
+    --app-cyan: var(--color-brand-vibrant);
+    --app-cyan-deep: var(--color-brand-royal);
+    --app-cyan-soft: var(--color-brand-soft);
     --app-mint: #1e55c8;
 
-    --app-bg: radial-gradient(ellipse 130% 90% at 50% -10%, #0a2472 0%, #051650 45%, #00072d 100%);
-    --app-card: rgba(5, 22, 80, 0.78);
-    --app-card-solid: #051650;
-    --app-text: var(--app-off-white);
-    --app-text-soft: #a8b4d4;
-    --app-muted: #6b7aa6;
-    --app-text-on-primary: var(--app-off-white);
-    --app-border: rgba(18, 52, 153, 0.42);
+    --app-bg: var(--color-bg);
+    --app-card: var(--color-surface);
+    --app-card-solid: var(--color-brand-deep);
+    --app-text: var(--color-text);
+    --app-text-soft: var(--color-text-soft);
+    --app-muted: var(--color-text-muted);
+    --app-text-on-primary: var(--color-text-on-primary);
+    --app-border: var(--color-border);
 
-    --app-radius-xl: 28px;
-    --app-radius-lg: 20px;
-    --app-radius-md: 14px;
-    --app-shadow-raised:
-        0 10px 28px rgba(0, 0, 0, 0.42),
-        0 1px 0 rgba(232, 234, 246, 0.07) inset;
-    --app-shadow-soft: 0 14px 36px rgba(0, 7, 45, 0.55);
-    --app-shadow-inset:
-        inset 2px 2px 8px rgba(0, 0, 0, 0.38),
-        inset -1px -1px 5px rgba(232, 234, 246, 0.04);
-    --app-font: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --app-radius-xl: var(--radius-card-lg);
+    --app-radius-lg: var(--radius-card);
+    --app-radius-md: var(--radius-control);
+    --app-shadow-raised: var(--shadow-raised);
+    --app-shadow-soft: var(--shadow-soft);
+    --app-shadow-inset: var(--shadow-inset);
+    --app-font: var(--font-ui);
 }
 
 .app-page,
@@ -45,13 +39,23 @@
 
 body.app-page {
     margin: 0;
-    font-family: var(--app-font);
-    color: var(--app-text);
-    background: var(--app-bg);
+    font-family: var(--font-ui);
+    color: var(--color-text);
+    background: var(--color-bg);
     background-attachment: fixed;
     min-height: 100vh;
-    padding: 24px 24px 40px 248px;
+    padding: var(--space-page) var(--space-page) 40px calc(var(--nav-width) + var(--space-page));
+    color-scheme: light;
+}
+
+[data-theme="dark"] body.app-page {
     color-scheme: dark;
+}
+
+.app-page h1,
+.app-page h2,
+.app-page h3 {
+    font-family: var(--font-display);
 }
 
 .app-page .sr-only {
@@ -71,14 +75,14 @@ body.app-page {
     top: 0;
     left: 0;
     bottom: 0;
-    width: 224px;
+    width: var(--nav-width);
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    background: rgba(0, 7, 45, 0.92);
+    background: var(--nav-bg);
     backdrop-filter: blur(18px);
-    border-right: 1px solid rgba(18, 52, 153, 0.35);
-    box-shadow: var(--app-shadow-soft);
+    border-right: 1px solid var(--nav-border);
+    box-shadow: var(--shadow-soft);
 }
 
 .app-page .nav-sidebar {
@@ -928,4 +932,157 @@ body.desktop-auth-page {
     gap: 8px;
     justify-content: flex-end;
     margin-top: 8px;
+}
+
+/* Nav SVG icons */
+.app-page .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.app-page .nav-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.app-page .nav-theme-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 6px 10px;
+    margin-bottom: 6px;
+}
+
+.app-page .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-info-bg);
+    color: var(--color-text-soft);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.app-page .theme-toggle .nav-icon {
+    width: 16px;
+    height: 16px;
+}
+
+/* Unified Banner / Toast */
+.app-toast-stack {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 5000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.app-toast {
+    min-width: 240px;
+    max-width: 360px;
+    padding: 12px 16px;
+    border-radius: var(--radius-control);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-soft);
+    color: var(--color-text);
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: auto;
+}
+
+.app-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.app-toast.is-success { border-color: var(--color-success); background: var(--color-success-bg); }
+.app-toast.is-warn { border-color: var(--color-warning); background: var(--color-warning-bg); }
+.app-toast.is-error { border-color: var(--color-error); background: var(--color-error-bg); }
+
+.app-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-border);
+    background: var(--color-info-bg);
+    color: var(--color-text);
+    font-size: 14px;
+}
+
+.app-banner.is-warn {
+    border-color: var(--color-warning);
+    background: var(--color-warning-bg);
+}
+
+.app-banner.is-error {
+    border-color: var(--color-error);
+    background: var(--color-error-bg);
+}
+
+.app-banner.is-success {
+    border-color: var(--color-success);
+    background: var(--color-success-bg);
+}
+
+/* Publish Tab Hub */
+.publish-hub-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 20px;
+    padding: 4px;
+    border-radius: var(--radius-control);
+    background: var(--color-surface-inset);
+    border: 1px solid var(--color-border);
+}
+
+.hub-tab {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--color-text-soft);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.hub-tab.is-active {
+    background: var(--color-brand-vibrant);
+    color: var(--color-text-on-primary);
+}
+
+.hub-panel[hidden] { display: none !important; }
+
+.hub-panel iframe {
+    width: 100%;
+    min-height: 720px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    background: var(--color-surface-raised);
+}
+
+body.app-page.is-embedded {
+    padding-left: var(--space-page);
+}
+
+body.app-page.is-embedded #app-nav-root,
+body.app-page.is-embedded .publish-hub-tabs {
+    display: none !important;
 }

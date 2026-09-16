@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>发布中心 - AINews</title>
+    <title>AINews · 发布中心</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260916">
+    <script src="/static/js/shared/theme.js?v=20260916"></script>
+    <script src="/static/js/shared/ui.js?v=20260916"></script>
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
     <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
-    <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260916" defer></script>
+    <script src="/static/js/publish_hub.js?v=20260916" defer></script>
     <style>
         .container { max-width: 1100px; margin: 0 auto; }
         .banner { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: none; }
@@ -59,8 +62,18 @@
     <div id="app-nav-root"></div>
 
     <div class="container">
-        <h1>📤 发布中心</h1>
+        <h1>发布中心</h1>
         <p>半自动发布：确认文案与账号后提交，由 publish-worker 完成上传。</p>
+
+        <nav class="publish-hub-tabs" id="publish-hub" aria-label="发布中心标签">
+            <button type="button" class="hub-tab is-active" data-tab="accounts">账号绑定</button>
+            <button type="button" class="hub-tab" data-tab="queue">发布队列</button>
+            <button type="button" class="hub-tab" data-tab="metrics">已发布数据</button>
+            <button type="button" class="hub-tab" data-tab="comments">评论管理</button>
+            <button type="button" class="hub-tab" data-tab="pool">候选池</button>
+        </nav>
+
+        <div class="hub-panel" data-tab-panel="accounts">
         <div id="workerBanner" class="banner soft-banner-warn">⚠️ 发布 worker 未运行。若使用独立进程模式，请执行 <code>scripts/run_publish_worker.bat</code>；或于 <code>.env</code> 设置 <code>PUBLISH_WORKER_MODE=embedded</code>（默认）后仅启动 web_server。</div>
 
 
@@ -161,6 +174,21 @@
             <label>发布账号</label>
             <select id="quickAccount"></select>
             <button class="btn" id="quickPublishBtn" style="margin-top:8px;">确认发布</button>
+        </div>
+
+        </div>
+
+        <div class="hub-panel" data-tab-panel="queue" hidden>
+            <iframe src="/publish-queue?embed=1" title="发布队列"></iframe>
+        </div>
+        <div class="hub-panel" data-tab-panel="metrics" hidden>
+            <iframe src="/publish-metrics?embed=1" title="已发布数据"></iframe>
+        </div>
+        <div class="hub-panel" data-tab-panel="comments" hidden>
+            <iframe src="/publish-comments?embed=1" title="评论管理"></iframe>
+        </div>
+        <div class="hub-panel" data-tab-panel="pool" hidden>
+            <iframe src="/candidate-pool?embed=1" title="候选池"></iframe>
         </div>
 
     </div>

@@ -2,51 +2,66 @@
  * 全站统一左侧导航 — 挂到 #app-nav-root
  */
 (function () {
+    const SPRITE = '/static/icons/sprites.svg';
     const PATH_ALIASES = {
         '/model-settings': '/settings',
+        '/index.html': '/',
     };
 
     const NAV_GROUPS = [
         {
             items: [
-                { href: '/', label: '主页', match: (p) => p === '/' || p === '/index.html' },
+                {
+                    href: '/',
+                    label: '工作台',
+                    icon: 'home',
+                    match: (p) => p === '/' || p === '/index.html',
+                },
             ],
         },
         {
             label: '内容',
             items: [
-                { href: '/ingestion-library', label: '资讯库' },
-                { href: '/hot-radar', label: '热榜雷达' },
+                { href: '/ingestion-library', label: '资讯库', icon: 'library' },
+                { href: '/hot-radar', label: '热榜雷达', icon: 'radar' },
             ],
         },
         {
             label: '制作',
             items: [
-                { href: '/video-maker', label: '视频制作' },
-                { href: '/github-video-maker', label: 'GitHub' },
-                { href: '/digital-human', label: '数字人' },
+                { href: '/video-maker', label: '视频制作', icon: 'film' },
+                { href: '/github-video-maker', label: 'GitHub', icon: 'film' },
+                { href: '/digital-human', label: '数字人', icon: 'film' },
+                { href: '/scrape', label: '内容抓取', icon: 'scrape' },
             ],
         },
-            {
-                label: '分发',
-                items: [
-                    { href: '/publish-center', label: '发布中心' },
-                    { href: '/publish-queue', label: '发布队列', match: (p) => p === '/publish-queue' },
-                    { href: '/publish-metrics', label: '已发布数据' },
-                    { href: '/publish-comments', label: '评论管理' },
-                    { href: '/candidate-pool', label: '候选池' },
-                ],
-            },
+        {
+            label: '分发',
+            items: [
+                {
+                    href: '/publish-center',
+                    label: '发布中心',
+                    icon: 'send',
+                    match: (p) => p === '/publish-center'
+                        || p.startsWith('/publish-')
+                        || p === '/candidate-pool',
+                },
+            ],
+        },
         {
             label: '系统',
             items: [
-                { href: '/settings', label: '系统配置', match: (p) => p === '/settings' || p === '/model-settings' },
+                {
+                    href: '/settings',
+                    label: '系统配置',
+                    icon: 'settings',
+                    match: (p) => p === '/settings' || p === '/model-settings',
+                },
             ],
         },
     ];
 
     const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
-
     const APP_VERSION_FALLBACK = '1.0.2';
     let userMenuOpen = false;
     let userMenuDocListenerBound = false;
@@ -56,6 +71,11 @@
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function navIcon(name) {
+        if (!name) return '';
+        return `<svg class="nav-icon" aria-hidden="true"><use href="${SPRITE}#icon-${esc(name)}"/></svg>`;
     }
 
     function normalizePath(pathname) {
@@ -98,7 +118,7 @@
     function renderGroup(group, pathname) {
         const links = group.items.map((item) => {
             const cls = isActive(item, pathname) ? 'nav-link active' : 'nav-link';
-            return `<a href="${item.href}" class="${cls}">${esc(item.label)}</a>`;
+            return `<a href="${item.href}" class="${cls}">${navIcon(item.icon)}${esc(item.label)}</a>`;
         }).join('');
         const label = group.label
             ? `<div class="nav-group-label">${esc(group.label)}</div>`
@@ -119,13 +139,18 @@
                     <span>AINews</span>
                 </a>
                 <button type="button" class="nav-refresh-btn" id="app-nav-refresh" title="强制刷新" aria-label="强制刷新">
-                    <svg class="nav-refresh-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                        <path fill="currentColor" d="M17.65 6.35A7.96 7.96 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08a5.99 5.99 0 0 1-5.65 4 6 6 0 1 1 0-12c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-                    </svg>
+                    ${navIcon('refresh')}
                 </button>
             </div>
             <div class="nav-scroll">${groups}</div>
             <div class="nav-footer">
+                <div class="nav-theme-row">
+                    <span data-theme-label>浅色</span>
+                    <button type="button" class="theme-toggle" aria-label="切换主题">
+                        ${navIcon('sun').replace('nav-icon', 'nav-icon icon-sun')}
+                        ${navIcon('moon').replace('nav-icon', 'nav-icon icon-moon')}
+                    </button>
+                </div>
                 <div class="nav-user-menu" id="app-nav-user-menu">
                     <button type="button" class="nav-user-trigger" id="app-nav-user-trigger" aria-label="用户菜单" aria-haspopup="menu" aria-expanded="false" aria-controls="app-nav-user-dropdown">
                         <span class="nav-user-avatar" id="app-nav-user-avatar" aria-hidden="true">U</span>
@@ -147,6 +172,9 @@
         bindUserMenu(root);
         bindAuthStatusListener(root);
         bindVersion(root);
+        if (window.AINewsTheme) {
+            window.AINewsTheme.apply(window.AINewsTheme.getPreferred());
+        }
     }
 
     function formatAuthLabel(status) {

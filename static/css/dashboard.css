@@ -1,0 +1,222 @@
+/* Dashboard — pipeline, metrics, quick actions */
+.dashboard-shell {
+    max-width: 1280px;
+    margin: 0 auto;
+}
+
+.dashboard-hero {
+    margin-bottom: 24px;
+}
+
+.dashboard-hero h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-brand-rich);
+    margin: 0 0 6px;
+}
+
+[data-theme="dark"] .dashboard-hero h1 {
+    color: var(--color-text);
+}
+
+.dashboard-lead {
+    font-size: 15px;
+    color: var(--color-text-soft);
+    max-width: 640px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.pipeline {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 28px;
+    padding: 20px 24px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card-lg);
+    box-shadow: var(--shadow-raised);
+}
+
+.pipeline-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    min-width: 0;
+}
+
+.pipeline-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 18px;
+    left: calc(50% + 22px);
+    right: calc(-50% + 22px);
+    height: 2px;
+    background: var(--color-border);
+}
+
+.pipeline-step.is-done:not(:last-child)::after,
+.pipeline-step.is-active:not(:last-child)::after {
+    background: var(--color-brand-vibrant);
+}
+
+.pipeline-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    border: 2px solid var(--color-border);
+    background: var(--color-surface-raised);
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+.pipeline-step.is-done .pipeline-dot,
+.pipeline-step.is-active .pipeline-dot {
+    background: var(--color-brand-vibrant);
+    border-color: var(--color-brand-vibrant);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(18, 52, 153, 0.35);
+}
+
+.pipeline-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 2px;
+}
+
+.pipeline-sub {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.metric-card {
+    padding: var(--space-card);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-raised);
+}
+
+.metric-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+}
+
+.metric-value {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-brand-rich);
+}
+
+[data-theme="dark"] .metric-value {
+    color: var(--color-text);
+}
+
+.metric-delta {
+    font-size: 12px;
+    color: var(--color-text-soft);
+    margin-top: 4px;
+}
+
+.metric-delta.is-up { color: var(--color-success); }
+.metric-delta.is-warn { color: var(--color-warning); }
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 16px;
+}
+
+.quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.quick-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-raised);
+    color: var(--color-text);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.quick-action:hover {
+    border-color: var(--color-brand-vibrant);
+    background: var(--color-info-bg);
+    text-decoration: none;
+}
+
+.quick-action .nav-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--color-brand-vibrant);
+}
+
+.activity-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.activity-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 13px;
+    color: var(--color-text-soft);
+}
+
+.activity-list li:last-child {
+    border-bottom: none;
+}
+
+.hot-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hot-list li {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 13px;
+}
+
+.hot-list li:last-child {
+    border-bottom: none;
+}
+
+.hot-rank {
+    font-weight: 700;
+    color: var(--color-brand-vibrant);
+    min-width: 1.5em;
+}
