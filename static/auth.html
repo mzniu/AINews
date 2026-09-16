@@ -130,6 +130,25 @@
         }
         .captcha-svg { margin: 12px 0; background: #fff; border-radius: 6px; padding: 8px; }
         .boot-wait { text-align: center; color: var(--muted); font-size: .9rem; }
+        .mode-switch {
+            margin-top: 14px;
+            text-align: center;
+            font-size: .85rem;
+            color: var(--muted);
+        }
+        .mode-switch button {
+            background: none;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: inherit;
+            padding: 0;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .mode-switch button:hover { color: var(--accent-hover); }
+        .register-only[hidden] { display: none !important; }
+        .login-only[hidden] { display: none !important; }
     </style>
 </head>
 <body>
@@ -158,8 +177,12 @@
                     <button type="button" class="btn btn-secondary" id="btn-send-code">发送验证码</button>
                 </div>
 
-                <button type="button" class="btn btn-primary" id="btn-phone-login">登录</button>
+                <button type="button" class="btn btn-primary" id="btn-phone-submit">登录</button>
                 <p class="msg" id="phone-msg"></p>
+                <p class="mode-switch">
+                    <span id="phone-mode-hint">没有账号？</span>
+                    <button type="button" id="phone-mode-toggle">注册</button>
+                </p>
             </div>
 
             <div id="panel-email-login" class="panel" hidden>
@@ -169,13 +192,22 @@
                 <label for="password">密码</label>
                 <input id="password" type="password" placeholder="密码" autocomplete="current-password">
 
-                <label style="display:flex;align-items:center;gap:8px;color:var(--text);margin-bottom:14px;">
+                <div id="email-register-fields" class="register-only" hidden>
+                    <label for="password-confirm">确认密码</label>
+                    <input id="password-confirm" type="password" placeholder="再次输入密码" autocomplete="new-password">
+                </div>
+
+                <label class="login-only" style="display:flex;align-items:center;gap:8px;color:var(--text);margin-bottom:14px;">
                     <input type="checkbox" id="remember-password" style="width:auto;margin:0;">
                     记住密码
                 </label>
 
-                <button type="button" class="btn btn-primary" id="btn-email-login">登录</button>
+                <button type="button" class="btn btn-primary" id="btn-email-submit">登录</button>
                 <p class="msg" id="email-msg"></p>
+                <p class="mode-switch">
+                    <span id="email-mode-hint">没有账号？</span>
+                    <button type="button" id="email-mode-toggle">注册</button>
+                </p>
                 <datalist id="remembered-emails"></datalist>
             </div>
 

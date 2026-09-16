@@ -12,6 +12,10 @@
     let phoneCooldownTimer = null;
     let phoneCooldownSeconds = 0;
     let pendingCaptcha = null;
+    let phoneMode = 'login';
+    let emailMode = 'login';
+
+    const MIN_PASSWORD_LENGTH = 8;
 
     function setMsg(el, text, kind) {
         if (!el) return;
@@ -24,6 +28,14 @@
         const cleaned = phone.trim().replace(/[\s-]/g, '');
         if (cleaned.length !== 11) return '请输入 11 位手机号';
         if (!/^\d+$/.test(cleaned)) return '手机号只能包含数字';
+        return null;
+    }
+
+    function validatePassword(password) {
+        if (!password) return '请输入密码';
+        if (password.length < MIN_PASSWORD_LENGTH) {
+            return `密码至少需要 ${MIN_PASSWORD_LENGTH} 个字符`;
+        }
         return null;
     }
 
@@ -51,6 +63,37 @@
         });
         $('panel-phone-login').hidden = tab !== 'phone-login';
         $('panel-email-login').hidden = tab !== 'email-login';
+    }
+
+    function updatePhoneModeUi() {
+        const isRegister = phoneMode === 'register';
+        $('btn-phone-submit').textContent = isRegister ? '注册' : '登录';
+        $('phone-mode-hint').textContent = isRegister ? '已有账号？' : '没有账号？';
+        $('phone-mode-toggle').textContent = isRegister ? '登录' : '注册';
+        setMsg($('phone-msg'), '', null);
+    }
+
+    function updateEmailModeUi() {
+        const isRegister = emailMode === 'register';
+        $('btn-email-submit').textContent = isRegister ? '注册' : '登录';
+        $('email-mode-hint').textContent = isRegister ? '已有账号？' : '没有账号？';
+        $('email-mode-toggle').textContent = isRegister ? '登录' : '注册';
+        $('email-register-fields').hidden = !isRegister;
+        document.querySelectorAll('.login-only').forEach((el) => {
+            el.hidden = isRegister;
+        });
+        $('password').autocomplete = isRegister ? 'new-password' : 'current-password';
+        setMsg($('email-msg'), '', null);
+    }
+
+    function togglePhoneMode() {
+        phoneMode = phoneMode === 'login' ? 'register' : 'login';
+        updatePhoneModeUi();
+    }
+
+    function toggleEmailMode() {
+        emailMode = emailMode === 'login' ? 'register' : 'login';
+        updateEmailModeUi();
     }
 
     async function enterApp() {
@@ -82,6 +125,8 @@
         $('auth-forms').hidden = false;
         if (await refreshAuthUi()) return;
         await loadRememberedEmails();
+        updatePhoneModeUi();
+        updateEmailModeUi();
     }
 
     async function loadRememberedEmails() {
@@ -96,6 +141,7 @@
     }
 
     async function maybeLoadRememberedPassword() {
+        if (emailMode !== 'login') return;
         const email = $('email').value.trim();
         if (!email) return;
         try {
@@ -157,7 +203,7 @@
             }
             const message = await invoke('auth_send_phone_code', {
                 phone,
-                purpose: 'login',
+                purpose: phoneMode === 'register' ? 'register' : 'login',
                 captchaId,
                 captchaCode,
             });
@@ -169,10 +215,11 @@
         }
     }
 
-    async function phoneLogin() {
+    async function phoneSubmit() {
         const phone = $('phone').value.trim();
         const code = $('phone-code').value.trim();
         const msgEl = $('phone-msg');
+        const btn = $('btn-phone-submit');
         const err = validatePhone(phone);
         if (err) {
             setMsg(msgEl, err, 'error');
@@ -182,39 +229,58 @@
             setMsg(msgEl, '验证码应为 6 位', 'error');
             return;
         }
-        setMsg(msgEl, '正在登录…', null);
-        $('btn-phone-login').disabled = true;
+        const isRegister = phoneMode === 'register';
+        setMsg(msgEl, isRegister ? '正在注册…' : '正在登录…', null);
+        btn.disabled = true;
         try {
-            const status = await invoke('auth_phone_login', { phone, code });
+            const status = await invoke(
+                isRegister ? 'auth_phone_register' : 'auth_phone_login',
+                { phone, code },
+            );
             if (status.authorized) {
                 await enterApp();
             } else {
-                setMsg(msgEl, status.message || '登录未成功', 'error');
+                setMsg(msgEl, status.message || (isRegister ? '注册未成功' : '登录未成功'), 'error');
             }
         } catch (e) {
             setMsg(msgEl, String(e), 'error');
         } finally {
-            $('btn-phone-login').disabled = false;
+            btn.disabled = false;
         }
     }
 
-    async function emailLogin() {
+    async function emailSubmit() {
         const email = $('email').value.trim();
         const password = $('password').value;
         const msgEl = $('email-msg');
+        const btn = $('btn-email-submit');
+        const isRegister = emailMode === 'register';
+
         if (!email) {
             setMsg(msgEl, '请输入邮箱', 'error');
             return;
         }
-        if (!password) {
-            setMsg(msgEl, '请输入密码', 'error');
+        const passwordErr = validatePassword(password);
+        if (passwordErr) {
+            setMsg(msgEl, passwordErr, 'error');
             return;
         }
-        setMsg(msgEl, '正在登录…', null);
-        $('btn-email-login').disabled = true;
+        if (isRegister) {
+            const confirm = $('password-confirm').value;
+            if (password !== confirm) {
+                setMsg(msgEl, '两次输入的密码不一致', 'error');
+                return;
+            }
+        }
+
+        setMsg(msgEl, isRegister ? '正在注册…' : '正在登录…', null);
+        btn.disabled = true;
         try {
-            const status = await invoke('auth_login', { email, password });
-            if ($('remember-password').checked) {
+            const status = await invoke(
+                isRegister ? 'auth_register' : 'auth_login',
+                { email, password },
+            );
+            if (!isRegister && $('remember-password').checked) {
                 try {
                     await invoke('auth_save_remembered_password', { email, password });
                 } catch (_) {
@@ -224,12 +290,12 @@
             if (status.authorized) {
                 await enterApp();
             } else {
-                setMsg(msgEl, status.message || '登录未成功', 'error');
+                setMsg(msgEl, status.message || (isRegister ? '注册未成功' : '登录未成功'), 'error');
             }
         } catch (e) {
             setMsg(msgEl, String(e), 'error');
         } finally {
-            $('btn-email-login').disabled = false;
+            btn.disabled = false;
         }
     }
 
@@ -261,8 +327,10 @@
             tab.addEventListener('click', () => setTab(tab.dataset.tab));
         });
         $('btn-send-code').addEventListener('click', sendPhoneCode);
-        $('btn-phone-login').addEventListener('click', phoneLogin);
-        $('btn-email-login').addEventListener('click', emailLogin);
+        $('btn-phone-submit').addEventListener('click', phoneSubmit);
+        $('btn-email-submit').addEventListener('click', emailSubmit);
+        $('phone-mode-toggle').addEventListener('click', togglePhoneMode);
+        $('email-mode-toggle').addEventListener('click', toggleEmailMode);
         $('btn-offline-redeem').addEventListener('click', offlineRedeem);
         $('email').addEventListener('change', maybeLoadRememberedPassword);
         $('email').addEventListener('blur', maybeLoadRememberedPassword);
