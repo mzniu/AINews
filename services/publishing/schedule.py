@@ -184,6 +184,7 @@ def next_platform_slot(
     now: datetime | None = None,
     minimum_global_gap_minutes: int = 15,
     config: dict[str, Any] | None = None,
+    ignore_daily_limit: bool = False,
     **legacy: Any,
 ) -> datetime | None:
     """Return the next safe UTC-naive slot on one Beijing natural day."""
@@ -216,7 +217,11 @@ def next_platform_slot(
         )
         .all()
     )
-    if sum(_job_effective_day(job) == target_date for job in platform_jobs) >= limit:
+    if (
+        not ignore_daily_limit
+        and limit > 0
+        and sum(_job_effective_day(job) == target_date for job in platform_jobs) >= limit
+    ):
         return None
 
     occupied = (

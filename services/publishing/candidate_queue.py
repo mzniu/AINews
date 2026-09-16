@@ -624,3 +624,95 @@ def dispatch_daily_candidates(
         "skipped_platforms": skipped_platforms,
         "queue": queue_stats,
     }
+
+
+def skip_candidate(session: Session, candidate_id: str) -> AutoPublishCandidate:
+    """Mark one candidate as skipped by ID."""
+    candidate = session.get(AutoPublishCandidate, candidate_id)
+    if candidate is None:
+        raise ValueError("candidate not found")
+    candidate.status = "skipped"
+    candidate.updated_at = datetime.utcnow()
+    session.flush()
+    return candidate
+
+
+def enqueue_candidate(session: Session, candidate_id: str, *, config: dict[str, Any] | None = None) -> AutoPublishCandidate:
+    """Dispatch a single candidate to a PublishJob, bypassing daily budgets."""
+    candidate = session.get(AutoPublishCandidate, candidate_id)
+    if candidate is None:
+        raise ValueError("candidate not found")
+    if candidate.status not in {"pending", "deferred"}:
+        raise ValueError(f"candidate status is {candidate.status}, cannot enqueue")
+
+    from services.publishing.platform_jobs import pick_account_for_platform
+    from services.publishing.schedule import next_platform_slot, parse_schedule_datetime
+
+    active = config or load_scoring_config()
+    policy = active.get("publish_policy") or {}
+    platform_config = (policy.get("platforms") or {}).get(candidate.platform) or {}
+
+    now_utc = parse_schedule_datetime(datetime.utcnow())
+    target_date = _beijing_date(now_utc)
+    policy_version = str(policy.get("policy_version", 1))
+
+    article = session.get(IngestedArticle, candidate.article_id)
+    if article is None:
+        candidate.status = "deferred"
+        candidate.evaluated_at = now_utc
+        _append_reason(candidate, "dispatch.failed:article_missing")
+        session.flush()
+        raise ValueError("article not found")
+
+    account = pick_account_for_platform(session, candidate.platform)
+    if account is None or account.status != "active":
+        candidate.status = "deferred"
+        candidate.evaluated_at = now_utc
+        _append_reason(candidate, "dispatch.failed:account_unavailable")
+        session.flush()
+        raise ValueError("active account not found")
+
+    slot = None
+    for day_offset in range(14):
+        probe_date = target_date + timedelta(days=day_offset)
+        slot = next_platform_slot(
+            session,
+            candidate.platform,
+            probe_date,
+            platform_config,
+            now=now_utc,
+            config=active,
+            ignore_daily_limit=True,
+        )
+        if slot is not None:
+            break
+    if slot is None:
+        from services.publishing.schedule import load_spacing_config, next_auto_slot
+
+        try:
+            slot = next_auto_slot(
+                session,
+                config=load_spacing_config(active),
+                now=now_utc,
+                exclude_source_id=candidate.article_id,
+            )
+        except Exception:
+            slot = None
+    if slot is None:
+        candidate.status = "deferred"
+        candidate.evaluated_at = now_utc
+        _append_reason(candidate, "dispatch.failed:no_slot")
+        session.flush()
+        raise ValueError("no available slot")
+
+    job = create_ingestion_publish_job(
+        session,
+        article=article,
+        account=account,
+        scheduled_at=slot,
+    )
+    candidate.status = "dispatched"
+    candidate.publish_job_id = job.id
+    candidate.scheduled_date = target_date
+    session.flush()
+    return candidate

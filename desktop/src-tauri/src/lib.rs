@@ -330,6 +330,7 @@ pub fn run() {
             commands::desktop_window_toggle_maximize,
             commands::desktop_window_close,
             commands::desktop_window_is_maximized,
+            commands::ainews_open_devtools,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

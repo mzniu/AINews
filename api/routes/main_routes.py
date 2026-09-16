@@ -89,6 +89,11 @@ async def publish_comments_page():
     """评论管理：观众评论扫描与回复"""
     return _read_static_html("publish_comments.html")
 
+@router.get("/candidate-pool", response_class=HTMLResponse)
+async def candidate_pool_page():
+    """候选池：待发布候选管理与调度"""
+    return _read_static_html("candidate_pool.html")
+
 @router.get("/health")
 async def health():
     """健康检查"""

@@ -27,15 +27,16 @@
                 { href: '/digital-human', label: '数字人' },
             ],
         },
-        {
-            label: '分发',
-            items: [
-                { href: '/publish-center', label: '发布中心' },
-                { href: '/publish-queue', label: '发布队列', match: (p) => p === '/publish-queue' },
-                { href: '/publish-metrics', label: '已发布数据' },
-                { href: '/publish-comments', label: '评论管理' },
-            ],
-        },
+            {
+                label: '分发',
+                items: [
+                    { href: '/publish-center', label: '发布中心' },
+                    { href: '/publish-queue', label: '发布队列', match: (p) => p === '/publish-queue' },
+                    { href: '/publish-metrics', label: '已发布数据' },
+                    { href: '/publish-comments', label: '评论管理' },
+                    { href: '/candidate-pool', label: '候选池' },
+                ],
+            },
         {
             label: '系统',
             items: [
@@ -364,9 +365,48 @@
         }
     }
 
+    const DEVTOOLS_CLICKS_REQUIRED = 5;
+    const DEVTOOLS_CLICK_WINDOW_MS = 2500;
+
+    async function openDevTools() {
+        const invoke = window.__TAURI__?.core?.invoke;
+        if (!invoke) {
+            console.warn('开发者工具仅可在桌面客户端中使用');
+            return;
+        }
+        try {
+            await invoke('ainews_open_devtools');
+        } catch (err) {
+            console.warn('打开开发者工具失败', err);
+        }
+    }
+
+    function bindVersionDevTools(el) {
+        if (!el || el.dataset.devtoolsBound === '1') return;
+        el.dataset.devtoolsBound = '1';
+        let clicks = 0;
+        let resetTimer = null;
+
+        el.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            clicks += 1;
+            if (resetTimer) clearTimeout(resetTimer);
+            if (clicks >= DEVTOOLS_CLICKS_REQUIRED) {
+                clicks = 0;
+                openDevTools();
+                return;
+            }
+            resetTimer = setTimeout(() => {
+                clicks = 0;
+            }, DEVTOOLS_CLICK_WINDOW_MS);
+        });
+    }
+
     async function bindVersion(root) {
         const el = root.querySelector('#app-nav-version');
         if (!el) return;
+        bindVersionDevTools(el);
         try {
             const resp = await fetch('/api/health');
             if (!resp.ok) return;

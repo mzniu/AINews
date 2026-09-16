@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -150,6 +151,278 @@ def _strip_prefixes(text: str, prefixes: list[str]) -> str:
         if cleaned.startswith(prefix):
             cleaned = cleaned[len(prefix) :].strip()
     return cleaned
+
+
+DEFAULT_SUMMARY_ANIMATION: dict[str, Any] = {
+    "mode": "static",
+    "scope": "once",
+    "chars_per_second": 14,
+    "start_delay_sec": 0.35,
+    "show_cursor": True,
+    "cursor_blink_hz": 2,
+    "cursor_hide_after_done_sec": 0.5,
+    "fit_video_duration": False,
+    "max_chars_per_second": 28,
+    "tail_margin_sec": 0.5,
+}
+
+
+def parse_summary_animation_config(video_cfg: dict[str, Any] | None) -> dict[str, Any]:
+    raw = dict((video_cfg or {}).get("summary_animation") or {})
+    merged = dict(DEFAULT_SUMMARY_ANIMATION)
+    merged.update(raw)
+    mode = str(merged.get("mode") or "static").strip().lower()
+    merged["mode"] = "typewriter" if mode == "typewriter" else "static"
+    return merged
+
+
+def chronicle_content_global_t(
+    *,
+    cover_intro_sec: float,
+    clip_durations: list[float],
+    clip_index: int,
+    t_within_clip: float,
+) -> float:
+    elapsed = float(cover_intro_sec)
+    for idx in range(max(0, clip_index)):
+        if idx < len(clip_durations):
+            elapsed += float(clip_durations[idx])
+    return elapsed + float(t_within_clip)
+
+
+def summary_visible_chars(
+    global_t: float,
+    *,
+    total_chars: int,
+    anim_cfg: dict[str, Any],
+    content_start_t: float = 0.0,
+    video_duration: float | None = None,
+) -> int:
+    if total_chars <= 0:
+        return 0
+    if str(anim_cfg.get("mode") or "static") != "typewriter":
+        return total_chars
+    delay = float(anim_cfg.get("start_delay_sec", 0.35))
+    cps = max(0.1, float(anim_cfg.get("chars_per_second", 14)))
+    typing_t = float(global_t) - float(content_start_t) - delay
+    if typing_t <= 0:
+        return 0
+    if anim_cfg.get("fit_video_duration") and video_duration is not None:
+        tail = float(anim_cfg.get("tail_margin_sec", 0.5))
+        max_cps = max(cps, float(anim_cfg.get("max_chars_per_second", 28)))
+        budget = max(0.1, float(video_duration) - float(content_start_t) - delay - tail)
+        needed_cps = total_chars / budget
+        effective_cps = min(max_cps, max(cps, needed_cps))
+        visible = int(typing_t * effective_cps)
+        if float(global_t) >= float(video_duration) - tail:
+            return total_chars
+        return min(total_chars, visible)
+    return min(total_chars, int(typing_t * cps))
+
+
+def _partial_summary_lines(lines: list[str], visible_char_count: int) -> list[str]:
+    if visible_char_count <= 0:
+        return []
+    remaining = visible_char_count
+    partial: list[str] = []
+    for line in lines:
+        if remaining <= 0:
+            break
+        take = min(len(line), remaining)
+        partial.append(line[:take])
+        remaining -= take
+    return partial
+
+
+def _cursor_blink_on(global_t: float, anim_cfg: dict[str, Any]) -> bool:
+    hz = max(0.1, float(anim_cfg.get("cursor_blink_hz", 2)))
+    period = 1.0 / hz
+    return int(global_t / (period / 2.0)) % 2 == 0
+
+
+def _should_draw_summary_cursor(
+    global_t: float,
+    visible_char_count: int,
+    total_chars: int,
+    anim_cfg: dict[str, Any],
+    *,
+    content_start_t: float = 0.0,
+) -> bool:
+    if not anim_cfg.get("show_cursor") or visible_char_count <= 0:
+        return False
+    if visible_char_count < total_chars:
+        return _cursor_blink_on(global_t, anim_cfg)
+    delay = float(anim_cfg.get("start_delay_sec", 0.35))
+    cps = max(0.1, float(anim_cfg.get("chars_per_second", 14)))
+    hide_after = float(anim_cfg.get("cursor_hide_after_done_sec", 0.5))
+    done_t = float(content_start_t) + delay + total_chars / cps
+    if global_t > done_t + hide_after:
+        return False
+    return _cursor_blink_on(global_t, anim_cfg)
+
+
+@dataclass
+class SummaryLayout:
+    lines: list[str]
+    font: ImageFont.ImageFont
+    font_size: int
+    line_gap: int
+    width: int
+    summary_x: int
+    summary_align: str
+    summary_y: int
+    summary_fill: tuple[int, int, int]
+    footer_hi: tuple[int, int, int]
+    footer_keywords: list[str]
+    accent: tuple[int, int, int]
+
+    @property
+    def total_chars(self) -> int:
+        return sum(len(line) for line in self.lines)
+
+
+def build_summary_layout(
+    *,
+    draft: dict[str, Any],
+    template: dict[str, Any],
+    width: int,
+    height: int,
+) -> SummaryLayout:
+    chrome = template.get("chrome") or {}
+    typo = template.get("typography") or {}
+    palette = template.get("palette") or {}
+    footer_size = int(typo.get("footer_font_size") or 40)
+    footer = _strip_prefixes(
+        str(draft.get("summary") or ""),
+        list(chrome.get("footer_strip_prefixes") or []),
+    )
+    footer_keywords = finalize_highlight_keywords(
+        merge_summary_highlight_keywords(
+            list(draft.get("highlight_keywords") or []),
+            str(draft.get("tags") or ""),
+        ),
+        footer,
+    )
+    accent = _hex_rgb(palette.get("accent"), (61, 220, 255))
+    footer_hi = _hex_rgb(typo.get("footer_highlight_color"), accent)
+    summary_fill = _hex_rgb(typo.get("summary_color"), _hex_rgb(palette.get("text"), (244, 247, 250)))
+    summary_y_pct = float(typo.get("summary_y_percent", DEFAULT_SUMMARY_Y_PERCENT)) / 100.0
+    summary_y = _pct(summary_y_pct, height)
+    footer_y_pct = float(typo.get("footer_y_percent", DEFAULT_FOOTER_Y_PERCENT)) / 100.0
+    footer_y = _pct(footer_y_pct, height)
+    summary_width_pct = float(typo.get("summary_width_percent") or 84) / 100.0
+    summary_max_width = int(width * summary_width_pct)
+    summary_font_size = int(typo.get("summary_font_size") or footer_size)
+    rule_x = _pct(0.045, width)
+    summary_align = str(typo.get("summary_align") or "left").strip().lower()
+    if summary_align not in {"left", "center"}:
+        summary_align = "left"
+    if typo.get("summary_x_px") is not None:
+        summary_x = int(typo.get("summary_x_px"))
+    elif summary_align == "left":
+        summary_x = rule_x + 18
+    else:
+        summary_x = (width - summary_max_width) // 2
+    scratch = Image.new("RGB", (width, height))
+    draw = ImageDraw.Draw(scratch)
+    summary_font, footer_lines, summary_font_size = _prepare_summary_lines(
+        draw,
+        footer,
+        max_width=summary_max_width,
+        summary_y=summary_y,
+        footer_y=footer_y,
+        preferred_font_size=summary_font_size,
+    )
+    line_gap = max(6, int(round(summary_font_size * 0.28)))
+    return SummaryLayout(
+        lines=footer_lines,
+        font=summary_font,
+        font_size=summary_font_size,
+        line_gap=line_gap,
+        width=width,
+        summary_x=summary_x,
+        summary_align=summary_align,
+        summary_y=summary_y,
+        summary_fill=summary_fill,
+        footer_hi=footer_hi,
+        footer_keywords=footer_keywords,
+        accent=accent,
+    )
+
+
+def _draw_summary_lines_block(
+    draw: ImageDraw.ImageDraw,
+    *,
+    layout: SummaryLayout,
+    visible_char_count: int | None = None,
+    global_t: float = 0.0,
+    anim_cfg: dict[str, Any] | None = None,
+    content_start_t: float = 0.0,
+) -> None:
+    lines = layout.lines
+    if visible_char_count is not None:
+        lines = _partial_summary_lines(layout.lines, visible_char_count)
+    if not lines:
+        return
+    fy = layout.summary_y
+    last_fx = layout.summary_x
+    last_line_w = 0
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=layout.font)
+        line_w = bbox[2] - bbox[0]
+        if layout.summary_align == "center":
+            fx = (layout.width - line_w) // 2
+        else:
+            fx = layout.summary_x
+        last_fx = fx
+        last_line_w = line_w
+        _draw_highlighted_line(
+            draw,
+            fx,
+            fy,
+            line,
+            layout.font,
+            layout.summary_fill,
+            layout.footer_hi,
+            layout.footer_keywords,
+        )
+        fy += layout.font_size + layout.line_gap
+    if (
+        visible_char_count is not None
+        and anim_cfg
+        and _should_draw_summary_cursor(
+            global_t,
+            visible_char_count,
+            layout.total_chars,
+            anim_cfg,
+            content_start_t=content_start_t,
+        )
+    ):
+        cy = fy - layout.font_size - layout.line_gap
+        cx = last_fx + last_line_w
+        draw.rectangle((cx + 2, cy, cx + 4, cy + layout.font_size), fill=layout.accent)
+
+
+def draw_summary_typewriter(
+    frame: Image.Image,
+    *,
+    layout: SummaryLayout,
+    visible_char_count: int,
+    global_t: float,
+    anim_cfg: dict[str, Any],
+    content_start_t: float = 0.0,
+) -> Image.Image:
+    out = frame.copy()
+    draw = ImageDraw.Draw(out)
+    _draw_summary_lines_block(
+        draw,
+        layout=layout,
+        visible_char_count=visible_char_count,
+        global_t=global_t,
+        anim_cfg=anim_cfg,
+        content_start_t=content_start_t,
+    )
+    return out
 
 
 def _layout_top_pad(typo: dict[str, Any] | None = None) -> float:
@@ -651,6 +924,7 @@ def render_chronicle_frame(
     template: dict[str, Any],
     include_footer: bool = True,
     include_summary: bool | None = None,
+    summary_visible_chars: int | None = None,
     source_name: str | None = None,  # ignored; kept so callers cannot accidentally paint it
     ken_burns_scale: float = 1.0,
     include_hero: bool = True,
@@ -797,40 +1071,17 @@ def render_chronicle_frame(
         footer_y_pct = float(typo.get("footer_y_percent", DEFAULT_FOOTER_Y_PERCENT)) / 100.0
         footer_y = _pct(footer_y_pct, height)
         if include_summary:
-            footer = _strip_prefixes(
-                str(draft.get("summary") or ""),
-                list(chrome.get("footer_strip_prefixes") or []),
+            layout = build_summary_layout(
+                draft=draft,
+                template=template,
+                width=width,
+                height=height,
             )
-            footer_keywords = finalize_highlight_keywords(
-                merge_summary_highlight_keywords(
-                    list(draft.get("highlight_keywords") or []),
-                    str(draft.get("tags") or ""),
-                ),
-                footer,
-            )
-            footer_hi = _hex_rgb(typo.get("footer_highlight_color"), accent)
-            summary_fill = _hex_rgb(typo.get("summary_color"), text_color)
-            summary_y_pct = float(typo.get("summary_y_percent", DEFAULT_SUMMARY_Y_PERCENT)) / 100.0
-            summary_y = _pct(summary_y_pct, height)
-            summary_width_pct = float(typo.get("summary_width_percent") or 84) / 100.0
-            summary_font_size = int(typo.get("summary_font_size") or footer_size)
-            summary_font, footer_lines, summary_font_size = _prepare_summary_lines(
+            _draw_summary_lines_block(
                 draw,
-                footer,
-                max_width=int(width * summary_width_pct),
-                summary_y=summary_y,
-                footer_y=footer_y,
-                preferred_font_size=summary_font_size,
+                layout=layout,
+                visible_char_count=summary_visible_chars,
             )
-            fy = summary_y
-            line_gap = max(6, int(round(summary_font_size * 0.28)))
-            for line in footer_lines:
-                bbox = draw.textbbox((0, 0), line, font=summary_font)
-                fx = (width - (bbox[2] - bbox[0])) // 2
-                _draw_highlighted_line(
-                    draw, fx, fy, line, summary_font, summary_fill, footer_hi, footer_keywords
-                )
-                fy += summary_font_size + line_gap
         if chrome_place == "footer":
             _draw_brand_chrome(draw, mark_y=footer_y, include_brand_sub=False, **brand_kwargs)
         else:
@@ -893,6 +1144,53 @@ def render_chronicle_cover(
     }
 
 
+def _compose_chronicle_clip_frame(
+    *,
+    chrome: Image.Image,
+    anim,
+    t: float,
+    inner: tuple[int, int, int, int],
+    duration: float,
+    effect: str,
+    end_scale: float,
+    pan: float,
+    apply_motion: bool,
+    summary_layout: SummaryLayout | None,
+    anim_cfg: dict[str, Any],
+    clip_global_start: float,
+    video_duration: float | None,
+) -> np.ndarray:
+    frame = compose_chronicle_live_frame(
+        chrome=chrome,
+        anim=anim,
+        t=t,
+        inner=inner,
+        duration=duration,
+        effect=effect,
+        end_scale=end_scale,
+        pan=pan,
+        apply_motion=apply_motion,
+    )
+    if summary_layout is not None and anim_cfg.get("mode") == "typewriter":
+        global_t = clip_global_start + t
+        visible = summary_visible_chars(
+            global_t,
+            total_chars=summary_layout.total_chars,
+            anim_cfg=anim_cfg,
+            content_start_t=0.0,
+            video_duration=video_duration,
+        )
+        frame = draw_summary_typewriter(
+            frame,
+            layout=summary_layout,
+            visible_char_count=visible,
+            global_t=global_t,
+            anim_cfg=anim_cfg,
+            content_start_t=0.0,
+        )
+    return np.asarray(frame, dtype=np.uint8)
+
+
 def build_chronicle_video_clips(
     *,
     article_id: str,
@@ -900,6 +1198,7 @@ def build_chronicle_video_clips(
     image_paths: list[str],
     template: dict[str, Any],
     durations: list[float],
+    cover_intro_sec: float = 0.0,
 ):
     """Build per-image MoviePy clips. Animated heroes loop inside the card."""
     from moviepy import ImageClip, VideoClip
@@ -909,9 +1208,22 @@ def build_chronicle_video_clips(
     canvas = template.get("canvas") or {}
     fps = int(canvas.get("fps") or 24)
     video_cfg = template.get("video") or {}
+    anim_cfg = parse_summary_animation_config(video_cfg)
+    use_typewriter = anim_cfg.get("mode") == "typewriter"
     motion = resolve_card_motion(video_cfg)
     width = int(canvas.get("width") or CANVAS_W)
     height = int(canvas.get("height") or CANVAS_H)
+    video_duration = float(cover_intro_sec) + sum(float(d) for d in durations)
+    summary_layout = (
+        build_summary_layout(draft=draft, template=template, width=width, height=height)
+        if use_typewriter
+        else None
+    )
+    clip_starts: list[float] = []
+    elapsed = float(cover_intro_sec)
+    for idx, dur in enumerate(durations):
+        clip_starts.append(elapsed)
+        elapsed += float(dur)
     clips = []
     for index, raw_path in enumerate(image_paths):
         path = resolve_local_asset_path(raw_path)
@@ -935,15 +1247,17 @@ def build_chronicle_video_clips(
             except Exception:
                 continue
         src_rgb = anim.frames[0]
-        use_live_clip = anim.animated or motion["enabled"]
+        use_live_clip = anim.animated or motion["enabled"] or use_typewriter
+        chrome = render_chronicle_frame(
+            draft=draft,
+            image=src_rgb,
+            template=template,
+            include_footer=True,
+            include_summary=not use_typewriter,
+            include_hero=False,
+        )
+        clip_global_start = clip_starts[index] if index < len(clip_starts) else float(cover_intro_sec)
         if use_live_clip:
-            chrome = render_chronicle_frame(
-                draft=draft,
-                image=src_rgb,
-                template=template,
-                include_footer=True,
-                include_hero=False,
-            )
             inner = hero_inner_box(width, height, template)
             if motion["random"]:
                 effect = pick_card_motion_effect(
@@ -965,19 +1279,22 @@ def build_chronicle_video_clips(
                 _end=motion["end_scale"],
                 _pan=motion["pan"],
                 _apply=apply_motion,
+                _clip_start=clip_global_start,
             ):
-                return np.asarray(
-                    compose_chronicle_live_frame(
-                        chrome=_chrome,
-                        anim=_anim,
-                        t=t,
-                        inner=_inner,
-                        duration=_dur,
-                        effect=_effect,
-                        end_scale=_end,
-                        pan=_pan,
-                        apply_motion=_apply,
-                    )
+                return _compose_chronicle_clip_frame(
+                    chrome=_chrome,
+                    anim=_anim,
+                    t=t,
+                    inner=_inner,
+                    duration=_dur,
+                    effect=_effect,
+                    end_scale=_end,
+                    pan=_pan,
+                    apply_motion=_apply,
+                    summary_layout=summary_layout,
+                    anim_cfg=anim_cfg,
+                    clip_global_start=_clip_start,
+                    video_duration=video_duration,
                 )
 
             clips.append(VideoClip(make_frame, duration=duration).with_fps(fps))
@@ -987,6 +1304,7 @@ def build_chronicle_video_clips(
                 image=src_rgb,
                 template=template,
                 include_footer=True,
+                include_summary=not use_typewriter,
             )
             clips.append(ImageClip(np.asarray(still, dtype=np.uint8)).with_duration(duration))
     return clips

@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>模型配置 - AINews</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913d">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
-    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
-
-    <script src="/static/js/shared/app_nav.js?v=20260914b" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
     <link rel="stylesheet" href="/static/css/model_settings.css?v=20260815c">
 </head>
 <body class="app-page">
@@ -18,19 +16,19 @@
 <div class="container">
         <div class="page-hero">
             <h1>⚙️ 模型配置</h1>
-            <p>管理语言模型与视觉模型，为摘要生成、评分评语与后续图片分析做准备。配置保存在 <code>config/models.local.yaml</code>（不提交 Git）�?/p>
+            <p>管理语言模型与视觉模型，为摘要生成、评分评语与后续图片分析做准备。配置保存在 <code>config/models.local.yaml</code>（不提交 Git）。</p>
         </div>
 
         <div class="card">
             <div class="section-head">
-                <h2>🗣�?语言模型</h2>
+                <h2>🗣️ 语言模型</h2>
                 <div class="toolbar-row">
                     <select id="languagePresetSelect" class="form-control" style="width:auto;min-width:200px;"></select>
-                    <button type="button" class="btn btn-outline btn-sm" id="addLanguagePresetBtn">从预设添�?/button>
-                    <button type="button" class="btn btn-outline btn-sm" id="addLanguageBtn">+ 自定�?/button>
+                    <button type="button" class="btn btn-outline btn-sm" id="addLanguagePresetBtn">从预设添加</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="addLanguageBtn">+ 自定义</button>
                 </div>
             </div>
-            <p class="section-desc">用于文章摘要、评�?AI 评语、搜索词生成等文本任务�?/p>
+            <p class="section-desc">用于文章摘要、评分 AI 评语、搜索词生成等文本任务。</p>
             <div id="languageProfiles"></div>
             <div class="footer-actions">
                 <button type="button" class="btn btn-outline" id="testLanguageBtn">测试语言模型</button>
@@ -39,14 +37,14 @@
 
         <div class="card">
             <div class="section-head">
-                <h2>👁�?视觉模型</h2>
+                <h2>👁️ 视觉模型</h2>
                 <div class="toolbar-row">
                     <select id="visionPresetSelect" class="form-control" style="width:auto;min-width:200px;"></select>
-                    <button type="button" class="btn btn-outline btn-sm" id="addVisionPresetBtn">从预设添�?/button>
-                    <button type="button" class="btn btn-outline btn-sm" id="addVisionBtn">+ 自定�?/button>
+                    <button type="button" class="btn btn-outline btn-sm" id="addVisionPresetBtn">从预设添加</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="addVisionBtn">+ 自定义</button>
                 </div>
             </div>
-            <p class="section-desc">用于后续图片内容理解、配图筛选与水印检测等视觉分析（OpenAI 兼容接口）�?/p>
+            <p class="section-desc">用于后续图片内容理解、配图筛选与水印检测等视觉分析（OpenAI 兼容接口）。</p>
             <div id="visionProfiles"></div>
             <div class="footer-actions">
                 <button type="button" class="btn btn-outline" id="testVisionBtn">测试视觉模型</button>
@@ -59,7 +57,7 @@
                 <button type="button" class="btn btn-outline" id="reloadBtn">重新加载</button>
             </div>
             <div id="statusBar" class="status-bar"></div>
-            <p class="hint">留空 API Key 时保留已保存的密钥；首次使用可从 <code>.env</code> �?DEEPSEEK 配置自动迁移�?/p>
+            <p class="hint">留空 API Key 时保留已保存的密钥；首次使用可从 <code>.env</code> 的 DEEPSEEK 配置自动迁移。</p>
         </div>
     </div>
 

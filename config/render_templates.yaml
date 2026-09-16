@@ -75,6 +75,7 @@ templates:
       footer_y_percent: 87.0
       summary_font_size: 38
       summary_width_percent: 84
+      summary_align: left
       top_pad_percent: 5
       title_highlight_color: "#FFEC30"
       # 主标题底：同色系抬升表面（介于 bg 与 accent_dim 之间），避免荧光色块突兀
@@ -102,6 +103,14 @@ templates:
       cover_intro_frames: 1
       card_ken_burns: true
       ken_burns_end_scale: 1.22
+      summary_animation:
+        mode: typewriter
+        scope: once
+        chars_per_second: 14
+        start_delay_sec: 0.35
+        show_cursor: true
+        cursor_blink_hz: 2
+        cursor_hide_after_done_sec: 0.5
       card_motion:
         enabled: true
         random: true
@@ -170,6 +179,7 @@ templates:
       footer_y_percent: 87.0
       summary_font_size: 38
       summary_width_percent: 84
+      summary_align: left
       top_pad_percent: 5
       title_highlight_color: "#FFEC30"
       # 主标题底：同色系抬升表面（介于 bg 与 accent_dim 之间），避免荧光色块突兀
@@ -203,6 +213,14 @@ templates:
       cover_intro_frames: 1
       card_ken_burns: true
       ken_burns_end_scale: 1.22
+      summary_animation:
+        mode: typewriter
+        scope: once
+        chars_per_second: 14
+        start_delay_sec: 0.35
+        show_cursor: true
+        cursor_blink_hz: 2
+        cursor_hide_after_done_sec: 0.5
       card_motion:
         enabled: true
         random: true
@@ -233,3 +251,4 @@ templates:
       height: 1920
       crop: none
       card_images: 1
+

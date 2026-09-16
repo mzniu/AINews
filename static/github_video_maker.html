@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub项目视频生成�?/title>
+    <title>GitHub项目视频生成器</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913d">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260913c">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
-    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
-
-    <script src="/static/js/shared/app_nav.js?v=20260914b" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260915a" defer></script>
     <link rel="stylesheet" href="/static/css/github_video_maker.css">
 </head>
 <body class="app-page">
@@ -19,8 +17,8 @@
         <div class="header">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
-                    <h1>🚀 GitHub项目视频生成�?/h1>
-                    <p>从GitHub项目自动生成精彩的介绍视�?/p>
+                    <h1>🚀 GitHub项目视频生成器</h1>
+                    <p>从GitHub项目自动生成精彩的介绍视频</p>
                 </div>
                 <div>
                     <a href="/" class="btn btn-outline" style="text-decoration: none; padding: 8px 16px; border-radius: 4px;">🏠 返回主页</a>
@@ -32,11 +30,11 @@
                 <div class="step" id="step2">2. 选择图片</div>
                 <div class="step" id="step3">3. 编辑内容</div>
                 <div class="step" id="step4">4. 生成视频</div>
-                <div class="step" id="step5">5. 配音与字�?/div>
+                <div class="step" id="step5">5. 配音与字幕</div>
             </div>
         </div>
 
-        <!-- 所有步骤容�?-->
+        <!-- 所有步骤容器 -->
         <div class="steps-container">
             <!-- 步骤1: 输入项目链接 -->
             <div id="step1-panel" class="card step-panel active">
@@ -44,7 +42,7 @@
             <div class="form-group">
                 <label for="github-url">GitHub项目URL</label>
                 <input type="url" id="github-url" class="form-control" 
-                       placeholder="https://github.com/用户�?项目�? required>
+                       placeholder="https://github.com/用户名/项目名" required>
             </div>
             
             <div class="flex-row">
@@ -55,18 +53,18 @@
                     </label>
                 </div>
                 <div class="form-group">
-                    <label for="max-images">最大图片数�?/label>
+                    <label for="max-images">最大图片数量</label>
                     <input type="number" id="max-images" class="form-control" 
                            value="20" min="1" max="50">
                 </div>
                 <div class="form-group">
                     <label for="max-videos">README 内嵌视频数量上限</label>
                     <input type="number" id="max-videos" class="form-control" 
-                           value="5" min="0" max="20" title="�?README �?&lt;video&gt; 标签解析并下�?>
+                           value="5" min="0" max="20" title="从 README 中 &lt;video&gt; 标签解析并下载">
                 </div>
             </div>
             
-            <button id="process-btn" class="btn btn-primary">开始处理项�?/button>
+            <button id="process-btn" class="btn btn-primary">开始处理项目</button>
             
             <div class="progress-bar hidden" id="processing-progress">
                 <div class="progress-fill" id="progress-fill"></div>
@@ -74,36 +72,36 @@
             
             <div class="loading" id="processing-loading">
                 <div class="spinner"></div>
-                <p>正在处理项目，请稍�?..</p>
+                <p>正在处理项目，请稍候...</p>
                 <small id="processing-status"></small>
             </div>
         </div>
 
         <!-- 步骤2: 选择图片 -->
         <div id="step2-panel" class="card step-panel">
-            <h2>🖼�?第二步：选择图片�?README 视频</h2>
-            <p>从下列素材中选择：README 图片（GIF/动画 WebP 会按时长保留动效）、主页截图、Star 历史曲线图，以及 README 中出现的 <code>&lt;video&gt;</code> 片段（下载后将作为成片中一�?strong>画中�?/strong>视频，与主页「图�?视频」模式一致）�?/p>
+            <h2>🖼️ 第二步：选择图片与 README 视频</h2>
+            <p>从下列素材中选择：README 图片（GIF/动画 WebP 会按时长保留动效）、主页截图、Star 历史曲线图，以及 README 中出现的 <code>&lt;video&gt;</code> 片段（下载后将作为成片中一段<strong>画中画</strong>视频，与主页「图片+视频」模式一致）。</p>
             
             <div class="notification warning" id="image-selection-warning">
-                建议选择至少 3 段素材（图片或视频）以获得更佳效�?
+                建议选择至少 3 段素材（图片或视频）以获得更佳效果
             </div>
             
             <div class="image-grid" id="image-grid">
-                <!-- 图片将在这里动态加�?-->
+                <!-- 图片将在这里动态加载 -->
             </div>
             
             <div class="flex-row github-step2-actions">
-                <button type="button" id="open-sort-panel-btn" class="btn btn-outline" title="拖动排序、设置每张显示时�?>
-                    📐 排序与时�?
+                <button type="button" id="open-sort-panel-btn" class="btn btn-outline" title="拖动排序、设置每张显示时长">
+                    📐 排序与时长
                 </button>
-                <button type="button" id="refresh-github-screenshot-btn" class="btn btn-outline" title="不重新下�?README 与图片，仅重新截取仓库主�?>
+                <button type="button" id="refresh-github-screenshot-btn" class="btn btn-outline" title="不重新下载 README 与图片，仅重新截取仓库主页">
                     📷 重新获取主页截图
                 </button>
-                <button id="select-all-btn" class="btn btn-outline">全�?/button>
+                <button id="select-all-btn" class="btn btn-outline">全选</button>
                 <button id="select-none-btn" class="btn btn-outline">清空选择</button>
                 <button id="confirm-images-btn" class="btn btn-primary">确认选择</button>
             </div>
-            <p class="github-hint">点击素材可选中；点 🔍 查看大图或预览视频。打开「排序与时长」可调整顺序与各段秒数；GIF/动画 WebP �?README 视频片段会按设定秒数参与成片绘制。若主页截图失败或需更新画面，可使用「重新获取主页截图」而不必整库重抓�?/p>
+            <p class="github-hint">点击素材可选中；点 🔍 查看大图或预览视频。打开「排序与时长」可调整顺序与各段秒数；GIF/动画 WebP 与 README 视频片段会按设定秒数参与成片绘制。若主页截图失败或需更新画面，可使用「重新获取主页截图」而不必整库重抓。</p>
         </div>
 
         <!-- 步骤3: 编辑内容 -->
@@ -112,34 +110,34 @@
             
             <div class="content-preview">
                 <div class="preview-field">
-                    <label for="generated-main-line1">主标题第一�?<small style="font-weight:400;color:#888;">�?6�?0字当量，成片用）</small></label>
+                    <label for="generated-main-line1">主标题第一行 <small style="font-weight:400;color:#888;">（16～20字当量，成片用）</small></label>
                     <input type="text" id="generated-main-line1" class="form-control github-title-input" placeholder="第一行主标题" maxlength="40" value="">
                 </div>
                 <div class="preview-field">
-                    <label for="generated-short-title">视频号短标题 <small style="font-weight:400;color:#888;">（最�?6字含空格，不能有标点�?/small></label>
+                    <label for="generated-short-title">视频号短标题 <small style="font-weight:400;color:#888;">（最多16字含空格，不能有标点）</small></label>
                     <input type="text" id="generated-short-title" class="form-control github-title-input" placeholder="视频号短标题" maxlength="16" value="">
                 </div>
                 <div class="preview-field">
-                    <label for="generated-main-line2">主标题第二行 <small style="font-weight:400;color:#888;">（「网友：」开头锐评，9�?2字当量，可空�?/small></label>
+                    <label for="generated-main-line2">主标题第二行 <small style="font-weight:400;color:#888;">（「网友：」开头锐评，9～12字当量，可空）</small></label>
                     <input type="text" id="generated-main-line2" class="form-control github-title-input" placeholder="网友：跑分猛，落地呢" maxlength="44" value="">
                 </div>
                 <div class="preview-field">
-                    <label for="github-title-font-select">主标题字�?/label>
+                    <label for="github-title-font-select">主标题字体</label>
                     <select id="github-title-font-select" class="form-control">
                         <option value="msyhbd">微软雅黑 粗体</option>
                     </select>
-                    <small class="github-bgm-hint">成片两行主标题使用同一字体（与主页视频制作一致）�?/small>
+                    <small class="github-bgm-hint">成片两行主标题使用同一字体（与主页视频制作一致）。</small>
                 </div>
                 
                 <div class="preview-field">
-                    <label>副标题第一�?/label>
+                    <label>副标题第一行</label>
                     <div class="value" id="generated-subtitle" contenteditable="true">
                         <!-- 将由AI生成 -->
                     </div>
                 </div>
 
                 <div class="preview-field">
-                    <label>副标题第二行（流量钩子） <small class="github-bgm-hint">11�?5 汉字当量；从七种钩子自动挑一种触发评�?转发，可�?/small></label>
+                    <label>副标题第二行（流量钩子） <small class="github-bgm-hint">11～15 汉字当量；从七种钩子自动挑一种触发评论/转发，可空</small></label>
                     <div class="value" id="generated-subtitle2" contenteditable="true">
                         <!-- 将由AI生成 -->
                     </div>
@@ -153,7 +151,7 @@
                 </div>
                 
                 <div class="preview-field">
-                    <label>标签（赛�?+ 垂直 + 精准 + 热点 + 个人IP + 5个其他标签）</label>
+                    <label>标签（赛道 + 垂直 + 精准 + 热点 + 个人IP + 5个其他标签）</label>
                     <div class="value" id="generated-tags">
                         <!-- 将由AI生成 -->
                     </div>
@@ -164,13 +162,13 @@
                 </div>
 
                 <div class="preview-field" id="github-methodology-insight" style="display: none;">
-                    <label>目标受众 / 夸赞�?/ 流量钩子</label>
+                    <label>目标受众 / 夸赞点 / 流量钩子</label>
                     <div class="value" style="background: linear-gradient(135deg, #f3e8ff 0%, #e0e7ff 100%); border: 1px solid #c4b5fd; color: #4c1d95; line-height: 1.7;">
-                        <span style="font-weight: 600;">🎯 <span id="github-target-audience">�?/span></span>
+                        <span style="font-weight: 600;">🎯 <span id="github-target-audience">—</span></span>
                         <span style="margin: 0 8px; color: #a78bfa;">|</span>
-                        <span style="font-weight: 600;">💬 <span id="github-praise-tags">�?/span></span>
+                        <span style="font-weight: 600;">💬 <span id="github-praise-tags">—</span></span>
                         <span style="margin: 0 8px; color: #a78bfa;">|</span>
-                        <span style="font-weight: 600;">🎬 <span id="github-traffic-hook">�?/span></span>
+                        <span style="font-weight: 600;">🎬 <span id="github-traffic-hook">—</span></span>
                     </div>
                 </div>
             </div>
@@ -186,7 +184,7 @@
             <h2>🎬 第四步：生成视频</h2>
 
             <div id="step4-options" class="github-step4-options">
-                <p class="github-hint">选择背景音乐、成片背景图后，点击「开始生成视频」�?/p>
+                <p class="github-hint">选择背景音乐、成片背景图后，点击「开始生成视频」。</p>
                 <div class="flex-row" style="flex-wrap: wrap;">
                     <div class="form-group">
                         <label>
@@ -200,34 +198,34 @@
                     <select id="github-bgm-select" class="form-control">
                         <option value="static/music/background.mp3">🎵 默认 BGM</option>
                     </select>
-                    <small class="github-bgm-hint">�?<code>static/music</code> 目录加载；也可自行放�?MP3 后刷新列表�?/small>
+                    <small class="github-bgm-hint">从 <code>static/music</code> 目录加载；也可自行放入 MP3 后刷新列表。</small>
                 </div>
                 <div class="form-group">
-                    <label for="github-background-select">成片背景�?/label>
+                    <label for="github-background-select">成片背景图</label>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <select id="github-background-select" class="form-control" style="flex: 1; min-width: 200px; max-width: 240px;">
                             <option value="static/imgs/bg.png">默认背景</option>
                         </select>
-                        <img id="github-bg-preview" alt="背景图预�? src="/static/imgs/bg.png" onerror="this.style.display='none'" style="width: 60px; height: 107px; border-radius: var(--radius-sm); border: 1px solid var(--border-soft); object-fit: cover; flex-shrink: 0;" />
+                        <img id="github-bg-preview" alt="背景图预览" src="/static/imgs/bg.png" onerror="this.style.display='none'" style="width: 60px; height: 107px; border-radius: var(--radius-sm); border: 1px solid var(--border-soft); object-fit: cover; flex-shrink: 0;" />
                     </div>
-                    <small class="github-bgm-hint">默认图为 <code>static/imgs/bg.png</code>；自定义图可放入 <code>static/imgs/backgrounds/</code> 或使用下方上传�?/small>
+                    <small class="github-bgm-hint">默认图为 <code>static/imgs/bg.png</code>；自定义图可放入 <code>static/imgs/backgrounds/</code> 或使用下方上传。</small>
                 </div>
                 <div class="form-group github-bg-upload-row">
                     <label for="github-background-file">上传背景图（可选）</label>
                     <input type="file" id="github-background-file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control">
                     <button type="button" id="github-background-upload-btn" class="btn btn-outline" style="margin-top:8px;">上传到背景库</button>
                 </div>
-                <button type="button" id="start-generate-video-btn" class="btn btn-primary btn-lg" style="margin-top:12px;">开始生成视�?/button>
+                <button type="button" id="start-generate-video-btn" class="btn btn-primary btn-lg" style="margin-top:12px;">开始生成视频</button>
             </div>
             
             <div class="loading" id="video-generation-loading">
                 <div class="spinner"></div>
-                <p>正在生成您的视频，请稍�?..</p>
+                <p>正在生成您的视频，请稍候...</p>
             </div>
             
             <div id="video-result" class="hidden">
                 <div class="notification success">
-                    视频生成成功�?
+                    视频生成成功！
                 </div>
                 
                 <!-- 视频预览窗口 -->
@@ -243,51 +241,51 @@
                 </div>
                 
                 <div id="video-player">
-                    <!-- 视频播放器将在这里显�?-->
+                    <!-- 视频播放器将在这里显示 -->
                 </div>
                 <div class="flex-row github-step4-actions">
-                    <button type="button" id="go-step5-btn" class="btn btn-success">进入第五步：配音与字�?/button>
-                    <button type="button" id="step4-regenerate-settings-btn" class="btn btn-outline">重新选择背景与音�?/button>
+                    <button type="button" id="go-step5-btn" class="btn btn-success">进入第五步：配音与字幕</button>
+                    <button type="button" id="step4-regenerate-settings-btn" class="btn btn-outline">重新选择背景与音乐</button>
                     <button id="download-btn" class="btn btn-primary">下载基底视频</button>
-                    <button id="new-project-btn" class="btn btn-outline">处理新项�?/button>
+                    <button id="new-project-btn" class="btn btn-outline">处理新项目</button>
                 </div>
             </div>
         </div>
 
-        <!-- 步骤5: 配音与字�?-->
+        <!-- 步骤5: 配音与字幕 -->
         <div id="step5-panel" class="card step-panel">
-            <h2>🎙�?第五步：配音与字�?/h2>
-            <p class="github-hint">画面上不再叠加摘要文字；摘要用于本步口播与字幕。使�?IndexTTS 根据参考音频克隆音色，可与第四步中的背景音乐混合，并可选烧录字幕�?/p>
+            <h2>🎙️ 第五步：配音与字幕</h2>
+            <p class="github-hint">画面上不再叠加摘要文字；摘要用于本步口播与字幕。使用 IndexTTS 根据参考音频克隆音色，可与第四步中的背景音乐混合，并可选烧录字幕。</p>
 
             <div class="form-group">
-                <label for="voiceover-script">口播�?/label>
-                <textarea id="voiceover-script" class="form-control github-textarea" rows="10" placeholder="编辑口播文本，或点击下方「填入摘要�?></textarea>
+                <label for="voiceover-script">口播稿</label>
+                <textarea id="voiceover-script" class="form-control github-textarea" rows="10" placeholder="编辑口播文本，或点击下方「填入摘要」"></textarea>
             </div>
             <button type="button" id="fill-summary-voiceover-btn" class="btn btn-outline">填入摘要</button>
 
             <div class="form-group" style="margin-top: 16px;">
-                <label for="voiceover-clone-audio">声音克隆参考音频（IndexTTS�?/label>
+                <label for="voiceover-clone-audio">声音克隆参考音频（IndexTTS）</label>
                 <input type="file" id="voiceover-clone-audio" class="form-control" accept="audio/wav,audio/mpeg,audio/flac,audio/ogg,audio/webm,audio/mp4,video/mp4,.wav,.mp3,.flac,.ogg,.webm,.m4a,.mp4">
                 <input type="hidden" id="voiceover-clone-audio-path" value="">
-                <small class="github-bgm-hint" id="voiceover-clone-audio-status">推荐上传 5�?0 秒清晰人声；未上传时使用 IndexTTS 默认参考音频�?/small>
+                <small class="github-bgm-hint" id="voiceover-clone-audio-status">推荐上传 5～20 秒清晰人声；未上传时使用 IndexTTS 默认参考音频。</small>
             </div>
 
             <div class="form-group flex-row" style="gap: 16px; flex-wrap: wrap;">
                 <div style="flex: 2; min-width: 220px;">
-                    <label for="voiceover-subtitle-font">烧录字幕字体（系统字体需本机已安装；自定义字体放�?<code>static/fonts/subtitle/</code>�?/label>
+                    <label for="voiceover-subtitle-font">烧录字幕字体（系统字体需本机已安装；自定义字体放入 <code>static/fonts/subtitle/</code>）</label>
                     <select id="voiceover-subtitle-font" class="form-control">
-                        <option value="Microsoft YaHei">加载中�?/option>
+                        <option value="Microsoft YaHei">加载中…</option>
                     </select>
                 </div>
                 <div style="flex: 1; min-width: 150px;">
-                    <label for="voiceover-subtitle-margin-pct">字幕距底边（画面高度 %�?/label>
-                    <input type="number" id="voiceover-subtitle-margin-pct" class="form-control" min="8" max="45" value="11" title="占画面高�?；数值越大字幕整体越靠上、离底边越远" />
+                    <label for="voiceover-subtitle-margin-pct">字幕距底边（画面高度 %）</label>
+                    <input type="number" id="voiceover-subtitle-margin-pct" class="form-control" min="8" max="45" value="11" title="占画面高度%；数值越大字幕整体越靠上、离底边越远" />
                 </div>
             </div>
 
             <div class="form-group flex-row" style="gap: 16px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 200px;">
-                    <label for="voiceover-rate">语�?/label>
+                    <label for="voiceover-rate">语速</label>
                     <select id="voiceover-rate" class="form-control">
                         <option value="+0%">正常</option>
                         <option value="+15%">略快</option>
@@ -297,35 +295,35 @@
                 </div>
                 <div style="flex: 1; min-width: 140px;">
                     <label for="voiceover-subtitle-size">烧录字幕字号（相对档位，会按视频高度换算成像素）</label>
-                    <input type="number" id="voiceover-subtitle-size" class="form-control" min="10" max="36" value="16" title="数值越大字越大�?080p 下约等于 档位×3 像素" />
+                    <input type="number" id="voiceover-subtitle-size" class="form-control" min="10" max="36" value="16" title="数值越大字越大；1080p 下约等于 档位×3 像素" />
                 </div>
                 <div style="flex: 1; min-width: 160px;">
-                    <label for="voiceover-subtitle-max-chars">每条字幕约字�?/label>
+                    <label for="voiceover-subtitle-max-chars">每条字幕约字数</label>
                     <input type="number" id="voiceover-subtitle-max-chars" class="form-control" min="8" max="40" value="20" />
                 </div>
             </div>
 
             <div class="form-group github-voiceover-checks">
-                <label><input type="checkbox" id="voiceover-mix-bgm" checked> 与原片中的背景音乐混合（压低 BGM�?/label>
+                <label><input type="checkbox" id="voiceover-mix-bgm" checked> 与原片中的背景音乐混合（压低 BGM）</label>
                 <label><input type="checkbox" id="voiceover-burn" checked> 烧录字幕到画面（需本机 FFmpeg 与字体）</label>
             </div>
 
             <div class="form-row" style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
                 <div style="flex: 1; min-width: 200px;">
                     <label for="voiceover-bgm-gain">背景音乐音量（dB，越大越响，多为负值）</label>
-                    <input type="number" id="voiceover-bgm-gain" class="form-control" min="-45" max="6" step="1" value="-22" title="与原片提取的 BGM 混音时的增益；默认压低伴�? />
+                    <input type="number" id="voiceover-bgm-gain" class="form-control" min="-45" max="6" step="1" value="-22" title="与原片提取的 BGM 混音时的增益；默认压低伴奏" />
                 </div>
                 <div style="flex: 1; min-width: 200px;">
                     <label for="voiceover-narration-gain">人声音量（dB，越大越响）</label>
-                    <input type="number" id="voiceover-narration-gain" class="form-control" min="-24" max="24" step="1" value="0" title="TTS 旁白在混音前的增�? />
+                    <input type="number" id="voiceover-narration-gain" class="form-control" min="-24" max="24" step="1" value="0" title="TTS 旁白在混音前的增益" />
                 </div>
             </div>
 
-            <button type="button" id="voiceover-generate-btn" class="btn btn-primary">生成配音与字幕视�?/button>
+            <button type="button" id="voiceover-generate-btn" class="btn btn-primary">生成配音与字幕视频</button>
 
             <div class="loading" id="voiceover-loading" style="display: none;">
                 <div class="spinner"></div>
-                <p>正在使用 IndexTTS 合成语音与字幕，首次加载模型可能需要数分钟�?/p>
+                <p>正在使用 IndexTTS 合成语音与字幕，首次加载模型可能需要数分钟…</p>
             </div>
 
             <div id="voiceover-result" class="hidden" style="margin-top: 20px;">
@@ -349,7 +347,7 @@
             <button type="button" id="close-github-sort-panel" class="github-sort-close" aria-label="关闭">×</button>
         </div>
         <div class="github-sort-panel-tip">
-            拖动条目排序；每段「秒」为该片段在成片中的时长（图片、GIF/动画 WebP �?README 视频，默�?3 秒）。视频段为画中画效果�?
+            拖动条目排序；每段「秒」为该片段在成片中的时长（图片、GIF/动画 WebP 或 README 视频，默认 3 秒）。视频段为画中画效果。
         </div>
         <div id="githubSortableList" class="github-sortable-list"></div>
     </div>

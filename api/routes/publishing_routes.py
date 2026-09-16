@@ -16,6 +16,9 @@ from sqlalchemy.orm import Session
 from api.schemas.publishing_models import (
     AccountStatusResponse,
     BindPublishedPostRequest,
+    CandidateActionResponse,
+    CandidateListResponse,
+    CandidateListItem,
     CreatePublishJobRequest,
     ExtractCoverRequest,
     MetricsSyncStatusResponse,
@@ -52,7 +55,9 @@ from services.publishing.registry import (
     list_platforms,
 )
 from src.db.engine import get_session_factory
+from src.db.models.ingestion import IngestedArticle
 from src.db.models.publishing import (
+    AutoPublishCandidate,
     PublishJob,
     PublishLog,
     PublisherAccount,
@@ -983,4 +988,103 @@ async def publishing_health(request: Request, db: Session = Depends(get_db)):
         worker_reachable=worker_reachable,
         pending_jobs_count=len(pending),
         oldest_pending_seconds=oldest_seconds,
+    )
+
+
+@router.get("/candidates", response_model=CandidateListResponse)
+def list_candidates_route(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    platform: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    recommended_action: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query("priority"),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import desc as sa_desc, asc as sa_asc
+
+    query = db.query(AutoPublishCandidate)
+    if platform:
+        query = query.filter(AutoPublishCandidate.platform == platform)
+    if status:
+        query = query.filter(AutoPublishCandidate.status == status)
+    if recommended_action:
+        query = query.filter(AutoPublishCandidate.recommended_action == recommended_action)
+
+    total = query.count()
+
+    sort_column_map = {
+        "priority": AutoPublishCandidate.priority,
+        "evaluated_at": AutoPublishCandidate.evaluated_at,
+        "created_at": AutoPublishCandidate.created_at,
+    }
+    sort_column = sort_column_map.get(sort_by or "priority", AutoPublishCandidate.priority)
+    if sort_by == "priority":
+        query = query.order_by(sa_desc(sort_column), AutoPublishCandidate.evaluated_at.asc())
+    else:
+        query = query.order_by(sa_desc(sort_column))
+
+    rows = query.offset((page - 1) * per_page).limit(per_page).all()
+
+    def _candidate_title(row: AutoPublishCandidate) -> str:
+        article = db.query(IngestedArticle).filter(IngestedArticle.id == row.article_id).first()
+        return (article.title or "未命名") if article else "未命名"
+
+    items = []
+    for row in rows:
+        try:
+            reasons = json.loads(row.reasons_json or "[]")
+        except (TypeError, json.JSONDecodeError):
+            reasons = []
+        items.append(
+            CandidateListItem(
+                id=row.id,
+                article_id=row.article_id,
+                title=_candidate_title(row),
+                platform=row.platform,
+                action=row.action,
+                recommended_action=row.recommended_action,
+                priority=row.priority,
+                reasons=reasons,
+                status=row.status,
+                evaluated_at=row.evaluated_at,
+                created_at=row.created_at,
+            )
+        )
+    return CandidateListResponse(
+        success=True,
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+
+@router.post("/candidates/{candidate_id}/skip", response_model=CandidateActionResponse)
+def skip_candidate_route(candidate_id: str, db: Session = Depends(get_db)):
+    from services.publishing.candidate_queue import skip_candidate as skip_candidate_service
+    try:
+        candidate = skip_candidate_service(db, candidate_id)
+        db.commit()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return CandidateActionResponse(success=True, candidate_id=candidate_id, status=candidate.status)
+
+
+@router.post("/candidates/{candidate_id}/enqueue", response_model=CandidateActionResponse)
+def enqueue_candidate_route(candidate_id: str, db: Session = Depends(get_db)):
+    from services.publishing.candidate_queue import enqueue_candidate as enqueue_candidate_service
+    from services.ingestion.article_scorer import load_scoring_config
+    try:
+        config = load_scoring_config()
+        candidate = enqueue_candidate_service(db, candidate_id, config=config)
+        db.commit()
+    except ValueError as exc:
+        status = 404 if "not found" in str(exc).lower() else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+    return CandidateActionResponse(
+        success=True,
+        candidate_id=candidate_id,
+        status=candidate.status,
+        publish_job_id=candidate.publish_job_id,
     )

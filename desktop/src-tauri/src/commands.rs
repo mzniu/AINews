@@ -226,3 +226,8 @@ pub fn desktop_window_close(window: WebviewWindow) -> Result<(), String> {
 pub fn desktop_window_is_maximized(window: WebviewWindow) -> Result<bool, String> {
     window.is_maximized().map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn ainews_open_devtools(window: WebviewWindow) {
+    window.open_devtools();
+}

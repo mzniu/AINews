@@ -242,3 +242,32 @@ class CommentReplyRunListResponse(BaseModel):
     items: List[CommentReplyRunResponse] = Field(default_factory=list)
     total: int = 0
 
+
+class CandidateListItem(BaseModel):
+    id: str
+    article_id: str
+    title: str = ""
+    platform: str
+    action: str
+    recommended_action: str
+    priority: float = 0.0
+    reasons: List[str] = Field(default_factory=list)
+    status: str
+    evaluated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class CandidateListResponse(BaseModel):
+    success: bool = True
+    items: List[CandidateListItem] = Field(default_factory=list)
+    total: int = 0
+    page: int = 1
+    per_page: int = 20
+
+
+class CandidateActionResponse(BaseModel):
+    success: bool = True
+    candidate_id: str
+    status: str
+    publish_job_id: Optional[str] = None
+

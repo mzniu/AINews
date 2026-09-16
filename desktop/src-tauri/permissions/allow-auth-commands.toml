@@ -28,4 +28,5 @@ commands.allow = [
   "desktop_window_toggle_maximize",
   "desktop_window_close",
   "desktop_window_is_maximized",
+  "ainews_open_devtools",
 ]

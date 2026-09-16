@@ -26,8 +26,8 @@ RESTORE_FROM_GIT = [
     "video_maker.html",
 ]
 
-APP_SHELL_VERSION = "20260911a"
-APP_NAV_VERSION = "20260911b"
+APP_SHELL_VERSION = "20260913c"
+APP_NAV_VERSION = "20260914b"
 DESKTOP_WINDOW_VERSION = "20260911c"
 
 PLATFORM_MODAL_HTML = """
@@ -48,9 +48,12 @@ PLATFORM_MODAL_HTML = """
 )
 
 
-def git_show(path: str) -> str:
+GIT_RESTORE_REF = "dc117a2"
+
+
+def git_show(path: str, ref: str = GIT_RESTORE_REF) -> str:
     result = subprocess.run(
-        ["git", "show", f"HEAD:{path}"],
+        ["git", "show", f"{ref}:{path}"],
         cwd=ROOT,
         capture_output=True,
         check=True,
@@ -58,12 +61,10 @@ def git_show(path: str) -> str:
     return result.stdout.decode("utf-8")
 
 
-def checkout_git(paths: list[str]) -> None:
-    subprocess.run(
-        ["git", "checkout", "HEAD", "--", *paths],
-        cwd=ROOT,
-        check=True,
-    )
+def checkout_git(paths: list[str], ref: str = GIT_RESTORE_REF) -> None:
+    for path in paths:
+        text = git_show(path, ref=ref)
+        (ROOT / path).write_text(text, encoding="utf-8", newline="\n")
 
 
 def patch_script_tags(text: str) -> str:
