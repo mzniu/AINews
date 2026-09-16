@@ -143,12 +143,12 @@ def _resolve_source_file(path: str) -> Path | None:
     raw = str(path or "").strip().replace("\\", "/")
     if not raw:
         return None
-    candidate = Path(raw.lstrip("/"))
-    if candidate.is_file():
-        return candidate.resolve()
     rooted = (Config.ROOT_DIR / raw.lstrip("/")).resolve()
     if rooted.is_file():
         return rooted
+    candidate = Path(raw.lstrip("/"))
+    if candidate.is_file():
+        return candidate.resolve()
     return None
 
 

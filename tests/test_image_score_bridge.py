@@ -22,7 +22,13 @@ from src.db.models.ingestion import (
 @pytest.fixture
 def db_session(tmp_path, monkeypatch):
     db_path = tmp_path / "bridge_test.db"
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
     monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
     init_db()
     factory = get_session_factory()
     session = factory()
@@ -125,8 +131,9 @@ def test_prepare_video_auto_selects_a_grade(db_session, scored_article):
     auto = result.get("auto_selected_images") or []
     assert len(auto) >= 1
     assert all(img.get("auto_selected") for img in auto)
-    meta_path = result["metadata_path"].lstrip("/")
-    saved = json.loads(open(meta_path, encoding="utf-8").read())
+    from src.utils.paths import resolve_data_path
+
+    saved = json.loads(resolve_data_path(result["metadata_path"]).read_text(encoding="utf-8"))
     assert "auto_selected_images" in saved
 
 

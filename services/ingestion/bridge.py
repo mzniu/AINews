@@ -8,7 +8,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from services.ingestion.asset_downloader import get_ingested_root
-from src.utils.paths import to_data_url_path
+from src.utils.paths import path_relative_to_data, to_data_url_path
 from services.ingestion.image_dedupe import dedupe_image_entries, normalize_image_url
 from services.ingestion.image_scorer import ImageScoreResult, load_image_scoring_config, pick_auto_selected
 from services.ingestion.render_image_utils import filter_renderable_image_dicts, is_renderable_local_image
@@ -541,7 +541,7 @@ def prepare_video_metadata(
         "success": True,
         "article_id": article.id,
         "metadata": metadata,
-        "metadata_path": f"/{meta_path.as_posix()}",
+        "metadata_path": path_relative_to_data(meta_path),
         "content": article.content_text or article.summary or "",
         "title": article.title,
         "images": image_paths,

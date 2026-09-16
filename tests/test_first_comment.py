@@ -31,8 +31,14 @@ _AUTO_PUBLISH_CFG = {
 @pytest.fixture
 def db_session(tmp_path, monkeypatch):
     db_path = tmp_path / "first_comment.db"
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
     monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
     monkeypatch.setattr("src.utils.config.Config.ROOT_DIR", tmp_path)
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
     init_db()
     from src.db.engine import get_session_factory
 

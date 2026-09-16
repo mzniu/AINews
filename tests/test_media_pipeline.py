@@ -11,10 +11,32 @@ from src.db.engine import get_session_factory, init_db
 from src.db.models.ingestion import ArticleImage, IngestedArticle, IngestionSource
 
 
+def _pipeline_test_image(rel_name: str) -> dict:
+    from PIL import Image
+
+    from src.utils.paths import get_data_dir
+
+    path = get_data_dir() / rel_name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.is_file():
+        Image.new("RGB", (800, 600), color="green").save(path)
+    return {"local_path": f"/data/{rel_name}"}
+
+
 @pytest.fixture
 def db_session(tmp_path, monkeypatch):
+    from PIL import Image
+
+    from src.utils.paths import get_data_dir
+
     db_path = tmp_path / "media_pipeline.db"
+    data_dir = tmp_path / "data"
     monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(data_dir))
+    get_data_dir.cache_clear()
+    img_path = data_dir / "ingested/src1/art_pipe/images/img_001.jpg"
+    img_path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (800, 600), color="green").save(img_path)
     init_db()
     factory = get_session_factory()
     session = factory()
@@ -168,9 +190,10 @@ def test_pipeline_renders_video_with_one_selected_image(
         "tags": "#AI",
         "model": "m",
     }
+    hero = _pipeline_test_image("hero.jpg")
     mock_prepare.return_value = {
-        "auto_selected_images": [{"local_path": "/data/hero.jpg"}],
-        "images": [{"local_path": "/data/hero.jpg"}],
+        "auto_selected_images": [hero],
+        "images": [hero],
     }
     mock_bgm.return_value = "static/music/a.mp3"
     mock_render.return_value = {"success": True, "video_path": "/data/videos/one.mp4"}
@@ -211,8 +234,8 @@ def test_pipeline_reuses_existing_draft_when_llm_empty(
     mock_content.side_effect = ValueError("LLM 返回空内容")
     mock_prepare.return_value = {
         "auto_selected_images": [
-            {"local_path": "/data/a.jpg"},
-            {"local_path": "/data/b.jpg"},
+            _pipeline_test_image("a.jpg"),
+            _pipeline_test_image("b.jpg"),
         ],
         "metadata_path": "/data/meta.json",
     }
@@ -251,8 +274,8 @@ def test_pipeline_falls_back_to_title_draft_when_llm_empty(
     mock_content.side_effect = ValueError("LLM 返回空内容")
     mock_prepare.return_value = {
         "auto_selected_images": [
-            {"local_path": "/data/a.jpg"},
-            {"local_path": "/data/b.jpg"},
+            _pipeline_test_image("a.jpg"),
+            _pipeline_test_image("b.jpg"),
         ],
     }
     mock_bgm.return_value = "static/music/a.mp3"
@@ -295,8 +318,8 @@ def test_pipeline_skips_llm_and_uses_existing_draft(
     mock_score.return_value = {"scored_count": 2}
     mock_prepare.return_value = {
         "auto_selected_images": [
-            {"local_path": "/data/a.jpg"},
-            {"local_path": "/data/b.jpg"},
+            _pipeline_test_image("a.jpg"),
+            _pipeline_test_image("b.jpg"),
         ],
     }
     mock_bgm.return_value = "static/music/a.mp3"
@@ -363,13 +386,14 @@ def test_pipeline_rewrites_paths_if_cleared_after_checkpoint(
         "tags": "#AI",
         "model": "m",
     }
+    hero = _pipeline_test_image("hero.jpg")
     mock_prepare.return_value = {
-        "auto_selected_images": [{"local_path": "/data/hero.jpg"}],
-        "images": [{"local_path": "/data/hero.jpg"}],
+        "auto_selected_images": [hero],
+        "images": [hero],
     }
     mock_bgm.return_value = "static/music/a.mp3"
     mock_render.return_value = {"success": True, "video_path": "/data/videos/kept.mp4"}
-    mock_pick_cover.return_value = {"local_path": "/data/hero.jpg"}
+    mock_pick_cover.return_value = hero
     mock_cover.return_value = {"success": True, "cover_path": "data/publish/covers/kept.jpg"}
     mock_intro.return_value = {"success": True, "video_path": "/data/videos/kept.mp4"}
 

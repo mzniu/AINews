@@ -35,6 +35,7 @@ def client(tmp_path, monkeypatch):
 def _seed_job(job_id: str = "job1", *, status: str = "unmatched"):
     from src.db.engine import get_session_factory
 
+    now = datetime.utcnow()
     factory = get_session_factory()
     with factory() as session:
         session.add(
@@ -56,7 +57,7 @@ def _seed_job(job_id: str = "job1", *, status: str = "unmatched"):
                 status="published",
                 platform_post_id="xhs_1",
                 metrics_match_status=status,
-                published_at=datetime(2026, 8, 10, 12, 0, 0),
+                published_at=now - timedelta(days=5),
             )
         )
         session.commit()
@@ -80,6 +81,7 @@ def test_bind_published_post_api(client):
 def test_export_published_posts_csv(client):
     from src.db.engine import get_session_factory
 
+    now = datetime.utcnow()
     _seed_job()
     factory = get_session_factory()
     with factory() as session:
@@ -88,7 +90,7 @@ def test_export_published_posts_csv(client):
             job_id="job1",
             account_id="acc1",
             platform="xiaohongshu",
-            snapshot_date=datetime(2026, 8, 11).date(),
+            snapshot_date=(now - timedelta(days=4)).date(),
             metrics=PostMetricsItem(platform_post_id="manual-note-1", view_count=88),
         )
         session.commit()

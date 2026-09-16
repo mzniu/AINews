@@ -1,5 +1,5 @@
 """Tests for metrics CSV export."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -19,6 +19,7 @@ def _session():
 
 
 def test_build_published_posts_csv_includes_headers_and_row():
+    now = datetime.utcnow()
     session = _session()
     session.add(
         PublisherAccount(
@@ -38,7 +39,7 @@ def test_build_published_posts_csv_includes_headers_and_row():
             title="导出测试",
             status="published",
             platform_post_id="note1",
-            published_at=datetime(2026, 8, 10, 12, 0, 0),
+            published_at=now - timedelta(days=5),
         )
     )
     session.flush()
@@ -47,7 +48,7 @@ def test_build_published_posts_csv_includes_headers_and_row():
         job_id="job1",
         account_id="acc1",
         platform="xiaohongshu",
-        snapshot_date=datetime(2026, 8, 11).date(),
+        snapshot_date=(now - timedelta(days=4)).date(),
         metrics=PostMetricsItem(platform_post_id="note1", view_count=200, like_count=10),
     )
     session.commit()
