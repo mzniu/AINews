@@ -129,7 +129,6 @@
             border-radius: 12px; padding: 20px; width: min(360px, 92vw);
         }
         .captcha-svg { margin: 12px 0; background: #fff; border-radius: 6px; padding: 8px; }
-        .boot-wait { text-align: center; color: var(--muted); font-size: .9rem; }
         .mode-switch {
             margin-top: 14px;
             text-align: center;
@@ -149,6 +148,84 @@
         .mode-switch button:hover { color: var(--accent-hover); }
         .register-only[hidden] { display: none !important; }
         .login-only[hidden] { display: none !important; }
+
+        .startup-loading {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: radial-gradient(ellipse at top, #1e293b 0%, var(--bg) 55%);
+        }
+        .startup-loading[hidden] { display: none !important; }
+        .startup-loading-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            max-width: 320px;
+        }
+        .ripple-logo-wrap {
+            position: relative;
+            width: 128px;
+            height: 128px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .ripple-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 2px solid rgba(59, 130, 246, 0.42);
+            animation: startup-ripple 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+        }
+        .ripple-ring:nth-child(2) { animation-delay: 0.8s; }
+        .ripple-ring:nth-child(3) { animation-delay: 1.6s; }
+        @keyframes startup-ripple {
+            0% {
+                transform: scale(0.5);
+                opacity: 0.75;
+            }
+            100% {
+                transform: scale(1.45);
+                opacity: 0;
+            }
+        }
+        .startup-logo {
+            width: 56px;
+            height: 56px;
+            position: relative;
+            z-index: 1;
+            filter: drop-shadow(0 6px 18px rgba(59, 130, 246, 0.28));
+        }
+        .startup-title {
+            margin: 0 0 8px;
+            font-size: 1.35rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .startup-status {
+            margin: 0;
+            color: var(--text);
+            font-size: 0.95rem;
+            min-height: 1.4rem;
+        }
+        .startup-hint {
+            margin: 10px 0 0;
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ripple-ring {
+                animation: none;
+                opacity: 0.35;
+                transform: scale(1);
+            }
+        }
     </style>
 </head>
 <body>
@@ -158,8 +235,6 @@
             <h1>AINews</h1>
         </div>
         <p class="subtitle">登录后即可使用资讯抓取、视频制作与多平台发布</p>
-
-        <div id="boot-wait" class="boot-wait" hidden>正在检查登录状态…</div>
 
         <div id="auth-forms" hidden>
             <div class="tabs" role="tablist">
@@ -218,6 +293,20 @@
                 <button type="button" class="btn btn-primary" id="btn-offline-redeem">使用授权码</button>
                 <p class="msg" id="offline-msg"></p>
             </div>
+        </div>
+    </div>
+
+    <div id="startup-loading" class="startup-loading" hidden role="dialog" aria-modal="true" aria-labelledby="startup-title" aria-describedby="startup-status">
+        <div class="startup-loading-inner">
+            <div class="ripple-logo-wrap" aria-hidden="true">
+                <span class="ripple-ring"></span>
+                <span class="ripple-ring"></span>
+                <span class="ripple-ring"></span>
+                <img class="startup-logo" src="brand/ainews-mark.png?v=20260914" alt="">
+            </div>
+            <h2 id="startup-title" class="startup-title">AINews</h2>
+            <p id="startup-status" class="startup-status" aria-live="polite">正在启动应用…</p>
+            <p class="startup-hint">首次启动可能需要数十秒，请稍候</p>
         </div>
     </div>
 

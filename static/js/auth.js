@@ -14,8 +14,16 @@
     let pendingCaptcha = null;
     let phoneMode = 'login';
     let emailMode = 'login';
+    let appEnterInProgress = false;
+    let startupStatusTimer = null;
+    let startupStatusIndex = 0;
 
     const MIN_PASSWORD_LENGTH = 8;
+    const STARTUP_STATUS_MESSAGES = [
+        '正在启动本地服务…',
+        '正在检查服务连接…',
+        '即将进入主界面…',
+    ];
 
     function setMsg(el, text, kind) {
         if (!el) return;
@@ -96,11 +104,47 @@
         updateEmailModeUi();
     }
 
+    function updateStartupStatus(text) {
+        const el = $('startup-status');
+        if (el) el.textContent = text;
+    }
+
+    function showStartupLoading(initialMessage) {
+        const overlay = $('startup-loading');
+        if (!overlay) return;
+        overlay.hidden = false;
+        $('auth-card')?.setAttribute('aria-hidden', 'true');
+        updateStartupStatus(initialMessage || STARTUP_STATUS_MESSAGES[0]);
+        startupStatusIndex = 0;
+        if (startupStatusTimer) clearInterval(startupStatusTimer);
+        startupStatusTimer = setInterval(() => {
+            startupStatusIndex = (startupStatusIndex + 1) % STARTUP_STATUS_MESSAGES.length;
+            updateStartupStatus(STARTUP_STATUS_MESSAGES[startupStatusIndex]);
+        }, 2800);
+    }
+
+    function hideStartupLoading() {
+        const overlay = $('startup-loading');
+        if (overlay) overlay.hidden = true;
+        $('auth-card')?.removeAttribute('aria-hidden');
+        if (startupStatusTimer) {
+            clearInterval(startupStatusTimer);
+            startupStatusTimer = null;
+        }
+    }
+
     async function enterApp() {
-        setMsg($('phone-msg'), '正在启动应用…', null);
-        const url = await invoke('auth_start_app');
-        if (url) {
-            window.location.href = url;
+        if (appEnterInProgress) return;
+        appEnterInProgress = true;
+        showStartupLoading('正在启动应用…');
+        try {
+            // Rust `auth_start_app` starts the backend, waits for health, and navigates.
+            await invoke('auth_start_app');
+        } catch (e) {
+            appEnterInProgress = false;
+            hideStartupLoading();
+            setMsg($('phone-msg'), String(e), 'error');
+            throw e;
         }
     }
 
@@ -114,16 +158,16 @@
     }
 
     async function waitForBootstrap() {
-        $('boot-wait').hidden = false;
+        showStartupLoading('正在检查登录状态…');
         $('auth-forms').hidden = true;
         for (let i = 0; i < 60; i += 1) {
             const done = await invoke('auth_bootstrap_completed');
             if (done) break;
             await new Promise((r) => setTimeout(r, 200));
         }
-        $('boot-wait').hidden = true;
-        $('auth-forms').hidden = false;
         if (await refreshAuthUi()) return;
+        hideStartupLoading();
+        $('auth-forms').hidden = false;
         await loadRememberedEmails();
         updatePhoneModeUi();
         updateEmailModeUi();
@@ -343,6 +387,7 @@
         });
         const tauri = window.__TAURI__;
         tauri?.event?.listen?.('auth://status-changed', () => {
+            if (appEnterInProgress) return;
             refreshAuthUi().catch(() => {});
         });
     }
@@ -350,7 +395,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         bindEvents();
         waitForBootstrap().catch((err) => {
-            $('boot-wait').hidden = true;
+            hideStartupLoading();
             $('auth-forms').hidden = false;
             setMsg($('phone-msg'), String(err), 'error');
         });
