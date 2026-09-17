@@ -12,14 +12,10 @@
         const next = theme === 'dark' ? 'dark' : 'light';
         root.setAttribute('data-theme', next);
         localStorage.setItem(STORAGE_KEY, next);
-        document.querySelectorAll('[data-theme-label]').forEach((el) => {
-            el.textContent = next === 'light' ? '浅色' : '深色';
-        });
-        document.querySelectorAll('.theme-toggle .icon-sun').forEach((el) => {
-            el.hidden = next !== 'dark';
-        });
-        document.querySelectorAll('.theme-toggle .icon-moon').forEach((el) => {
-            el.hidden = next !== 'light';
+        document.querySelectorAll('.theme-toggle-btn[data-theme-set]').forEach((btn) => {
+            const isActive = btn.getAttribute('data-theme-set') === next;
+            btn.classList.toggle('is-active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
     }
 
@@ -31,10 +27,11 @@
     apply(getPreferred());
 
     document.addEventListener('click', (event) => {
-        const btn = event.target.closest('.theme-toggle');
-        if (!btn) return;
-        event.preventDefault();
-        toggle();
+        const setBtn = event.target.closest('.theme-toggle-btn[data-theme-set]');
+        if (setBtn) {
+            event.preventDefault();
+            apply(setBtn.getAttribute('data-theme-set'));
+        }
     });
 
     window.AINewsTheme = { apply, getPreferred, toggle, STORAGE_KEY };

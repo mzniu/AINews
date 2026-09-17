@@ -2,6 +2,17 @@
 @import url('design-system/tokens.css');
 
 :root {
+    --shell-heading: var(--color-text);
+    --shell-input-bg: var(--color-surface-raised);
+    --nav-width: 224px;
+    --nav-width-collapsed: 64px;
+}
+
+[data-theme="dark"] {
+    --shell-heading: var(--color-brand-tint);
+}
+
+:root {
     /* Deprecated purple gradient — migrate away over time */
     --brand-1: #667eea;
     --brand-2: #764ba2;

@@ -382,6 +382,70 @@
     box-shadow: 0 0 0 2px rgba(18, 52, 153, 0.55), var(--app-shadow-soft);
 }
 
+/* Selected rows use a deep brand panel — light text + high-contrast badges */
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) {
+    --selected-row-text: #e8eaf6;
+    --selected-row-text-muted: rgba(232, 234, 246, 0.82);
+    --selected-badge-info-bg: rgba(18, 52, 153, 0.45);
+    --selected-badge-info-text: #c5d4ff;
+    --selected-badge-neutral-bg: rgba(148, 163, 184, 0.28);
+    --selected-badge-neutral-text: #e2e8f0;
+    --selected-badge-success-bg: rgba(21, 128, 61, 0.35);
+    --selected-badge-success-text: #6ee7b7;
+    --selected-badge-warn-bg: rgba(180, 83, 9, 0.35);
+    --selected-badge-warn-text: #fcd34d;
+    --selected-badge-danger-bg: rgba(198, 40, 40, 0.32);
+    --selected-badge-danger-text: #fca5a5;
+    --selected-badge-published-bg: rgba(109, 40, 217, 0.35);
+    --selected-badge-published-text: #d8b4fe;
+    --selected-btn-bg: rgba(18, 52, 153, 0.32);
+    --selected-btn-text: #c5d4ff;
+    --selected-btn-border: rgba(197, 212, 255, 0.4);
+    color: var(--selected-row-text);
+}
+
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) :is(.flex-grow-1, .font-weight-bold) {
+    color: var(--selected-row-text);
+}
+
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) :is(.text-muted, .small.text-muted) {
+    color: var(--selected-row-text-muted);
+}
+
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) :is(
+    .badge-secondary,
+    .badge-info,
+    .badge-primary
+) {
+    background: var(--selected-badge-info-bg);
+    color: var(--selected-badge-info-text);
+}
+
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) .badge-success {
+    background: var(--selected-badge-success-bg);
+    color: var(--selected-badge-success-text);
+}
+
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) .badge-warning {
+    background: var(--selected-badge-warn-bg);
+    color: var(--selected-badge-warn-text);
+}
+
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) .badge-danger {
+    background: var(--selected-badge-danger-bg);
+    color: var(--selected-badge-danger-text);
+}
+
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) .badge-light {
+    background: var(--selected-badge-neutral-bg);
+    color: var(--selected-badge-neutral-text);
+}
+
+.app-page :is(.article-item.selected, .story-tree-header.expanded, .story-tree-article.selected) .badge-published {
+    background: var(--selected-badge-published-bg);
+    color: var(--selected-badge-published-text);
+}
+
 .app-page .article-item-actions {
     display: flex;
     flex-wrap: wrap;

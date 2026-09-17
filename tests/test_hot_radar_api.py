@@ -15,13 +15,13 @@ from src.db.engine import get_session_factory, init_db
 from src.db.models.ingestion import IngestedArticle, IngestionSource
 
 
-def _load_hot_radar_router():
+def _load_hot_radar_module():
     path = Path(__file__).resolve().parents[1] / "api" / "routes" / "hot_radar_routes.py"
     spec = importlib.util.spec_from_file_location("hot_radar_routes_isolated", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
-    return module.router
+    return module
 
 
 @pytest.fixture()
@@ -58,8 +58,10 @@ boards:
         )
         session.merge(source)
         session.commit()
+    mod = _load_hot_radar_module()
     app = FastAPI()
-    app.include_router(_load_hot_radar_router(), prefix="/api/ingestion")
+    app.include_router(mod.router, prefix="/api/ingestion")
+    app.include_router(mod.legacy_router)
     return TestClient(app)
 
 
@@ -69,6 +71,15 @@ def test_get_hot_radar_empty(client):
     data = resp.json()
     assert data["status"] == "empty"
     assert data["items"] == []
+
+
+def test_legacy_hot_radar_snapshots_endpoint(client):
+    resp = client.get("/api/hot-radar/snapshots?limit=1")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "snapshots" in data
+    assert len(data["snapshots"]) == 1
+    assert "hits" in data["snapshots"][0]
 
 
 def test_get_hot_radar_with_snapshot(client):

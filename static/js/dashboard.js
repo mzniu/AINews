@@ -27,24 +27,6 @@
         return resp.json();
     }
 
-    async function loadWorkerBanner() {
-        const host = document.getElementById('dashboardWorkerBanner');
-        if (!host) return;
-        try {
-            const health = await fetchJson('/api/publishing/health');
-            if (health.worker_reachable) {
-                host.hidden = true;
-                return;
-            }
-            window.AppUI?.showBanner(host, {
-                variant: 'warn',
-                message: `发布 Worker 未运行 — 队列中有 ${health.pending_jobs ?? 0} 条任务等待处理`,
-            });
-        } catch (err) {
-            console.warn('dashboard worker banner', err);
-        }
-    }
-
     async function loadMetrics() {
         let articlesToday = '—';
         let pending = '—';
@@ -102,7 +84,7 @@
         const list = document.getElementById('hotTopList');
         if (!list) return;
         try {
-            const data = await fetchJson('/api/hot-radar/snapshots?limit=1');
+            const data = await fetchJson('/api/ingestion/hot-radar?limit=1');
             const snapshot = (data.items || data.snapshots || [])[0];
             const hits = snapshot?.hits || snapshot?.articles || [];
             if (!hits.length) {
@@ -138,7 +120,7 @@
     }
 
     async function init() {
-        await Promise.all([loadWorkerBanner(), loadMetrics(), loadHotRadar(), loadActivity()]);
+        await Promise.all([loadMetrics(), loadHotRadar(), loadActivity()]);
     }
 
     if (document.readyState === 'loading') {

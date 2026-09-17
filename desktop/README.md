@@ -10,12 +10,28 @@ Tauri shell for the AINews local Python backend.
 
 ## Dev mode
 
+`cargo tauri dev` waits for `http://localhost:8088`. Start the Python backend first, or use the helper script:
+
 ```powershell
+# from repo root
+.\desktop\scripts\start-dev.ps1
+```
+
+Manual equivalent:
+
+```powershell
+# terminal 1 — repo root
+$env:AINES_DEV_MODE = "1"
+$env:PORT = "8088"
+.\venv\Scripts\python.exe web_server.py
+
+# terminal 2 — after /api/health is ok
 cd desktop
+$env:AINES_DEV_MODE = "1"
 cargo tauri dev
 ```
 
-Set `AINES_DEV_MODE=1` (default in dev) to skip cloud login.
+`AINES_DEV_MODE=1` skips cloud login. Stop with `.\desktop\scripts\stop-ainews.ps1`.
 
 ## Build
 

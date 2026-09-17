@@ -30,22 +30,25 @@
             label: '制作',
             items: [
                 { href: '/video-maker', label: '视频制作', icon: 'film' },
-                { href: '/github-video-maker', label: 'GitHub', icon: 'film' },
-                { href: '/digital-human', label: '数字人', icon: 'film' },
+                { href: '/github-video-maker', label: 'GitHub', icon: 'github' },
+                { href: '/digital-human', label: '数字人', icon: 'user' },
                 { href: '/scrape', label: '内容抓取', icon: 'scrape' },
             ],
         },
         {
-            label: '分发',
+            label: '发布中心',
             items: [
                 {
                     href: '/publish-center',
-                    label: '发布中心',
+                    label: '发布设置',
                     icon: 'send',
-                    match: (p) => p === '/publish-center'
-                        || p.startsWith('/publish-')
-                        || p === '/candidate-pool',
+                    match: (p) => p === '/publish-center',
                 },
+                { href: '/publish-accounts', label: '账号绑定', icon: 'plus' },
+                { href: '/publish-queue', label: '发布队列', icon: 'queue' },
+                { href: '/publish-metrics', label: '已发布数据', icon: 'chart' },
+                { href: '/publish-comments', label: '评论管理', icon: 'comment' },
+                { href: '/candidate-pool', label: '候选池', icon: 'pool' },
             ],
         },
         {
@@ -63,7 +66,7 @@
 
     const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
     const NAV_COLLAPSE_KEY = 'ainews-nav-collapsed';
-    const APP_VERSION_FALLBACK = '1.0.2';
+    const APP_VERSION_FALLBACK = '1.0.3';
     let userMenuOpen = false;
     let userMenuDocListenerBound = false;
 
@@ -118,7 +121,6 @@
     function setNavCollapsed(collapsed) {
         const isCollapsed = Boolean(collapsed);
         document.body.classList.toggle('nav-collapsed', isCollapsed);
-        document.body.classList.toggle('nav-top-bar', isCollapsed);
         document.body.dataset.navCollapsed = isCollapsed ? 'true' : 'false';
         try {
             localStorage.setItem(NAV_COLLAPSE_KEY, isCollapsed ? '1' : '0');
@@ -127,6 +129,8 @@
         }
         const btn = document.getElementById('app-nav-collapse');
         if (btn) {
+            const iconName = isCollapsed ? 'sidebar-expand' : 'sidebar-collapse';
+            btn.innerHTML = navIcon(iconName);
             btn.setAttribute('aria-pressed', isCollapsed ? 'true' : 'false');
             btn.title = isCollapsed ? '展开侧栏' : '收起侧栏';
             btn.setAttribute('aria-label', btn.title);
@@ -183,7 +187,7 @@
                     ${navIcon('refresh')}
                 </button>
                 <button type="button" class="nav-collapse-btn" id="app-nav-collapse" title="收起侧栏" aria-label="收起侧栏" aria-pressed="false">
-                    ${navIcon('settings')}
+                    ${navIcon('sidebar-collapse')}
                 </button>
             </div>
             <div class="nav-top-bar" aria-label="快捷导航">
@@ -197,13 +201,7 @@
                 ${groups}
             </div>
             <div class="nav-footer">
-                <div class="nav-theme-row">
-                    <span data-theme-label>浅色</span>
-                    <button type="button" class="theme-toggle" aria-label="切换主题">
-                        ${navIcon('sun').replace('nav-icon', 'nav-icon icon-sun')}
-                        ${navIcon('moon').replace('nav-icon', 'nav-icon icon-moon')}
-                    </button>
-                </div>
+                <div class="nav-footer-row">
                 <div class="nav-user-menu" id="app-nav-user-menu">
                     <button type="button" class="nav-user-trigger" id="app-nav-user-trigger" aria-label="用户菜单" aria-haspopup="menu" aria-expanded="false" aria-controls="app-nav-user-dropdown">
                         <span class="nav-user-avatar" id="app-nav-user-avatar" aria-hidden="true">U</span>
@@ -216,6 +214,15 @@
                         </svg>
                     </button>
                     <div class="nav-user-dropdown" id="app-nav-user-dropdown" role="menu" hidden></div>
+                </div>
+                <div class="theme-toggle" role="group" aria-label="主题模式">
+                    <button type="button" class="theme-toggle-btn" data-theme-set="light" aria-label="浅色模式" aria-pressed="false">
+                        ${navIcon('sun')}
+                    </button>
+                    <button type="button" class="theme-toggle-btn" data-theme-set="dark" aria-label="深色模式" aria-pressed="false">
+                        ${navIcon('moon')}
+                    </button>
+                </div>
                 </div>
             </div>
         </div>

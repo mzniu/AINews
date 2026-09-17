@@ -1,6 +1,7 @@
 use tauri::{AppHandle, Emitter, State, WebviewWindow};
 
 use crate::auth::{AuthHealthDto, AuthService, AuthStatusDto};
+use crate::{AppState, StartupDiagnosticsDto};
 
 fn emit_auth_status_changed(app: &AppHandle) {
     let _ = app.emit("auth://status-changed", ());
@@ -200,6 +201,11 @@ pub async fn auth_bind_phone(
 #[tauri::command]
 pub fn auth_bootstrap_completed(auth: State<'_, AuthService>) -> bool {
     auth.bootstrap_completed()
+}
+
+#[tauri::command]
+pub fn auth_get_startup_diagnostics(state: State<'_, AppState>) -> StartupDiagnosticsDto {
+    state.startup_diagnostics()
 }
 
 #[tauri::command]

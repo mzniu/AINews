@@ -1,5 +1,5 @@
 # One-shot elevated install helper (accept UAC prompt when it appears).
-$InstallerPath = "D:\git\AINews\desktop\dist\AINews_1.0.2_x64-setup.exe"
+$InstallerPath = "D:\git\AINews\desktop\dist\AINews_1.0.3_x64-setup.exe"
 $InstallDir = "$env:ProgramFiles\AINews"
 
 if (-not (Test-Path $InstallerPath)) {

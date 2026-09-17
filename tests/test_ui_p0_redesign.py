@@ -39,6 +39,25 @@ APP_PAGES = [
     "settings.html",
 ]
 
+PAGE_TITLE_H1_PAGES = APP_PAGES + [
+    "video_maker.html",
+    "video_editor3.html",
+    "github_video_maker.html",
+    "digital_human.html",
+    "model_settings.html",
+    "publish_queue.html",
+    "publish_metrics.html",
+    "publish_comments.html",
+    "publish_accounts.html",
+    "candidate_pool.html",
+]
+
+# Common pictographs / emoji in legacy page titles (not exhaustive Unicode emoji blocks).
+_PAGE_TITLE_EMOJI_RE = re.compile(
+    r"[\U0001F300-\U0001FAFF\u2600-\u27BF]"
+    r"|⚙|🌐|📹|🚀|⚠|🎬|📝|🖼|🤖|💡|🏠|⬆|🗑|✨|❄|⬇|🎞|👁|▶|⏸|✏|✂️|🅰|↩|↔|🎯|🏷|✍|🎙|🕷|📊|🎥"
+)
+
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -106,6 +125,8 @@ def test_sprites_svg_contains_nav_icons():
         "icon-library",
         "icon-radar",
         "icon-film",
+        "icon-github",
+        "icon-user",
         "icon-scrape",
         "icon-send",
         "icon-settings",
@@ -113,11 +134,36 @@ def test_sprites_svg_contains_nav_icons():
         assert f'id="{icon_id}"' in svg
 
 
+def test_settings_icon_is_gear_not_sun_rays():
+    svg = _read(SPRITES)
+    settings = svg.split('id="icon-settings"', 1)[1].split("</symbol>", 1)[0]
+    assert "M12.22 2h" in settings
+    assert "M12 1v2" not in settings
+
+
+def test_sprites_have_sidebar_collapse_and_expand_icons():
+    svg = _read(SPRITES)
+    assert 'id="icon-sidebar-collapse"' in svg
+    assert 'id="icon-sidebar-expand"' in svg
+
+
+def test_nav_collapse_button_uses_sidebar_icons_not_settings():
+    js = _read(APP_NAV_JS)
+    idx = js.find("app-nav-collapse")
+    assert idx != -1
+    snippet = js[idx : idx + 320]
+    assert "sidebar-collapse" in snippet
+    assert "navIcon('settings')" not in snippet
+    assert "sidebar-expand" in js
+
+
 def test_app_nav_js_uses_sprite_not_emoji_nav():
     js = _read(APP_NAV_JS)
     assert "sprites.svg" in js or "icon-home" in js
     assert "工作台" in js
     assert "内容抓取" in js
+    assert "icon: 'github'" in js
+    assert "icon: 'user'" in js
     # Nav labels should not rely on emoji as primary icons
     assert "🌐" not in js
 
@@ -139,7 +185,8 @@ def test_theme_js_default_is_light():
 
 def test_app_nav_includes_theme_toggle():
     js = _read(APP_NAV_JS)
-    assert "theme-toggle" in js or "Theme" in js
+    assert "theme-toggle-btn" in js
+    assert 'data-theme-set="light"' in js
 
 
 # --- 5. Auth alignment ---
@@ -204,33 +251,60 @@ def test_scrape_page_title_format():
 # --- 8. Publish Tab Hub ---
 
 
-def test_app_nav_publish_group_only_publish_center():
+def test_app_nav_publish_group_has_standalone_entries():
     js = _read(APP_NAV_JS)
-    dist_section = re.search(r"label:\s*['\"]分发['\"].*?items:\s*\[(.*?)\]", js, re.S)
-    assert dist_section is not None
-    items = dist_section.group(1)
-    assert "发布中心" in items
-    assert "发布队列" not in items
-    assert "已发布数据" not in items
-    assert "评论管理" not in items
-    assert "候选池" not in items
+    publish_section = re.search(r"label:\s*['\"]发布中心['\"].*?items:\s*\[(.*?)\]", js, re.S)
+    assert publish_section is not None
+    items = publish_section.group(1)
+    assert "发布设置" in items
+    assert "账号绑定" in items
+    assert "发布队列" in items
+    assert "已发布数据" in items
+    assert "评论管理" in items
+    assert "候选池" in items
 
 
-def test_publish_center_is_tab_hub():
+def test_publish_center_is_settings_page_not_tab_hub():
     html = _read(PUBLISH_CENTER)
-    assert "publish-hub" in html.lower() or "tab-hub" in html.lower() or "hub-tab" in html.lower()
-    for label in ("账号", "队列", "已发布", "评论", "候选"):
-        assert label in html
+    assert "hub-tab" not in html
+    assert "publish_hub.js" not in html
+    assert "发布策略灰度" in html
+    assert "快速发布" in html
 
 
-def test_publish_legacy_routes_redirect_or_hub():
+def test_embed_pages_hide_nav_in_iframe():
+    embed_js = _read(STATIC / "js" / "shared" / "embed.js")
+    shell_css = _read(STATIC / "css" / "app_shell.css")
+    assert 'data-embed' in embed_js
+    assert "document.documentElement.setAttribute('data-embed', '1')" in embed_js
+    assert 'html[data-embed="1"]' in shell_css
+    for page in ("publish_queue.html", "publish_metrics.html", "publish_comments.html", "candidate_pool.html"):
+        html = _read(STATIC / page)
+        assert "embed.js" in html
+
+
+def test_candidate_pool_reason_labels_are_human_readable():
+    js = _read(STATIC / "js" / "candidate_pool.js")
+    assert "recommend.publish.wechat_dual_grade" in js
+    assert "视频号行业与传播评分均达标" in js
+    assert "policy.disabled.platform" in js
+    assert "该平台在策略中未启用" in js
+    assert "formatReasonLabel" in js
+
+
+def test_publish_routes_serve_standalone_pages():
     client = _main_routes_client()
-    for path in ("/publish-queue", "/publish-metrics", "/publish-comments", "/candidate-pool"):
+    pages = {
+        "/publish-queue": "发布队列",
+        "/publish-metrics": "已发布数据",
+        "/publish-comments": "评论管理",
+        "/candidate-pool": "候选池",
+        "/publish-accounts": "账号绑定",
+    }
+    for path, title in pages.items():
         resp = client.get(path, follow_redirects=False)
-        assert resp.status_code in (200, 307, 308, 302)
-        if resp.status_code == 200:
-            body = resp.text
-            assert "publish-hub" in body.lower() or "hub-tab" in body.lower() or "tab=" in path
+        assert resp.status_code == 200
+        assert title in resp.text
 
 
 # --- 9. Unified Banner / Modal / Toast ---
@@ -257,7 +331,48 @@ def test_app_page_titles_use_ainews_prefix(page: str):
     assert re.search(r"<title>AINews · .+</title>", html), f"{page} missing AINews title format"
 
 
+@pytest.mark.parametrize("page", PAGE_TITLE_H1_PAGES)
+def test_page_document_title_and_h1_have_no_emoji(page: str):
+    html = _read(STATIC / page)
+    title_match = re.search(r"<title>([^<]+)</title>", html)
+    assert title_match is not None, f"{page} missing <title>"
+    assert not _PAGE_TITLE_EMOJI_RE.search(title_match.group(1)), f"{page} <title> has emoji"
+    for h1_text in re.findall(r"<h1[^>]*>([^<]+)</h1>", html):
+        assert not _PAGE_TITLE_EMOJI_RE.search(h1_text), f"{page} <h1> has emoji: {h1_text!r}"
+
+
 def test_dashboard_loads_shared_ui_and_theme():
     html = _read(DASHBOARD_HTML)
     assert "theme.js" in html
     assert "ui.js" in html
+
+
+@pytest.mark.parametrize("page", APP_PAGES)
+def test_app_pages_load_theme_script(page: str):
+    html = _read(STATIC / page)
+    assert "theme.js" in html
+
+
+def test_dashboard_hot_radar_uses_ingestion_api():
+    js = _read(STATIC / "js" / "dashboard.js")
+    assert "/api/ingestion/hot-radar" in js
+    assert "/api/hot-radar/snapshots" not in js
+
+
+def test_light_theme_shell_tokens_use_dark_readable_text():
+    tokens = _read(DESIGN_TOKENS)
+    shell = _read(STATIC / "css" / "app_shell.css")
+    assert "--shell-heading: var(--color-text);" in tokens
+    assert "--app-off-white: var(--shell-heading);" in shell
+    assert "--shell-input-bg: var(--color-surface-raised);" in tokens
+    assert ':root:not([data-theme="dark"])' in tokens
+    assert "--nav-width: 224px;" in tokens
+    dark_start = tokens.index('[data-theme="dark"]')
+    root_nav = tokens.index("--nav-width: 224px;")
+    assert root_nav < dark_start, "nav layout tokens must live in shared :root for dark theme"
+
+
+def test_theme_script_sets_data_theme_on_toggle():
+    js = _read(THEME_JS)
+    assert "setAttribute('data-theme'" in js
+    assert "ainews-theme" in js

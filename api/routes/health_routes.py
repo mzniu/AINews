@@ -7,7 +7,7 @@ from src.utils.paths import get_data_dir, is_packaged
 
 router = APIRouter(prefix="/api", tags=["health"])
 
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 
 
 @router.get("/health")

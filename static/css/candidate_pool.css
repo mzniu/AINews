@@ -38,8 +38,12 @@
     margin-bottom: 16px;
 }
 
-.candidate-toolbar .form-control {
+.candidate-toolbar .form-control,
+.candidate-toolbar select {
+    width: auto;
     min-width: 120px;
+    flex: 0 1 auto;
+    margin: 0;
     padding: 6px 10px;
     font-size: 13px;
     border: 1px solid var(--app-border);

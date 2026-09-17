@@ -109,9 +109,75 @@
         if (el) el.textContent = text;
     }
 
+    function setHidden(id, hidden) {
+        const el = $(id);
+        if (el) el.hidden = hidden;
+    }
+
+    function clearStartupError() {
+        setHidden('startup-error', true);
+        const detail = $('startup-error-detail');
+        if (detail) detail.textContent = '';
+        $('startup-body')?.classList.remove('is-error');
+        setHidden('startup-status', false);
+        setHidden('startup-hint', false);
+    }
+
+    async function loadStartupDiagnostics() {
+        try {
+            return await invoke('auth_get_startup_diagnostics');
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function formatStartupFailure(err, diag) {
+        const lines = [String(err || '未知错误')];
+        if (diag?.error && diag.error !== String(err)) {
+            lines.push(diag.error);
+        }
+        if (diag?.logPath) lines.push(`日志文件: ${diag.logPath}`);
+        if (diag?.pythonPath) lines.push(`Python: ${diag.pythonPath}`);
+        if (diag?.appDir) lines.push(`应用目录: ${diag.appDir}`);
+        if (diag?.dataDir) lines.push(`数据目录: ${diag.dataDir}`);
+        if (diag?.port) lines.push(`服务端口: ${diag.port}`);
+        return lines.filter(Boolean).join('\n');
+    }
+
+    function showStartupError(title, detail) {
+        const overlay = $('startup-loading');
+        if (!overlay) return;
+        overlay.hidden = false;
+        $('auth-card')?.setAttribute('aria-hidden', 'true');
+        $('startup-body')?.classList.add('is-error');
+        setHidden('startup-status', true);
+        setHidden('startup-hint', true);
+        if (startupStatusTimer) {
+            clearInterval(startupStatusTimer);
+            startupStatusTimer = null;
+        }
+        const panel = $('startup-error');
+        const titleEl = $('startup-error-title');
+        const detailEl = $('startup-error-detail');
+        if (titleEl) titleEl.textContent = title || '启动失败';
+        if (detailEl) detailEl.textContent = detail || '';
+        if (panel) panel.hidden = false;
+    }
+
+    async function showStartupFailure(err, title) {
+        appEnterInProgress = false;
+        const diag = await loadStartupDiagnostics();
+        const detail = formatStartupFailure(err, diag);
+        showStartupError(title || '无法进入主界面', detail);
+        setMsg($('phone-msg'), String(err), 'error');
+        setMsg($('email-msg'), String(err), 'error');
+        setMsg($('offline-msg'), String(err), 'error');
+    }
+
     function showStartupLoading(initialMessage) {
         const overlay = $('startup-loading');
         if (!overlay) return;
+        clearStartupError();
         overlay.hidden = false;
         $('auth-card')?.setAttribute('aria-hidden', 'true');
         updateStartupStatus(initialMessage || STARTUP_STATUS_MESSAGES[0]);
@@ -127,6 +193,7 @@
         const overlay = $('startup-loading');
         if (overlay) overlay.hidden = true;
         $('auth-card')?.removeAttribute('aria-hidden');
+        clearStartupError();
         if (startupStatusTimer) {
             clearInterval(startupStatusTimer);
             startupStatusTimer = null;
@@ -141,9 +208,7 @@
             // Rust `auth_start_app` starts the backend, waits for health, and navigates.
             await invoke('auth_start_app');
         } catch (e) {
-            appEnterInProgress = false;
-            hideStartupLoading();
-            setMsg($('phone-msg'), String(e), 'error');
+            await showStartupFailure(e, '启动本地服务失败');
             throw e;
         }
     }
@@ -154,7 +219,17 @@
             await enterApp();
             return true;
         }
+        if (status.message) {
+            await showStartupFailure(status.message, '登录状态无效');
+        }
         return false;
+    }
+
+    async function showPersistedStartupError() {
+        const diag = await loadStartupDiagnostics();
+        if (!diag?.error) return false;
+        await showStartupFailure(diag.error, '上次启动失败');
+        return true;
     }
 
     async function waitForBootstrap() {
@@ -166,6 +241,7 @@
             await new Promise((r) => setTimeout(r, 200));
         }
         if (await refreshAuthUi()) return;
+        if (await showPersistedStartupError()) return;
         hideStartupLoading();
         $('auth-forms').hidden = false;
         await loadRememberedEmails();
@@ -388,16 +464,34 @@
         const tauri = window.__TAURI__;
         tauri?.event?.listen?.('auth://status-changed', () => {
             if (appEnterInProgress) return;
-            refreshAuthUi().catch(() => {});
+            refreshAuthUi().catch((err) => {
+                showStartupFailure(err, '登录状态已变化').catch(() => {});
+            });
+        });
+        tauri?.event?.listen?.('ainews:startup-failed', (event) => {
+            if (appEnterInProgress) return;
+            const payload = event?.payload ?? '本地服务启动失败';
+            showStartupFailure(payload, '本地服务启动失败').catch(() => {});
+        });
+        $('btn-startup-retry')?.addEventListener('click', () => {
+            clearStartupError();
+            enterApp().catch(() => {});
+        });
+        $('btn-startup-back')?.addEventListener('click', () => {
+            appEnterInProgress = false;
+            hideStartupLoading();
+            $('auth-forms').hidden = false;
         });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         bindEvents();
         waitForBootstrap().catch((err) => {
-            hideStartupLoading();
-            $('auth-forms').hidden = false;
-            setMsg($('phone-msg'), String(err), 'error');
+            showStartupFailure(err, '初始化失败').catch(() => {
+                hideStartupLoading();
+                $('auth-forms').hidden = false;
+                setMsg($('phone-msg'), String(err), 'error');
+            });
         });
     });
 })();

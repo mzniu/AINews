@@ -46,6 +46,7 @@ from api.routes.digital_human_routes import router as digital_human_router
 from api.routes.pip_routes import router as pip_router
 from api.routes.compliance_routes import router as compliance_router
 from api.routes.ingestion_routes import router as ingestion_router
+from api.routes.hot_radar_routes import legacy_router as hot_radar_legacy_router
 from api.routes.render_template_routes import router as render_template_router
 from api.routes.publishing_routes import router as publishing_router
 from api.routes.search_routes import router as search_router
@@ -96,6 +97,11 @@ async def favicon_png():
 async def auth_js():
     return FileResponse(Config.ROOT_DIR / "static" / "js" / "auth.js")
 
+
+@app.get("/js/shared/theme.js", include_in_schema=False)
+async def theme_js():
+    return FileResponse(Config.ROOT_DIR / "static" / "js" / "shared" / "theme.js")
+
 # 注册路由
 print("正在注册路由...")
 app.include_router(health_router)
@@ -113,6 +119,7 @@ app.include_router(digital_human_router)
 app.include_router(pip_router)
 app.include_router(compliance_router)
 app.include_router(ingestion_router)
+app.include_router(hot_radar_legacy_router)
 app.include_router(render_template_router)
 app.include_router(publishing_router)
 app.include_router(search_router)

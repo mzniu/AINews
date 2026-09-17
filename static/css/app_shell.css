@@ -7,7 +7,7 @@
     --app-deep-navy: var(--color-brand-deep);
     --app-royal-blue: var(--color-brand-royal);
     --app-vibrant-blue: var(--color-brand-vibrant);
-    --app-off-white: var(--color-brand-tint);
+    --app-off-white: var(--shell-heading);
 
     --app-cyan: var(--color-brand-vibrant);
     --app-cyan-deep: var(--color-brand-royal);
@@ -16,7 +16,7 @@
 
     --app-bg: var(--color-bg);
     --app-card: var(--color-surface);
-    --app-card-solid: var(--color-brand-deep);
+    --app-card-solid: var(--shell-panel);
     --app-text: var(--color-text);
     --app-text-soft: var(--color-text-soft);
     --app-muted: var(--color-text-muted);
@@ -443,9 +443,36 @@ body.app-page.nav-collapsed .nav-brand span,
 body.app-page.nav-collapsed .nav-group-label,
 body.app-page.nav-collapsed .nav-label,
 body.app-page.nav-collapsed .nav-user-copy,
-body.app-page.nav-collapsed .nav-theme-row span[data-theme-label],
 body.app-page.nav-collapsed .nav-global-search,
-body.app-page.nav-collapsed .nav-footer .nav-theme-row {
+body.app-page.nav-collapsed .nav-top-bar {
+    display: none;
+}
+
+body.app-page.nav-collapsed .nav-footer {
+    width: 100%;
+    padding-top: 8px;
+}
+
+body.app-page.nav-collapsed .nav-footer-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+body.app-page.nav-collapsed .nav-user-menu {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+body.app-page.nav-collapsed .nav-user-trigger {
+    justify-content: center;
+    width: 40px;
+    min-width: 40px;
+    padding: 6px;
+}
+
+body.app-page.nav-collapsed .nav-user-chevron {
     display: none;
 }
 
@@ -1033,32 +1060,63 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     flex-shrink: 0;
 }
 
-.app-page .nav-theme-row {
+.app-page .nav-footer-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
-    padding: 8px 6px 10px;
-    margin-bottom: 6px;
+    padding: 0 2px;
+}
+
+.app-page .nav-footer-row .nav-user-menu {
+    flex: 1;
+    min-width: 0;
 }
 
 .app-page .theme-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-info-bg);
-    color: var(--color-text-soft);
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
+    gap: 2px;
+    flex-shrink: 0;
+    padding: 3px;
+    border: 1px solid rgba(232, 234, 246, 0.14);
+    border-radius: 999px;
+    background: rgba(18, 52, 153, 0.35);
 }
 
-.app-page .theme-toggle .nav-icon {
+.app-page .theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--app-muted);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-page .theme-toggle-btn .nav-icon {
     width: 16px;
     height: 16px;
+}
+
+.app-page .theme-toggle-btn:hover:not(.is-active) {
+    background: rgba(30, 85, 200, 0.55);
+    color: var(--app-off-white);
+}
+
+.app-page .theme-toggle-btn.is-active {
+    background: var(--app-vibrant-blue);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(18, 52, 153, 0.35);
+}
+
+.app-page .theme-toggle-btn:focus-visible {
+    outline: 2px solid var(--app-vibrant-blue);
+    outline-offset: 2px;
 }
 
 /* Unified Banner / Toast */
@@ -1125,6 +1183,10 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     background: var(--color-success-bg);
 }
 
+.app-banner[hidden] {
+    display: none !important;
+}
+
 /* Publish Tab Hub */
 .publish-hub-tabs {
     display: flex;
@@ -1164,12 +1226,12 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     background: var(--color-surface-raised);
 }
 
-body.app-page.is-embedded {
+html[data-embed="1"] body.app-page {
     padding-left: var(--space-page);
 }
 
-body.app-page.is-embedded #app-nav-root,
-body.app-page.is-embedded .publish-hub-tabs {
+html[data-embed="1"] #app-nav-root,
+html[data-embed="1"] .publish-hub-tabs {
     display: none !important;
 }
 

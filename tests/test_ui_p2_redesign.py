@@ -61,6 +61,7 @@ def test_app_nav_has_sidebar_collapse_toggle():
     assert "nav-collapse" in js or "navCollapse" in js or "sidebar-collapse" in js
     assert "localStorage" in js
     assert re.search(r"nav-collapsed|data-nav-collapsed", js + _read(APP_SHELL_CSS))
+    assert "nav-top-bar" not in js or "classList.toggle('nav-top-bar'" not in js
 
 
 def test_app_shell_css_has_collapsed_nav_and_top_bar_modes():
@@ -118,6 +119,22 @@ def test_ingestion_library_article_rows_include_grade_color_bar():
     css = _read(INGESTION_LIBRARY_CSS)
     assert "grade-bar" in js or "article-grade-bar" in js
     assert re.search(r"grade-bar|article-grade-bar", css)
+
+
+def test_ingestion_library_selected_row_uses_light_text_on_deep_panel():
+    css = _read(INGESTION_LIBRARY_CSS)
+    assert ".article-item.selected" in css
+    assert "--selected-row-text" in css
+    assert "font-weight-bold" in css and "article-item.selected" in css
+    assert "text-muted" in css and "article-item.selected" in css
+
+
+def test_ingestion_library_selected_row_badges_use_high_contrast_tokens():
+    css = _read(INGESTION_LIBRARY_CSS)
+    assert "--selected-badge-info-text" in css
+    assert re.search(r"article-item\.selected.*badge-success|badge-success.*article-item\.selected", css)
+    assert re.search(r"article-item\.selected.*badge-light|badge-light.*article-item\.selected", css)
+    assert re.search(r"article-item\.selected.*badge-published|badge-published.*article-item\.selected", css)
 
 
 def test_ingestion_library_highlights_hot_radar_deeplink():

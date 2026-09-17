@@ -69,7 +69,7 @@ def global_search(
                 "platform": account.platform,
                 "account_nickname": account.nickname,
                 "published_at": job.published_at.isoformat() if job.published_at else None,
-                "href": "/publish-center?tab=metrics",
+                "href": "/publish-metrics",
             }
             for job, account in post_rows
         ],

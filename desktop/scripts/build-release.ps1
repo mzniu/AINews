@@ -1,4 +1,4 @@
-# AINews 1.0.2 release build: stage Python app + venv, then cargo tauri build (NSIS installer).
+# AINews 1.0.3 release build: stage Python app + venv, then cargo tauri build (NSIS installer).
 param(
     [switch]$SkipPython,
     [switch]$SkipPlaywright
@@ -12,7 +12,7 @@ $AppDst = Join-Path $BundleRoot "app"
 $PythonDst = Join-Path $BundleRoot "python"
 $PlaywrightDst = Join-Path $BundleRoot "playwright-browsers"
 
-Write-Host "==> AINews release build 1.0.2"
+Write-Host "==> AINews release build 1.0.3"
 Write-Host "    Repo: $RepoRoot"
 
 if (Test-Path $BundleRoot) {

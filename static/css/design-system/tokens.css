@@ -69,6 +69,38 @@
   --nav-topbar-height: 52px;
   --nav-bg: rgba(255, 255, 255, 0.88);
   --nav-border: rgba(18, 52, 153, 0.12);
+
+  --shell-heading: var(--color-text);
+  --shell-link: var(--color-brand-vibrant);
+  --shell-input-bg: var(--color-surface-raised);
+  --shell-input-text: var(--color-text);
+  --shell-panel: var(--color-surface-raised);
+  --shell-panel-deep: var(--color-surface-inset);
+  --shell-code-bg: rgba(18, 52, 153, 0.08);
+  --shell-code-text: var(--color-brand-royal);
+  --shell-nav-chip-bg: rgba(18, 52, 153, 0.06);
+  --shell-nav-chip-border: var(--color-border);
+  --shell-nav-chip-text: var(--color-text);
+  --shell-nav-hover-bg: rgba(18, 52, 153, 0.1);
+  --shell-nav-hover-text: var(--color-brand-vibrant);
+  --shell-dropdown-bg: var(--color-surface-raised);
+  --shell-dropdown-border: var(--color-border-strong);
+  --shell-overlay: rgba(11, 21, 56, 0.45);
+  --shell-profile-bg: var(--color-surface-inset);
+  --shell-banner-warn-bg: var(--color-warning-bg);
+  --shell-banner-warn-text: #7a4e00;
+  --shell-banner-warn-border: rgba(194, 120, 3, 0.35);
+  --shell-badge-info-bg: rgba(18, 52, 153, 0.12);
+  --shell-badge-info-text: var(--color-brand-royal);
+  --shell-badge-neutral-bg: rgba(107, 122, 166, 0.14);
+  --shell-badge-neutral-text: var(--color-text-soft);
+  --shell-badge-warn-bg: var(--color-warning-bg);
+  --shell-badge-warn-text: #7a4e00;
+  --shell-badge-success-bg: var(--color-success-bg);
+  --shell-badge-success-text: #0a6b4a;
+  --shell-status-ok: var(--color-success);
+  --shell-status-error: var(--color-error);
+  --shell-alert-text: #9a3412;
 }
 
 [data-theme="dark"] {
@@ -106,4 +138,38 @@
 
   --nav-bg: rgba(0, 7, 45, 0.92);
   --nav-border: rgba(18, 52, 153, 0.35);
+
+  --shell-heading: var(--color-brand-tint);
+  --shell-link: #7da4ff;
+  --shell-input-bg: var(--color-brand-rich);
+  --shell-input-text: var(--color-brand-tint);
+  --shell-panel: var(--color-brand-deep);
+  --shell-panel-deep: rgba(0, 7, 45, 0.42);
+  --shell-code-bg: rgba(232, 234, 246, 0.14);
+  --shell-code-text: #f0f3ff;
+  --shell-nav-chip-bg: rgba(18, 52, 153, 0.35);
+  --shell-nav-chip-border: rgba(232, 234, 246, 0.14);
+  --shell-nav-chip-text: var(--color-brand-tint);
+  --shell-nav-hover-bg: rgba(18, 52, 153, 0.45);
+  --shell-nav-hover-text: var(--color-brand-tint);
+  --shell-dropdown-bg: rgba(8, 18, 48, 0.98);
+  --shell-dropdown-border: rgba(18, 52, 153, 0.45);
+  --shell-overlay: rgba(0, 7, 45, 0.72);
+  --shell-profile-bg: rgba(0, 7, 45, 0.42);
+  --shell-banner-warn-bg: rgba(154, 103, 0, 0.18);
+  --shell-banner-warn-text: #fbbf24;
+  --shell-banner-warn-border: rgba(251, 191, 36, 0.35);
+  --shell-badge-info-bg: rgba(18, 52, 153, 0.4);
+  --shell-badge-info-text: #c5d4ff;
+  --shell-badge-neutral-bg: rgba(100, 116, 139, 0.28);
+  --shell-badge-neutral-text: #94a3b8;
+  --shell-badge-warn-bg: rgba(180, 83, 9, 0.28);
+  --shell-badge-warn-text: #fcd34d;
+  --shell-badge-success-bg: rgba(21, 128, 61, 0.25);
+  --shell-badge-success-text: #6ee7b7;
+  --shell-status-ok: #6ee7b7;
+  --shell-status-error: #fca5a5;
+  --shell-alert-text: #fdba74;
 }
+
+/* Light shell scope alias: :root:not([data-theme="dark"]) */

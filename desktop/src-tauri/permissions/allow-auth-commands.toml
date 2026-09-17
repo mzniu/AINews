@@ -22,6 +22,7 @@ commands.allow = [
   "auth_phone_register",
   "auth_bind_phone",
   "auth_bootstrap_completed",
+  "auth_get_startup_diagnostics",
   "auth_start_app",
   "ainews_show_login",
   "desktop_window_minimize",

@@ -61,9 +61,57 @@
         return data;
     }
 
+    const REASON_LABELS = {
+        'recommend.publish.wechat_dual_grade': '视频号行业与传播评分均达标，建议发布',
+        'recommend.defer.wechat_grade_threshold': '视频号评分未达阈值，建议暂缓',
+        'recommend.publish.douyin_grade_threshold': '抖音评分达标，建议发布',
+        'recommend.defer.douyin_low_viral': '抖音传播潜力不足，建议暂缓',
+        'recommend.defer.douyin_industry_threshold': '抖音行业质量未达标，建议暂缓',
+        'recommend.publish.kuaishou_industry_motive': '快手行业与动机信号达标，建议发布',
+        'recommend.defer.kuaishou_continue': '快手继续观察，建议暂缓',
+        'priority.platform_fit': '内容与平台调性匹配（优先级加分）',
+        'policy.disabled.global': '发布策略总开关未启用',
+        'policy.disabled.platform': '该平台在策略中未启用',
+        'policy.shadow_mode': '影子模式：仅评估，不自动派发',
+    };
+
+    function formatReasonLabel(reason) {
+        const code = String(reason ?? '').trim();
+        if (!code) return '—';
+        if (REASON_LABELS[code]) return REASON_LABELS[code];
+        if (code.startsWith('priority.recent_story_penalty:')) {
+            const count = code.split(':')[1] || '0';
+            return `同题近期已有 ${count} 篇（优先级降权）`;
+        }
+        if (code.startsWith('platform.unknown:')) {
+            return `未知平台：${code.split(':').slice(1).join(':')}`;
+        }
+        if (code.startsWith('dispatch.failed:')) {
+            const detail = code.slice('dispatch.failed:'.length);
+            const detailMap = {
+                article_missing: '文章数据缺失',
+                account_unavailable: '无可用发布账号',
+                no_slot: '今日发布额度已满',
+            };
+            return `入队失败：${detailMap[detail] || detail}`;
+        }
+        if (code.startsWith('reconcile.')) {
+            const state = code.slice('reconcile.'.length);
+            const stateMap = {
+                published: '关联任务已发布',
+                pending: '关联任务排队中',
+                uploading: '关联任务上传中',
+                failed: '关联任务失败',
+                cancelled: '关联任务已取消',
+            };
+            return `状态同步：${stateMap[state] || state}`;
+        }
+        return code;
+    }
+
     function renderReasons(reasons) {
         if (!reasons || !reasons.length) return '—';
-        return reasons.map((r) => esc(r)).join(' · ');
+        return reasons.map((r) => formatReasonLabel(r)).join(' · ');
     }
 
     function canOperate(row) {

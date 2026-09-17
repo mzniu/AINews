@@ -178,3 +178,20 @@ def get_article_hot_radar_match(article_id: str, db: Session = Depends(get_db)):
     return HotRadarArticleMatchOut(**view)
 
 
+legacy_router = APIRouter(tags=["热榜雷达"])
+
+
+@legacy_router.get("/api/hot-radar/snapshots")
+def get_hot_radar_snapshots_legacy(
+    limit: int = Query(1, ge=1, le=10),
+    db: Session = Depends(get_db),
+):
+    """Backward-compatible shape for older dashboard clients."""
+    cfg = load_hot_radar_config()
+    view = get_hot_radar_snapshot_view(db, config=cfg)
+    items = list(view.get("items") or [])
+    snapshot = {**view, "hits": items, "articles": items}
+    snapshots = [snapshot][:limit]
+    return {"items": snapshots, "snapshots": snapshots}
+
+

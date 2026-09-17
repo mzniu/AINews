@@ -1,6 +1,6 @@
 """主要页面路由"""
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import HTMLResponse
 from pathlib import Path
 from datetime import datetime
 from loguru import logger
@@ -18,10 +18,6 @@ def _read_static_html(name: str) -> str:
     if not path.is_file():
         raise HTTPException(status_code=500, detail=f"页面文件不存在: {path}")
     return path.read_text(encoding="utf-8")
-
-
-def _publish_hub_redirect(tab: str):
-    return RedirectResponse(url=f"/publish-center?tab={tab}", status_code=307)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -84,39 +80,38 @@ async def model_settings_page():
     return _read_static_html("settings.html")
 
 @router.get("/publish-queue", response_class=HTMLResponse)
-async def publish_queue_page(embed: str | None = Query(default=None)):
-    """发布队列：Tab Hub 子页或嵌入模式"""
-    if embed != "1":
-        return _publish_hub_redirect("queue")
+async def publish_queue_page():
+    """发布队列"""
     return _read_static_html("publish_queue.html")
 
 
 @router.get("/publish-center", response_class=HTMLResponse)
 async def publish_center_page():
-    """发布中心 Tab Hub"""
+    """发布设置：策略灰度、自动发布与快速发布"""
     return _read_static_html("publish_center.html")
 
 
+@router.get("/publish-accounts", response_class=HTMLResponse)
+async def publish_accounts_page():
+    """账号绑定"""
+    return _read_static_html("publish_accounts.html")
+
+
 @router.get("/publish-metrics", response_class=HTMLResponse)
-async def publish_metrics_page(embed: str | None = Query(default=None)):
-    """已发布数据：Tab Hub 子页或嵌入模式"""
-    if embed != "1":
-        return _publish_hub_redirect("metrics")
+async def publish_metrics_page():
+    """已发布数据"""
     return _read_static_html("publish_metrics.html")
 
 
 @router.get("/publish-comments", response_class=HTMLResponse)
-async def publish_comments_page(embed: str | None = Query(default=None)):
-    """评论管理：Tab Hub 子页或嵌入模式"""
-    if embed != "1":
-        return _publish_hub_redirect("comments")
+async def publish_comments_page():
+    """评论管理"""
     return _read_static_html("publish_comments.html")
 
+
 @router.get("/candidate-pool", response_class=HTMLResponse)
-async def candidate_pool_page(embed: str | None = Query(default=None)):
-    """候选池：Tab Hub 子页或嵌入模式"""
-    if embed != "1":
-        return _publish_hub_redirect("pool")
+async def candidate_pool_page():
+    """候选池"""
     return _read_static_html("candidate_pool.html")
 
 @router.get("/health")

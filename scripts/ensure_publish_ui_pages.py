@@ -1,4 +1,98 @@
-<!DOCTYPE html>
+#!/usr/bin/env python3
+"""Write publish_accounts.html and slim publish_center.html (UTF-8)."""
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+STATIC = ROOT / "static"
+
+PUBLISH_ACCOUNTS_HTML = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AINews · 账号绑定</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260917e">
+    <link rel="stylesheet" href="/static/css/components/pipeline_bar.css?v=20260916">
+    <script src="/static/js/shared/theme.js?v=20260917e"></script>
+    <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260917e" defer></script>
+    <script src="/static/js/shared/pipeline_stepper.js?v=20260916" defer></script>
+    <script src="/static/js/publish_accounts.js?v=20260917" defer></script>
+    <style>
+        .accounts-shell { max-width: 1100px; margin: 0 auto; }
+        .accounts-header { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+        .accounts-header h1 { margin: 0 0 6px; }
+        .accounts-lead { margin: 0; color: var(--app-text-soft); font-size: 14px; }
+        .accounts-flex { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+        .account-card {
+            flex: 1 1 220px;
+            min-width: 220px;
+            max-width: 300px;
+            border: 1px solid var(--app-border);
+            border-radius: var(--app-radius-lg);
+            padding: 14px;
+            background: var(--app-card-solid);
+        }
+        .account-platform { font-size: 12px; color: var(--app-muted); margin-top: 4px; }
+        .account-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .status-active { color: var(--color-success); }
+        .status-expired { color: var(--color-error); }
+        .status-unknown { color: var(--color-warning); }
+        .status-checking { color: var(--app-muted); }
+        .add-account-wrap { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        #addPlatformSelect { width: auto; min-width: 180px; margin: 0; }
+        .qr-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 2000; align-items: center; justify-content: center; }
+        .qr-box { padding: 24px; border-radius: 12px; text-align: center; max-width: 360px; background: var(--app-card-solid); }
+        #qrImage { max-width: 280px; margin: 12px auto; display: block; }
+    </style>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+
+    <div class="accounts-shell">
+        <div id="pipeline-bar-root"></div>
+        <header class="accounts-header">
+            <div>
+                <h1>账号绑定</h1>
+                <p class="accounts-lead">各平台扫码登录与账号状态管理；绑定后可在发布队列与快速发布中使用。</p>
+            </div>
+            <div>
+                <a class="btn btn-soft" href="/publish-center">发布设置</a>
+            </div>
+        </header>
+
+        <div id="workerBanner" class="soft-banner soft-banner-warn" hidden>
+            ⚠️ 发布 worker 未运行。若使用独立进程模式，请执行 <code>scripts/run_publish_worker.bat</code>；或于 <code>.env</code> 设置 <code>PUBLISH_WORKER_MODE=embedded</code>（默认）后仅启动 web_server。
+        </div>
+
+        <section class="soft-card">
+            <h2 style="margin-top:0;">账号管理</h2>
+            <div class="add-account-wrap">
+                <select id="addPlatformSelect" class="form-control"></select>
+                <button type="button" class="btn" id="addAccountBtn">+ 添加账号</button>
+            </div>
+            <div id="accountsGrid" style="margin-top:16px;"></div>
+        </section>
+    </div>
+
+    <div id="qrModal" class="qr-modal">
+        <div class="qr-box">
+            <h3 id="qrModalTitle">扫码登录</h3>
+            <p id="qrStatusText">等待扫码…</p>
+            <img id="qrImage" alt="二维码" />
+            <div style="margin-top:12px;">
+                <button type="button" class="btn-secondary btn" id="qrCloseBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+# Slim settings page: rollout + auto-publish + first comment + quick publish only.
+PUBLISH_CENTER_HTML = """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -118,7 +212,7 @@
         function quietTimeToInput(value) {
             const text = String(value || '').trim();
             if (!text) return '23:00';
-            const match = text.match(/^(\d{1,2}):(\d{2})$/);
+            const match = text.match(/^(\\d{1,2}):(\\d{2})$/);
             if (!match) return text;
             return `${match[1].padStart(2, '0')}:${match[2]}`;
         }
@@ -396,3 +490,14 @@
     </script>
 </body>
 </html>
+"""
+
+
+def main() -> None:
+    (STATIC / "publish_accounts.html").write_text(PUBLISH_ACCOUNTS_HTML, encoding="utf-8", newline="\n")
+    (STATIC / "publish_center.html").write_text(PUBLISH_CENTER_HTML, encoding="utf-8", newline="\n")
+    print("Wrote publish_accounts.html and publish_center.html")
+
+
+if __name__ == "__main__":
+    main()

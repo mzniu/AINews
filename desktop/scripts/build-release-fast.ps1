@@ -7,7 +7,7 @@ $AppDst = Join-Path $BundleRoot "app"
 $PythonExe = Join-Path $BundleRoot "python\Scripts\python.exe"
 $PipExe = Join-Path $BundleRoot "python\Scripts\pip.exe"
 
-Write-Host "==> AINews fast release build 1.0.2"
+Write-Host "==> AINews fast release build 1.0.3"
 python (Join-Path $PSScriptRoot "generate-icons.py")
 if ($LASTEXITCODE -ne 0) { throw "icon generation failed" }
 if (-not (Test-Path $PythonExe)) {
@@ -56,13 +56,13 @@ try {
     Pop-Location
 }
 
-$Installer = Join-Path $TauriDir "target\release\bundle\nsis\AINews_1.0.2_x64-setup.exe"
+$Installer = Join-Path $TauriDir "target\release\bundle\nsis\AINews_1.0.3_x64-setup.exe"
 $DistDir = Join-Path $PSScriptRoot "..\dist"
 New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
 if (Test-Path $Installer) {
-    Copy-Item $Installer (Join-Path $DistDir "AINews_1.0.2_x64-setup.exe") -Force
+    Copy-Item $Installer (Join-Path $DistDir "AINews_1.0.3_x64-setup.exe") -Force
     Write-Host "==> Installer: $Installer"
-    Write-Host "==> Copied to: $(Join-Path $DistDir 'AINews_1.0.2_x64-setup.exe')"
+    Write-Host "==> Copied to: $(Join-Path $DistDir 'AINews_1.0.3_x64-setup.exe')"
 } else {
     throw "Installer not found: $Installer"
 }

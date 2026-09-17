@@ -87,3 +87,26 @@ def test_auth_js_startup_loading_helpers():
     assert "hideStartupLoading" in js
     assert "STARTUP_STATUS_MESSAGES" in js
     assert "showStartupLoading('正在启动应用…')" in js
+    assert "showStartupFailure" in js
+    assert "auth_get_startup_diagnostics" in js
+    assert "ainews:startup-failed" in js
+
+
+def test_auth_html_startup_error_panel():
+    html = _read(AUTH_HTML)
+    assert 'id="startup-error"' in html
+    assert 'id="startup-error-detail"' in html
+    assert 'id="btn-startup-retry"' in html
+
+
+def test_auth_js_does_not_assign_through_optional_chaining():
+    """`obj?.prop = value` is a SyntaxError (Invalid left-hand side in assignment)."""
+    js = _read(AUTH_JS)
+    assert re.search(r"\?\.[\w$]+\s*=", js) is None
+
+
+def test_auth_html_theme_script_uses_tauri_asset_path():
+    """Tauri frontendDist is `static/`, so `/static/js/...` 404s as HTML (`Unexpected token '<'`)."""
+    html = _read(AUTH_HTML)
+    assert re.search(r'src="(?:\.?/)?js/shared/theme\.js', html)
+    assert "/static/js/shared/theme.js" not in html

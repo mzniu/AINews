@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import difflib
 import re
 import subprocess
 import sys
@@ -12,43 +11,46 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "static"
 
-# Files to fully restore from git HEAD, then re-apply intentional script patches.
-RESTORE_FROM_GIT = [
+GIT_RESTORE_REF = "ed2c419"
+AUTH_RESTORE_REF = "origin/master"
+
+APP_SHELL_VERSION = "20260917"
+THEME_JS_VERSION = "20260917"
+APP_NAV_VERSION = "20260917a"
+EMBED_JS_VERSION = "20260917b"
+UI_JS_VERSION = "20260916"
+DESKTOP_WINDOW_VERSION = "20260911c"
+
+HTML_FILES = [
+    "auth.html",
+    "candidate_pool.html",
+    "dashboard.html",
+    "design-system.html",
     "digital_human.html",
     "github_video_maker.html",
     "hot_radar.html",
     "index.html",
     "ingestion_library.html",
     "model_settings.html",
+    "publish_center.html",
+    "publish_comments.html",
+    "publish_metrics.html",
     "publish_queue.html",
+    "scrape.html",
     "settings.html",
     "video_editor3.html",
     "video_maker.html",
 ]
 
-APP_SHELL_VERSION = "20260913c"
-APP_NAV_VERSION = "20260914b"
-DESKTOP_WINDOW_VERSION = "20260911c"
+EMBED_PAGES = {
+    "publish_queue.html",
+    "publish_metrics.html",
+    "publish_comments.html",
+    "candidate_pool.html",
+}
 
-PLATFORM_MODAL_HTML = """
-    <div id="platformsModal" class="schedule-modal" hidden>
-        <div class="schedule-box soft-card platforms-box">
-            <h3>修改发布平台</h3>
-            <p id="platformsModalTitle" class="hint schedule-modal-title"></p>
-            <p id="platformsModalNote" class="hint schedule-modal-note">勾选要发布的平台。账号未登录的任务仍会入队，发布失败后可重试。</p>
-            <div id="platformsChecklist" class="platforms-checklist"></div>
-            <div class="schedule-actions">
-                <button type="button" class="btn btn-soft" id="platformsCancelBtn">取消</button>
-                <button type="button" class="btn" id="platformsSaveBtn">保存</button>
-            </div>
-        </div>
-    </div>
-""".strip(
-    "\n"
-)
-
-
-GIT_RESTORE_REF = "dc117a2"
+# auth.html is loaded from Tauri frontendDist (`static/`), so it cannot use /static/... paths.
+THEME_PAGES = set(HTML_FILES) - {"favicon_test.html", "auth.html"}
 
 
 def git_show(path: str, ref: str = GIT_RESTORE_REF) -> str:
@@ -61,163 +63,160 @@ def git_show(path: str, ref: str = GIT_RESTORE_REF) -> str:
     return result.stdout.decode("utf-8")
 
 
-def checkout_git(paths: list[str], ref: str = GIT_RESTORE_REF) -> None:
-    for path in paths:
-        text = git_show(path, ref=ref)
-        (ROOT / path).write_text(text, encoding="utf-8", newline="\n")
+def restore_html(name: str) -> str:
+    path = f"static/{name}"
+    ref = AUTH_RESTORE_REF if name == "auth.html" else GIT_RESTORE_REF
+    return git_show(path, ref=ref)
 
 
-def patch_script_tags(text: str) -> str:
+def upsert_script(text: str, src: str, *, before: str | None = None) -> str:
+    if src in text:
+        return text
+    tag = f'    <script src="{src}"></script>\n'
+    if before and before in text:
+        return text.replace(before, tag + before, 1)
+    return text.replace("</head>", tag + "</head>", 1)
+
+
+def patch_common(text: str, name: str) -> str:
     text = re.sub(
         r"/static/css/app_shell\.css\?v=[^\"']+",
         f"/static/css/app_shell.css?v={APP_SHELL_VERSION}",
         text,
     )
+    if "app_shell.css" not in text:
+        text = text.replace(
+            '<link rel="stylesheet" href="/static/css/tokens.css">',
+            '<link rel="stylesheet" href="/static/css/tokens.css">\n'
+            f'    <link rel="stylesheet" href="/static/css/app_shell.css?v={APP_SHELL_VERSION}">',
+            1,
+        )
     text = re.sub(
         r"/static/js/shared/app_nav\.js\?v=[^\"']+",
         f"/static/js/shared/app_nav.js?v={APP_NAV_VERSION}",
         text,
     )
-    desktop_tag = (
-        f'<script src="/static/js/shared/desktop_window.js?v={DESKTOP_WINDOW_VERSION}" defer></script>'
-    )
-    if "desktop_window.js" not in text:
+    if name in THEME_PAGES:
         text = re.sub(
-            r'(\s*)<script src="/static/js/shared/app_nav\.js',
-            rf"\1{desktop_tag}\n\1<script src=\"/static/js/shared/app_nav.js",
+            r"/static/js/shared/theme\.js\?v=[^\"']+",
+            f"/static/js/shared/theme.js?v={THEME_JS_VERSION}",
             text,
-            count=1,
         )
-    text = text.replace('src=\\"/static/js/shared/app_nav.js', 'src="/static/js/shared/app_nav.js')
-    return text
-
-
-def patch_publish_queue(text: str) -> str:
-    text = patch_script_tags(text)
-    text = re.sub(
-        r"/static/css/publish_queue\.css\?v=[^\"']+",
-        "/static/css/publish_queue.css?v=20260910a",
-        text,
-    )
-    text = re.sub(
-        r"/static/js/publish_queue\.js\?v=[^\"']+",
-        "/static/js/publish_queue.js?v=20260910a",
-        text,
-    )
-    if "platformsModal" not in text:
-        text = text.replace(
-            "    <div id=\"scheduleModal\" class=\"schedule-modal\" hidden>",
-            PLATFORM_MODAL_HTML + "\n\n    <div id=\"scheduleModal\" class=\"schedule-modal\" hidden>",
+        text = upsert_script(
+            text,
+            f"/static/js/shared/theme.js?v={THEME_JS_VERSION}",
+            before='    <script src="/static/js/shared/app_nav.js',
+        )
+    if name in EMBED_PAGES:
+        text = re.sub(
+            r"/static/js/shared/embed\.js\?v=[^\"']+",
+            f"/static/js/shared/embed.js?v={EMBED_JS_VERSION}",
+            text,
+        )
+        text = upsert_script(
+            text,
+            f"/static/js/shared/embed.js?v={EMBED_JS_VERSION}",
+            before='    <script src="/static/js/shared/theme.js',
         )
     return text
 
 
-def fix_broken_closing_tags(line: str) -> str:
-    line = line.replace("\ufffd", "")
-    line = re.sub(
-        r"([^<])\?/(p|span|button|option|td|th|h2|h3|label|div|tr|small|strong|h1)>",
-        r"\1</\2>",
-        line,
-    )
-    line = re.sub(
-        r"<!-- \?([^-].*?) -->",
-        lambda m: f"<!-- {m.group(1)} -->",
-        line,
-    )
-    line = re.sub(r"<!-- \?(.*)", lambda m: f"<!-- {m.group(1)}", line)
-    line = re.sub(r"（([^）]*?)\?([^）]*?)）", r"（\1→\2）", line)
-    return line
+def apply_publish_ui_pages() -> None:
+    """Re-apply slim publish center + accounts page (not in old git restore ref)."""
+    import runpy
+
+    runpy.run_path(str(ROOT / "scripts" / "ensure_publish_ui_pages.py"), run_name="__main__")
 
 
-def repair_publish_center(current_text: str, git_text: str) -> str:
-    cur_lines = current_text.splitlines()
-    git_lines = git_text.splitlines()
-    matcher = difflib.SequenceMatcher(None, git_lines, cur_lines, autojunk=False)
-    repaired: list[str] = []
+def patch_file_specific(text: str, name: str) -> str:
+    if name == "auth.html":
+        text = re.sub(
+            r'(?:/static)?/js/shared/theme\.js(\?v=[^"\']+)?',
+            f"/js/shared/theme.js?v={THEME_JS_VERSION}",
+            text,
+        )
+        text = upsert_script(
+            text,
+            f"/js/shared/theme.js?v={THEME_JS_VERSION}",
+            before='    <script src="/js/auth.js"',
+        )
+    if name == "dashboard.html":
+        text = upsert_script(text, f"/static/js/shared/ui.js?v={UI_JS_VERSION}", before='    <script src="/static/js/shared/app_nav.js')
+        text = re.sub(
+            r"/static/js/dashboard\.js\?v=[^\"']+",
+            "/static/js/dashboard.js?v=20260917c",
+            text,
+        )
+        text = re.sub(
+            r"/static/css/dashboard\.css\?v=[^\"']+",
+            "/static/css/dashboard.css?v=20260916",
+            text,
+        )
+    if name == "ingestion_library.html":
+        text = re.sub(
+            r"/static/css/ingestion_library\.css\?v=[^\"']+",
+            "/static/css/ingestion_library.css?v=20260917",
+            text,
+        )
+    if name == "hot_radar.html":
+        text = re.sub(
+            r"/static/css/hot_radar\.css\?v=[^\"']+",
+            "/static/css/hot_radar.css?v=20260917",
+            text,
+        )
+    if name == "publish_metrics.html":
+        text = re.sub(
+            r"/static/css/publish_metrics\.css\?v=[^\"']+",
+            "/static/css/publish_metrics.css?v=20260917",
+            text,
+        )
+    if name == "settings.html" or name == "model_settings.html":
+        text = re.sub(
+            r"/static/css/model_settings\.css\?v=[^\"']+",
+            "/static/css/model_settings.css?v=20260917",
+            text,
+        )
+    if name in {"publish_center.html", "ingestion_library.html", "publish_metrics.html", "scrape.html"}:
+        desktop_tag = f'<script src="/static/js/shared/desktop_window.js?v={DESKTOP_WINDOW_VERSION}" defer></script>'
+        if "desktop_window.js" not in text:
+            text = text.replace(
+                '    <script src="/static/js/shared/app_nav.js',
+                f'    {desktop_tag}\n    <script src="/static/js/shared/app_nav.js',
+                1,
+            )
+    return text
 
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            for offset in range(j2 - j1):
-                current_line = cur_lines[j1 + offset]
-                git_line = git_lines[i1 + offset]
-                if "\ufffd" in current_line:
-                    repaired.append(git_line)
-                else:
-                    repaired.append(current_line)
-        elif tag == "replace":
-            git_chunk = git_lines[i1:i2]
-            cur_chunk = cur_lines[j1:j2]
-            if len(git_chunk) == len(cur_chunk):
-                for git_line, current_line in zip(git_chunk, cur_chunk):
-                    if "\ufffd" in current_line:
-                        repaired.append(git_line)
-                    else:
-                        repaired.append(current_line)
-            else:
-                inner = difflib.SequenceMatcher(
-                    None, git_chunk, cur_chunk, autojunk=False
-                )
-                for inner_tag, gi1, gi2, gj1, gj2 in inner.get_opcodes():
-                    if inner_tag == "equal":
-                        for offset in range(gj2 - gj1):
-                            current_line = cur_chunk[gj1 + offset]
-                            git_line = git_chunk[gi1 + offset]
-                            repaired.append(
-                                git_line if "\ufffd" in current_line else current_line
-                            )
-                    elif inner_tag in {"insert", "replace"}:
-                        for current_line in cur_chunk[gj1:gj2]:
-                            repaired.append(fix_broken_closing_tags(current_line))
-        elif tag == "insert":
-            for current_line in cur_lines[j1:j2]:
-                if "\ufffd" in current_line:
-                    repaired.append(fix_broken_closing_tags(current_line))
-                else:
-                    repaired.append(current_line)
-        elif tag == "delete":
-            continue
 
-    text = "\n".join(repaired)
-    if current_text.endswith("\n"):
-        text += "\n"
-    return patch_script_tags(text)
-
-
-def count_replacement_chars(path: Path) -> int:
-    return path.read_text(encoding="utf-8-sig", errors="replace").count("\ufffd")
+def is_corrupt(text: str) -> bool:
+    if "\ufffd" in text:
+        return True
+    if re.search(r"[^\s<][?]/title>", text):
+        return True
+    if re.search(r"[^\s<][?]/h1>", text):
+        return True
+    if "路 " in text and "AINews" in text:
+        return True
+    return False
 
 
 def main() -> int:
-    restore_paths = [f"static/{name}" for name in RESTORE_FROM_GIT]
-    checkout_git(restore_paths)
-
-    for name in RESTORE_FROM_GIT:
+    bad_after: list[str] = []
+    for name in HTML_FILES:
+        text = restore_html(name)
+        text = patch_common(text, name)
+        text = patch_file_specific(text, name)
         path = STATIC / name
-        text = path.read_text(encoding="utf-8")
-        if name == "publish_queue.html":
-            text = patch_publish_queue(text)
-        else:
-            text = patch_script_tags(text)
         path.write_text(text, encoding="utf-8", newline="\n")
+        if is_corrupt(text):
+            bad_after.append(name)
 
-    publish_center_path = STATIC / "publish_center.html"
-    current_pc = publish_center_path.read_text(encoding="utf-8-sig", errors="replace")
-    git_pc = git_show("static/publish_center.html")
-    repaired_pc = repair_publish_center(current_pc, git_pc)
-    publish_center_path.write_text(repaired_pc, encoding="utf-8", newline="\n")
+    apply_publish_ui_pages()
 
-    print("Repair complete. Remaining replacement characters:")
-    bad = []
-    for path in sorted(STATIC.glob("*.html")):
-        count = count_replacement_chars(path)
-        if count:
-            bad.append((path.name, count))
-    if bad:
-        for name, count in bad:
-            print(f"  {name}: {count}")
+    print("Repair complete.")
+    if bad_after:
+        print("Still corrupt:", ", ".join(bad_after))
         return 1
-
-    print("  (none)")
+    print("All HTML files restored with valid UTF-8.")
     return 0
 
 

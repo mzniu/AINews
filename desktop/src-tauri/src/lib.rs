@@ -22,6 +22,17 @@ fn app_icon() -> Image<'static> {
     include_image!("icons/128x128@2x.png")
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupDiagnosticsDto {
+    pub error: Option<String>,
+    pub log_path: Option<String>,
+    pub python_path: String,
+    pub app_dir: String,
+    pub data_dir: String,
+    pub port: u16,
+}
+
 pub struct AppState {
     backend: Mutex<Option<BackendProcess>>,
     port: u16,
@@ -29,6 +40,34 @@ pub struct AppState {
     app_dir: PathBuf,
     install_dir: PathBuf,
     user_data: PathBuf,
+    last_startup_error: Mutex<Option<String>>,
+}
+
+impl AppState {
+    pub fn set_startup_error(&self, message: &str) {
+        *self.last_startup_error.lock().unwrap() = Some(message.to_string());
+    }
+
+    pub fn clear_startup_error(&self) {
+        *self.last_startup_error.lock().unwrap() = None;
+    }
+
+    pub fn startup_diagnostics(&self) -> StartupDiagnosticsDto {
+        let log_path = backend::backend_log_path(&self.user_data);
+        let log_path = if log_path.is_file() {
+            Some(log_path.to_string_lossy().to_string())
+        } else {
+            None
+        };
+        StartupDiagnosticsDto {
+            error: self.last_startup_error.lock().unwrap().clone(),
+            log_path,
+            python_path: self.python.to_string_lossy().to_string(),
+            app_dir: self.app_dir.to_string_lossy().to_string(),
+            data_dir: self.user_data.to_string_lossy().to_string(),
+            port: self.port,
+        }
+    }
 }
 
 impl AppState {
@@ -40,17 +79,34 @@ impl AppState {
     pub fn ensure_backend_running(&self) -> Result<String, String> {
         let mut guard = self.backend.lock().unwrap();
         if guard.is_none() {
-            let backend = backend::spawn_backend(
+            let mut backend = backend::spawn_backend(
                 &self.python,
                 &self.app_dir,
                 &self.install_dir,
                 &self.user_data,
                 self.port,
             )
-            .map_err(|e| format!("启动 Python 后端失败: {e}"))?;
-            backend::wait_for_health(self.port, Duration::from_secs(90))
-                .map_err(|e| format!("后端健康检查失败: {e}"))?;
+            .map_err(|e| {
+                let msg = format!(
+                    "启动 Python 后端失败: {e}\nPython: {}\n工作目录: {}",
+                    self.python.display(),
+                    self.app_dir.display()
+                );
+                self.set_startup_error(&msg);
+                msg
+            })?;
+            backend::wait_for_health(self.port, Duration::from_secs(90), &mut backend)
+                .map_err(|e| {
+                    let msg = format!(
+                        "{e}\nPython: {}\n数据目录: {}",
+                        self.python.display(),
+                        self.user_data.display()
+                    );
+                    self.set_startup_error(&msg);
+                    msg
+                })?;
             *guard = Some(backend);
+            self.clear_startup_error();
         }
         Ok(format!("http://127.0.0.1:{}", self.port))
     }
@@ -125,11 +181,17 @@ fn finish_authorized_startup(app: &tauri::AppHandle, state: &AppState, auth: &Au
         Ok(url) => {
             if let Err(err) = navigate_main_window(app, &url) {
                 eprintln!("打开主界面失败: {err}");
+                state.set_startup_error(&err);
+                let _ = app.emit("ainews:startup-failed", err.clone());
+            } else {
+                state.clear_startup_error();
+                let _ = app.emit("ainews:backend-ready", url);
             }
-            let _ = app.emit("ainews:backend-ready", url);
         }
         Err(err) => {
             eprintln!("后端启动失败: {err}");
+            state.set_startup_error(&err);
+            let _ = app.emit("ainews:startup-failed", err.clone());
             let _ = show_auth_page(app);
         }
     }
@@ -147,6 +209,7 @@ fn auth_start_app(
     auth.start_post_auth_services(&app)
         .map_err(|e| e.to_string())?;
     let url = state.ensure_backend_running()?;
+    state.clear_startup_error();
     navigate_main_window(&app, &url)?;
     let _ = app.emit("ainews:backend-ready", &url);
     Ok(url)
@@ -195,6 +258,7 @@ pub fn run() {
         app_dir,
         install_dir,
         user_data: user_data.clone(),
+        last_startup_error: Mutex::new(None),
     };
 
     let initial_url = if skip_auth {
@@ -322,6 +386,7 @@ pub fn run() {
             commands::auth_phone_register,
             commands::auth_bind_phone,
             commands::auth_bootstrap_completed,
+            commands::auth_get_startup_diagnostics,
             auth_start_app,
             ainews_show_login,
             commands::desktop_window_minimize,
