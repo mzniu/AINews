@@ -1,10 +1,17 @@
 # AINews 桌面客户端 + 轻量云订阅：架构设计
 
-> 日期：2026-09-04  
-> 范围：Tauri 完整桌面窗口 · 轻量云端（认证 / 订阅 / 配额）· **配置云同步**（不含内容库 / 视频 / 发布会话）  
-> 状态：**v1.0 设计稿，首席架构师审阅修订版**  
+> 日期：2026-09-17（初稿 2026-09-04）  
+> 范围：Tauri 完整桌面窗口 · 轻量云端（**订阅 / 配额 / 配置同步**）· **身份认证由 UserCenter 托管** · **配置云同步**（不含内容库 / 视频 / 发布会话）  
+> 状态：**v1.1 UserCenter 集成版，首席架构师审阅修订版**  
 > 审阅人：首席架构师 Agent  
-> 产品决策确认：B/C 端订阅制 · 本地 Data Plane · 云端 Control Plane · 发布能力保留本地 Playwright
+> 产品决策确认：B/C 端订阅制 · 本地 Data Plane · 云端 Control Plane · 发布能力保留本地 Playwright · **UserCenter `app_ai_news`**
+
+### 修订历史
+
+| 版本 | 日期 | 摘要 |
+|------|------|------|
+| v1.0 | 2026-09-04 | 初版：轻量云含自建 Auth |
+| **v1.1** | **2026-09-17** | **身份迁至 UserCenter**；Cloud 仅 JWT 校验 + 订阅/sync；桌面 Tauri 已对接 UserCenter（`desktop/src-tauri/src/auth/`） |
 
 ---
 
@@ -12,32 +19,31 @@
 
 | 项 | 结论 |
 |----|------|
-| 总体评价 | **有条件批准（Approve with Changes）** |
-| 架构方向 | **Local-first Data Plane + Cloud Control Plane** 与现有 Playwright 发布 / 重算力管线高度契合；优于全量 SaaS 或纯 Connector 拆分 |
-| 桌面形态 | **Tauri 2 + WebView2** 加载本地 `web_server`；不复写前端为 SPA |
+| 总体评价 | **批准（Approve）** — v1.0 有条件项已在 v1.0 正文保留；v1.1 消除「双栈认证」架构债 |
+| 架构方向 | **Local-first Data Plane + Cloud Control Plane + UserCenter Identity Plane**；AINews Cloud **不**实现 register/login/refresh/logout |
+| 身份与信任 | **UserCenter** `https://auth.jiamenkou.online`，`app_id` = `app_ai_news`；桌面已调用 `/v1/auth/*`、`/v1/users/me` |
+| Cloud 鉴权 | 全路由 `Authorization: Bearer`（UserCenter `access_token`）；**主路径**本地 JWT 校验（共享密钥或 JWKS）；**辅路径**可选 `GET /v1/users/me`（账号状态 / 吊销边缘，**非**热路径逐请求） |
+| 桌面形态 | **Tauri 2 + WebView2**；登录 UI 调 UserCenter；Cloud API 带同一 access_token |
 | 云同步范围 | **仅配置类 `*.local.yaml` + 设备元数据**；`data/`、`.env`、发布会话 **禁止上云** |
-| 订阅模型 | Workspace 为计费单元；V1 仅 `personal` workspace；B 端 `organization` 预留 schema |
-| **关键修正** | 配置同步须 **版本向量 + 冲突策略**；禁止盲覆盖 |
-| **关键修正** | `.env` 中 API Key **默认不同步**；Pro 可选「平台代付 LLM 代理」走云端 |
-| **关键修正** | 离线 **7 天宽限** 须写入 entitlements 缓存契约；过期软限制非硬锁 |
-| **关键修正** | `Config.ROOT_DIR` / 数据目录须在 Phase 0 抽象完毕，桌面打包与云同步均依赖此 seam |
-| 前置门禁 | **Phase 0 路径抽象 + 单实例 Tauri MVP** 通过后再冻结云 API schema |
+| 订阅模型 | Workspace 为计费单元；V1 **lazy-create** `personal` workspace（键 = UserCenter `user_id`）；`organization` 仅 schema |
+| V1 计费 | UserCenter **Admin 激活**（`inactive` → `active`）+ 桌面可选 **离线 license**；Cloud 存 `subscriptions` + `GET /entitlements` + 配置 sync |
+| 多行业扩展 | Entitlements 响应预留 `extensions.multi_industry`（**M0 占位**，无业务逻辑） |
+| 前置门禁 | **P0 路径抽象 + P1 Tauri MVP**；**桌面 UserCenter 对接视为已完成**，Cloud schema 冻结不含 `auth.py` |
 
-### 0.1 审阅发现与处置
+### 0.1 审阅发现与处置（v1.1 增量）
 
-| # | 严重度 | 原稿风险 | 修订 |
-|---|--------|----------|------|
-| 1 | **Blocking** | 配置云同步若包含 `publishing_platforms.local.yaml` 全量 | 同步 **白名单字段**；排除 `session_path`、`browser_profile_path` 及任何路径型敏感字段 |
-| 2 | **Blocking** | `.env` / API Key 上云 | **默认不同步**；V1 仅本地 `.env`；云端 LLM 代付为独立 `POST /llm/complete` 可选能力 |
-| 3 | **Blocking** | 无冲突解决策略 | 引入 `config_sync_manifest`：`version` + `updated_at` + `content_hash`；默认 **last-write-wins（按 updated_at）**，设置页可选手动合并 |
-| 4 | High | 现有「无鉴权」与订阅门控冲突 | 新增 `EntitlementGuard` 中间件；`AINES_DEV_MODE=1` 跳过（仅开发） |
-| 5 | High | 双端同时改配置 | 每文件独立版本号；同步前 `GET /sync/config/manifest` 比对 |
-| 6 | High | Tauri 退出未杀 Python 子进程 | 进程组 / Job Object（Windows）保证清理 |
-| 7 | Medium | B 端 organization 范围过大 | V1 schema 预留 `workspace.type`，UI 与 API 仅实现 `personal` |
-| 8 | Medium | 订阅校验每次请求打云 | 本地 JWT + entitlements 缓存（24h TTL）；启动时强制刷新 |
-| 9 | Medium | 配置含违禁词等业务敏感内容 | 传输 TLS + 静态服务端加密（SSE-S3 或 PG bytea）；非 E2E |
-| 10 | Low | 首次安装向导与云登录顺序 | 先云登录 → 再拉配置 → 再启动 `web_server` |
-| 11 | Low | 版本升级后配置 schema 变更 | manifest 带 `schema_version`；客户端做字段级 merge |
+| # | 严重度 | v1.0 / 原稿风险 | v1.1 修订 |
+|---|--------|-----------------|-----------|
+| 1 | **Blocking** | AINews Cloud 计划实现 `POST /auth/register|login|…` 与 UserCenter 重复 | **删除** Cloud 认证路由；身份单一来源 UserCenter；见 §5.1、§5.3 |
+| 2 | **Blocking** | Cloud `users.password_hash` 与中央账号体系分叉 | PostgreSQL 仅存 **`usercenter_user_id`** 映射 + workspace；密码仅在 UserCenter |
+| 3 | **Blocking** | 未约定 JWT 校验与 `app_id` claim | Cloud 中间件校验签名/过期；**若 token 含 `app_id` claim 则必须等于 `app_ai_news`**；环境变量 `AINEWS_AUTH_*` 见 §5.5 |
+| 4 | High | 每 API 请求回调 UserCenter 验活 | **禁止**热路径逐请求 `users/me`；启动 / 定时 / 403 边缘场景可选刷新 `account_status` |
+| 5 | High | Workspace 与登录解耦不清 | 首次带有效 JWT 调 Cloud API → **lazy-create** 个人 workspace 并绑定 `user_id` |
+| 6 | High | V1 计费与账号激活分散 | **开通**：UserCenter 后台 `account_status=active`；可选离线码；Cloud `subscriptions` 表与 entitlements 对齐 |
+| 7 | Medium | 配置同步 / 订阅 Blocking 项（v1.0） | **维持** v1.0 §0.1 #1–#3、#5、#9 处置不变 |
+| 8 | Medium | 本地门控与 Cloud 门控混淆 | 桌面 Python：`EntitlementGuard` 读本地缓存；Cloud：JWT 中间件 + plan 校验 on sync API |
+| 9 | Low | 实施计划仍列 `cloud/app/routers/auth.py` | 见 errata：`docs/superpowers/specs/2026-09-17-usercenter-cloud-integration-errata.md` |
+| 10 | Low | 多行业套餐未落位 | `GET /entitlements` 增加可选 `extensions` 对象；M0 仅 `{}` 或 `multi_industry: null` |
 
 ---
 
@@ -65,10 +71,11 @@ AINews 已完成本地内容生产全链路（抓取 → AI 总结 → 视频合
 
 | 已有 | 缺口 |
 |------|------|
-| `web_server.py` + 20 路由模块 + `static/` 前端 | 无用户认证 |
+| `web_server.py` + 20 路由模块 + `static/` 前端 | Python 侧尚无 Bearer 门控（依赖 Tauri 启动顺序） |
+| **`desktop/src-tauri/src/auth/`** → UserCenter（`app_ai_news`） | Cloud Control Plane 未实现 |
 | `config/*.yaml` + `*.local.yaml` 覆盖模式 | 无云同步 |
 | SQLite `data/ainews.db` + 本地 `data/` | 路径绑定源码目录 |
-| Playwright 发布 + 加密 session | 无桌面打包 |
+| Playwright 发布 + 加密 session | 桌面打包进行中 |
 | `.env` 中 `DEEPSEEK_API_KEY` 等 | 无订阅 / 配额门控 |
 
 ### 1.4 已锁定产品决策
@@ -76,7 +83,7 @@ AINews 已完成本地内容生产全链路（抓取 → AI 总结 → 视频合
 | # | 决策 |
 |---|------|
 | 1 | **桌面客户端**：Tauri 2 完整窗口，内嵌 WebView2 |
-| 2 | **轻量云端**：认证、订阅、配额、配置同步；**不托管内容库与视频** |
+| 2 | **轻量云端**：订阅、配额、配置同步（**身份在 UserCenter**）；**不托管内容库与视频** |
 | 3 | **配置云同步**：同步 `config/*.local.yaml` 白名单；**不同步** `data/`、`.env`、发布 session/profile |
 | 4 | **发布能力**：100% 本地 Playwright；与现网 `publish-worker` 一致 |
 | 5 | **V1 租户**：仅 `personal` workspace；`organization` 仅 schema 预留 |
@@ -89,7 +96,7 @@ AINews 已完成本地内容生产全链路（抓取 → AI 总结 → 视频合
 ### 2.1 目标
 
 1. **Tauri 桌面应用**：单实例、系统托盘、启动 / 退出管理 Python 子进程
-2. **轻量云 API**：注册、登录、JWT、订阅状态、entitlements、配置 sync
+2. **UserCenter 登录**：注册 / 登录 / 刷新 / 登出（桌面 Tauri → UserCenter）；**轻量云 API**：JWT 校验、订阅、entitlements、配置 sync
 3. **配置云同步**：多设备间恢复 prompt、打分规则、发布设置等
 4. **订阅门控**：按套餐限制 AI 调用、发布账号数等
 5. **路径抽象**：`AINEWS_DATA_DIR` 使用户数据与安装目录分离
@@ -100,7 +107,8 @@ AINews 已完成本地内容生产全链路（抓取 → AI 总结 → 视频合
 - 不同步内容库文章、视频文件、SQLite 数据库
 - 不做云端 Playwright 发布
 - 不做 organization 团队 UI、席位管理、SSO
-- 不做应用内支付（V1 可运营后台手动开通；V1.1 接微信 / Stripe）
+- **不在 AINews Cloud 实现认证 API**（无 `POST /auth/*`）；账号生命周期在 UserCenter
+- 不做应用内支付（V1：UserCenter Admin 激活 + 可选离线 license；后续接微信 / Stripe）
 - 不重写 `static/` 为 React SPA
 - 不做 E2E 加密配置（V1 依赖 TLS + 服务端静态加密）
 
@@ -112,8 +120,10 @@ AINews 已完成本地内容生产全链路（抓取 → AI 总结 → 视频合
 flowchart TB
   subgraph Desktop["AINews Desktop（Tauri 2）"]
     TW[Tauri Shell<br/>托盘 · 单实例 · 进程管理]
+    AUTHUI[auth 模块<br/>UserCenter 客户端]
     WV[WebView2<br/>http://127.0.0.1:PORT]
     PY[Python 子进程<br/>web_server.py]
+    TW --> AUTHUI
     TW --> WV
     TW -->|spawn| PY
     WV -->|HTTP| PY
@@ -121,7 +131,7 @@ flowchart TB
 
   subgraph LocalData["本地 Data Plane（仅本机）"]
     DB[(SQLite ainews.db)]
-  FILES[data/ 视频 · 抓取 · 发布 session]
+    FILES[data/ 视频 · 抓取 · 发布 session]
     CFG[config/*.local.yaml]
     ENV[.env API Keys]
     PY --> DB
@@ -130,43 +140,52 @@ flowchart TB
     PY --> ENV
   end
 
-  subgraph Cloud["轻量云 Control Plane"]
-    AUTH[Auth Service]
+  subgraph UC["UserCenter Identity Plane"]
+    UCAUTH[POST /v1/auth/*<br/>GET /v1/users/me]
+  end
+
+  subgraph Cloud["AINews Cloud Control Plane"]
+    JWT[JWT 校验中间件<br/>无 register/login]
     SUB[Subscription / Entitlements]
     SYNC[Config Sync Service]
     DBCL[(PostgreSQL)]
-    AUTH --> DBCL
+    JWT --> SUB
+    JWT --> SYNC
     SUB --> DBCL
     SYNC --> DBCL
   end
 
-  PY <-->|HTTPS JWT| AUTH
-  PY <-->|manifest + blob| SYNC
-  PY <-->|entitlements| SUB
+  AUTHUI <-->|HTTPS| UCAUTH
+  TW <-->|Bearer access_token| SUB
+  TW <-->|manifest + blob| SYNC
+  PY -.->|可选注入 token / 缓存| TW
 ```
 
 ### 3.1 职责划分
 
 | 层级 | 职责 | 技术 |
 |------|------|------|
-| **Tauri Shell** | 窗口、托盘、单实例、启停 Python、云登录 UI、首次向导 | Rust + Tauri 2 |
+| **Tauri Shell** | 窗口、托盘、单实例、启停 Python、UserCenter 登录 UI、首次向导 | Rust + Tauri 2 |
 | **Python Data Plane** | 全部现有业务逻辑 | FastAPI + SQLite + Playwright |
-| **Cloud Control Plane** | 身份、订阅、配额、配置 blob 存储 | FastAPI 或独立服务 + PostgreSQL |
+| **UserCenter** | 注册、登录、刷新、登出、账号 `account_status` | 独立服务 `auth.jiamenkou.online` |
+| **Cloud Control Plane** | JWT 校验、订阅、配额、配置 blob；**lazy-create workspace** | FastAPI + PostgreSQL |
 
 ### 3.2 启动序列
 
 ```
 1. 用户双击 AINews.exe
 2. Tauri 检查单实例 Mutex
-3. 若无本地 token → 显示登录 / 注册 WebView 页（云端或内嵌 static/auth.html）
-4. 登录成功 → 持久化 refresh_token（OS Keychain / 加密本地文件）
-5. GET /entitlements → 写入本地缓存（含 expires_at、offline_grace_until）
-6. GET /sync/config/manifest → 与本地 manifest 比对
-7. 若云端更新 → 拉取 blob → merge 到 config/*.local.yaml
-8. 若本地更新 → 推送 blob 到云端
-9. spawn python.exe web_server.py（注入 AINEWS_DATA_DIR、PORT、ENTITLEMENTS_CACHE）
-10. 轮询 GET /api/health 直至就绪
-11. 主窗口导航 http://127.0.0.1:{PORT}
+3. 若无有效 session → 登录 / 注册 UI 调 UserCenter（/v1/auth/login|register|refresh）
+4. 登录成功 → 持久化 access/refresh_token（%APPDATA%\AINews\auth\ + keyring 可选）
+5. 若 UserCenter account_status != active → 提示联系开通（Admin 激活或离线 license）
+6. GET AINews Cloud /entitlements（Authorization: Bearer）→ 首次调用 lazy-create workspace
+7. 写入本地 entitlements 缓存（含 expires_at、offline_grace_until）
+8. GET /sync/config/manifest → 与本地 manifest 比对（同上 Bearer）
+9. 若云端更新 → 拉取 blob → merge 到 config/*.local.yaml
+10. 若本地更新 → 推送 blob 到云端
+11. spawn python.exe web_server.py（注入 AINEWS_DATA_DIR、PORT、ENTITLEMENTS_CACHE）
+12. 轮询 GET /api/health 直至就绪
+13. 主窗口导航 http://127.0.0.1:{PORT}
 ```
 
 ---
@@ -181,7 +200,7 @@ desktop/
 │   ├── src/
 │   │   ├── main.rs           # 入口、单实例
 │   │   ├── backend.rs        # Python 子进程管理
-│   │   ├── auth.rs           # token 存储（keyring）
+│   │   ├── auth/             # UserCenter 客户端（config · client · session）
 │   │   ├── sync.rs           # 配置同步编排（调用云 API）
 │   │   └── tray.rs           # 系统托盘
 │   ├── tauri.conf.json
@@ -225,6 +244,14 @@ C:\Program Files\AINews\           # 只读
 | `AINEWS_FFMPEG_PATH` | 捆绑 ffmpeg |
 | `AINES_DEV_MODE` | `1` 时跳过订阅门控 |
 
+桌面 UserCenter 环境变量（与 `auth/config.rs` 一致）：
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `AINEWS_AUTH_BASE_URL` | `https://auth.jiamenkou.online` | UserCenter 根 URL |
+| `AINEWS_AUTH_APP_ID` | `app_ai_news` | 注册 / 登录 body 与 JWT `app_id` claim |
+| `AINEWS_AUTH_FORGOT_PASSWORD_PATH` | `/v1/auth/forgot-password` | 可选覆盖 |
+
 ### 4.3 Tauri 功能清单
 
 | 功能 | 说明 |
@@ -234,7 +261,7 @@ C:\Program Files\AINews\           # 只读
 | 系统托盘 | 显示/隐藏、打开日志目录、打开数据目录、退出 |
 | 进程管理 | 启动 Python；退出时杀进程树（Job Object） |
 | 健康检查 | 轮询 `GET /api/health`，超时 60s 弹错 |
-| 登录页 | 未登录时加载 `static/auth.html` 或云端 OAuth 页 |
+| 登录页 | 未登录时内嵌 UI，**直接调 UserCenter**（非 AINews Cloud） |
 | 自动更新 | Phase 2；Tauri updater + GitHub Releases |
 
 ### 4.4 Python 侧新增端点
@@ -252,31 +279,40 @@ GET /api/health
 
 独立仓库 `ainews-cloud/`（推荐）或 `cloud/` 子目录。V1 单体 FastAPI 即可，无需 K8s。
 
+**身份边界（v1.1）**：AINews Cloud **不**提供 `POST /auth/register|login|refresh|logout`。上述能力由 **UserCenter** 提供；Cloud 仅：
+
+1. 校验 UserCenter 签发的 **access_token**（JWT）
+2. 将 JWT `sub` / `user_id` 映射为租户上下文
+3. 在首次请求时 **lazy-create** 个人 workspace（见 §5.2）
+
+> **实施说明**：原 v1.0 计划中的 `cloud/app/routers/auth.py` **已由 UserCenter 取代**，勿再实现。
+
 ### 5.2 数据模型（PostgreSQL）
 
 ```sql
--- 用户
-CREATE TABLE users (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email         TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at    TIMESTAMPTZ DEFAULT now()
+-- UserCenter 身份镜像（无密码；可选缓存 email）
+CREATE TABLE usercenter_accounts (
+    usercenter_user_id TEXT PRIMARY KEY,   -- JWT sub / UserCenter user_id
+    email              TEXT,
+    last_seen_at       TIMESTAMPTZ,
+    created_at         TIMESTAMPTZ DEFAULT now()
 );
 
--- 工作空间（V1 仅 personal）
+-- 工作空间（V1 仅 personal；owner = UserCenter user_id）
 CREATE TABLE workspaces (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    type          TEXT NOT NULL CHECK (type IN ('personal', 'organization')),
-    name          TEXT,
-    owner_user_id UUID REFERENCES users(id),
-    created_at    TIMESTAMPTZ DEFAULT now()
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type                 TEXT NOT NULL CHECK (type IN ('personal', 'organization')),
+    name                 TEXT,
+    owner_usercenter_id  TEXT NOT NULL REFERENCES usercenter_accounts(usercenter_user_id),
+    created_at           TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (owner_usercenter_id, type)     -- V1：每用户一个 personal workspace
 );
 
 CREATE TABLE workspace_members (
-    workspace_id UUID REFERENCES workspaces(id),
-    user_id      UUID REFERENCES users(id),
-    role         TEXT NOT NULL DEFAULT 'owner',
-    PRIMARY KEY (workspace_id, user_id)
+    workspace_id         UUID REFERENCES workspaces(id),
+    usercenter_user_id   TEXT REFERENCES usercenter_accounts(usercenter_user_id),
+    role                 TEXT NOT NULL DEFAULT 'owner',
+    PRIMARY KEY (workspace_id, usercenter_user_id)
 );
 
 -- 订阅
@@ -312,24 +348,47 @@ CREATE TABLE devices (
 
 ### 5.3 云 API 契约
 
-#### 认证
+#### 5.3.1 全局鉴权中间件
+
+- **所有** Cloud 业务路由（含 `/entitlements`、`/sync/*`、`/subscription`）要求请求头：`Authorization: Bearer <UserCenter access_token>`。
+- 校验顺序（热路径）：
+  1. 解析 JWT header / payload
+  2. 验签：`AINEWS_AUTH_JWT_SECRET`（HS256）**或** `AINEWS_AUTH_JWKS_URL`（RS256，按部署二选一）
+  3. 校验 `exp`（及可选 `iss` / `aud`）
+  4. 若 payload 含 **`app_id` claim**，必须等于 `AINEWS_AUTH_APP_ID`（默认 `app_ai_news`）
+  5. 提取 `user_id`（或 `sub`）→ `get_or_create_personal_workspace(user_id)`
+- **非热路径**（可选）：启动时、token 刷新后、或收到 401/403 时，Tauri 可调 UserCenter `GET /v1/users/me` 同步 `account_status`（`inactive` | `active` | `suspended`）；Cloud **不得**对每个 API 请求代理 UserCenter。
+
+`AINES_DEV_MODE=1`（仅本地 Python）可跳过门控；**Cloud 生产环境无 dev 绕过**。
+
+#### 5.3.2 身份 API（UserCenter，非 Cloud）
+
+由桌面 `AuthClient` 调用（已实现）：
 
 ```
-POST /auth/register     { email, password }
-POST /auth/login        { email, password } → { access_token, refresh_token, expires_in }
-POST /auth/refresh      { refresh_token }
-POST /auth/logout
-GET  /me                  → { user, workspace }
+POST /v1/auth/register | /v1/auth/login | /v1/auth/refresh | /v1/auth/logout
+GET  /v1/users/me        → account_status, profile
 ```
 
-#### 订阅与配额
+AINews Cloud **无**上述路由。
+
+#### 5.3.3 租户上下文（Cloud）
+
+```
+GET  /me
+→ { usercenter_user_id, email?, workspace: { id, type, name } }
+```
+
+（首次访问时创建 `usercenter_accounts` + `personal` workspace。）
+
+#### 5.3.4 订阅与配额
 
 ```
 GET  /subscription        → { plan_id, status, current_period_end }
-GET  /entitlements        → 见 §6.3
+GET  /entitlements        → 见 §7.2（含 extensions 占位）
 ```
 
-#### 配置同步
+#### 5.3.5 配置同步
 
 ```
 GET  /sync/config/manifest
@@ -343,7 +402,27 @@ PUT  /sync/config/{config_key}
 → { config_key, content_hash, updated_at }
 ```
 
-### 5.4 部署（V1）
+### 5.4 V1 开通与计费（与 UserCenter 协同）
+
+| 步骤 | 负责方 | 行为 |
+|------|--------|------|
+| 注册 | UserCenter | 新用户默认 `account_status=inactive`（产品策略） |
+| 开通 | UserCenter Admin | `inactive` → `active` |
+| 离线场景 | 桌面 | 可选导入 **离线 license**（`OfflineGrant`，见 `auth/types.rs`）；与 UserCenter 在线态互斥策略由产品定 |
+| 订阅套餐 | AINews Cloud | `subscriptions` 行；运营后台或脚本写入 `plan_id` / `status` |
+| 客户端拉取 | 桌面 | `GET /entitlements` 驱动门控与 sync 权限 |
+
+### 5.5 Cloud 环境变量（JWT / UserCenter）
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `AINEWS_AUTH_APP_ID` | 是 | 期望 JWT `app_id`（默认 `app_ai_news`） |
+| `AINEWS_AUTH_JWT_SECRET` | 与 JWKS 二选一 | HS256 共享密钥 |
+| `AINEWS_AUTH_JWKS_URL` | 与 secret 二选一 | JWKS 端点（RS256） |
+| `AINEWS_AUTH_ISSUER` | 推荐 | 校验 `iss` |
+| `AINEWS_AUTH_USERCENTER_BASE_URL` | 可选 | 仅用于**非热路径** `GET /v1/users/me` 边缘校验 |
+
+### 5.6 部署（V1）
 
 | 组件 | 规格 |
 |------|------|
@@ -437,9 +516,14 @@ PUT  /sync/config/{config_key}
   },
   "usage": {
     "ai_summaries_this_month": 42
+  },
+  "extensions": {
+    "multi_industry": null
   }
 }
 ```
+
+`extensions.multi_industry`：**M0 占位**（未来多行业套餐 / 垂直配额扩展点）；V1 客户端忽略或传 `null`。
 
 ### 7.3 门控实现
 
@@ -482,8 +566,8 @@ Tauri 与 Python 共享；Python 每次门控读本地文件，避免热路径�
 | API Key（`.env`） | 本地 | **禁止**（V1） |
 | 文章 / 视频 / SQLite | 本地 `data/` | **禁止**（V1） |
 | 业务配置 YAML | 本地 + 云 blob | ✅ 白名单 |
-| 用户凭证（密码） | 云端 hash | ✅ |
-| JWT / refresh token | 本地 keyring | 仅客户端 |
+| 用户凭证（密码） | **UserCenter** | ✅（非 AINews Cloud） |
+| JWT / refresh token | 本地 `%APPDATA%\AINews\auth\` + keyring | UserCenter 签发；Cloud 只读校验 access_token |
 
 ### 8.2 传输安全
 
@@ -519,15 +603,15 @@ AINES_DEV_MODE=1
 | 文件 | 改动 |
 |------|------|
 | `desktop/` | 新建 Tauri 项目 |
-| `static/auth.html` | 登录 / 注册 UI（调云 API） |
+| `static/auth.html` 或 Tauri 内嵌页 | 登录 / 注册 UI（调 **UserCenter**） |
 | `api/routes/main_routes.py` | 未登录重定向（可选，或由 Tauri 网关） |
 
 ### 9.3 Phase 2 — 轻量云
 
 | 文件 | 改动 |
 |------|------|
-| `cloud/` 或独立仓库 | Auth + Subscription + Config Sync API |
-| 数据库 migration | §5.2 schema |
+| `cloud/` 或独立仓库 | **JWT 中间件** + Subscription + Config Sync（**无 auth 路由**） |
+| 数据库 migration | §5.2 schema（`usercenter_accounts`） |
 
 ### 9.4 Phase 3 — 门控 + 配置同步
 
@@ -548,12 +632,12 @@ AINES_DEV_MODE=1
 | **P0** | `paths.py` + 便携启动验证 | 1 周 | 数据写入 AppData |
 | **P1** | Tauri MVP：窗口 + Python 进程管理 + health | 2 周 | 干净 Win10 双击可用 |
 | **P2** | 安装包 + ffmpeg + Playwright 捆绑 | 2 周 | 核心视频流程通过 |
-| **P3** | 轻量云 Auth + Subscription（手动开通） | 3 周 | 登录后 entitlements 生效 |
+| **P3** | 轻量云 JWT + Subscription（UserCenter 已登录；Admin 开通） | **2 周**（省去自建 Auth） | Bearer 调 Cloud 后 entitlements 生效 |
 | **P4** | 配置云同步 + 设置页 UI | 2 周 | 双设备配置一致 |
 | **P5** | Entitlement 门控 + 离线宽限 | 1 周 | 过期软限制验证 |
 | **P6** | 支付接入 + 自动更新 + 代码签名 | 2 周 | 可公开发布 |
 
-**MVP 可收费节点**：P1 + P3 + P5（桌面 + 登录订阅 + 门控）。
+**MVP 可收费节点**：P1 + **桌面 UserCenter 登录（已完成）** + P3 + P5（Cloud 订阅 + 门控）。
 
 ---
 
@@ -578,7 +662,7 @@ AINES_DEV_MODE=1
 | 集成 | Tauri 启动 → health → 抓取 → 视频 |
 | 同步 | 双设备改同一 key → 冲突 → 手动解决 |
 | 门控 | 模拟过期 entitlements → 软限制 |
-| E2E | 干净 VM 安装 → 注册 → 登录 → 绑定发布账号 |
+| E2E | 干净 VM 安装 → UserCenter 注册/登录 → Admin 激活 → Cloud entitlements → 绑定发布账号 |
 | 安全 | 确认 session 字段不出现在 config blob |
 
 ---
@@ -594,7 +678,9 @@ AINES_DEV_MODE=1
 
 ## 附录 A：与历史产品决策的关系
 
-本设计 **继承** 发布中心「本地 Playwright、扫码登录、会话本地加密」决策，**扩展** 部署形态为「桌面 + 轻量云」，**不推翻** 现有 `publish-worker` 与 `PlatformAdapter` 架构。
+本设计 **继承** 发布中心「本地 Playwright、扫码登录、会话本地加密」决策，**扩展** 部署形态为「桌面 + 轻量云 + UserCenter」，**不推翻** 现有 `publish-worker` 与 `PlatformAdapter` 架构。
+
+**v1.1 说明**：v1.0 实施计划中规划的 `cloud/app/routers/auth.py`（自建注册/登录/JWT）**不再实施**；**UserCenter** 为唯一 Identity Plane。附录 A 保留 v1.0 历史语境供对照。
 
 | 原文档 | 关系 |
 |--------|------|
@@ -606,12 +692,25 @@ AINES_DEV_MODE=1
 
 ## 附录 B：首席架构师签核
 
-| 项 | 签核 |
-|----|------|
-| 架构方向 | ✅ 批准 |
-| 安全边界（session / API Key 不上云） | ✅ 批准 |
-| 配置同步白名单 + sanitizer | ✅ 批准（Blocking 项已写入 §0.1） |
-| V1 范围（personal only、无支付） | ✅ 批准 |
-| 前置门禁 P0 + P1 | ✅ 必须先过 |
+**文档版本**：v1.1（2026-09-17）  
+**签核人**：首席架构师 Agent  
+**结论**：**批准（Approve）** — v1.0「有条件批准」项中配置同步 / 密钥 / 离线宽限仍然有效；v1.1 UserCenter 集成关闭原 Blocking「双认证栈」风险。
 
-**下一步**：用户审阅本 spec → 通过后 invoke `writing-plans` 生成 `2026-09-04-desktop-cloud-subscription.md` 实施计划。
+| 项 | 签核 | 备注 |
+|----|------|------|
+| Local-first + Control Plane 拆分 | ✅ 批准 | 不变 |
+| **UserCenter 单一身份源** | ✅ 批准 | Cloud 无 `POST /auth/*` |
+| **JWT 本地校验 + 非热路径 users/me** | ✅ 批准 | `AINEWS_AUTH_*` 见 §5.5 |
+| **Workspace lazy-create** | ✅ 批准 | `usercenter_user_id` 键 |
+| V1 计费（Admin 激活 + 离线 license 可选） | ✅ 批准 | Cloud `subscriptions` + entitlements |
+| 安全边界（session / API Key 不上云） | ✅ 批准 | 不变 |
+| 配置同步白名单 + sanitizer | ✅ 批准 | v1.0 §0.1 #1–#3 仍 Blocking |
+| `extensions.multi_industry` M0 | ✅ 批准 | 仅占位 |
+| 前置门禁 P0 + P1 | ✅ 必须先过 | 桌面 auth 模块可并行视为 **Done** |
+
+**Blocking 关闭条件（实施前仍需满足）**：
+
+1. Cloud JWT 中间件单测覆盖：过期 token、错误 `app_id`、lazy-create 幂等  
+2. 实施计划 errata 已合并或关联（见 `2026-09-17-usercenter-cloud-integration-errata.md`）
+
+**下一步**：按 v1.1 更新 `cloud/` 实施任务（JWT 中间件优先）→ P3 联调 UserCenter `active` 账号 + `GET /entitlements`。
