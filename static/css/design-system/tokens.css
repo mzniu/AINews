@@ -55,6 +55,43 @@
   --btn-success-bg: #0a6b4a;
   --btn-success-text: #ffffff;
 
+  /* Badges, pills, meta spans (background + text pairs) */
+  --badge-grade-s-bg: rgba(194, 120, 3, 0.16);
+  --badge-grade-s-text: #7a4e00;
+  --badge-grade-a-bg: rgba(13, 159, 110, 0.14);
+  --badge-grade-a-text: #0a6b4a;
+  --badge-grade-b-bg: rgba(18, 52, 153, 0.12);
+  --badge-grade-b-text: #0a2472;
+  --badge-grade-c-bg: rgba(107, 122, 166, 0.18);
+  --badge-grade-c-text: #3d4f7a;
+  --badge-grade-d-bg: rgba(100, 116, 139, 0.2);
+  --badge-grade-d-text: #475569;
+  --badge-success-bg: rgba(13, 159, 110, 0.14);
+  --badge-success-text: #0a6b4a;
+  --badge-info-bg: rgba(18, 52, 153, 0.12);
+  --badge-info-text: #0a2472;
+  --badge-warning-bg: rgba(194, 120, 3, 0.14);
+  --badge-warning-text: #7a4e00;
+  --badge-danger-bg: rgba(198, 40, 40, 0.1);
+  --badge-danger-text: #b91c1c;
+  --badge-primary-bg: rgba(18, 52, 153, 0.14);
+  --badge-primary-text: #0a2472;
+  --badge-published-bg: rgba(109, 40, 217, 0.12);
+  --badge-published-text: #5b21b6;
+  --badge-neutral-bg: rgba(107, 122, 166, 0.18);
+  --badge-neutral-text: #3d4f7a;
+  --badge-tier-viral-bg: rgba(109, 40, 217, 0.12);
+  --badge-tier-viral-text: #5b21b6;
+  --badge-tier-standard-bg: rgba(18, 52, 153, 0.12);
+  --badge-tier-standard-text: #0a2472;
+  --badge-tier-skip-bg: rgba(107, 122, 166, 0.18);
+  --badge-tier-skip-text: #475569;
+  --count-pill-bg: rgba(18, 52, 153, 0.14);
+  --count-pill-text: #0a2472;
+  --meta-label-text: #3d4f7a;
+  --hint-span-text: #475569;
+  --span-muted-text: #3d4f7a;
+
   /* Grades */
   --color-grade-s: #c27803;
   --color-grade-a: #0d9f6e;
@@ -96,6 +133,21 @@
   --nav-group-label-text: #3d4f7a;
   --nav-top-link-active-bg: rgba(18, 52, 153, 0.14);
   --nav-top-link-active-text: var(--color-brand-deep);
+  --nav-chrome-btn-bg: rgba(18, 52, 153, 0.1);
+  --nav-chrome-btn-text: var(--color-brand-royal);
+  --nav-chrome-btn-border: var(--color-border-strong);
+  --nav-user-trigger-bg: rgba(18, 52, 153, 0.08);
+  --nav-user-trigger-text: var(--color-text);
+  --nav-user-trigger-border: var(--color-border-strong);
+  --nav-user-version-text: var(--label-text-muted);
+  --nav-user-dropdown-bg: var(--color-surface-raised);
+  --nav-user-dropdown-border: var(--color-border-strong);
+  --nav-user-dropdown-title: var(--color-text);
+  --nav-user-dropdown-subtitle: var(--color-text-soft);
+  --nav-user-item-text: var(--color-text);
+  --nav-user-item-hover-bg: rgba(18, 52, 153, 0.1);
+  --nav-user-danger-text: #b91c1c;
+  --nav-footer-border: var(--color-border);
 
   --label-text: var(--color-text);
   --label-text-muted: #3d4f7a;
@@ -175,6 +227,42 @@
   --btn-success-bg: #0d9f6e;
   --btn-success-text: #ffffff;
 
+  --badge-grade-s-bg: rgba(190, 18, 60, 0.28);
+  --badge-grade-s-text: #fecdd3;
+  --badge-grade-a-bg: rgba(194, 65, 12, 0.28);
+  --badge-grade-a-text: #fed7aa;
+  --badge-grade-b-bg: rgba(161, 98, 7, 0.3);
+  --badge-grade-b-text: #fef08a;
+  --badge-grade-c-bg: rgba(71, 85, 105, 0.45);
+  --badge-grade-c-text: #e2e8f0;
+  --badge-grade-d-bg: rgba(100, 116, 139, 0.35);
+  --badge-grade-d-text: #cbd5e1;
+  --badge-success-bg: rgba(4, 120, 87, 0.35);
+  --badge-success-text: #6ee7b7;
+  --badge-info-bg: rgba(18, 52, 153, 0.45);
+  --badge-info-text: #bfdbfe;
+  --badge-warning-bg: rgba(180, 83, 9, 0.32);
+  --badge-warning-text: #fde68a;
+  --badge-danger-bg: rgba(185, 28, 28, 0.32);
+  --badge-danger-text: #fecaca;
+  --badge-primary-bg: rgba(26, 69, 184, 0.45);
+  --badge-primary-text: #c5d4ff;
+  --badge-published-bg: rgba(109, 40, 217, 0.35);
+  --badge-published-text: #e9d5ff;
+  --badge-neutral-bg: rgba(100, 116, 139, 0.35);
+  --badge-neutral-text: #e2e8f0;
+  --badge-tier-viral-bg: rgba(124, 58, 237, 0.32);
+  --badge-tier-viral-text: #e9d5ff;
+  --badge-tier-standard-bg: rgba(37, 99, 235, 0.28);
+  --badge-tier-standard-text: #bfdbfe;
+  --badge-tier-skip-bg: rgba(100, 116, 139, 0.32);
+  --badge-tier-skip-text: #cbd5e1;
+  --count-pill-bg: rgba(18, 52, 153, 0.45);
+  --count-pill-text: #e8eaf6;
+  --meta-label-text: #c5d0e6;
+  --hint-span-text: #c5d0e6;
+  --span-muted-text: #c5d0e6;
+
   --shadow-raised:
     0 10px 28px rgba(0, 0, 0, 0.42),
     0 1px 0 rgba(232, 234, 246, 0.07) inset;
@@ -194,6 +282,21 @@
   --nav-group-label-text: #c5d0e6;
   --nav-top-link-active-bg: rgba(18, 52, 153, 0.55);
   --nav-top-link-active-text: #ffffff;
+  --nav-chrome-btn-bg: rgba(18, 52, 153, 0.35);
+  --nav-chrome-btn-text: #f0f3ff;
+  --nav-chrome-btn-border: rgba(232, 234, 246, 0.14);
+  --nav-user-trigger-bg: rgba(18, 52, 153, 0.35);
+  --nav-user-trigger-text: #f0f3ff;
+  --nav-user-trigger-border: rgba(232, 234, 246, 0.14);
+  --nav-user-version-text: #c5d0e6;
+  --nav-user-dropdown-bg: rgba(8, 18, 48, 0.98);
+  --nav-user-dropdown-border: rgba(18, 52, 153, 0.45);
+  --nav-user-dropdown-title: #f0f3ff;
+  --nav-user-dropdown-subtitle: #c5d0e6;
+  --nav-user-item-text: #f0f3ff;
+  --nav-user-item-hover-bg: rgba(18, 52, 153, 0.45);
+  --nav-user-danger-text: #fca5a5;
+  --nav-footer-border: rgba(232, 234, 246, 0.08);
 
   --label-text: #f0f3ff;
   --label-text-muted: #c5d0e6;

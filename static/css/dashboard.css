@@ -118,7 +118,8 @@
 
 .metric-label {
     font-size: 12px;
-    color: var(--color-text-muted);
+    font-weight: 600;
+    color: var(--meta-label-text, var(--color-text-soft));
     margin-bottom: 6px;
 }
 

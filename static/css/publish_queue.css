@@ -60,7 +60,8 @@
 .meta-label {
     display: block;
     font-size: 12px;
-    color: var(--app-muted);
+    font-weight: 600;
+    color: var(--meta-label-text);
     margin-bottom: 4px;
 }
 

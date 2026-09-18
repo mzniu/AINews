@@ -206,7 +206,7 @@ body {
     display: flex;
     gap: 20px;
     flex-wrap: wrap;
-    color: #666;
+    color: var(--span-muted-text, #3d4f7a);
     font-size: 14px;
 }
 
@@ -519,6 +519,10 @@ body {
 .scroll-after-label input[type="checkbox"]:disabled {
     cursor: not-allowed;
     opacity: 0.4;
+}
+
+.scroll-after-label span {
+    color: var(--label-text, #0b1538);
 }
 
 .scroll-after-label input[type="checkbox"]:disabled + span {
@@ -852,11 +856,24 @@ body {
 }
         
 .switch-label input:checked ~ .switch-text .mode-manual {
-    color: white;
+    color: #ffffff;
 }
-        
+
 .switch-label input:not(:checked) ~ .switch-text .mode-auto {
-    color: white;
+    color: #ffffff;
+}
+
+.switch-label input:checked ~ .switch-text .mode-auto {
+    color: var(--label-text, #0b1538);
+}
+
+.switch-label input:not(:checked) ~ .switch-text .mode-manual {
+    color: var(--label-text, #0b1538);
+}
+
+[data-theme="dark"] .switch-label input:checked ~ .switch-text .mode-auto,
+[data-theme="dark"] .switch-label input:not(:checked) ~ .switch-text .mode-manual {
+    color: #e8eaf6;
 }
 
 .panel-footer {

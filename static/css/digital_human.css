@@ -183,6 +183,7 @@ body {
 .form-row label,
 .number-row span {
     font-weight: 700;
+    color: var(--label-text, #0b1538);
 }
 
 .form-control,

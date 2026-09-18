@@ -204,7 +204,8 @@
 }
 
 .video-maker-result-meta span {
-    background: var(--app-surface-inset, var(--color-surface-inset));
+    background: var(--badge-neutral-bg, var(--color-surface-inset));
+    color: var(--badge-neutral-text, var(--color-text));
     padding: 4px 10px;
     border-radius: 4px;
     border: 1px solid var(--app-border, var(--color-border));

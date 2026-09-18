@@ -83,24 +83,24 @@
     border-radius: 999px;
     font-size: 12px;
     font-weight: 600;
-    background: rgba(18, 52, 153, 0.4);
-    color: #c5d4ff;
+    background: var(--badge-info-bg);
+    color: var(--badge-info-text);
     vertical-align: middle;
 }
 
 .badge-active {
-    background: rgba(30, 85, 200, 0.4);
-    color: #dbeafe;
+    background: var(--badge-primary-bg);
+    color: var(--badge-primary-text);
 }
 
 .badge-disabled {
-    background: rgba(100, 116, 139, 0.28);
-    color: #94a3b8;
+    background: var(--badge-neutral-bg);
+    color: var(--badge-neutral-text);
 }
 
 .badge-warn {
-    background: rgba(180, 83, 9, 0.28);
-    color: #fcd34d;
+    background: var(--badge-warning-bg);
+    color: var(--badge-warning-text);
 }
 
 .btn-danger {
@@ -270,7 +270,8 @@
 
 .usage-summary-card .label {
     font-size: 13px;
-    color: var(--app-text-soft);
+    font-weight: 600;
+    color: var(--meta-label-text);
     margin-bottom: 6px;
 }
 
