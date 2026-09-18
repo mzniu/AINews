@@ -47,7 +47,7 @@ def test_fit_audio_to_duration_covers_requested_length():
         return np.column_stack([np.full_like(t, 0.4), np.full_like(t, 0.4)])
 
     tone = AudioClip(make_frame, duration=1.0, fps=44100)
-    fitted = fit_audio_to_duration(tone, 2.5, speed=1.0)
+    fitted = fit_audio_to_duration(tone, 2.5)
     assert abs(float(fitted.duration) - 2.5) < 0.02
     assert float(np.mean(np.abs(np.atleast_1d(fitted.get_frame(2.4))))) > 0.2
 
