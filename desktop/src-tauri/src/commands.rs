@@ -1,6 +1,8 @@
 use tauri::{AppHandle, Emitter, State, WebviewWindow};
 
 use crate::auth::{AuthHealthDto, AuthService, AuthStatusDto};
+use crate::runtime_setup;
+use crate::runtime_setup::RuntimeSetupStatusDto;
 use crate::{AppState, StartupDiagnosticsDto};
 
 fn emit_auth_status_changed(app: &AppHandle) {
@@ -206,6 +208,27 @@ pub fn auth_bootstrap_completed(auth: State<'_, AuthService>) -> bool {
 #[tauri::command]
 pub fn auth_get_startup_diagnostics(state: State<'_, AppState>) -> StartupDiagnosticsDto {
     state.startup_diagnostics()
+}
+
+#[tauri::command]
+pub fn runtime_setup_status(state: State<'_, AppState>) -> RuntimeSetupStatusDto {
+    runtime_setup::status(
+        &state.python,
+        &state.install_dir,
+        &state.user_data,
+        &state.app_dir,
+    )
+}
+
+#[tauri::command]
+pub fn runtime_setup_run(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    runtime_setup::run(
+        &app,
+        &state.python,
+        &state.install_dir,
+        &state.user_data,
+        &state.app_dir,
+    )
 }
 
 #[tauri::command]

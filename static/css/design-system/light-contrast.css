@@ -1,0 +1,466 @@
+/**
+ * Light theme readability — overrides legacy dark-UI colors on pale surfaces.
+ * Scoped to default / explicit light only; dark theme keeps app_shell base rules.
+ */
+:root:not([data-theme="dark"]),
+[data-theme="light"] {
+  --light-grade-s-bg: rgba(194, 120, 3, 0.16);
+  --light-grade-s-text: #7a4e00;
+  --light-grade-a-bg: rgba(13, 159, 110, 0.14);
+  --light-grade-a-text: #0a6b4a;
+  --light-grade-b-bg: rgba(18, 52, 153, 0.12);
+  --light-grade-b-text: #0a2472;
+  --light-grade-c-bg: rgba(107, 122, 166, 0.18);
+  --light-grade-c-text: #3d4f7a;
+  --light-grade-d-bg: rgba(100, 116, 139, 0.2);
+  --light-grade-d-text: #475569;
+  --light-link: var(--color-brand-vibrant);
+  --light-link-hover: var(--color-brand-royal);
+}
+
+/* —— Shell: forms, code, banners, chips —— */
+:root:not([data-theme="dark"]) .app-page .form-control,
+:root:not([data-theme="dark"]) .app-page input[type="text"],
+:root:not([data-theme="dark"]) .app-page input[type="url"],
+:root:not([data-theme="dark"]) .app-page input[type="search"],
+:root:not([data-theme="dark"]) .app-page input[type="number"],
+:root:not([data-theme="dark"]) .app-page input[type="email"],
+:root:not([data-theme="dark"]) .app-page input[type="password"],
+:root:not([data-theme="dark"]) .app-page input[type="datetime-local"],
+:root:not([data-theme="dark"]) .app-page input[type="time"],
+:root:not([data-theme="dark"]) .app-page select,
+:root:not([data-theme="dark"]) .app-page textarea,
+[data-theme="light"] .app-page .form-control,
+[data-theme="light"] .app-page input[type="text"],
+[data-theme="light"] .app-page input[type="url"],
+[data-theme="light"] .app-page input[type="search"],
+[data-theme="light"] .app-page input[type="number"],
+[data-theme="light"] .app-page input[type="email"],
+[data-theme="light"] .app-page input[type="password"],
+[data-theme="light"] .app-page input[type="datetime-local"],
+[data-theme="light"] .app-page input[type="time"],
+[data-theme="light"] .app-page select,
+[data-theme="light"] .app-page textarea {
+  background: var(--shell-input-bg);
+  color: var(--shell-input-text);
+  box-shadow: var(--shadow-inset);
+}
+
+:root:not([data-theme="dark"]) .app-page select option,
+[data-theme="light"] .app-page select option {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+:root:not([data-theme="dark"]) .app-page code,
+[data-theme="light"] .app-page code {
+  background: var(--shell-code-bg);
+  color: var(--shell-code-text);
+  border-color: var(--color-border);
+}
+
+:root:not([data-theme="dark"]) .app-page .soft-banner-warn,
+:root:not([data-theme="dark"]) .app-page .banner,
+:root:not([data-theme="dark"]) .app-page .queue-banner.soft-banner-warn,
+[data-theme="light"] .app-page .soft-banner-warn,
+[data-theme="light"] .app-page .banner,
+[data-theme="light"] .app-page .queue-banner.soft-banner-warn {
+  background: var(--shell-banner-warn-bg);
+  color: var(--shell-banner-warn-text);
+  border-color: var(--shell-banner-warn-border);
+}
+
+:root:not([data-theme="dark"]) .app-page .header a,
+[data-theme="light"] .app-page .header a {
+  color: var(--light-link);
+}
+
+:root:not([data-theme="dark"]) .app-page .header a:hover,
+[data-theme="light"] .app-page .header a:hover {
+  color: var(--light-link-hover);
+}
+
+/* —— Shell: badges & status (publish, settings, metrics) —— */
+:root:not([data-theme="dark"]) .app-page .badge,
+[data-theme="light"] .app-page .badge {
+  background: var(--shell-badge-info-bg);
+  color: var(--shell-badge-info-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .badge-active,
+[data-theme="light"] .app-page .badge-active {
+  background: rgba(18, 52, 153, 0.18);
+  color: var(--color-brand-royal);
+}
+
+:root:not([data-theme="dark"]) .app-page .badge-disabled,
+:root:not([data-theme="dark"]) .app-page .badge-account,
+:root:not([data-theme="dark"]) .app-page .badge-light,
+[data-theme="light"] .app-page .badge-disabled,
+[data-theme="light"] .app-page .badge-account,
+[data-theme="light"] .app-page .badge-light {
+  background: var(--shell-badge-neutral-bg);
+  color: var(--shell-badge-neutral-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .badge-warn,
+[data-theme="light"] .app-page .badge-warn {
+  background: var(--shell-badge-warn-bg);
+  color: var(--shell-badge-warn-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .badge-publish,
+[data-theme="light"] .app-page .badge-publish {
+  background: var(--shell-badge-success-bg);
+  color: var(--shell-badge-success-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .status-bar.ok,
+[data-theme="light"] .app-page .status-bar.ok {
+  color: var(--shell-status-ok);
+}
+
+:root:not([data-theme="dark"]) .app-page .status-bar.error,
+[data-theme="light"] .app-page .status-bar.error {
+  color: var(--shell-status-error);
+}
+
+:root:not([data-theme="dark"]) .app-page .metrics-alerts h4,
+:root:not([data-theme="dark"]) .app-page .metrics-alerts ul,
+[data-theme="light"] .app-page .metrics-alerts h4,
+[data-theme="light"] .app-page .metrics-alerts ul {
+  color: var(--shell-alert-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .qr-box,
+:root:not([data-theme="dark"]) .app-page .metrics-trend-box,
+:root:not([data-theme="dark"]) .app-page .metrics-bind-box,
+[data-theme="light"] .app-page .qr-box,
+[data-theme="light"] .app-page .metrics-trend-box,
+[data-theme="light"] .app-page .metrics-bind-box {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+:root:not([data-theme="dark"]) .app-page .profile-card,
+:root:not([data-theme="dark"]) .app-page .scoring-weight-row,
+[data-theme="light"] .app-page .profile-card,
+[data-theme="light"] .app-page .scoring-weight-row {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-raised);
+}
+
+/* —— Settings page (model_settings.css) —— */
+:root:not([data-theme="dark"]) .settings-layout .badge,
+[data-theme="light"] .settings-layout .badge {
+  background: var(--shell-badge-info-bg);
+  color: var(--shell-badge-info-text);
+}
+
+:root:not([data-theme="dark"]) .settings-layout .badge-active,
+[data-theme="light"] .settings-layout .badge-active {
+  background: rgba(18, 52, 153, 0.18);
+  color: var(--color-brand-royal);
+}
+
+:root:not([data-theme="dark"]) .settings-layout .badge-disabled,
+[data-theme="light"] .settings-layout .badge-disabled {
+  background: var(--shell-badge-neutral-bg);
+  color: var(--shell-badge-neutral-text);
+}
+
+:root:not([data-theme="dark"]) .settings-layout .badge-warn,
+[data-theme="light"] .settings-layout .badge-warn {
+  background: var(--shell-badge-warn-bg);
+  color: var(--shell-badge-warn-text);
+}
+
+:root:not([data-theme="dark"]) .settings-layout .profile-card,
+[data-theme="light"] .settings-layout .profile-card {
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+:root:not([data-theme="dark"]) .settings-layout .status-bar.ok,
+[data-theme="light"] .settings-layout .status-bar.ok {
+  color: var(--shell-status-ok);
+}
+
+:root:not([data-theme="dark"]) .settings-layout .status-bar.error,
+[data-theme="light"] .settings-layout .status-bar.error {
+  color: var(--shell-status-error);
+}
+
+/* —— Ingestion library: default row badges (selected row keeps dedicated tokens) —— */
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .grade-s,
+:root:not([data-theme="dark"]) .app-page .story-tree-article:not(.selected) .grade-s,
+[data-theme="light"] .app-page .article-item:not(.selected) .grade-s,
+[data-theme="light"] .app-page .story-tree-article:not(.selected) .grade-s {
+  background: var(--light-grade-s-bg);
+  color: var(--light-grade-s-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .grade-a,
+:root:not([data-theme="dark"]) .app-page .story-tree-article:not(.selected) .grade-a,
+[data-theme="light"] .app-page .article-item:not(.selected) .grade-a,
+[data-theme="light"] .app-page .story-tree-article:not(.selected) .grade-a {
+  background: var(--light-grade-a-bg);
+  color: var(--light-grade-a-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .grade-b,
+:root:not([data-theme="dark"]) .app-page .story-tree-article:not(.selected) .grade-b,
+[data-theme="light"] .app-page .article-item:not(.selected) .grade-b,
+[data-theme="light"] .app-page .story-tree-article:not(.selected) .grade-b {
+  background: var(--light-grade-b-bg);
+  color: var(--light-grade-b-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .grade-c,
+:root:not([data-theme="dark"]) .app-page .story-tree-article:not(.selected) .grade-c,
+[data-theme="light"] .app-page .article-item:not(.selected) .grade-c,
+[data-theme="light"] .app-page .story-tree-article:not(.selected) .grade-c {
+  background: var(--light-grade-c-bg);
+  color: var(--light-grade-c-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .grade-d,
+:root:not([data-theme="dark"]) .app-page .story-tree-article:not(.selected) .grade-d,
+[data-theme="light"] .app-page .article-item:not(.selected) .grade-d,
+[data-theme="light"] .app-page .story-tree-article:not(.selected) .grade-d {
+  background: var(--light-grade-d-bg);
+  color: var(--light-grade-d-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) :is(.badge-success, .badge-info, .badge-warning, .badge-danger, .badge-primary, .badge-published, .badge-light),
+:root:not([data-theme="dark"]) .app-page .story-tree-article:not(.selected) :is(.badge-success, .badge-info, .badge-warning, .badge-danger, .badge-primary, .badge-published, .badge-light),
+[data-theme="light"] .app-page .article-item:not(.selected) :is(.badge-success, .badge-info, .badge-warning, .badge-danger, .badge-primary, .badge-published, .badge-light),
+[data-theme="light"] .app-page .story-tree-article:not(.selected) :is(.badge-success, .badge-info, .badge-warning, .badge-danger, .badge-primary, .badge-published, .badge-light) {
+  background: var(--shell-badge-neutral-bg);
+  color: var(--shell-badge-neutral-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .badge-success,
+[data-theme="light"] .app-page .article-item:not(.selected) .badge-success {
+  background: var(--shell-badge-success-bg);
+  color: var(--shell-badge-success-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .badge-info,
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .badge-primary,
+[data-theme="light"] .app-page .article-item:not(.selected) .badge-info,
+[data-theme="light"] .app-page .article-item:not(.selected) .badge-primary {
+  background: var(--shell-badge-info-bg);
+  color: var(--shell-badge-info-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .badge-warning,
+[data-theme="light"] .app-page .article-item:not(.selected) .badge-warning {
+  background: var(--shell-badge-warn-bg);
+  color: var(--shell-badge-warn-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .article-item:not(.selected) .badge-danger,
+[data-theme="light"] .app-page .article-item:not(.selected) .badge-danger {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+:root:not([data-theme="dark"]) .app-page .publish-tier-badge.publish-tier-viral-priority,
+[data-theme="light"] .app-page .publish-tier-badge.publish-tier-viral-priority {
+  background: rgba(109, 40, 217, 0.12);
+  color: #5b21b6;
+}
+
+:root:not([data-theme="dark"]) .app-page .publish-tier-badge.publish-tier-standard,
+[data-theme="light"] .app-page .publish-tier-badge.publish-tier-standard {
+  background: var(--shell-badge-info-bg);
+  color: var(--shell-badge-info-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .publish-tier-badge.publish-tier-skip,
+[data-theme="light"] .app-page .publish-tier-badge.publish-tier-skip {
+  background: var(--shell-badge-neutral-bg);
+  color: var(--shell-badge-neutral-text);
+}
+
+/* —— Hot radar —— */
+:root:not([data-theme="dark"]) .hot-radar-table a,
+[data-theme="light"] .hot-radar-table a {
+  color: var(--light-link);
+}
+
+:root:not([data-theme="dark"]) .hot-radar-table a:hover,
+[data-theme="light"] .hot-radar-table a:hover {
+  color: var(--light-link-hover);
+}
+
+:root:not([data-theme="dark"]) .meta-error,
+[data-theme="light"] .meta-error {
+  color: var(--color-error);
+}
+
+:root:not([data-theme="dark"]) .rank-top,
+[data-theme="light"] .rank-top {
+  color: #be123c;
+}
+
+:root:not([data-theme="dark"]) .hot-radar-table th,
+[data-theme="light"] .hot-radar-table th {
+  color: var(--color-text-on-primary);
+}
+
+/* —— Publish metrics / queue status labels —— */
+:root:not([data-theme="dark"]) .status-active,
+[data-theme="light"] .status-active {
+  color: var(--shell-badge-success-text);
+}
+
+:root:not([data-theme="dark"]) .status-expired,
+[data-theme="light"] .status-expired {
+  color: var(--color-error);
+}
+
+:root:not([data-theme="dark"]) .status-unknown,
+[data-theme="light"] .status-unknown {
+  color: var(--shell-badge-warn-text);
+}
+
+/* —— Candidate pool actions —— */
+:root:not([data-theme="dark"]) .action-skip,
+[data-theme="light"] .action-skip {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+:root:not([data-theme="dark"]) .action-enqueue,
+[data-theme="light"] .action-enqueue {
+  background: var(--shell-badge-success-bg);
+  color: var(--shell-badge-success-text);
+}
+
+:root:not([data-theme="dark"]) .candidate-toast.error,
+[data-theme="light"] .candidate-toast.error {
+  color: var(--color-error);
+  border-color: rgba(198, 40, 40, 0.45);
+}
+
+/* —— Hot radar: match / discovery panels —— */
+:root:not([data-theme="dark"]) .match-block,
+[data-theme="light"] .match-block {
+  background: var(--color-surface-inset);
+}
+
+:root:not([data-theme="dark"]) .match-hit,
+[data-theme="light"] .match-hit {
+  border-left-color: var(--color-success);
+}
+
+:root:not([data-theme="dark"]) .hot-radar-shell .status-bar.ok,
+[data-theme="light"] .hot-radar-shell .status-bar.ok {
+  color: var(--shell-status-ok);
+}
+
+:root:not([data-theme="dark"]) .hot-radar-shell .status-bar.error,
+[data-theme="light"] .hot-radar-shell .status-bar.error {
+  color: var(--shell-status-error);
+}
+
+:root:not([data-theme="dark"]) .discovery-pill,
+[data-theme="light"] .discovery-pill {
+  background: var(--shell-badge-info-bg);
+  color: var(--shell-badge-info-text);
+}
+
+:root:not([data-theme="dark"]) .discovery-status-pending,
+:root:not([data-theme="dark"]) .discovery-status-skipped,
+[data-theme="light"] .discovery-status-pending,
+[data-theme="light"] .discovery-status-skipped {
+  background: var(--shell-badge-warn-bg);
+  color: var(--shell-badge-warn-text);
+}
+
+:root:not([data-theme="dark"]) .discovery-status-running,
+[data-theme="light"] .discovery-status-running {
+  background: var(--shell-badge-info-bg);
+  color: var(--shell-badge-info-text);
+}
+
+:root:not([data-theme="dark"]) .discovery-status-succeeded,
+:root:not([data-theme="dark"]) .discovery-status-new,
+[data-theme="light"] .discovery-status-succeeded,
+[data-theme="light"] .discovery-status-new {
+  background: var(--shell-badge-success-bg);
+  color: var(--shell-badge-success-text);
+}
+
+:root:not([data-theme="dark"]) .discovery-status-failed,
+[data-theme="light"] .discovery-status-failed {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+:root:not([data-theme="dark"]) .discovery-error,
+[data-theme="light"] .discovery-error {
+  color: var(--color-error);
+}
+
+/* —— Ingestion image score hints —— */
+:root:not([data-theme="dark"]) .app-page .image-preview-dims .bonus strong,
+[data-theme="light"] .app-page .image-preview-dims .bonus strong {
+  color: var(--shell-badge-success-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .image-preview-dims .penalty strong,
+[data-theme="light"] .app-page .image-preview-dims .penalty strong {
+  color: var(--color-error);
+}
+
+/* —— Scrape / index legacy modals (content抓取) —— */
+/* —— Shell: button contrast on light surfaces —— */
+:root:not([data-theme="dark"]) .app-page .btn:disabled,
+[data-theme="light"] .app-page .btn:disabled {
+  opacity: 0.55;
+}
+
+/* —— Shell: form labels —— */
+:root:not([data-theme="dark"]) .app-page label,
+:root:not([data-theme="dark"]) .app-page .form-label,
+[data-theme="light"] .app-page label,
+[data-theme="light"] .app-page .form-label {
+  color: var(--label-text);
+}
+
+:root:not([data-theme="dark"]) .app-page .metrics-summary-card .label,
+[data-theme="light"] .app-page .metrics-summary-card .label {
+  color: var(--label-text-muted);
+}
+
+:root:not([data-theme="dark"]) .app-page .metrics-summary-card .value,
+[data-theme="light"] .app-page .metrics-summary-card .value {
+  color: var(--color-text);
+}
+
+/* —— Shell: sidebar active / hover (explicit light nav) —— */
+:root:not([data-theme="dark"]) .app-page .nav-link.active,
+[data-theme="light"] .app-page .nav-link.active {
+  color: var(--nav-link-active-text);
+  background: var(--nav-link-active-bg);
+}
+
+:root:not([data-theme="dark"]) .app-page .nav-top-link.active,
+[data-theme="light"] .app-page .nav-top-link.active {
+  color: var(--nav-top-link-active-text);
+  font-weight: 700;
+}
+
+:root:not([data-theme="dark"]) .app-page .modal-btn-close:hover,
+:root:not([data-theme="dark"]) .app-page .region-list-header .panel-close:hover,
+:root:not([data-theme="dark"]) .app-page .region-item-del:hover,
+[data-theme="light"] .app-page .modal-btn-close:hover,
+[data-theme="light"] .app-page .region-list-header .panel-close:hover,
+[data-theme="light"] .app-page .region-item-del:hover {
+  color: var(--color-error);
+}

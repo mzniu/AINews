@@ -66,7 +66,7 @@
 
     const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
     const NAV_COLLAPSE_KEY = 'ainews-nav-collapsed';
-    const APP_VERSION_FALLBACK = '1.0.3';
+    const APP_VERSION_FALLBACK = '1.0.4';
     let userMenuOpen = false;
     let userMenuDocListenerBound = false;
 

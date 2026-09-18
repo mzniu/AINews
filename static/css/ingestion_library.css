@@ -130,7 +130,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: lowercase;
-    color: var(--app-muted);
+    color: var(--app-label-muted);
     margin-bottom: 8px;
 }
 
@@ -189,25 +189,39 @@
 }
 
 .app-page .btn-primary {
-    background: var(--app-cyan);
-    color: var(--app-text-on-primary);
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
     box-shadow: var(--app-shadow-soft);
 }
 
+.app-page .btn-secondary {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-text);
+    border: 1px solid var(--btn-secondary-border);
+    box-shadow: var(--app-shadow-inset);
+}
+
+.app-page .btn-secondary:hover:not(:disabled) {
+    background: var(--btn-secondary-hover-bg);
+    color: var(--btn-secondary-text);
+    box-shadow: var(--app-shadow-raised);
+}
+
 .app-page .btn-soft {
-    background: var(--app-card-solid);
-    color: var(--app-text-soft);
+    background: var(--btn-surface-bg);
+    color: var(--btn-surface-text);
+    border: 1px solid var(--btn-surface-border);
     box-shadow: var(--app-shadow-inset);
 }
 
 .app-page .btn-soft:hover:not(:disabled) {
-    color: var(--app-text);
+    color: var(--color-text);
     box-shadow: var(--app-shadow-raised);
 }
 
 .app-page .btn-accent {
     background: linear-gradient(135deg, var(--app-cyan) 0%, var(--app-mint) 100%);
-    color: var(--app-text-on-primary);
+    color: var(--btn-primary-text);
     box-shadow: var(--app-shadow-soft);
 }
 
@@ -215,11 +229,17 @@
 .app-page .btn-outline-secondary,
 .app-page .btn-outline-warning,
 .app-page .btn-outline-info,
-.app-page .btn-success,
 .app-page .btn-light {
-    background: var(--app-card-solid);
-    color: var(--app-text-soft);
+    background: var(--btn-surface-bg);
+    color: var(--btn-surface-text);
+    border: 1px solid var(--btn-surface-border);
     box-shadow: var(--app-shadow-inset);
+}
+
+.app-page .btn-success {
+    background: var(--btn-success-bg);
+    color: var(--btn-success-text);
+    box-shadow: 0 4px 14px rgba(10, 107, 74, 0.35);
 }
 
 .app-page .view-toggle {
@@ -236,7 +256,7 @@
     padding: 9px 12px;
     border: none;
     background: transparent;
-    color: var(--app-muted);
+    color: var(--color-text-soft);
     font-size: 12px;
     font-weight: 700;
     border-radius: 999px;
@@ -245,8 +265,8 @@
 }
 
 .app-page .view-toggle-btn.active {
-    background: var(--app-cyan);
-    color: var(--app-text-on-primary);
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
     box-shadow: var(--app-shadow-soft);
 }
 

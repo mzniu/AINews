@@ -36,6 +36,25 @@
   --color-info: #123499;
   --color-info-bg: rgba(18, 52, 153, 0.08);
 
+  /* Buttons (WCAG AA+ contrast pairs) */
+  --btn-primary-bg: var(--color-brand-vibrant);
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: #cdd8fe;
+  --btn-secondary-text: #00072d;
+  --btn-secondary-border: rgba(0, 7, 45, 0.22);
+  --btn-secondary-hover-bg: #b4c4fc;
+  --btn-on-deep-bg: var(--color-brand-deep);
+  --btn-on-deep-text: #f0f3ff;
+  --btn-on-deep-text-hover: #ffffff;
+  --btn-surface-bg: var(--color-surface-raised);
+  --btn-surface-text: var(--color-text);
+  --btn-surface-border: var(--color-border-strong);
+  --btn-danger-bg: #b91c1c;
+  --btn-danger-text: #ffffff;
+  --btn-danger-hover-bg: #991b1b;
+  --btn-success-bg: #0a6b4a;
+  --btn-success-text: #ffffff;
+
   /* Grades */
   --color-grade-s: #c27803;
   --color-grade-a: #0d9f6e;
@@ -69,6 +88,17 @@
   --nav-topbar-height: 52px;
   --nav-bg: rgba(255, 255, 255, 0.88);
   --nav-border: rgba(18, 52, 153, 0.12);
+  --nav-link-text: var(--color-text);
+  --nav-link-hover-bg: rgba(18, 52, 153, 0.12);
+  --nav-link-hover-text: var(--color-brand-royal);
+  --nav-link-active-bg: var(--color-brand-vibrant);
+  --nav-link-active-text: #ffffff;
+  --nav-group-label-text: #3d4f7a;
+  --nav-top-link-active-bg: rgba(18, 52, 153, 0.14);
+  --nav-top-link-active-text: var(--color-brand-deep);
+
+  --label-text: var(--color-text);
+  --label-text-muted: #3d4f7a;
 
   --shell-heading: var(--color-text);
   --shell-link: var(--color-brand-vibrant);
@@ -93,7 +123,7 @@
   --shell-badge-info-bg: rgba(18, 52, 153, 0.12);
   --shell-badge-info-text: var(--color-brand-royal);
   --shell-badge-neutral-bg: rgba(107, 122, 166, 0.14);
-  --shell-badge-neutral-text: var(--color-text-soft);
+  --shell-badge-neutral-text: #4a5878;
   --shell-badge-warn-bg: var(--color-warning-bg);
   --shell-badge-warn-text: #7a4e00;
   --shell-badge-success-bg: var(--color-success-bg);
@@ -127,6 +157,24 @@
   --color-info: #7da4ff;
   --color-info-bg: rgba(18, 52, 153, 0.35);
 
+  --btn-primary-bg: var(--color-brand-vibrant);
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: #cdd8fe;
+  --btn-secondary-text: #00072d;
+  --btn-secondary-border: rgba(0, 7, 45, 0.35);
+  --btn-secondary-hover-bg: #b4c4fc;
+  --btn-on-deep-bg: var(--color-brand-deep);
+  --btn-on-deep-text: #f0f3ff;
+  --btn-on-deep-text-hover: #ffffff;
+  --btn-surface-bg: var(--color-surface-raised);
+  --btn-surface-text: var(--color-text);
+  --btn-surface-border: var(--color-border-strong);
+  --btn-danger-bg: #dc2626;
+  --btn-danger-text: #ffffff;
+  --btn-danger-hover-bg: #ef4444;
+  --btn-success-bg: #0d9f6e;
+  --btn-success-text: #ffffff;
+
   --shadow-raised:
     0 10px 28px rgba(0, 0, 0, 0.42),
     0 1px 0 rgba(232, 234, 246, 0.07) inset;
@@ -138,6 +186,17 @@
 
   --nav-bg: rgba(0, 7, 45, 0.92);
   --nav-border: rgba(18, 52, 153, 0.35);
+  --nav-link-text: #e8eaf6;
+  --nav-link-hover-bg: rgba(18, 52, 153, 0.45);
+  --nav-link-hover-text: #ffffff;
+  --nav-link-active-bg: var(--color-brand-vibrant);
+  --nav-link-active-text: #ffffff;
+  --nav-group-label-text: #c5d0e6;
+  --nav-top-link-active-bg: rgba(18, 52, 153, 0.55);
+  --nav-top-link-active-text: #ffffff;
+
+  --label-text: #f0f3ff;
+  --label-text-muted: #c5d0e6;
 
   --shell-heading: var(--color-brand-tint);
   --shell-link: #7da4ff;

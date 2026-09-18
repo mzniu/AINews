@@ -1,6 +1,7 @@
 /* 全站 Soft UI 外壳 — unified design tokens (light default, dark via data-theme) */
 @import url('design-system/fonts.css');
 @import url('design-system/tokens.css');
+@import url('design-system/light-contrast.css');
 
 .app-page {
     --app-rich-black: var(--color-brand-rich);
@@ -20,6 +21,8 @@
     --app-text: var(--color-text);
     --app-text-soft: var(--color-text-soft);
     --app-muted: var(--color-text-muted);
+    --app-label: var(--label-text);
+    --app-label-muted: var(--label-text-muted);
     --app-text-on-primary: var(--color-text-on-primary);
     --app-border: var(--color-border);
 
@@ -139,7 +142,7 @@ body.app-page {
     font-size: 1.05rem;
     font-weight: 800;
     letter-spacing: -0.02em;
-    color: var(--app-off-white);
+    color: var(--nav-link-text);
     text-decoration: none;
 }
 
@@ -169,7 +172,7 @@ body.app-page {
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--app-muted);
+    color: var(--nav-group-label-text);
 }
 
 .app-page .nav-footer {
@@ -398,7 +401,7 @@ body.desktop-auth-page {
     align-items: center;
     padding: 8px 10px;
     text-decoration: none;
-    color: var(--app-text-soft);
+    color: var(--nav-link-text);
     font-size: 13px;
     font-weight: 600;
     border-radius: 10px;
@@ -406,14 +409,18 @@ body.desktop-auth-page {
 }
 
 .app-page .nav-link:hover {
-    background: rgba(18, 52, 153, 0.45);
-    color: var(--app-off-white);
+    background: var(--nav-link-hover-bg);
+    color: var(--nav-link-hover-text);
 }
 
 .app-page .nav-link.active {
-    background: var(--app-vibrant-blue);
-    color: var(--app-off-white);
+    background: var(--nav-link-active-bg);
+    color: var(--nav-link-active-text);
     box-shadow: 0 4px 16px rgba(18, 52, 153, 0.55);
+}
+
+.app-page .nav-link.active .nav-icon {
+    color: inherit;
 }
 
 .app-page .nav-collapse-btn {
@@ -517,16 +524,21 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     padding: 8px 12px;
     border-radius: 999px;
     text-decoration: none;
-    color: var(--app-text-soft);
+    color: var(--nav-link-text);
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
 }
 
-.app-page .nav-top-link.active,
 .app-page .nav-top-link:hover {
-    background: rgba(18, 52, 153, 0.12);
-    color: var(--app-vibrant-blue);
+    background: var(--nav-link-hover-bg);
+    color: var(--nav-link-hover-text);
+}
+
+.app-page .nav-top-link.active {
+    background: var(--nav-top-link-active-bg);
+    color: var(--nav-top-link-active-text);
+    box-shadow: 0 2px 8px rgba(18, 52, 153, 0.25);
 }
 
 @media (max-width: 720px) {
@@ -701,32 +713,44 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
 }
 
 .app-page .btn-primary,
-.app-page .btn:not(.btn-secondary):not(.btn-outline):not(.btn-soft):not(.btn-accent):not(.btn-success):not(.btn-light):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-warning):not(.btn-outline-info) {
-    background: var(--app-vibrant-blue);
-    color: var(--app-text-on-primary);
+.app-page .btn:not(.btn-secondary):not(.btn-outline):not(.btn-soft):not(.btn-accent):not(.btn-success):not(.btn-light):not(.btn-danger):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-warning):not(.btn-outline-info) {
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
     box-shadow: 0 6px 18px rgba(18, 52, 153, 0.45);
 }
 
-.app-page .btn-secondary,
+.app-page .btn-secondary {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-text);
+    box-shadow: var(--app-shadow-inset);
+    border: 1px solid var(--btn-secondary-border);
+}
+
 .app-page .btn-outline,
 .app-page .btn-soft {
-    background: var(--app-deep-navy);
-    color: var(--app-text-soft);
+    background: var(--btn-on-deep-bg);
+    color: var(--btn-on-deep-text);
     box-shadow: var(--app-shadow-inset);
     border: 1px solid var(--app-border);
 }
 
-.app-page .btn-secondary:hover:not(:disabled),
+.app-page .btn-secondary:hover:not(:disabled) {
+    background: var(--btn-secondary-hover-bg);
+    color: var(--btn-secondary-text);
+    border-color: var(--app-vibrant-blue);
+    box-shadow: var(--app-shadow-raised);
+}
+
 .app-page .btn-outline:hover:not(:disabled),
 .app-page .btn-soft:hover:not(:disabled) {
-    color: var(--app-off-white);
+    color: var(--btn-on-deep-text-hover);
     border-color: var(--app-vibrant-blue);
     box-shadow: var(--app-shadow-raised);
 }
 
 .app-page .btn-accent {
     background: linear-gradient(135deg, var(--app-royal-blue) 0%, var(--app-vibrant-blue) 100%);
-    color: var(--app-text-on-primary);
+    color: var(--btn-primary-text);
     box-shadow: 0 6px 18px rgba(18, 52, 153, 0.45);
 }
 
@@ -734,12 +758,38 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
 .app-page .btn-outline-secondary,
 .app-page .btn-outline-warning,
 .app-page .btn-outline-info,
-.app-page .btn-success,
 .app-page .btn-light {
-    background: var(--app-deep-navy);
-    color: var(--app-text-soft);
+    background: var(--btn-on-deep-bg);
+    color: var(--btn-on-deep-text);
     box-shadow: var(--app-shadow-inset);
     border: 1px solid var(--app-border);
+}
+
+.app-page .btn-outline-primary:hover:not(:disabled),
+.app-page .btn-outline-secondary:hover:not(:disabled),
+.app-page .btn-outline-warning:hover:not(:disabled),
+.app-page .btn-outline-info:hover:not(:disabled),
+.app-page .btn-light:hover:not(:disabled) {
+    color: var(--btn-on-deep-text-hover);
+    border-color: var(--app-vibrant-blue);
+    box-shadow: var(--app-shadow-raised);
+}
+
+.app-page .btn-success {
+    background: var(--btn-success-bg);
+    color: var(--btn-success-text);
+    box-shadow: 0 4px 14px rgba(10, 107, 74, 0.35);
+}
+
+.app-page .btn-danger {
+    background: var(--btn-danger-bg);
+    color: var(--btn-danger-text);
+    box-shadow: 0 4px 14px rgba(185, 28, 28, 0.35);
+}
+
+.app-page .btn-danger:hover:not(:disabled) {
+    background: var(--btn-danger-hover-bg);
+    color: var(--btn-danger-text);
 }
 
 .app-page .soft-banner {
@@ -769,8 +819,8 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
 
 .app-page .publish-tab-btn.active,
 .app-page .settings-tab.active {
-    background: var(--app-vibrant-blue);
-    color: var(--app-off-white);
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
     border-color: transparent;
     box-shadow: 0 4px 14px rgba(18, 52, 153, 0.45);
 }
@@ -792,23 +842,23 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
 
 .app-page .metrics-summary-card .label,
 .app-page .metrics-platform-card p {
-    color: var(--app-text-soft);
+    color: var(--app-label-muted);
 }
 
 .app-page .metrics-summary-card .value {
-    color: var(--app-off-white);
+    color: var(--app-label);
 }
 
 .app-page .publish-tab-btn,
 .app-page .settings-tab {
-    background: var(--app-deep-navy);
-    color: var(--app-text-soft);
+    background: var(--btn-on-deep-bg);
+    color: var(--btn-on-deep-text);
     border: 1px solid var(--app-border);
 }
 
 .app-page .publish-tab-btn:hover,
 .app-page .settings-tab:hover {
-    color: var(--app-off-white);
+    color: var(--btn-on-deep-text-hover);
     border-color: var(--app-vibrant-blue);
 }
 
@@ -832,7 +882,7 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
 .app-page .platform-section h3,
 .app-page .metrics-trend-meta,
 .app-page .metrics-bind-box label {
-    color: var(--app-text-soft);
+    color: var(--app-label);
 }
 
 .app-page .banner {
@@ -854,7 +904,7 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
 }
 
 .app-page .field-label {
-    color: var(--app-text-soft);
+    color: var(--app-label);
 }
 
 .app-page .badge {
@@ -959,7 +1009,7 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     display: block;
     font-size: 13px;
     font-weight: 600;
-    color: var(--app-text-soft);
+    color: var(--app-label);
     margin: 10px 0 2px;
 }
 

@@ -1,6 +1,7 @@
 mod auth;
 mod backend;
 mod commands;
+mod runtime_setup;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -27,9 +28,11 @@ fn app_icon() -> Image<'static> {
 pub struct StartupDiagnosticsDto {
     pub error: Option<String>,
     pub log_path: Option<String>,
+    pub log_tail: Option<String>,
     pub python_path: String,
     pub app_dir: String,
     pub data_dir: String,
+    pub install_dir: String,
     pub port: u16,
 }
 
@@ -53,18 +56,25 @@ impl AppState {
     }
 
     pub fn startup_diagnostics(&self) -> StartupDiagnosticsDto {
-        let log_path = backend::backend_log_path(&self.user_data);
-        let log_path = if log_path.is_file() {
-            Some(log_path.to_string_lossy().to_string())
+        let log_path_buf = backend::backend_log_path(&self.user_data);
+        let log_tail = if log_path_buf.is_file() {
+            Some(backend::read_log_tail(&log_path_buf, 24))
+        } else {
+            None
+        };
+        let log_path = if log_path_buf.is_file() {
+            Some(log_path_buf.to_string_lossy().to_string())
         } else {
             None
         };
         StartupDiagnosticsDto {
             error: self.last_startup_error.lock().unwrap().clone(),
             log_path,
+            log_tail,
             python_path: self.python.to_string_lossy().to_string(),
             app_dir: self.app_dir.to_string_lossy().to_string(),
             data_dir: self.user_data.to_string_lossy().to_string(),
+            install_dir: self.install_dir.to_string_lossy().to_string(),
             port: self.port,
         }
     }
@@ -177,6 +187,19 @@ fn finish_authorized_startup(app: &tauri::AppHandle, state: &AppState, auth: &Au
     if let Err(err) = auth.start_post_auth_services(app) {
         eprintln!("授权后启动后台服务失败: {err:#}");
     }
+    if let Err(err) = runtime_setup::run(
+        app,
+        &state.python,
+        &state.install_dir,
+        &state.user_data,
+        &state.app_dir,
+    ) {
+        eprintln!("运行环境初始化失败: {err}");
+        state.set_startup_error(&err);
+        let _ = app.emit("ainews:startup-failed", err.clone());
+        let _ = show_auth_page(app);
+        return;
+    }
     match state.ensure_backend_running() {
         Ok(url) => {
             if let Err(err) = navigate_main_window(app, &url) {
@@ -248,6 +271,11 @@ pub fn run() {
     std::fs::create_dir_all(&user_data).ok();
 
     let python = backend::resolve_python_exe(&install_dir);
+    if let Some(venv_root) = backend::python_venv_root(&python) {
+        if let Err(err) = backend::repair_bundled_python(&venv_root) {
+            eprintln!("repair bundled python: {err}");
+        }
+    }
     let port = DEFAULT_PORT;
     let skip_auth = dev_mode_enabled();
 
@@ -387,6 +415,8 @@ pub fn run() {
             commands::auth_bind_phone,
             commands::auth_bootstrap_completed,
             commands::auth_get_startup_diagnostics,
+            commands::runtime_setup_status,
+            commands::runtime_setup_run,
             auth_start_app,
             ainews_show_login,
             commands::desktop_window_minimize,

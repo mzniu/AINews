@@ -23,6 +23,8 @@ commands.allow = [
   "auth_bind_phone",
   "auth_bootstrap_completed",
   "auth_get_startup_diagnostics",
+  "runtime_setup_status",
+  "runtime_setup_run",
   "auth_start_app",
   "ainews_show_login",
   "desktop_window_minimize",

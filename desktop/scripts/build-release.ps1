@@ -1,4 +1,4 @@
-# AINews 1.0.3 release build: stage Python app + venv, then cargo tauri build (NSIS installer).
+# AINews release build: stage Python app + venv, then cargo tauri build (NSIS installer).
 param(
     [switch]$SkipPython,
     [switch]$SkipPlaywright
@@ -12,7 +12,7 @@ $AppDst = Join-Path $BundleRoot "app"
 $PythonDst = Join-Path $BundleRoot "python"
 $PlaywrightDst = Join-Path $BundleRoot "playwright-browsers"
 
-Write-Host "==> AINews release build 1.0.3"
+Write-Host "==> AINews release build 1.0.5"
 Write-Host "    Repo: $RepoRoot"
 
 if (Test-Path $BundleRoot) {
@@ -55,12 +55,15 @@ if (-not $SkipPython) {
     $pip = Join-Path $PythonDst "Scripts\pip.exe"
     $python = Join-Path $PythonDst "Scripts\python.exe"
     & $pip install --upgrade pip wheel
-    & $pip install -r (Join-Path $RepoRoot "requirements.txt")
-    if (-not $SkipPlaywright) {
-        Write-Host "==> Installing Playwright Chromium..."
-        $env:PLAYWRIGHT_BROWSERS_PATH = $PlaywrightDst
-        & $python -m playwright install chromium
+    & $pip install -r (Join-Path $RepoRoot "requirements-desktop-bundle.txt")
+    & $pip uninstall -y simple-lama-inpainting torch torchvision 2>$null | Out-Null
+    Copy-Item (Join-Path $RepoRoot "requirements-desktop-extras.txt") (Join-Path $AppDst "requirements-desktop-extras.txt") -Force
+    if (Test-Path $PlaywrightDst) {
+        Remove-Item -Recurse -Force $PlaywrightDst
+        Write-Host "==> Skipped bundling Playwright browsers (first-run download)"
     }
+    & (Join-Path $PSScriptRoot "relocate-bundled-python.ps1") -PythonRoot $PythonDst
+    & (Join-Path $PSScriptRoot "prune-bundled-payload.ps1") -BundleRoot $BundleRoot
 } else {
     Write-Host "==> Skipping Python bundle (-SkipPython)"
 }

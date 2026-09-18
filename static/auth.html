@@ -20,6 +20,10 @@
             --accent-hover: #1a45b8;
             --danger: #c62828;
             --ok: #0d9f6e;
+            --btn-secondary-bg: #cdd8fe;
+            --btn-secondary-text: #00072d;
+            --btn-secondary-border: rgba(0, 7, 45, 0.22);
+            --btn-secondary-hover-bg: #b4c4fc;
         }
         [data-theme="dark"] {
             color-scheme: dark;
@@ -78,7 +82,8 @@
             border-color: var(--accent);
             color: var(--text);
         }
-        label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px; }
+        label { display: block; font-size: .85rem; font-weight: 600; color: #3d4f7a; margin-bottom: 6px; }
+        [data-theme="dark"] label { color: #c5d0e6; }
         input {
             width: 100%;
             padding: 10px 12px;
@@ -112,10 +117,15 @@
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
         .btn-secondary {
-            background: #334155;
-            color: var(--text);
+            background: var(--btn-secondary-bg);
+            color: var(--btn-secondary-text);
+            border: 1px solid var(--btn-secondary-border);
             white-space: nowrap;
             min-width: 108px;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--btn-secondary-hover-bg);
+            color: var(--btn-secondary-text);
         }
         .btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
         .msg {
@@ -233,6 +243,83 @@
             color: var(--muted);
             font-size: 0.82rem;
         }
+        .startup-progress {
+            width: 100%;
+            max-width: 280px;
+            margin: 16px 0 0;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(18, 52, 153, 0.12);
+            overflow: hidden;
+        }
+        .startup-progress[hidden] { display: none !important; }
+        .startup-progress-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--accent), #3b82f6);
+            transition: width 0.35s ease;
+        }
+        .startup-step-label {
+            margin: 8px 0 0;
+            font-size: 0.8rem;
+            color: var(--muted);
+            min-height: 1.2rem;
+            max-width: 320px;
+        }
+        .startup-loading-inner.is-error .ripple-logo-wrap,
+        .startup-loading-inner.is-error .startup-status,
+        .startup-loading-inner.is-error .startup-hint {
+            display: none;
+        }
+        .startup-error {
+            text-align: left;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+        .startup-error[hidden] { display: none !important; }
+        .startup-error-title {
+            margin: 0 0 8px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .startup-error-summary {
+            margin: 0 0 12px;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: var(--text);
+        }
+        .startup-error-detail {
+            margin: 0 0 14px;
+            padding: 12px 14px;
+            max-height: 200px;
+            overflow: auto;
+            font-family: ui-monospace, Consolas, monospace;
+            font-size: 0.72rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: rgba(11, 21, 56, 0.06);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #1e293b;
+        }
+        [data-theme="dark"] .startup-error-detail {
+            background: rgba(0, 0, 0, 0.25);
+            color: #e2e8f0;
+        }
+        .startup-error-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+        .startup-error-actions .btn {
+            margin-top: 0;
+            flex: 1 1 auto;
+            min-width: 120px;
+        }
         @media (prefers-reduced-motion: reduce) {
             .ripple-ring {
                 animation: none;
@@ -311,7 +398,7 @@
     </div>
 
     <div id="startup-loading" class="startup-loading" hidden role="dialog" aria-modal="true" aria-labelledby="startup-title" aria-describedby="startup-status">
-        <div class="startup-loading-inner">
+        <div id="startup-body" class="startup-loading-inner">
             <div class="ripple-logo-wrap" aria-hidden="true">
                 <span class="ripple-ring"></span>
                 <span class="ripple-ring"></span>
@@ -320,7 +407,21 @@
             </div>
             <h2 id="startup-title" class="startup-title">AINews</h2>
             <p id="startup-status" class="startup-status" aria-live="polite">正在启动应用…</p>
-            <p class="startup-hint">首次启动可能需要数十秒，请稍候</p>
+            <div id="startup-progress" class="startup-progress" hidden aria-hidden="true">
+                <div id="startup-progress-bar" class="startup-progress-bar"></div>
+            </div>
+            <p id="startup-step-label" class="startup-step-label" hidden></p>
+            <p id="startup-hint" class="startup-hint">首次启动需下载 AI 组件与浏览器，请保持网络畅通</p>
+            <div id="startup-error" class="startup-error" hidden role="alert">
+                <h3 id="startup-error-title" class="startup-error-title">启动失败</h3>
+                <p id="startup-error-summary" class="startup-error-summary"></p>
+                <pre id="startup-error-detail" class="startup-error-detail" tabindex="0" aria-label="技术诊断信息"></pre>
+                <div class="startup-error-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-startup-copy">复制诊断信息</button>
+                    <button type="button" class="btn btn-primary" id="btn-startup-retry">重试</button>
+                    <button type="button" class="btn btn-secondary" id="btn-startup-back">返回登录</button>
+                </div>
+            </div>
         </div>
     </div>
 

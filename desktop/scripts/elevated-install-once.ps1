@@ -1,5 +1,5 @@
 # One-shot elevated install helper (accept UAC prompt when it appears).
-$InstallerPath = "D:\git\AINews\desktop\dist\AINews_1.0.3_x64-setup.exe"
+$InstallerPath = "D:\git\AINews\desktop\dist\AINews_1.0.4_x64-setup.exe"
 $InstallDir = "$env:ProgramFiles\AINews"
 
 if (-not (Test-Path $InstallerPath)) {
@@ -15,6 +15,11 @@ if ($null -eq $proc) {
 }
 if ($proc.ExitCode -ne 0) {
     throw "Installer exited with code $($proc.ExitCode)"
+}
+
+$pyRoot = Join-Path $InstallDir "bundle-resources\python"
+if (Test-Path (Join-Path $pyRoot "pyvenv.cfg")) {
+    & (Join-Path $PSScriptRoot "repair-installed-pyvenv.ps1") -PythonRoot $pyRoot
 }
 
 $launchExe = Join-Path $InstallDir "ainews-desktop.exe"

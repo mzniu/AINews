@@ -1,0 +1,33 @@
+# Web framework
+fastapi>=0.104.0
+python-multipart>=0.0.9
+uvicorn>=0.24.0
+
+# Web scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.3
+lxml>=5.1.0
+playwright>=1.40.0
+
+# AI integration (DeepSeek API - OpenAI compatible)
+openai>=1.10.0
+
+# Video processing (requires MoviePy 2.x)
+moviepy>=2.0.0
+pillow>=10.2.0
+cairosvg>=2.7.1
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+loguru>=0.7.2
+numpy>=2.1.0
+fonttools>=4.0.0
+PyYAML>=6.0.0
+
+# TTS / audio (IndexTTS for voice synthesis)
+pydub>=0.25.1
+audioop-lts>=0.2.0; python_version>='3.13'
+sqlalchemy>=2.0.0
+APScheduler>=3.10.0
+cryptography>=42.0.0

@@ -1,0 +1,3 @@
+# First-run download for desktop (pip into venv; --user fallback if install dir read-only).
+simple-lama-inpainting>=0.1.0
+opencv-python-headless>=4.8.0

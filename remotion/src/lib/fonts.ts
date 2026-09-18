@@ -1,36 +1,31 @@
-import {loadFont} from '@remotion/google-fonts/NotoSansSC';
-import {loadFont as loadInter} from '@remotion/google-fonts/Inter';
-
-const noto = loadFont('normal', {
-  weights: ['400', '500', '700'],
-  subsets: ['latin', 'chinese-simplified'],
-});
-
-const inter = loadInter('normal', {
-  weights: ['400', '600', '700'],
-  subsets: ['latin'],
-});
+/**
+ * System font stack for offline Remotion renders.
+ * Avoids @remotion/google-fonts network fetches (294 requests) that often
+ * time out on Windows CI / local builds.
+ */
+const NOTO_SC = '"Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif';
+const INTER = 'Inter, "Segoe UI", system-ui, sans-serif';
 
 export const fonts = {
-  notoSansSc: noto.fontFamily,
-  inter: inter.fontFamily,
+  notoSansSc: NOTO_SC,
+  inter: INTER,
 };
 
 export const fontStyles = {
   title: {
-    fontFamily: noto.fontFamily,
+    fontFamily: NOTO_SC,
     fontWeight: 700 as const,
   },
   body: {
-    fontFamily: noto.fontFamily,
+    fontFamily: NOTO_SC,
     fontWeight: 400 as const,
   },
   brandLatin: {
-    fontFamily: inter.fontFamily,
+    fontFamily: INTER,
     fontWeight: 600 as const,
   },
   badge: {
-    fontFamily: inter.fontFamily,
+    fontFamily: INTER,
     fontWeight: 400 as const,
   },
 };

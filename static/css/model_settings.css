@@ -36,7 +36,7 @@
     display: block;
     font-size: 13px;
     font-weight: 600;
-    color: var(--app-text-soft);
+    color: var(--label-text, var(--color-text));
     margin-bottom: 6px;
 }
 
@@ -104,13 +104,14 @@
 }
 
 .btn-danger {
-    background: #b91c1c;
-    color: #fff;
+    background: var(--btn-danger-bg, #b91c1c);
+    color: var(--btn-danger-text, #ffffff);
     box-shadow: 0 4px 14px rgba(185, 28, 28, 0.35);
 }
 
 .btn-danger:hover:not(:disabled) {
-    background: #dc2626;
+    background: var(--btn-danger-hover-bg, #991b1b);
+    color: var(--btn-danger-text, #ffffff);
 }
 
 .status-bar {

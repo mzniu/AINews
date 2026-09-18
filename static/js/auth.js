@@ -109,6 +109,46 @@
         if (el) el.textContent = text;
     }
 
+    function setStartupProgress(percent, stepLabel) {
+        const wrap = $('startup-progress');
+        const bar = $('startup-progress-bar');
+        const stepEl = $('startup-step-label');
+        if (wrap) {
+            wrap.hidden = false;
+            wrap.setAttribute('aria-hidden', 'false');
+        }
+        if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+        if (stepEl) {
+            stepEl.hidden = !stepLabel;
+            stepEl.textContent = stepLabel || '';
+        }
+        if (startupStatusTimer) {
+            clearInterval(startupStatusTimer);
+            startupStatusTimer = null;
+        }
+    }
+
+    function bindSetupProgressListener() {
+        const tauri = window.__TAURI__;
+        if (!tauri?.event?.listen || window.__ainewsSetupListener) return;
+        window.__ainewsSetupListener = true;
+        tauri.event.listen('ainews:setup-progress', (ev) => {
+            const p = ev.payload || {};
+            if (p.label) updateStartupStatus(p.label);
+            if (typeof p.percent === 'number') setStartupProgress(p.percent, p.step || '');
+        });
+    }
+
+    async function ensureRuntimeSetup() {
+        bindSetupProgressListener();
+        const status = await invoke('runtime_setup_status');
+        if (status.ready) return;
+        showStartupLoading('正在初始化运行环境…');
+        setStartupProgress(5, '准备下载');
+        await invoke('runtime_setup_run');
+        setStartupProgress(100, '完成');
+    }
+
     function setHidden(id, hidden) {
         const el = $(id);
         if (el) el.hidden = hidden;
@@ -118,9 +158,43 @@
         setHidden('startup-error', true);
         const detail = $('startup-error-detail');
         if (detail) detail.textContent = '';
+        const summary = $('startup-error-summary');
+        if (summary) summary.textContent = '';
         $('startup-body')?.classList.remove('is-error');
         setHidden('startup-status', false);
         setHidden('startup-hint', false);
+    }
+
+    function startupFriendlySummary(err) {
+        const text = String(err || '');
+        if (/No Python at/i.test(text) || /内置 Python 环境仍指向/i.test(text) || /内置 Python 无法启动/i.test(text)) {
+            return '内置 Python 运行环境不完整或安装包未正确打包。请重新下载并安装最新版 AINews；若仍失败，请复制下方诊断信息发给开发人员。';
+        }
+        if (/已退出|进程已退出|exited/i.test(text)) {
+            return '本地服务启动后异常退出。请查看下方日志摘要，或复制诊断信息联系支持。';
+        }
+        if (/超时|timeout/i.test(text)) {
+            return '等待本地服务就绪超时。请检查防火墙、端口占用，或稍后重试。';
+        }
+        return '本地服务未能正常启动。请重试；若反复失败，请复制诊断信息发给开发人员。';
+    }
+
+    function buildDiagnosticsReport(err, diag) {
+        const lines = [
+            '=== AINews 启动诊断 ===',
+            `时间: ${new Date().toISOString()}`,
+            `错误: ${String(err || diag?.error || '未知')}`,
+        ];
+        if (diag?.installDir) lines.push(`安装目录: ${diag.installDir}`);
+        if (diag?.pythonPath) lines.push(`Python: ${diag.pythonPath}`);
+        if (diag?.appDir) lines.push(`应用目录: ${diag.appDir}`);
+        if (diag?.dataDir) lines.push(`数据目录: ${diag.dataDir}`);
+        if (diag?.port) lines.push(`端口: ${diag.port}`);
+        if (diag?.logPath) lines.push(`日志文件: ${diag.logPath}`);
+        if (diag?.logTail) {
+            lines.push('', '--- 日志末尾 ---', diag.logTail);
+        }
+        return lines.join('\n');
     }
 
     async function loadStartupDiagnostics() {
@@ -131,20 +205,9 @@
         }
     }
 
-    function formatStartupFailure(err, diag) {
-        const lines = [String(err || '未知错误')];
-        if (diag?.error && diag.error !== String(err)) {
-            lines.push(diag.error);
-        }
-        if (diag?.logPath) lines.push(`日志文件: ${diag.logPath}`);
-        if (diag?.pythonPath) lines.push(`Python: ${diag.pythonPath}`);
-        if (diag?.appDir) lines.push(`应用目录: ${diag.appDir}`);
-        if (diag?.dataDir) lines.push(`数据目录: ${diag.dataDir}`);
-        if (diag?.port) lines.push(`服务端口: ${diag.port}`);
-        return lines.filter(Boolean).join('\n');
-    }
+    let lastDiagnosticsReport = '';
 
-    function showStartupError(title, detail) {
+    function showStartupError(title, summary, detail) {
         const overlay = $('startup-loading');
         if (!overlay) return;
         overlay.hidden = false;
@@ -158,20 +221,51 @@
         }
         const panel = $('startup-error');
         const titleEl = $('startup-error-title');
+        const summaryEl = $('startup-error-summary');
         const detailEl = $('startup-error-detail');
         if (titleEl) titleEl.textContent = title || '启动失败';
+        if (summaryEl) summaryEl.textContent = summary || '';
         if (detailEl) detailEl.textContent = detail || '';
         if (panel) panel.hidden = false;
+    }
+
+    async function copyStartupDiagnostics() {
+        const text = lastDiagnosticsReport || $('startup-error-detail')?.textContent || '';
+        if (!text) return;
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            const btn = $('btn-startup-copy');
+            if (btn) {
+                const prev = btn.textContent;
+                btn.textContent = '已复制';
+                setTimeout(() => { btn.textContent = prev; }, 2000);
+            }
+        } catch (_) {
+            window.prompt('请手动复制以下诊断信息：', text);
+        }
     }
 
     async function showStartupFailure(err, title) {
         appEnterInProgress = false;
         const diag = await loadStartupDiagnostics();
-        const detail = formatStartupFailure(err, diag);
-        showStartupError(title || '无法进入主界面', detail);
-        setMsg($('phone-msg'), String(err), 'error');
-        setMsg($('email-msg'), String(err), 'error');
-        setMsg($('offline-msg'), String(err), 'error');
+        const summary = startupFriendlySummary(err || diag?.error);
+        lastDiagnosticsReport = buildDiagnosticsReport(err, diag);
+        showStartupError(title || '无法进入主界面', summary, lastDiagnosticsReport);
+        setMsg($('phone-msg'), summary, 'error');
+        setMsg($('email-msg'), summary, 'error');
+        setMsg($('offline-msg'), summary, 'error');
     }
 
     function showStartupLoading(initialMessage) {
@@ -205,6 +299,7 @@
         appEnterInProgress = true;
         showStartupLoading('正在启动应用…');
         try {
+            await ensureRuntimeSetup();
             // Rust `auth_start_app` starts the backend, waits for health, and navigates.
             await invoke('auth_start_app');
         } catch (e) {
@@ -233,6 +328,7 @@
     }
 
     async function waitForBootstrap() {
+        bindSetupProgressListener();
         showStartupLoading('正在检查登录状态…');
         $('auth-forms').hidden = true;
         for (let i = 0; i < 60; i += 1) {
@@ -472,6 +568,9 @@
             if (appEnterInProgress) return;
             const payload = event?.payload ?? '本地服务启动失败';
             showStartupFailure(payload, '本地服务启动失败').catch(() => {});
+        });
+        $('btn-startup-copy')?.addEventListener('click', () => {
+            copyStartupDiagnostics().catch(() => {});
         });
         $('btn-startup-retry')?.addEventListener('click', () => {
             clearStartupError();

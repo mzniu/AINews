@@ -359,6 +359,14 @@ def test_dashboard_hot_radar_uses_ingestion_api():
     assert "/api/hot-radar/snapshots" not in js
 
 
+def test_light_contrast_stylesheet_is_imported_by_app_shell():
+    shell = _read(STATIC / "css" / "app_shell.css")
+    contrast = _read(STATIC / "css" / "design-system" / "light-contrast.css")
+    assert "light-contrast.css" in shell
+    assert "--shell-input-bg" in contrast
+    assert "article-item:not(.selected)" in contrast
+
+
 def test_light_theme_shell_tokens_use_dark_readable_text():
     tokens = _read(DESIGN_TOKENS)
     shell = _read(STATIC / "css" / "app_shell.css")

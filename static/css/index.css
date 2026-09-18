@@ -727,14 +727,15 @@ body {
 
 .duration-label {
     font-size: 12px;
-    color: #666;
+    color: var(--label-text-muted, #3d4f7a);
     white-space: nowrap;
 }
 
 /* 入场动画标签 */
 .control-label {
     font-size: 12px;
-    color: #888;
+    color: var(--label-text, #0b1538);
+    font-weight: 600;
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -868,9 +869,9 @@ body {
 
 .btn-secondary {
     padding: 8px 16px;
-    background: #6c757d;
-    color: white;
-    border: none;
+    background: var(--btn-secondary-bg, #cdd8fe);
+    color: var(--btn-secondary-text, #00072d);
+    border: 1px solid var(--btn-secondary-border, rgba(0, 7, 45, 0.22));
     border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
@@ -878,7 +879,8 @@ body {
 }
 
 .btn-secondary:hover {
-    background: #5a6268;
+    background: var(--btn-secondary-hover-bg, #b4c4fc);
+    color: var(--btn-secondary-text, #00072d);
     transform: translateY(-1px);
 }
 
@@ -1355,9 +1357,9 @@ body {
 
 .secondary-btn {
     padding: var(--space-3) var(--space-6);
-    background: #6c757d;
-    color: var(--text-on-brand);
-    border: none;
+    background: var(--btn-secondary-bg, #cdd8fe);
+    color: var(--btn-secondary-text, #00072d);
+    border: 1px solid var(--btn-secondary-border, rgba(0, 7, 45, 0.22));
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: background 0.3s;
@@ -1365,9 +1367,9 @@ body {
 
 .btn-tertiary {
     padding: var(--space-2) 14px;
-    background: transparent;
-    color: #6c757d;
-    border: 1px solid #ced4da;
+    background: var(--btn-surface-bg, #ffffff);
+    color: var(--btn-surface-text, #0b1538);
+    border: 1px solid var(--btn-surface-border, rgba(18, 52, 153, 0.28));
     border-radius: var(--radius-sm);
     font-size: 13px;
     cursor: pointer;
@@ -1375,8 +1377,8 @@ body {
 }
 
 .btn-tertiary:hover {
-    background: #f1f3f5;
-    color: #495057;
+    background: var(--color-surface-inset, #eef2fa);
+    color: var(--color-text, #0b1538);
 }
 
 .aux-actions {
@@ -1388,7 +1390,7 @@ body {
 }
 
 .secondary-btn:hover {
-    background: #5a6268;
+    background: var(--btn-secondary-hover-bg, #b4c4fc);
 }
 
 .error {

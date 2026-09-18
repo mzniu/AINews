@@ -90,13 +90,17 @@ def test_auth_js_startup_loading_helpers():
     assert "showStartupFailure" in js
     assert "auth_get_startup_diagnostics" in js
     assert "ainews:startup-failed" in js
+    assert "buildDiagnosticsReport" in js
+    assert "btn-startup-copy" in js
 
 
 def test_auth_html_startup_error_panel():
     html = _read(AUTH_HTML)
     assert 'id="startup-error"' in html
+    assert 'id="startup-error-summary"' in html
     assert 'id="startup-error-detail"' in html
     assert 'id="btn-startup-retry"' in html
+    assert 'id="btn-startup-copy"' in html
 
 
 def test_auth_js_does_not_assign_through_optional_chaining():
