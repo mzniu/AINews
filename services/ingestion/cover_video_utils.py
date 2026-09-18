@@ -133,6 +133,30 @@ def fit_audio_clip_to_duration(audio_clip, duration: float):
     return audio_clip
 
 
+def fit_audio_to_duration(audio_clip, duration: float):
+    """Trim or loop audio to match video duration (MoviePy 2.x clip)."""
+    target = max(0.01, float(duration))
+    try:
+        audio_dur = float(audio_clip.duration or 0)
+    except (TypeError, ValueError, AttributeError):
+        audio_dur = 0.0
+    if audio_dur <= 0:
+        return audio_clip
+    if audio_dur > target:
+        return audio_clip.subclipped(0, target)
+    if audio_dur < target:
+        from moviepy import concatenate_audioclips
+
+        loops = []
+        remaining = target
+        while remaining > 0:
+            chunk = min(audio_dur, remaining)
+            loops.append(audio_clip.subclipped(0, chunk))
+            remaining -= chunk
+        return concatenate_audioclips(loops)
+    return audio_clip
+
+
 def letterbox_image_on_canvas(
     image: Image.Image,
     canvas_w: int,
