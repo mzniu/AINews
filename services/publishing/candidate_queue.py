@@ -174,9 +174,11 @@ def evaluate_article_candidates(
                 reasons_json=json.dumps(decision.reasons, ensure_ascii=False),
                 status=status,
                 evaluated_at=evaluated_at,
+                industry_id=article.industry_id,
             )
             session.add(row)
         else:
+            row.industry_id = article.industry_id
             row.action = decision.action
             row.recommended_action = decision.recommended_action
             row.priority = decision.priority

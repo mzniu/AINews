@@ -6,6 +6,7 @@ from typing import Generator, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from services.industry.query_filter import apply_active_industry_filter
 from src.db.engine import get_session_factory
 from src.db.models.ingestion import IngestedArticle
 from src.db.models.publishing import PublishJob, PublisherAccount
@@ -33,13 +34,13 @@ def global_search(
     db: Session = Depends(get_db),
 ):
     like = f"%{q.strip()}%"
-    article_rows = (
+    article_query = (
         db.query(IngestedArticle)
         .filter(IngestedArticle.title.like(like))
         .order_by(IngestedArticle.published_at.desc().nullslast())
-        .limit(limit)
-        .all()
     )
+    article_query = apply_active_industry_filter(article_query, IngestedArticle)
+    article_rows = article_query.limit(limit).all()
     post_rows = (
         db.query(PublishJob, PublisherAccount)
         .join(PublisherAccount, PublishJob.account_id == PublisherAccount.id)

@@ -11,6 +11,7 @@ import requests
 from loguru import logger
 from sqlalchemy.orm import Session
 
+from services.industry.profile import get_active_industry_id
 from services.ingestion.hot_radar_settings import (
     enabled_boards,
     load_hot_radar_config,
@@ -131,9 +132,10 @@ def fetch_tophub_board_items(*, hashid: str, config: dict[str, Any] | None = Non
 
 
 def get_latest_snapshot(db: Session, *, source: str, board: str) -> HotRadarSnapshot | None:
+    industry_id = get_active_industry_id()
     return (
         db.query(HotRadarSnapshot)
-        .filter_by(source=source, board=board)
+        .filter_by(source=source, board=board, industry_id=industry_id)
         .order_by(HotRadarSnapshot.fetched_at.desc())
         .first()
     )
@@ -170,7 +172,13 @@ def _refresh_single_board(
                 "fetched_at": latest.fetched_at.isoformat(),
             }
 
-    snapshot = HotRadarSnapshot(source=_TOPHUB_SOURCE, board=hashid, fetched_at=datetime.utcnow())
+    industry_id = get_active_industry_id()
+    snapshot = HotRadarSnapshot(
+        source=_TOPHUB_SOURCE,
+        board=hashid,
+        fetched_at=datetime.utcnow(),
+        industry_id=industry_id,
+    )
     db.add(snapshot)
     db.flush()
     try:
@@ -374,6 +382,7 @@ def seed_hot_radar_snapshot(
         board=board,
         fetched_at=fetched_at or datetime.utcnow(),
         item_count=len(items),
+        industry_id=get_active_industry_id(),
     )
     db.add(snapshot)
     db.flush()

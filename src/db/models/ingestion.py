@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from services.industry.constants import DEFAULT_INDUSTRY_ID
 from src.db.engine import Base
 
 
@@ -97,6 +98,9 @@ class IngestedArticle(Base):
     selected_images_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     media_pipeline_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     generated_cover_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    industry_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, default=DEFAULT_INDUSTRY_ID, index=True
+    )
 
     images: Mapped[list["ArticleImage"]] = relationship(back_populates="article")
 
@@ -200,6 +204,9 @@ class HotRadarSnapshot(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     item_count: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    industry_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, default=DEFAULT_INDUSTRY_ID, index=True
+    )
 
 
 class HotRadarItem(Base):
@@ -240,3 +247,6 @@ class HotRadarArticleMatch(Base):
     hot_url: Mapped[str] = mapped_column(String(1024), default="")
     inherited_from_article_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     matched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    industry_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, default=DEFAULT_INDUSTRY_ID, index=True
+    )

@@ -173,6 +173,7 @@ def batch_match_hot_radar(db: Session, *, config: dict[str, Any] | None = None) 
         db.add(
             HotRadarArticleMatch(
                 article_id=article.id,
+                industry_id=article.industry_id,
                 snapshot_id=best.snapshot_id,
                 hot_item_id=best.hot_item_id,
                 board_hashid=best.board,
@@ -236,6 +237,7 @@ def apply_story_inheritance(db: Session, *, config: dict[str, Any] | None = None
             db.add(
                 HotRadarArticleMatch(
                     article_id=member.id,
+                    industry_id=member.industry_id,
                     snapshot_id=source_row.snapshot_id,
                     hot_item_id=source_row.hot_item_id,
                     board_hashid=source_row.board_hashid,
