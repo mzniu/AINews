@@ -501,10 +501,13 @@ class IngestionOrchestrator:
                     }
                 )
 
+        from services.industry.profile import get_active_industry_id
+
         article = IngestedArticle(
             id=article_id,
             source_id=source.id,
             canonical_url=url,
+            industry_id=get_active_industry_id(),
             title=(detail.title if detail else ref.title) or ref.title,
             summary=(detail.summary if detail else None) or ref.summary,
             published_at=(detail.published_at if detail else ref.published_at),

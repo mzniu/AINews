@@ -8,6 +8,7 @@ from typing import Generator, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
+from services.industry.query_filter import apply_active_industry_filter, resolve_list_industry_id
 from src.utils.beijing_time import as_beijing_wallclock
 from src.utils.paths import to_data_url_path
 
@@ -355,6 +356,9 @@ def list_articles(
     q: Optional[str] = None,
     sort: Optional[str] = Query(None, description="score_desc | published_desc"),
     min_grade: Optional[str] = Query(None, description="S|A|B|C|D|unscored"),
+    industry_id: Optional[str] = Query(
+        None, description="L2 path; defaults to active industry profile"
+    ),
     limit: int = Query(30, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -366,6 +370,9 @@ def list_articles(
         )
     else:
         query = db.query(IngestedArticle).order_by(IngestedArticle.published_at.desc().nullslast())
+    query = apply_active_industry_filter(
+        query, IngestedArticle, resolve_list_industry_id(industry_id)
+    )
     if source_id:
         query = query.filter_by(source_id=source_id)
     if status:

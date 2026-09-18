@@ -433,10 +433,11 @@ def test_backup_is_complete_and_refuses_overwrite(queue_db: Path, tmp_path: Path
         """
         INSERT INTO auto_publish_candidates
             (id, article_id, platform, action, recommended_action, priority,
-             reasons_json, policy_version, status, evaluated_at, created_at, updated_at)
+             reasons_json, policy_version, status, evaluated_at, created_at, updated_at,
+             industry_id)
         VALUES ('late-candidate', 'article-strong', 'wechat_channels', 'publish',
                 'publish', 1, '[]', '1', 'pending', '2026-01-01',
-                '2026-01-01', '2026-01-01')
+                '2026-01-01', '2026-01-01', 'tech/ai')
         """,
     ],
 )
@@ -674,8 +675,8 @@ def test_logical_snapshot_fingerprint_covers_stored_radar(
         connection.execute(
             """
             INSERT INTO hot_radar_snapshots
-                (id, source, board, fetched_at, item_count)
-            VALUES ('snapshot-1', 'tophub', 'ai', '2026-09-13', 1)
+                (id, source, board, fetched_at, item_count, industry_id)
+            VALUES ('snapshot-1', 'tophub', 'ai', '2026-09-13', 1, 'tech/ai')
             """
         )
         connection.execute(
@@ -683,9 +684,9 @@ def test_logical_snapshot_fingerprint_covers_stored_radar(
             INSERT INTO hot_radar_article_matches
                 (id, article_id, snapshot_id, board_hashid, board_id, rank,
                  effective_rank, confidence, match_method, hot_title, hot_url,
-                 matched_at)
+                 matched_at, industry_id)
             VALUES ('match-1', 'article-strong', 'snapshot-1', 'board', 'board',
-                    1, 1, 0.9, 'title', 'hot', 'https://hot', '2026-09-13')
+                    1, 1, 0.9, 'title', 'hot', 'https://hot', '2026-09-13', 'tech/ai')
             """
         )
     second = rebuild.create_backup(
@@ -705,9 +706,9 @@ def test_logical_snapshot_includes_recent_story_peer_timestamps(
             """
             INSERT INTO ingested_articles
                 (id, source_id, canonical_url, title, keywords_json, tags_json, status,
-                 story_id, created_at)
+                 story_id, created_at, industry_id)
             VALUES ('story-peer', 'source-1', 'https://example.com/peer', 'peer',
-                    '[]', '[]', 'fetched', 'story-1', '2026-09-13T00:30:00')
+                    '[]', '[]', 'fetched', 'story-1', '2026-09-13T00:30:00', 'tech/ai')
             """
         )
     first = rebuild.create_backup(
@@ -922,8 +923,8 @@ def test_existing_current_policy_candidate_is_updated_and_restored_exactly(
             INSERT INTO auto_publish_candidates
                 (id, article_id, platform, action, recommended_action, priority,
                  reasons_json, policy_version, status, evaluated_at, scheduled_date,
-                 publish_job_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 publish_job_id, created_at, updated_at, industry_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 "existing-current-policy",
@@ -940,6 +941,7 @@ def test_existing_current_policy_candidate_is_updated_and_restored_exactly(
                 None,
                 "2026-01-01 00:00:00",
                 "2026-01-01 00:00:00",
+                "tech/ai",
             ),
         )
     before = _rows(queue_db, "auto_publish_candidates")

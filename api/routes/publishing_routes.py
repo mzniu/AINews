@@ -46,6 +46,7 @@ from services.publishing.job_recovery import recover_stale_publish_jobs
 from services.publishing.metadata_bridge import PublishDraftMetadata, build_wechat_description
 from services.publishing.path_guard import PathGuardError, resolve_cover_path, resolve_video_path, to_relative_posix
 from services.publishing.platform_capabilities import can_account_login, can_video_publish
+from services.industry.query_filter import apply_active_industry_filter
 from services.publishing.orchestrator import PublishOrchestrator
 from services.publishing.qr_login import create_qr_session
 from services.publishing.registry import (
@@ -1020,7 +1021,7 @@ def list_candidates_route(
 ):
     from sqlalchemy import desc as sa_desc, asc as sa_asc
 
-    query = db.query(AutoPublishCandidate)
+    query = apply_active_industry_filter(db.query(AutoPublishCandidate), AutoPublishCandidate)
     if platform:
         query = query.filter(AutoPublishCandidate.platform == platform)
     if status:

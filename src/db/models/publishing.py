@@ -7,6 +7,7 @@ from datetime import date, datetime
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from services.industry.constants import DEFAULT_INDUSTRY_ID
 from src.db.engine import Base
 
 
@@ -97,6 +98,9 @@ class AutoPublishCandidate(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    industry_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, default=DEFAULT_INDUSTRY_ID, index=True
     )
 
 

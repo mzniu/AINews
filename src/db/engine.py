@@ -9,7 +9,15 @@ from typing import Iterator
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+from services.industry.constants import DEFAULT_INDUSTRY_ID
 from src.utils.paths import get_data_dir
+
+_INDUSTRY_TABLES = (
+    "ingested_articles",
+    "auto_publish_candidates",
+    "hot_radar_snapshots",
+    "hot_radar_article_matches",
+)
 
 
 class Base(DeclarativeBase):
@@ -153,6 +161,79 @@ def _ensure_sqlite_columns(engine) -> None:
         inbox_columns = {row[1] for row in inbox_rows}
         if inbox_columns and "post_context_json" not in inbox_columns:
             conn.execute(text("ALTER TABLE comment_inbox ADD COLUMN post_context_json TEXT"))
+
+        _ensure_industry_id_columns(conn)
+
+
+def _ensure_industry_id_columns(conn) -> None:
+    default = DEFAULT_INDUSTRY_ID.replace("'", "''")
+    index_names = {
+        "ingested_articles": "idx_articles_industry_id",
+        "auto_publish_candidates": "idx_candidates_industry_id",
+        "hot_radar_snapshots": "idx_hot_radar_snapshots_industry",
+        "hot_radar_article_matches": "idx_hot_radar_matches_industry",
+    }
+    for table in _INDUSTRY_TABLES:
+        rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        if not rows:
+            continue
+        columns = {row[1] for row in rows}
+        if "industry_id" not in columns:
+            conn.execute(
+                text(
+                    f"ALTER TABLE {table} "
+                    f"ADD COLUMN industry_id TEXT NOT NULL DEFAULT '{default}'"
+                )
+            )
+        conn.execute(
+            text(
+                f"CREATE INDEX IF NOT EXISTS {index_names[table]} "
+                f"ON {table}(industry_id)"
+            )
+        )
+
+    if conn.execute(
+        text(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='auto_publish_candidates'"
+        )
+    ).first():
+        conn.execute(
+            text(
+                """
+                UPDATE auto_publish_candidates
+                SET industry_id = (
+                    SELECT industry_id FROM ingested_articles
+                    WHERE ingested_articles.id = auto_publish_candidates.article_id
+                )
+                WHERE article_id IS NOT NULL
+                  AND EXISTS (
+                    SELECT 1 FROM ingested_articles
+                    WHERE ingested_articles.id = auto_publish_candidates.article_id
+                  )
+                """
+            )
+        )
+    if conn.execute(
+        text(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='hot_radar_article_matches'"
+        )
+    ).first():
+        conn.execute(
+            text(
+                """
+                UPDATE hot_radar_article_matches
+                SET industry_id = (
+                    SELECT industry_id FROM ingested_articles
+                    WHERE ingested_articles.id = hot_radar_article_matches.article_id
+                )
+                WHERE article_id IS NOT NULL
+                  AND EXISTS (
+                    SELECT 1 FROM ingested_articles
+                    WHERE ingested_articles.id = hot_radar_article_matches.article_id
+                  )
+                """
+            )
+        )
 
 
 def init_db(database_url: str | None = None) -> None:

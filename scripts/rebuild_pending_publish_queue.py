@@ -28,6 +28,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from services.industry.constants import DEFAULT_INDUSTRY_ID
+
 BACKUP_SCHEMA_VERSION = 2
 REBUILD_POLICY_VERSION = "pending-ingestion-rebuild-v1"
 SUPPORTED_PLATFORMS = ("wechat_channels", "douyin", "kuaishou")
@@ -81,6 +83,7 @@ CANDIDATE_COLUMNS = (
     "publish_job_id",
     "created_at",
     "updated_at",
+    "industry_id",
 )
 ARTICLE_SCORE_COLUMNS = (
     "id",
@@ -131,6 +134,7 @@ REQUIRED_SCHEMA: dict[str, tuple[str, ...]] = {
         "hot_url",
         "inherited_from_article_id",
         "matched_at",
+        "industry_id",
     ),
     "auto_publish_candidates": CANDIDATE_COLUMNS,
     "ingestion_sources": ("id", "slug", "adapter_class"),
@@ -1105,6 +1109,9 @@ def _inspect_connection(
                 "publish_job_id": None,
                 "created_at": as_of.isoformat(),
                 "updated_at": as_of.isoformat(),
+                "industry_id": str(
+                    article.get("industry_id") or DEFAULT_INDUSTRY_ID
+                ),
             }
             policy_payload = {
                 "action": policy.action,
