@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <title>AINews · 工作台 Dashboard — UI 预览</title>
+  <link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+  <!-- Inline SVG sprite (offline) -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="icon-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="icon-library" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+    <symbol id="icon-radar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></symbol>
+    <symbol id="icon-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 4v16M17 4v16M2 8h5M2 16h5M17 8h5M17 16h5"/></symbol>
+    <symbol id="icon-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></symbol>
+    <symbol id="icon-scrape" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+    <symbol id="icon-queue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+    <symbol id="icon-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 3 5-8"/></symbol>
+    <symbol id="icon-comment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="icon-pool" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></symbol>
+    <symbol id="icon-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+  </svg>
+
+  <header class="preview-banner">
+    <div>
+      <strong>AINews UI 预览</strong>
+      <span style="opacity:.8;margin-left:12px">Dashboard 工作台 · 浅色主模式 · 桌面端</span>
+    </div>
+    <div class="preview-banner-actions">
+      <span data-theme-label>浅色</span>
+      <button type="button" class="theme-toggle" aria-label="切换主题">
+        <svg class="icon icon-sun" hidden><use href="#icon-sun"/></svg>
+        <svg class="icon icon-moon"><use href="#icon-moon"/></svg>
+        切换主题
+      </button>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <nav class="app-nav" aria-label="主导航">
+      <div class="nav-inner">
+        <div class="nav-brand-row">
+          <a href="#" class="nav-brand">
+            <img src="assets/ainews-mark.png" alt="" width="32" height="32" onerror="this.style.display='none'">
+            AINews
+          </a>
+          <button type="button" class="nav-refresh-btn" aria-label="刷新">
+            <svg class="icon"><use href="#icon-refresh"/></svg>
+          </button>
+        </div>
+
+        <div class="nav-group">
+          <a href="#" class="nav-link is-active">
+            <svg class="icon"><use href="#icon-home"/></svg>
+            工作台
+          </a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-label">内容</div>
+          <a href="#" class="nav-link">
+            <svg class="icon"><use href="#icon-library"/></svg>
+            资讯库
+          </a>
+          <a href="#" class="nav-link">
+            <svg class="icon"><use href="#icon-radar"/></svg>
+            热榜雷达
+          </a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-label">制作</div>
+          <a href="#" class="nav-link">
+            <svg class="icon"><use href="#icon-film"/></svg>
+            视频制作
+          </a>
+          <a href="#" class="nav-link">
+            <svg class="icon"><use href="#icon-scrape"/></svg>
+            内容抓取
+          </a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-label">分发</div>
+          <a href="#publish-hub" class="nav-link">
+            <svg class="icon"><use href="#icon-send"/></svg>
+            发布中心
+          </a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-label">系统</div>
+          <a href="#" class="nav-link">
+            <svg class="icon"><use href="#icon-settings"/></svg>
+            系统配置
+          </a>
+        </div>
+
+        <div class="nav-footer">
+          <div class="nav-user">
+            <div class="nav-user-avatar">A</div>
+            <div>
+              <div class="nav-user-name">admin</div>
+              <div class="nav-version">v1.0.2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="app-main">
+      <header class="page-hero">
+        <h1>工作台</h1>
+        <p class="section-desc">一屏掌握内容管线进度、今日关键指标与快捷操作。抓取工具已移至「内容抓取」子路由。</p>
+      </header>
+
+      <div class="app-banner is-warn" role="status">
+        <svg class="icon"><use href="#icon-alert"/></svg>
+        发布 Worker 未运行 — 队列中有 3 条任务等待处理
+        <button type="button" class="btn btn-soft" style="margin-left:auto;min-height:32px;padding:0 14px;font-size:13px">查看队列</button>
+      </div>
+
+      <!-- Pipeline stepper -->
+      <section class="pipeline" aria-label="内容管线">
+        <div class="pipeline-step is-done">
+          <div class="pipeline-dot">1</div>
+          <div class="pipeline-label">发现内容</div>
+          <div class="pipeline-sub">热榜 / 资讯库</div>
+        </div>
+        <div class="pipeline-step is-done">
+          <div class="pipeline-dot">2</div>
+          <div class="pipeline-label">选题评分</div>
+          <div class="pipeline-sub">12 条待审</div>
+        </div>
+        <div class="pipeline-step is-active">
+          <div class="pipeline-dot">3</div>
+          <div class="pipeline-label">生成成片</div>
+          <div class="pipeline-sub">进行中 2</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="pipeline-dot">4</div>
+          <div class="pipeline-label">审核发布</div>
+          <div class="pipeline-sub">队列 3</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="pipeline-dot">5</div>
+          <div class="pipeline-label">复盘数据</div>
+          <div class="pipeline-sub">昨日 +18%</div>
+        </div>
+      </section>
+
+      <!-- Key metrics -->
+      <section class="metrics-grid" aria-label="关键指标">
+        <article class="metric-card">
+          <div class="metric-label">今日抓取</div>
+          <div class="metric-value">24</div>
+          <div class="metric-delta is-up">↑ 较昨日 +6</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label">待发布</div>
+          <div class="metric-value">8</div>
+          <div class="metric-delta is-warn">3 条异常</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label">候选池</div>
+          <div class="metric-value">47</div>
+          <div class="metric-delta is-up">S 级 5 条</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label">已发布阅读</div>
+          <div class="metric-value">12.4k</div>
+          <div class="metric-delta is-up">↑ 18.2%</div>
+        </article>
+      </section>
+
+      <div class="content-grid">
+        <!-- Quick actions -->
+        <section class="soft-card">
+          <div class="soft-card-header">
+            <h2>快捷操作</h2>
+            <button type="button" class="btn btn-primary" style="min-height:36px;padding:0 16px;font-size:13px">
+              <svg class="icon"><use href="#icon-plus"/></svg>
+              新建抓取
+            </button>
+          </div>
+          <div class="soft-card-body">
+            <div class="quick-actions">
+              <a href="#" class="quick-action">
+                <span class="icon-wrap"><svg class="icon"><use href="#icon-scrape"/></svg></span>
+                内容抓取
+              </a>
+              <a href="#" class="quick-action">
+                <span class="icon-wrap"><svg class="icon"><use href="#icon-library"/></svg></span>
+                浏览资讯库
+              </a>
+              <a href="#" class="quick-action">
+                <span class="icon-wrap"><svg class="icon"><use href="#icon-film"/></svg></span>
+                视频制作
+              </a>
+              <a href="#publish-hub" class="quick-action">
+                <span class="icon-wrap"><svg class="icon"><use href="#icon-send"/></svg></span>
+                发布中心
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Hot radar top 5 -->
+        <section class="soft-card">
+          <div class="soft-card-header">
+            <h2>热榜 Top 5</h2>
+            <a href="#" class="btn btn-outline" style="min-height:32px;padding:0 12px;font-size:12px">查看全部</a>
+          </div>
+          <div class="soft-card-body">
+            <ol class="hot-list">
+              <li class="hot-item">
+                <span class="hot-rank">1</span>
+                <span class="hot-title">OpenAI 发布新一代多模态模型</span>
+                <span class="badge badge-grade-s">S</span>
+              </li>
+              <li class="hot-item">
+                <span class="hot-rank">2</span>
+                <span class="hot-title">国产大模型推理成本再降 40%</span>
+                <span class="badge badge-grade-a">A</span>
+              </li>
+              <li class="hot-item">
+                <span class="hot-rank">3</span>
+                <span class="hot-title">AI Agent 框架选型指南 2026</span>
+                <span class="badge badge-grade-a">A</span>
+              </li>
+              <li class="hot-item">
+                <span class="hot-rank">4</span>
+                <span class="hot-title">GitHub Copilot 企业版新功能</span>
+                <span class="badge badge-grade-b">B</span>
+              </li>
+              <li class="hot-item">
+                <span class="hot-rank">5</span>
+                <span class="hot-title">端侧 AI 芯片市场格局变化</span>
+                <span class="badge badge-grade-b">B</span>
+              </li>
+            </ol>
+          </div>
+        </section>
+      </div>
+
+      <!-- Recent activity -->
+      <section class="soft-card">
+        <div class="soft-card-header">
+          <h2>最近动态</h2>
+        </div>
+        <div class="soft-card-body">
+          <ul class="activity-list">
+            <li class="activity-item">
+              <div class="activity-icon is-success">
+                <svg class="icon"><use href="#icon-send"/></svg>
+              </div>
+              <div>
+                <div class="activity-title">「大模型推理优化」已发布至微信公众号</div>
+                <div class="activity-meta">5 分钟前 · 阅读 1,240</div>
+              </div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-icon is-info">
+                <svg class="icon"><use href="#icon-film"/></svg>
+              </div>
+              <div>
+                <div class="activity-title">视频「Agent 框架对比」渲染完成</div>
+                <div class="activity-meta">23 分钟前 · 待审核</div>
+              </div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-icon is-warn">
+                <svg class="icon"><use href="#icon-queue"/></svg>
+              </div>
+              <div>
+                <div class="activity-title">发布队列 3 条任务等待 Worker</div>
+                <div class="activity-meta">1 小时前 · 需处理</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Publish Center Tab Hub preview -->
+      <section class="section-preview" id="publish-hub">
+        <h2>发布中心 Tab Hub</h2>
+        <p>5 个分发子页合并为单一入口，通过 Tab 切换：账号绑定 · 自动发布 · 队列 · 数据 · 评论 · 候选池</p>
+
+        <div class="tab-hub">
+          <div class="tab-bar" role="tablist">
+            <button type="button" class="tab-btn is-active" role="tab" aria-selected="true">
+              <svg class="icon"><use href="#icon-send"/></svg>
+              账号绑定
+            </button>
+            <button type="button" class="tab-btn" role="tab">
+              <svg class="icon"><use href="#icon-queue"/></svg>
+              发布队列
+            </button>
+            <button type="button" class="tab-btn" role="tab">
+              <svg class="icon"><use href="#icon-chart"/></svg>
+              已发布数据
+            </button>
+            <button type="button" class="tab-btn" role="tab">
+              <svg class="icon"><use href="#icon-comment"/></svg>
+              评论管理
+            </button>
+            <button type="button" class="tab-btn" role="tab">
+              <svg class="icon"><use href="#icon-pool"/></svg>
+              候选池
+            </button>
+          </div>
+          <div class="tab-panel" role="tabpanel">
+            <div class="account-grid">
+              <article class="account-card">
+                <h4><span class="status-dot is-online"></span>微信公众号</h4>
+                <p>已绑定 · 上次同步 2 分钟前</p>
+              </article>
+              <article class="account-card">
+                <h4><span class="status-dot is-online"></span>今日头条</h4>
+                <p>已绑定 · 今日已发 3 条</p>
+              </article>
+              <article class="account-card">
+                <h4><span class="status-dot is-offline"></span>抖音</h4>
+                <p>未绑定 · 点击扫码绑定</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Design tokens preview -->
+      <section class="tokens-preview" id="tokens">
+        <h2>设计令牌预览</h2>
+        <p style="color:var(--color-text-soft);margin:0 0 24px;font-size:14px">Newsreader 标题 + Roboto UI · 离线字体包 · 深蓝品牌色</p>
+
+        <div class="tokens-grid">
+          <div class="token-swatch-group">
+            <h3>品牌色板</h3>
+            <div class="swatch-row">
+              <div class="swatch"><div class="swatch-color" style="background:#00072d"></div><div class="swatch-label">#00072d</div></div>
+              <div class="swatch"><div class="swatch-color" style="background:#051650"></div><div class="swatch-label">#051650</div></div>
+              <div class="swatch"><div class="swatch-color" style="background:#0a2472"></div><div class="swatch-label">#0a2472</div></div>
+              <div class="swatch"><div class="swatch-color" style="background:#123499"></div><div class="swatch-label">#123499</div></div>
+              <div class="swatch"><div class="swatch-color" style="background:#e8eaf6"></div><div class="swatch-label">#e8eaf6</div></div>
+            </div>
+
+            <h3>组件样例</h3>
+            <div class="component-row">
+              <button type="button" class="btn btn-primary">主按钮</button>
+              <button type="button" class="btn btn-soft">次要按钮</button>
+              <button type="button" class="btn btn-outline">描边按钮</button>
+              <span class="badge badge-grade-s">S</span>
+              <span class="badge badge-grade-a">A</span>
+              <span class="badge badge-grade-b">B</span>
+            </div>
+            <div class="component-row" style="margin-top:16px">
+              <input type="text" class="input-demo" placeholder="搜索资讯标题…" aria-label="搜索">
+            </div>
+          </div>
+
+          <div class="token-swatch-group type-sample">
+            <h3>字体排版</h3>
+            <h1>AINews 工作台</h1>
+            <p class="ui-text">
+              <strong style="font-weight:600;color:var(--color-text)">Newsreader</strong> 用于标题与数据展示，营造编辑室气质；
+              <strong style="font-weight:600;color:var(--color-text)">Roboto</strong> 用于导航、按钮、表格等 UI 控件，保证可读性与工具感。
+            </p>
+            <p class="ui-text" style="font-family:var(--font-mono);font-size:13px;margin-top:12px;color:var(--color-text-muted)">
+              JetBrains Mono — v1.0.2 · /api/publish/queue
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="theme.js"></script>
+</body>
+</html>
