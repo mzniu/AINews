@@ -7,7 +7,12 @@ from typing import Any
 import yaml
 from fastapi import APIRouter, HTTPException
 
-from services.industry.config_loader import PACKS_ROOT, _load_yaml, load_effective_cache
+from services.industry.config_loader import (
+    PACKS_ROOT,
+    _load_yaml,
+    load_effective_cache,
+    local_l2_pack_path,
+)
 from services.industry.profile import get_active_industry_id, load_industry_profile
 
 router = APIRouter(prefix="/api/industry", tags=["industry"])
@@ -16,6 +21,21 @@ me_router = APIRouter(prefix="/api/me", tags=["industry"])
 
 def _taxonomy_path() -> Path:
     return PACKS_ROOT / "taxonomy.yaml"
+
+
+@me_router.post("/industry/sync-pack")
+def sync_my_industry_pack() -> dict[str, Any]:
+    from services.industry.pack_client import apply_cloud_manifest_to_cache
+
+    active = get_active_industry_id()
+    effective = apply_cloud_manifest_to_cache(active)
+    cached = load_effective_cache(active) or {}
+    return {
+        "active_industry_id": active,
+        "pack_version": effective.get("pack_version"),
+        "manifest_hash": cached.get("manifest_hash"),
+        "pack_path": str(local_l2_pack_path(active)),
+    }
 
 
 @me_router.get("/industry")

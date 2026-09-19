@@ -34,9 +34,17 @@ def save_industry_profile(active_industry_id: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"active_industry_id": active_industry_id.strip()}
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    from services.industry.config_loader import refresh_effective_cache
+    import os
 
-    refresh_effective_cache(active_industry_id.strip())
+    active = active_industry_id.strip()
+    if os.getenv("AINEWS_CLOUD_API_BASE", "").strip():
+        from services.industry.pack_client import apply_cloud_manifest_to_cache
+
+        apply_cloud_manifest_to_cache(active)
+    else:
+        from services.industry.config_loader import refresh_effective_cache
+
+        refresh_effective_cache(active)
 
 
 def get_active_industry_id() -> str:

@@ -148,10 +148,17 @@ def on_startup():
     logger.info("Ingestion DB initialized")
 
     try:
-        from services.industry.config_loader import refresh_effective_cache
         from services.industry.profile import get_active_industry_id
 
-        refresh_effective_cache(get_active_industry_id())
+        active = get_active_industry_id()
+        if os.getenv("AINEWS_CLOUD_API_BASE", "").strip():
+            from services.industry.pack_client import apply_cloud_manifest_to_cache
+
+            apply_cloud_manifest_to_cache(active)
+        else:
+            from services.industry.config_loader import refresh_effective_cache
+
+            refresh_effective_cache(active)
         logger.info("Effective industry config cache refreshed")
     except Exception:
         logger.exception("Effective industry config cache refresh failed")

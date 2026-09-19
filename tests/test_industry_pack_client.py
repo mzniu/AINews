@@ -7,7 +7,13 @@ from services.industry.constants import DEFAULT_INDUSTRY_ID
 from services.industry.pack_client import fetch_pack_manifest
 
 
-def test_fetch_pack_manifest_uses_bundled_when_cloud_unset(monkeypatch: pytest.MonkeyPatch):
+def test_fetch_pack_manifest_uses_bundled_when_cloud_unset(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(tmp_path))
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
     monkeypatch.delenv("AINEWS_CLOUD_API_BASE", raising=False)
     manifest = fetch_pack_manifest(DEFAULT_INDUSTRY_ID)
     assert manifest["path"] == DEFAULT_INDUSTRY_ID

@@ -110,9 +110,38 @@ def apply_catalog_ref_ops(
     return list(by_id.values())
 
 
-def _pack_paths(industry_id: str) -> tuple[Path, Path]:
+def local_packs_root() -> Path:
+    return get_data_dir() / "cache" / "packs"
+
+
+def local_l2_pack_path(industry_id: str) -> Path:
     l1, l2 = industry_id.split("/", 1)
-    return PACKS_ROOT / l1 / "_defaults.yaml", PACKS_ROOT / l1 / f"{l2}.yaml"
+    return local_packs_root() / l1 / f"{l2}.yaml"
+
+
+def local_l1_defaults_path(industry_id: str) -> Path:
+    l1, _ = industry_id.split("/", 1)
+    return local_packs_root() / l1 / "_defaults.yaml"
+
+
+def resolve_l2_pack_path(industry_id: str) -> Path:
+    local = local_l2_pack_path(industry_id)
+    if local.is_file():
+        return local
+    l1, l2 = industry_id.split("/", 1)
+    return PACKS_ROOT / l1 / f"{l2}.yaml"
+
+
+def resolve_l1_defaults_path(industry_id: str) -> Path:
+    local = local_l1_defaults_path(industry_id)
+    if local.is_file():
+        return local
+    l1, _ = industry_id.split("/", 1)
+    return PACKS_ROOT / l1 / "_defaults.yaml"
+
+
+def _pack_paths(industry_id: str) -> tuple[Path, Path]:
+    return resolve_l1_defaults_path(industry_id), resolve_l2_pack_path(industry_id)
 
 
 def _load_repo_scoring_base() -> dict[str, Any]:
@@ -222,7 +251,7 @@ def load_effective_cache(industry_id: str | None = None) -> dict[str, Any] | Non
 
 
 def manifest_hash_for_pack(industry_id: str) -> str:
-    _, l2_path = _pack_paths(industry_id)
+    l2_path = resolve_l2_pack_path(industry_id)
     if not l2_path.is_file():
         return ""
     digest = hashlib.sha256(l2_path.read_bytes()).hexdigest()
