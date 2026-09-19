@@ -10,6 +10,11 @@ from services.ingestion.hot_radar_settings import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _disable_effective_hot_radar_overlay(monkeypatch):
+    monkeypatch.setenv("AINEWS_DISABLE_EFFECTIVE_CONFIG", "1")
+
+
 def test_save_hot_radar_settings_persists_key_and_boards(tmp_path, monkeypatch):
     base_path = tmp_path / "hot_radar.yaml"
     local_path = tmp_path / "hot_radar.local.yaml"
