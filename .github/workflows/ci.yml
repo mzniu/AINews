@@ -48,6 +48,11 @@ jobs:
       - name: Run pytest
         run: python -m pytest tests/ -v --tb=short
 
+      - name: Cloud Control Plane tests
+        run: |
+          pip install -r cloud/requirements.txt
+          cd cloud && PYTHONPATH=. python -m pytest tests -q
+
   remotion:
     name: Remotion typecheck and bundle
     runs-on: ubuntu-latest

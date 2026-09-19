@@ -496,6 +496,10 @@ pub fn spawn_backend(
     if let Some(token) = cloud_access_token.filter(|t| !t.is_empty()) {
         cmd.env("AINEWS_CLOUD_ACCESS_TOKEN", token);
     }
+    cmd.env(
+        "AINEWS_CLOUD_API_BASE",
+        crate::auth::config::AuthConfig::cloud_api_base_url(),
+    );
 
     if cfg!(debug_assertions) {
         cmd.env("AINES_DEV_MODE", "1");
