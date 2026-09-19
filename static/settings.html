@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AINews · 系统配置</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
-    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260919a">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260919p">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
     <script src="/static/js/shared/theme.js?v=20260917"></script>
     <script src="/static/js/shared/app_nav.js?v=20260917a" defer></script>
@@ -252,21 +252,20 @@
             <div class="card">
                 <h2>当前模板</h2>
                 <p class="section-desc" id="renderTemplateMeta"></p>
-                <div class="form-grid scoring-grade-grid">
+                <div class="render-template-editor">
                     <div>
-                        <label class="field-label" for="renderTemplateBrand">页眉品牌</label>
-                        <input id="renderTemplateBrand" class="form-control" type="text">
+                        <label class="field-label" for="renderTemplateYaml">模板 YAML</label>
+                        <textarea id="renderTemplateYaml" class="form-control prompt-textarea prompt-textarea-lg render-template-yaml" spellcheck="false"></textarea>
                     </div>
-                    <div>
-                        <label class="field-label" for="renderTemplateGlyph">方标字</label>
-                        <input id="renderTemplateGlyph" class="form-control" type="text" maxlength="2">
-                    </div>
-                    <div>
-                        <label class="field-label" for="renderTemplateAccent">强调色</label>
-                        <input id="renderTemplateAccent" class="form-control" type="text" placeholder="#3DDCFF">
+                    <div id="renderTemplatePreview" class="render-template-preview">
+                        <p class="field-label">预览</p>
+                        <img id="renderTemplatePreviewImg" alt="模板封面预览" hidden>
+                        <video id="renderTemplatePreviewVideo" controls playsinline hidden></video>
+                        <p id="renderTemplatePreviewHint" class="hint">改 YAML 后约 1 秒自动刷新封面。</p>
+                        <button type="button" class="btn btn-outline btn-sm" id="previewRenderTemplateVideoBtn">预览短视频</button>
                     </div>
                 </div>
-                <p class="hint">快讯竖屏没有页眉品牌字段，保存时只更新已有 chrome/palette。覆盖项保存在 <code>config/render_templates.local.yaml</code>。</p>
+                <p class="hint">保存写入 <code>config/render_templates.local.yaml</code>（不覆盖仓库内置文件）。从 YAML 删除内置键会回退默认值；要完全自管请先复制再改副本。预览不保存文件。</p>
                 <div class="footer-actions">
                     <button type="button" class="btn" id="saveRenderTemplateBtn">保存当前模板</button>
                     <button type="button" class="btn btn-outline" id="setDefaultRenderTemplateBtn">设为默认</button>
@@ -493,7 +492,7 @@
     <script src="/static/js/settings_content_prompts.js?v=20260815b"></script>
     <script src="/static/js/settings_scoring.js?v=20260813e"></script>
     <script src="/static/js/settings_image_scoring.js?v=20260814a"></script>
-    <script src="/static/js/settings_render_templates.js?v=20260815c"></script>
+    <script src="/static/js/settings_render_templates.js?v=20260919p"></script>
     <script src="/static/js/settings_ingestion.js?v=20260813d"></script>
     <script src="/static/js/settings_hot_radar.js?v=20260919a"></script>
     <script src="/static/js/settings_media_pipeline.js?v=20260813d"></script>

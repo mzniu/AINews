@@ -110,6 +110,41 @@ def set_default_template_id(template_id: str) -> dict[str, Any]:
     return list_render_templates()
 
 
+def dump_render_template_yaml(template_id: str) -> str:
+    spec = get_render_template(template_id)
+    return yaml.dump(spec, allow_unicode=True, sort_keys=False)
+
+
+def save_render_template_from_yaml(template_id: str, yaml_text: str) -> dict[str, Any]:
+    try:
+        parsed = yaml.safe_load(yaml_text)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"invalid_yaml: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("invalid_yaml: mapping required")
+    parsed_id = str(parsed.get("id") or "").strip()
+    if parsed_id and parsed_id != template_id:
+        raise ValueError("template id mismatch")
+    current = get_render_template(template_id)
+    parsed["id"] = template_id
+    if current.get("builtin"):
+        parsed["builtin"] = True
+    _require_layout_kind(parsed)
+    local = _load_yaml(RENDER_TEMPLATES_LOCAL_PATH)
+    items = list(local.get("templates") or [])
+    found = False
+    for index, item in enumerate(items):
+        if str(item.get("id")) == template_id:
+            items[index] = parsed
+            found = True
+            break
+    if not found:
+        items.append(parsed)
+    local["templates"] = items
+    _write_local(local)
+    return get_render_template(template_id)
+
+
 def save_render_template(template_id: str, patch: dict[str, Any]) -> dict[str, Any]:
     current = get_render_template(template_id)
     merged = _deep_merge(current, patch or {})

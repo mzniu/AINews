@@ -8,11 +8,13 @@ import yaml
 
 from services.ingestion.render_templates import (
     delete_render_template,
+    dump_render_template_yaml,
     duplicate_render_template,
     get_default_template_id,
     get_render_template,
     list_render_templates,
     save_render_template,
+    save_render_template_from_yaml,
     set_default_template_id,
 )
 
@@ -194,6 +196,51 @@ def test_save_render_template_writes_local_override(tmp_path, monkeypatch):
     save_render_template("flash_news_portrait", {"label": "快讯竖屏（改名）"})
     assert get_render_template("flash_news_portrait")["label"] == "快讯竖屏（改名）"
     assert get_render_template("flash_news_portrait")["builtin"] is True
+
+
+def test_dump_render_template_yaml_roundtrips_id_and_layout(tmp_path, monkeypatch):
+    _patch_paths(tmp_path, monkeypatch)
+    text = dump_render_template_yaml("flash_news_portrait")
+    loaded = yaml.safe_load(text)
+    assert loaded["id"] == "flash_news_portrait"
+    assert loaded["layout_kind"] == "classic_overlay"
+
+
+def test_save_render_template_from_yaml_replaces_local_entry(tmp_path, monkeypatch):
+    _base, local_path = _patch_paths(tmp_path, monkeypatch)
+    text = dump_render_template_yaml("flash_news_portrait")
+    spec = yaml.safe_load(text)
+    spec.setdefault("typography", {})
+    spec["typography"]["title_font_size"] = 88
+    saved = save_render_template_from_yaml("flash_news_portrait", yaml.dump(spec, allow_unicode=True))
+    assert saved["typography"]["title_font_size"] == 88
+    local = yaml.safe_load(local_path.read_text(encoding="utf-8"))
+    local_row = next(item for item in local["templates"] if item["id"] == "flash_news_portrait")
+    assert local_row["typography"]["title_font_size"] == 88
+
+
+def test_save_render_template_from_yaml_rejects_invalid_yaml(tmp_path, monkeypatch):
+    _patch_paths(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="invalid_yaml"):
+        save_render_template_from_yaml("flash_news_portrait", "id: [\n")
+
+
+def test_save_render_template_from_yaml_rejects_id_mismatch(tmp_path, monkeypatch):
+    _patch_paths(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="id"):
+        save_render_template_from_yaml(
+            "flash_news_portrait",
+            "id: other_template\nlayout_kind: classic_overlay\n",
+        )
+
+
+def test_save_render_template_from_yaml_rejects_unknown_layout_kind(tmp_path, monkeypatch):
+    _patch_paths(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="unknown_layout_kind"):
+        save_render_template_from_yaml(
+            "flash_news_portrait",
+            "id: flash_news_portrait\nlayout_kind: not_a_real_kind\n",
+        )
 
 
 def test_duplicate_render_template_is_not_builtin(tmp_path, monkeypatch):

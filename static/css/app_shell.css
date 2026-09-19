@@ -709,6 +709,37 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     box-shadow: var(--app-shadow-inset), 0 0 0 3px rgba(18, 52, 153, 0.45);
 }
 
+.app-page textarea.render-template-yaml {
+    min-height: 28rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre;
+    tab-size: 2;
+}
+
+.app-page .render-template-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+    gap: 16px;
+    align-items: start;
+}
+
+.app-page .render-template-preview img,
+.app-page .render-template-preview video {
+    width: 100%;
+    border-radius: var(--app-radius-md);
+    background: #000;
+    display: block;
+    margin-bottom: 10px;
+}
+
+@media (max-width: 960px) {
+    .app-page .render-template-editor {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* —— 按钮 —— */
 .app-page .btn {
     display: inline-flex;

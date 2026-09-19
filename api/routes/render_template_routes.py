@@ -13,12 +13,39 @@ def list_render_templates_route():
     return {"success": True, **list_render_templates()}
 
 
+@router.post("/render-templates/preview-cover")
+def preview_render_template_cover_route(body: dict):
+    from services.ingestion.template_preview import preview_cover_from_yaml
+
+    yaml_text = str((body or {}).get("yaml") or "")
+    try:
+        return preview_cover_from_yaml(yaml_text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/render-templates/preview-video")
+def preview_render_template_video_route(body: dict):
+    from services.ingestion.template_preview import preview_video_from_yaml
+
+    yaml_text = str((body or {}).get("yaml") or "")
+    try:
+        return preview_video_from_yaml(yaml_text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/render-templates/{template_id}")
 def get_render_template_route(template_id: str):
-    from services.ingestion.render_templates import get_render_template
+    from services.ingestion.render_templates import dump_render_template_yaml, get_render_template
 
     try:
-        return {"success": True, "template": get_render_template(template_id)}
+        template = get_render_template(template_id)
+        return {
+            "success": True,
+            "template": template,
+            "yaml": dump_render_template_yaml(template_id),
+        }
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -46,6 +73,25 @@ def save_render_template_route(template_id: str, body: dict):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"success": True, "template": template}
+
+
+@router.put("/render-templates/{template_id}/yaml")
+def save_render_template_yaml_route(template_id: str, body: dict):
+    from services.ingestion.render_templates import (
+        dump_render_template_yaml,
+        save_render_template_from_yaml,
+    )
+
+    yaml_text = str((body or {}).get("yaml") or "")
+    try:
+        template = save_render_template_from_yaml(template_id, yaml_text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "success": True,
+        "template": template,
+        "yaml": dump_render_template_yaml(template_id),
+    }
 
 
 @router.post("/render-templates/{template_id}/duplicate")
