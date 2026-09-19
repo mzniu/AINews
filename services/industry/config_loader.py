@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,12 @@ from src.utils.paths import get_data_dir
 PACKS_ROOT = Config.ROOT_DIR / "packs"
 _CACHE_DIRNAME = "effective"
 _CONFIG_FILENAME = "config.json"
+
+
+def effective_config_overlays_enabled() -> bool:
+    """Allow unit tests to opt out of reading cache/effective overlays."""
+    flag = os.getenv("AINEWS_DISABLE_EFFECTIVE_CONFIG", "").strip().lower()
+    return flag not in {"1", "true", "yes"}
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -276,6 +283,8 @@ def refresh_effective_cache(industry_id: str | None = None) -> dict[str, Any]:
 
 
 def scoring_from_effective_cache() -> dict[str, Any] | None:
+    if not effective_config_overlays_enabled():
+        return None
     cached = load_effective_cache()
     if cached is None:
         return None
@@ -284,6 +293,8 @@ def scoring_from_effective_cache() -> dict[str, Any] | None:
 
 
 def hot_radar_from_effective_cache() -> dict[str, Any] | None:
+    if not effective_config_overlays_enabled():
+        return None
     cached = load_effective_cache()
     if cached is None:
         return None
@@ -292,6 +303,8 @@ def hot_radar_from_effective_cache() -> dict[str, Any] | None:
 
 
 def ingestion_from_effective_cache() -> dict[str, Any] | None:
+    if not effective_config_overlays_enabled():
+        return None
     cached = load_effective_cache()
     if cached is None:
         return None
