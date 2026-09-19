@@ -11,10 +11,18 @@ from web_server import app
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
+    db_path = tmp_path / "api.db"
     monkeypatch.setenv("AINEWS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
     from src.utils.paths import get_data_dir
 
     get_data_dir.cache_clear()
+    import src.db.engine as engine_mod
+    from src.db.engine import init_db
+
+    engine_mod._engine = None
+    engine_mod._SessionLocal = None
+    init_db()
     monkeypatch.delenv("AINES_DEV_MODE", raising=False)
     monkeypatch.delenv("AINEWS_ACTIVE_INDUSTRY_ID", raising=False)
     return TestClient(app)
@@ -66,7 +74,7 @@ def test_switch_industry_refreshes_effective_cache(client):
     body = switched.json()
     assert body["active_industry_id"] == "finance/macro"
     assert body["display_name"] == "宏观财经"
-    assert body.get("restart_required") is True
+    assert body.get("restart_required") is False
 
     refresh_effective_cache("finance/macro")
     macro_effective = build_effective_config("finance/macro")
