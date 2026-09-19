@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AINews · 选择内容垂类</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260917">
+    <script src="/static/js/shared/theme.js?v=20260917"></script>
+    <link rel="stylesheet" href="/static/css/onboarding.css?v=20260919">
+</head>
+<body class="app-page onboarding-page">
+    <main class="onboarding-shell">
+        <header class="onboarding-hero">
+            <h1>选择你的内容垂类</h1>
+            <p>请选择一个 L2 垂类，系统将加载对应的抓取源、热榜与评分配置。</p>
+        </header>
+        <nav id="l1Tabs" class="onboarding-l1-tabs" aria-label="行业大类"></nav>
+        <div id="l2Grid" class="onboarding-l2-grid"></div>
+        <footer class="onboarding-actions">
+            <p id="selectionHint" class="hint">请选择一个垂类卡片</p>
+            <button type="button" class="btn" id="confirmBtn" disabled>确认并下载行业包</button>
+            <p id="statusBar" class="status-bar" role="status"></p>
+        </footer>
+    </main>
+    <script src="/static/js/onboarding.js?v=20260919" defer></script>
+</body>
+</html>

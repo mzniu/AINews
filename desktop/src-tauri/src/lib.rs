@@ -86,7 +86,11 @@ impl AppState {
     /// Concurrent callers (e.g. login handler + `auth://status-changed`) share the same
     /// mutex so only one spawn/health-wait runs and late callers wait for readiness
     /// instead of navigating to 127.0.0.1 before the port is listening.
-    pub fn ensure_backend_running(&self) -> Result<String, String> {
+    pub fn ensure_backend_running(
+        &self,
+        auth: Option<&AuthService>,
+    ) -> Result<String, String> {
+        let cloud_token = auth.and_then(|a| a.cloud_access_token_for_backend());
         let mut guard = self.backend.lock().unwrap();
         if guard.is_none() {
             let mut backend = backend::spawn_backend(
@@ -95,6 +99,7 @@ impl AppState {
                 &self.install_dir,
                 &self.user_data,
                 self.port,
+                cloud_token.as_deref(),
             )
             .map_err(|e| {
                 let msg = format!(
@@ -179,6 +184,18 @@ fn navigate_main_window_app(app: &tauri::AppHandle, path: &str) -> Result<(), St
     navigate_main_window(app, &format!("http://tauri.localhost/{}", path.trim_start_matches('/')))
 }
 
+fn main_entry_url(state: &AppState, auth: Option<&AuthService>) -> Result<String, String> {
+    let base = state.ensure_backend_running(auth)?;
+    if dev_mode_enabled() {
+        return Ok(base);
+    }
+    if backend::fetch_needs_industry_onboarding(state.port) {
+        Ok(format!("{}/onboarding.html", base.trim_end_matches('/')))
+    } else {
+        Ok(base)
+    }
+}
+
 fn show_auth_page(app: &tauri::AppHandle) -> Result<(), String> {
     navigate_main_window_app(app, "auth.html")
 }
@@ -200,7 +217,7 @@ fn finish_authorized_startup(app: &tauri::AppHandle, state: &AppState, auth: &Au
         let _ = show_auth_page(app);
         return;
     }
-    match state.ensure_backend_running() {
+    match main_entry_url(state, Some(auth)) {
         Ok(url) => {
             if let Err(err) = navigate_main_window(app, &url) {
                 eprintln!("打开主界面失败: {err}");
@@ -231,7 +248,7 @@ fn auth_start_app(
     }
     auth.start_post_auth_services(&app)
         .map_err(|e| e.to_string())?;
-    let url = state.ensure_backend_running()?;
+    let url = main_entry_url(&state, Some(&auth))?;
     state.clear_startup_error();
     navigate_main_window(&app, &url)?;
     let _ = app.emit("ainews:backend-ready", &url);
@@ -290,7 +307,7 @@ pub fn run() {
     };
 
     let initial_url = if skip_auth {
-        match app_state.ensure_backend_running() {
+        match main_entry_url(&app_state, None) {
             Ok(url) => WebviewUrl::External(url.parse().expect("backend url")),
             Err(err) => {
                 eprintln!("{err}");

@@ -202,6 +202,7 @@
             </div>
             <div class="nav-footer">
                 <div class="nav-footer-row">
+                <a href="/settings#industry" class="nav-industry-chip" id="app-nav-industry" hidden title="当前垂类"></a>
                 <div class="nav-user-menu" id="app-nav-user-menu">
                     <button type="button" class="nav-user-trigger" id="app-nav-user-trigger" aria-label="用户菜单" aria-haspopup="menu" aria-expanded="false" aria-controls="app-nav-user-dropdown">
                         <span class="nav-user-avatar" id="app-nav-user-avatar" aria-hidden="true">U</span>
@@ -232,6 +233,7 @@
         bindNavCollapseButton(root);
         setNavCollapsed(getNavCollapsed());
         bindUserMenu(root);
+        bindIndustryChip(root);
         bindAuthStatusListener(root);
         bindVersion(root);
         if (window.AINewsTheme) {
@@ -493,6 +495,45 @@
         });
     }
 
+    async function bindIndustryChip(root) {
+        const chip = root.querySelector('#app-nav-industry');
+        if (!chip) return;
+        const path = window.location.pathname || '';
+        if (path.includes('onboarding') || path.includes('auth.html')) {
+            chip.hidden = true;
+            return;
+        }
+        try {
+            const resp = await fetch('/api/me/industry');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.needs_onboarding || !data.display_name) {
+                chip.hidden = true;
+                return;
+            }
+            chip.textContent = data.display_name;
+            chip.title = `当前垂类：${data.display_name}`;
+            chip.hidden = false;
+        } catch (err) {
+            console.warn('industry chip lookup failed', err);
+        }
+    }
+
+    async function maybeRedirectIndustryOnboarding() {
+        const path = window.location.pathname || '';
+        if (path.includes('onboarding') || path.includes('auth.html')) return;
+        try {
+            const resp = await fetch('/api/me/industry');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.needs_onboarding) {
+                window.location.href = '/onboarding.html';
+            }
+        } catch (err) {
+            console.warn('industry onboarding gate failed', err);
+        }
+    }
+
     async function bindVersion(root) {
         const el = root.querySelector('#app-nav-version');
         if (!el) return;
@@ -516,6 +557,8 @@
         }).catch((err) => console.warn('auth listener unavailable', err));
         listen('ainews:backend-ready', () => {
             bindUserMenu(root).catch((err) => console.warn(err));
+            bindIndustryChip(root).catch((err) => console.warn(err));
+            maybeRedirectIndustryOnboarding().catch((err) => console.warn(err));
         }).catch(() => {});
     }
 
@@ -548,6 +591,7 @@
         if (root) {
             renderNav(root);
             initGlobalSearch();
+            maybeRedirectIndustryOnboarding().catch((err) => console.warn(err));
         }
     }
 

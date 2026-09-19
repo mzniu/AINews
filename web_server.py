@@ -90,6 +90,11 @@ async def auth_page():
     return FileResponse(Config.ROOT_DIR / "static" / "auth.html")
 
 
+@app.get("/onboarding.html", include_in_schema=False)
+async def onboarding_page():
+    return FileResponse(Config.ROOT_DIR / "static" / "onboarding.html")
+
+
 @app.get("/favicon.png", include_in_schema=False)
 async def favicon_png():
     return FileResponse(Config.ROOT_DIR / "static" / "favicon.png")

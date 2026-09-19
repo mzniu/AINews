@@ -30,6 +30,7 @@
             <button type="button" class="settings-tab" data-tab="render-templates">🎬 成片模板</button>
             <button type="button" class="settings-tab" data-tab="ingestion">🕷️ 爬取设定</button>
             <button type="button" class="settings-tab" data-tab="hot-radar">📡 热榜雷达</button>
+            <button type="button" class="settings-tab" data-tab="industry">🎯 我的垂类</button>
         </nav>
 
         <div class="settings-content">
@@ -470,6 +471,22 @@
                 <div id="usageStatusBar" class="status-bar"></div>
             </div>
         </div>
+
+        <div id="panel-industry" class="settings-panel" hidden>
+            <div class="card">
+                <div class="section-head">
+                    <h2>🎯 我的垂类</h2>
+                </div>
+                <p class="section-desc">当前工作台按所选 L2 垂类过滤文章与候选；切换后需重启 Python 服务。</p>
+                <div id="industryCurrent" class="form-grid"></div>
+                <div class="toolbar-row" style="margin-top:1rem;">
+                    <select id="industrySwitchSelect" class="form-control" style="min-width:240px;"></select>
+                    <button type="button" class="btn btn-outline" id="industrySwitchBtn">切换垂类</button>
+                    <button type="button" class="btn btn-outline" id="industrySyncPackBtn">重新同步行业包</button>
+                </div>
+                <div id="industryStatusBar" class="status-bar"></div>
+            </div>
+        </div>
         </div>
     </div>
     <script src="/static/js/model_settings.js?v=20260813d"></script>
@@ -481,6 +498,7 @@
     <script src="/static/js/settings_hot_radar.js?v=20260822b"></script>
     <script src="/static/js/settings_media_pipeline.js?v=20260813d"></script>
     <script src="/static/js/settings_token_usage.js?v=20260824a"></script>
-    <script src="/static/js/settings_tabs.js?v=20260824a"></script>
+    <script src="/static/js/settings_industry.js?v=20260919"></script>
+    <script src="/static/js/settings_tabs.js?v=20260919"></script>
 </body>
 </html>
