@@ -1,0 +1,44 @@
+schema_version: 1
+industry:
+  path: finance/macro
+  l1: finance
+  l2: macro
+  display_name: 宏观财经
+  pack_version: "1.0.0"
+  extends: finance/_defaults.yaml
+
+ingestion:
+  sources:
+    add:
+      - ref: qq_news_fx
+    remove: []
+    patch: []
+
+hot_radar:
+  boards:
+    add:
+      - ref: sina_ai
+    remove: []
+    patch:
+      - ref: sina_ai
+        display: 宏观舆情
+
+scoring:
+  profile: flash_news
+  overrides:
+    industry_bonus:
+      max_total_points: 7
+    keywords:
+      tier_s: ["央行", "GDP", "通胀", "降息"]
+      tier_a: ["PMI", "CPI", "汇率", "国债"]
+    weights:
+      hot_radar: 0.08
+
+content_methodology:
+  target_audience_template: "关注宏观经济与政策走向的读者"
+  praise_tag_candidates:
+    add: ["看得懂政策", "宏观嗅觉准"]
+
+metadata:
+  updated_at: "2026-09-19T00:00:00Z"
+  content_hash: "bundled-finance-macro-m0d"

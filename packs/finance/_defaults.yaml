@@ -1,0 +1,13 @@
+schema_version: 1
+l1: finance
+display_name: 财经
+
+scoring:
+  overrides:
+    weights:
+      timeliness: 0.14
+      relevance: 0.16
+
+content_methodology:
+  praise_tag_candidates:
+    add: ["懂宏观", "有判断力"]
