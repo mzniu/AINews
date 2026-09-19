@@ -155,15 +155,23 @@ def _load_repo_scoring_base() -> dict[str, Any]:
 
 
 def _load_repo_ingestion_base() -> dict[str, Any]:
-    from services.ingestion.settings import load_merged_ingestion_config
+    from services.ingestion.settings import (
+        load_ingestion_base,
+        load_ingestion_local,
+        merge_ingestion_config,
+    )
 
-    return load_merged_ingestion_config()
+    return merge_ingestion_config(load_ingestion_base(), load_ingestion_local())
 
 
 def _load_repo_hot_radar_base() -> dict[str, Any]:
-    from services.ingestion.hot_radar_settings import load_merged_hot_radar_config
+    from services.ingestion.hot_radar_settings import (
+        load_hot_radar_base,
+        load_hot_radar_local,
+        merge_hot_radar_config,
+    )
 
-    return load_merged_hot_radar_config()
+    return merge_hot_radar_config(load_hot_radar_base(), load_hot_radar_local())
 
 
 def _apply_pack_to_scoring(

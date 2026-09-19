@@ -116,6 +116,25 @@ def test_effective_pack_keywords_boost_relevance_score(
     assert relevance.score >= 5.0
 
 
+def test_build_effective_ignores_stale_effective_cache_overlay(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("AINEWS_DATA_DIR", str(tmp_path))
+    from src.utils.paths import get_data_dir
+
+    get_data_dir.cache_clear()
+    write_effective_cache(
+        DEFAULT_INDUSTRY_ID,
+        {
+            "industry_id": DEFAULT_INDUSTRY_ID,
+            "scoring": {"industry_bonus": {"max_total_points": 1}},
+        },
+        manifest_hash="stale",
+    )
+    fresh = build_effective_config(DEFAULT_INDUSTRY_ID)
+    assert fresh["scoring"]["industry_bonus"]["max_total_points"] == 8
+
+
 def test_load_merged_scoring_config_applies_effective_cache(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
