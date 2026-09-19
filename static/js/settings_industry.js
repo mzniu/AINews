@@ -66,11 +66,20 @@ document.getElementById("industrySyncPackBtn")?.addEventListener("click", async 
     const statusBar = document.getElementById("industryStatusBar");
     if (statusBar) statusBar.textContent = "同步中…";
     const res = await fetch("/api/me/industry/sync-pack", { method: "POST" });
+    const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-        if (statusBar) statusBar.textContent = "同步失败";
+        if (statusBar) {
+            statusBar.textContent = body.detail || body.message || "同步失败";
+        }
         return;
     }
-    if (statusBar) statusBar.textContent = "行业包已同步";
+    if (statusBar) {
+        const source = body.pack_source === "cloud" ? "云端" : "内置";
+        const reloadNote = body.reload_error
+            ? `（调度刷新异常：${body.reload_error}）`
+            : "";
+        statusBar.textContent = body.message || `${source}行业包已同步${reloadNote}`;
+    }
     loadIndustrySettings();
 });
 
