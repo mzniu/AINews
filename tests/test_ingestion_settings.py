@@ -1,10 +1,17 @@
 """Tests for ingestion settings merge."""
+import pytest
+
 from services.ingestion.settings import (
     build_local_from_public,
     merge_ingestion_config,
     public_ingestion_settings,
     save_ingestion_local,
 )
+
+
+@pytest.fixture(autouse=True)
+def _disable_effective_ingestion_overlay(monkeypatch):
+    monkeypatch.setenv("AINEWS_DISABLE_EFFECTIVE_CONFIG", "1")
 
 
 def test_merge_local_overrides_source_fields(tmp_path, monkeypatch):
