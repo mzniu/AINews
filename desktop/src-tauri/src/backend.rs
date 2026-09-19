@@ -463,6 +463,7 @@ pub fn spawn_backend(
     install_dir: &Path,
     data_dir: &Path,
     port: u16,
+    cloud_access_token: Option<&str>,
 ) -> std::io::Result<BackendProcess> {
     let launch = prepare_python_runtime(python)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
@@ -491,6 +492,10 @@ pub fn spawn_backend(
         .env("AINEWS_DATA_DIR", data_dir)
         .env("AINEWS_RESOURCE_DIR", app_dir)
         .env("PORT", port.to_string());
+
+    if let Some(token) = cloud_access_token.filter(|t| !t.is_empty()) {
+        cmd.env("AINEWS_CLOUD_ACCESS_TOKEN", token);
+    }
 
     if cfg!(debug_assertions) {
         cmd.env("AINES_DEV_MODE", "1");
@@ -595,6 +600,29 @@ pub fn wait_for_health(
         msg.push_str(&format!("\n最近日志:\n{tail}"));
     }
     Err(msg)
+}
+
+/// After health succeeds, ask the local API whether industry onboarding is required.
+pub fn fetch_needs_industry_onboarding(port: u16) -> bool {
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let url = format!("http://127.0.0.1:{port}/api/me/industry");
+    match client.get(&url).send() {
+        Ok(resp) if resp.status().is_success() => resp
+            .json::<serde_json::Value>()
+            .ok()
+            .and_then(|body| {
+                body.get("needs_onboarding")
+                    .and_then(|v| v.as_bool())
+            })
+            .unwrap_or(false),
+        _ => false,
+    }
 }
 
 impl BackendProcess {

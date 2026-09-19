@@ -19,7 +19,7 @@
         if (!res.ok) return;
         const body = await res.json();
         if (!body.needs_onboarding) {
-            window.location.href = "/static/index.html";
+            window.location.href = "/";
         }
     }
 
@@ -101,7 +101,7 @@
             const syncRes = await fetch("/api/me/industry/sync-pack", { method: "POST" });
             if (!syncRes.ok) throw new Error("行业包同步失败");
             setStatus("完成，正在进入工作台…");
-            window.location.href = "/static/index.html";
+            window.location.href = "/";
         } catch (err) {
             setStatus(err.message || String(err), true);
             confirmBtn.disabled = false;

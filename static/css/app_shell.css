@@ -1145,6 +1145,27 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     min-width: 0;
 }
 
+.app-page .nav-industry-chip {
+    flex-shrink: 0;
+    max-width: 7.5rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--nav-chrome-btn-border);
+    background: var(--nav-chrome-btn-bg);
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.app-page .nav-industry-chip:hover {
+    color: var(--color-text);
+    border-color: var(--color-border-strong, var(--nav-chrome-btn-border));
+}
+
 .app-page .theme-toggle {
     display: inline-flex;
     align-items: center;

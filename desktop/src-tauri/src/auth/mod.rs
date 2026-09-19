@@ -194,6 +194,20 @@ impl AuthService {
             .unwrap_or(false)
     }
 
+    /// Cloud Control Plane bearer token for the embedded Python API (industry sync).
+    pub fn cloud_access_token_for_backend(&self) -> Option<String> {
+        let guard = self.session.lock().unwrap();
+        guard.as_ref().and_then(|session| {
+            if session.mode != AuthMode::Online {
+                return None;
+            }
+            session
+                .access_token
+                .clone()
+                .filter(|token| !token.is_empty())
+        })
+    }
+
     /// Online sessions allow all product features; offline grants use payload `features`.
     pub fn allows_feature(&self, feature: &str) -> bool {
         let guard = self.session.lock().unwrap();
