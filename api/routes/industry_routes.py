@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from services.industry.config_loader import (
     PACKS_ROOT,
@@ -13,19 +14,71 @@ from services.industry.config_loader import (
     load_effective_cache,
     local_l2_pack_path,
 )
-from services.industry.profile import get_active_industry_id, load_industry_profile
+from services.industry.profile import (
+    activate_industry_l2,
+    get_declared_active_industry_id,
+    load_industry_profile,
+    needs_industry_onboarding,
+)
+from services.industry.taxonomy import find_l2
 
 router = APIRouter(prefix="/api/industry", tags=["industry"])
 me_router = APIRouter(prefix="/api/me", tags=["industry"])
+
+
+class IndustryActivateBody(BaseModel):
+    active_industry_id: str = Field(..., min_length=3, max_length=128)
+
+
+def _me_industry_payload() -> dict[str, Any]:
+    active = get_declared_active_industry_id()
+    cached = load_effective_cache(active) if active else {}
+    meta = find_l2(active) if active else None
+    return {
+        "active_industry_id": active,
+        "display_name": meta.get("display_name") if meta else None,
+        "pack_version": (cached or {}).get("pack_version") or (
+            meta.get("pack_version") if meta else None
+        ),
+        "manifest_hash": (cached or {}).get("manifest_hash"),
+        "status": meta.get("status") if meta else None,
+        "needs_onboarding": needs_industry_onboarding(),
+        "profile": load_industry_profile(),
+    }
 
 
 def _taxonomy_path() -> Path:
     return PACKS_ROOT / "taxonomy.yaml"
 
 
+@me_router.put("/industry")
+def put_my_industry(body: IndustryActivateBody) -> dict[str, Any]:
+    try:
+        activate_industry_l2(body.active_industry_id.strip(), complete_onboarding=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _me_industry_payload()
+
+
+@me_router.post("/industry/switch")
+def switch_my_industry(body: IndustryActivateBody) -> dict[str, Any]:
+    try:
+        activate_industry_l2(
+            body.active_industry_id.strip(),
+            complete_onboarding=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    payload = _me_industry_payload()
+    payload["restart_required"] = True
+    payload["message"] = "切换垂类后请重启 Python 服务以加载新的 effective 配置。"
+    return payload
+
+
 @me_router.post("/industry/sync-pack")
 def sync_my_industry_pack() -> dict[str, Any]:
     from services.industry.pack_client import apply_cloud_manifest_to_cache
+    from services.industry.profile import get_active_industry_id
 
     active = get_active_industry_id()
     effective = apply_cloud_manifest_to_cache(active)
@@ -40,15 +93,7 @@ def sync_my_industry_pack() -> dict[str, Any]:
 
 @me_router.get("/industry")
 def get_my_industry() -> dict[str, Any]:
-    active = get_active_industry_id()
-    cached = load_effective_cache(active) or {}
-    profile = load_industry_profile()
-    return {
-        "active_industry_id": active,
-        "pack_version": cached.get("pack_version"),
-        "manifest_hash": cached.get("manifest_hash"),
-        "profile": profile,
-    }
+    return _me_industry_payload()
 
 
 @router.get("/taxonomy")

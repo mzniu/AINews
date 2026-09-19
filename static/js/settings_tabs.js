@@ -28,6 +28,9 @@
             if (tab === 'usage') {
                 window.loadTokenUsage?.();
             }
+            if (tab === 'industry') {
+                window.loadIndustrySettings?.();
+            }
         });
     });
 

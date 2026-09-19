@@ -1,0 +1,70 @@
+.onboarding-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+
+.onboarding-shell {
+    width: min(960px, 100%);
+}
+
+.onboarding-hero h1 {
+    margin: 0 0 0.5rem;
+}
+
+.onboarding-l1-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1.5rem 0 1rem;
+}
+
+.onboarding-l1-tabs button {
+    border: 1px solid var(--border-subtle, #444);
+    background: transparent;
+    color: inherit;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.onboarding-l1-tabs button.active {
+    background: var(--accent, #3b82f6);
+    border-color: transparent;
+    color: #fff;
+}
+
+.onboarding-l2-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+}
+
+.onboarding-card {
+    border: 1px solid var(--border-subtle, #444);
+    border-radius: 12px;
+    padding: 1rem;
+    cursor: pointer;
+    text-align: left;
+    background: var(--surface-elevated, rgba(255, 255, 255, 0.04));
+}
+
+.onboarding-card.selected {
+    border-color: var(--accent, #3b82f6);
+    box-shadow: 0 0 0 1px var(--accent, #3b82f6);
+}
+
+.onboarding-card .badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 6px;
+    margin-left: 0.35rem;
+    background: rgba(234, 179, 8, 0.2);
+}
+
+.onboarding-actions {
+    margin-top: 1.5rem;
+}

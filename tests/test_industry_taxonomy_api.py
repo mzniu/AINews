@@ -13,8 +13,8 @@ def test_me_industry_returns_active_profile(tmp_path, monkeypatch):
     get_data_dir.cache_clear()
     from services.industry.config_loader import refresh_effective_cache
 
-    refresh_effective_cache("tech/ai")
     client = TestClient(app)
+    client.put("/api/me/industry", json={"active_industry_id": "tech/ai"})
     response = client.get("/api/me/industry")
     assert response.status_code == 200
     body = response.json()
