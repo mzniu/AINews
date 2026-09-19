@@ -7,11 +7,18 @@ from web_server import app
 
 
 def test_me_industry_returns_active_profile(tmp_path, monkeypatch):
+    db_path = tmp_path / "api.db"
     monkeypatch.setenv("AINEWS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
     from src.utils.paths import get_data_dir
 
     get_data_dir.cache_clear()
-    from services.industry.config_loader import refresh_effective_cache
+    import src.db.engine as engine_mod
+    from src.db.engine import init_db
+
+    engine_mod._engine = None
+    engine_mod._SessionLocal = None
+    init_db()
 
     client = TestClient(app)
     client.put("/api/me/industry", json={"active_industry_id": "tech/ai"})
