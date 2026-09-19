@@ -1,0 +1,58 @@
+schema_version: 1
+industry:
+  path: tech/ai
+  l1: tech
+  l2: ai
+  display_name: 人工智能
+  pack_version: "1.0.0"
+  extends: tech/_defaults.yaml
+
+ingestion:
+  sources:
+    add:
+      - ref: kr36_ai
+      - ref: qbitai
+      - ref: leiphone_ai
+      - ref: qq_news_fx
+      - ref: ithome_it
+      - ref: techcrunch_ai
+      - ref: venturebeat_ai
+      - ref: readhub_ai
+      - ref: aibase_daily
+      - ref: ifeng_ai
+      - ref: sina_tech
+    remove: []
+    patch: []
+
+hot_radar:
+  boards:
+    add:
+      - ref: sina_ai
+      - ref: ithome_ai
+      - ref: readhub_ai
+      - ref: kr36_ai
+      - ref: qbitai_daily
+      - ref: aibase_daily
+      - ref: ifeng_ai
+    remove: []
+    patch: []
+
+scoring:
+  profile: flash_news
+  overrides:
+    industry_bonus:
+      max_total_points: 8
+    keywords:
+      tier_s: ["大模型", "Agent", "算力", "OpenAI", "DeepSeek"]
+      tier_a: ["融资", "开源", "机器人"]
+    weights:
+      hot_radar: 0.06
+
+content_methodology:
+  target_audience_template: "AI 技术从业者与科技爱好者"
+  praise_tag_candidates:
+    add: ["懂行", "有前瞻性", "会判断趋势"]
+
+metadata:
+  updated_at: "2026-09-17T00:00:00Z"
+  content_hash: "bundled-tech-ai-m0b"

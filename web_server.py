@@ -52,6 +52,7 @@ from api.routes.publishing_routes import router as publishing_router
 from api.routes.search_routes import router as search_router
 from api.routes.model_config_routes import router as model_config_router
 from api.routes.health_routes import router as health_router
+from api.routes.industry_routes import router as industry_router
 from src.utils.config import Config
 from src.utils.uvicorn_workers import effective_uvicorn_workers
 
@@ -124,6 +125,7 @@ app.include_router(render_template_router)
 app.include_router(publishing_router)
 app.include_router(search_router)
 app.include_router(model_config_router)
+app.include_router(industry_router)
 # main_routes 放在最后，避免被其他路由覆盖，并添加 API 前缀
 print(f"main_router: {main_router}")
 app.include_router(main_router)
@@ -142,6 +144,15 @@ def on_startup():
         sync_sources_to_db(session)
         session.commit()
     logger.info("Ingestion DB initialized")
+
+    try:
+        from services.industry.config_loader import refresh_effective_cache
+        from services.industry.profile import get_active_industry_id
+
+        refresh_effective_cache(get_active_industry_id())
+        logger.info("Effective industry config cache refreshed")
+    except Exception:
+        logger.exception("Effective industry config cache refresh failed")
 
     if get_publish_worker_mode() == "embedded":
         if effective_uvicorn_workers() > 1:

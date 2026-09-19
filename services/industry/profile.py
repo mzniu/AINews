@@ -34,6 +34,9 @@ def save_industry_profile(active_industry_id: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"active_industry_id": active_industry_id.strip()}
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    from services.industry.config_loader import refresh_effective_cache
+
+    refresh_effective_cache(active_industry_id.strip())
 
 
 def get_active_industry_id() -> str:

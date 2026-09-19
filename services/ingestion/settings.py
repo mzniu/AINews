@@ -93,7 +93,18 @@ def merge_ingestion_config(base: dict[str, Any], local: dict[str, Any]) -> dict[
 def load_merged_ingestion_config() -> dict[str, Any]:
     base = load_ingestion_base()
     local = load_ingestion_local()
-    return merge_ingestion_config(base, local)
+    merged = merge_ingestion_config(base, local)
+    from services.industry.config_loader import ingestion_from_effective_cache
+
+    effective = ingestion_from_effective_cache()
+    if effective:
+        if effective.get("defaults"):
+            merged["defaults"] = _deep_merge(
+                merged.get("defaults") or {}, effective["defaults"]
+            )
+        if effective.get("sources"):
+            merged["sources"] = copy.deepcopy(effective["sources"])
+    return merged
 
 
 def save_ingestion_local(payload: dict[str, Any]) -> dict[str, Any]:
