@@ -154,6 +154,34 @@ STAGE_2_AFTER_SUMMARY = """7. tags（标签）：严格 10 个，每个以 # 开
 """
 
 
+def _effective_pack_methodology_section() -> str:
+    from services.industry.config_loader import content_methodology_from_effective_cache
+
+    pack = content_methodology_from_effective_cache()
+    if not pack:
+        return ""
+    lines = ["【当前垂类行业包】"]
+    audience = pack.get("target_audience_template")
+    if isinstance(audience, str) and audience.strip():
+        lines.append(f"- 目标受众：{audience.strip()}")
+    praise = pack.get("praise_tag_candidates")
+    if isinstance(praise, dict):
+        added = praise.get("add") or []
+        if added:
+            lines.append(f"- 夸赞标签补充候选：{', '.join(str(t) for t in added)}")
+    elif isinstance(praise, list) and praise:
+        lines.append(f"- 夸赞标签补充候选：{', '.join(str(t) for t in praise)}")
+    examples = pack.get("industry_examples")
+    if isinstance(examples, list) and examples:
+        lines.append("- 行业示例（仅供语感参考）：")
+        for item in examples[:3]:
+            if isinstance(item, dict):
+                lines.append(
+                    f"  · {item.get('audience', '')} / {item.get('topic_hook', '')}"
+                )
+    return "\n".join(lines) + "\n\n"
+
+
 def build_methodology_prompt_section(*, vmin: int, vmax: int, json_template: str) -> str:
     """拼装方法论 prompt 段落，供主页与 GitHub 流程复用。
 
@@ -163,6 +191,7 @@ def build_methodology_prompt_section(*, vmin: int, vmax: int, json_template: str
     """
     from services.content_prompts import get_title_prompts
 
+    pack_section = _effective_pack_methodology_section()
     prompts = get_title_prompts()
     content_formula = prompts.get("content_formula") or CONTENT_FORMULA
     main_line1_patterns = prompts.get("main_line1_patterns") or MAIN_LINE1_HOOK_PATTERNS
@@ -186,6 +215,7 @@ def build_methodology_prompt_section(*, vmin: int, vmax: int, json_template: str
     return (
         METHODOLOGY_CORE
         + "\n"
+        + pack_section
         + content_formula
         + "\n"
         + PRAISE_TAG_CANDIDATES

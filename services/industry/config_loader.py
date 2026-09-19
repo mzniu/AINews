@@ -260,3 +260,11 @@ def ingestion_from_effective_cache() -> dict[str, Any] | None:
         return None
     ingestion = cached.get("ingestion")
     return ingestion if isinstance(ingestion, dict) else None
+
+
+def content_methodology_from_effective_cache() -> dict[str, Any] | None:
+    cached = load_effective_cache()
+    if cached is None:
+        return None
+    methodology = cached.get("content_methodology")
+    return methodology if isinstance(methodology, dict) else None

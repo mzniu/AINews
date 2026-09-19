@@ -7,13 +7,28 @@ from typing import Any
 import yaml
 from fastapi import APIRouter, HTTPException
 
-from services.industry.config_loader import PACKS_ROOT, _load_yaml
+from services.industry.config_loader import PACKS_ROOT, _load_yaml, load_effective_cache
+from services.industry.profile import get_active_industry_id, load_industry_profile
 
 router = APIRouter(prefix="/api/industry", tags=["industry"])
+me_router = APIRouter(prefix="/api/me", tags=["industry"])
 
 
 def _taxonomy_path() -> Path:
     return PACKS_ROOT / "taxonomy.yaml"
+
+
+@me_router.get("/industry")
+def get_my_industry() -> dict[str, Any]:
+    active = get_active_industry_id()
+    cached = load_effective_cache(active) or {}
+    profile = load_industry_profile()
+    return {
+        "active_industry_id": active,
+        "pack_version": cached.get("pack_version"),
+        "manifest_hash": cached.get("manifest_hash"),
+        "profile": profile,
+    }
 
 
 @router.get("/taxonomy")

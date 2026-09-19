@@ -52,6 +52,7 @@ from api.routes.publishing_routes import router as publishing_router
 from api.routes.search_routes import router as search_router
 from api.routes.model_config_routes import router as model_config_router
 from api.routes.health_routes import router as health_router
+from api.routes.industry_routes import me_router as industry_me_router
 from api.routes.industry_routes import router as industry_router
 from src.utils.config import Config
 from src.utils.uvicorn_workers import effective_uvicorn_workers
@@ -126,6 +127,7 @@ app.include_router(publishing_router)
 app.include_router(search_router)
 app.include_router(model_config_router)
 app.include_router(industry_router)
+app.include_router(industry_me_router)
 # main_routes 放在最后，避免被其他路由覆盖，并添加 API 前缀
 print(f"main_router: {main_router}")
 app.include_router(main_router)
