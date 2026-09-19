@@ -18,6 +18,11 @@ from services.ingestion.scoring_settings import (
 from src.utils.config import Config
 
 
+@pytest.fixture(autouse=True)
+def _disable_effective_scoring_overlay(monkeypatch):
+    monkeypatch.setenv("AINEWS_DISABLE_EFFECTIVE_CONFIG", "1")
+
+
 SAVE_FIRST_CASES = [
     pytest.param(
         save_auto_publish_settings,

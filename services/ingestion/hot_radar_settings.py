@@ -159,7 +159,13 @@ def merge_hot_radar_config(base: dict[str, Any], local: dict[str, Any]) -> dict[
 
 
 def load_merged_hot_radar_config() -> dict[str, Any]:
-    return merge_hot_radar_config(load_hot_radar_base(), load_hot_radar_local())
+    merged = merge_hot_radar_config(load_hot_radar_base(), load_hot_radar_local())
+    from services.industry.config_loader import hot_radar_from_effective_cache
+
+    effective = hot_radar_from_effective_cache()
+    if effective:
+        merged = merge_hot_radar_config(merged, effective)
+    return merged
 
 
 def load_hot_radar_config(path: Path | None = None) -> dict[str, Any]:

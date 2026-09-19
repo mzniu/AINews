@@ -71,9 +71,13 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 def load_merged_scoring_config() -> dict[str, Any]:
     base = _load_yaml(SCORING_BASE_PATH)
     local = _load_local_yaml()
-    if not local:
-        return base
-    return _deep_merge(base, local)
+    merged = _deep_merge(base, local) if local else base
+    from services.industry.config_loader import scoring_from_effective_cache
+
+    effective = scoring_from_effective_cache()
+    if effective:
+        merged = _deep_merge(merged, effective)
+    return merged
 
 
 def get_auto_publish_settings() -> dict[str, Any]:

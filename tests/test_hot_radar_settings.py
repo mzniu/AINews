@@ -1,6 +1,8 @@
 """Tests for hot radar settings merge/save."""
 from __future__ import annotations
 
+import pytest
+
 from services.ingestion.hot_radar_settings import (
     load_merged_hot_radar_config,
     public_hot_radar_settings,

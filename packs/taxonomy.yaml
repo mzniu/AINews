@@ -1,0 +1,42 @@
+schema_version: 1
+l1:
+  - slug: tech
+    display_name: 科技
+    sort_order: 1
+    l2:
+      - path: tech/ai
+        display_name: 人工智能
+        pack_version: "1.0.0"
+        status: active
+      - path: tech/digital
+        display_name: 数码科技
+        pack_version: "1.0.0"
+        status: beta
+  - slug: finance
+    display_name: 财经
+    sort_order: 2
+    l2:
+      - path: finance/macro
+        display_name: 宏观财经
+        pack_version: "1.0.0"
+        status: active
+      - path: finance/equities
+        display_name: A股权益
+        pack_version: "1.0.0"
+        status: beta
+  - slug: entertainment
+    display_name: 娱乐
+    sort_order: 3
+    l2:
+      - path: entertainment/intl-celebrity
+        display_name: 国际娱乐
+        pack_version: "1.0.0"
+        status: active
+  - slug: sports
+    display_name: 体育
+    sort_order: 4
+    l2:
+      - path: sports/basketball
+        display_name: 篮球
+        pack_version: "1.0.0"
+        status: active

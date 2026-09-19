@@ -1,0 +1,13 @@
+schema_version: 1
+l1: tech
+display_name: 科技
+
+scoring:
+  overrides:
+    weights:
+      relevance: 0.15
+      timeliness: 0.12
+
+content_methodology:
+  praise_tag_candidates:
+    add: ["认知高", "有眼界"]
