@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ainews
+      POSTGRES_PASSWORD: ainews
+      POSTGRES_DB: ainews_cloud
+    ports:
+      - "5433:5432"
+    volumes:
+      - ainews_cloud_pg:/var/lib/postgresql/data
+
+volumes:
+  ainews_cloud_pg:
