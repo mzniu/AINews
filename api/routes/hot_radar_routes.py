@@ -97,6 +97,17 @@ def update_hot_radar_settings_route(body: dict, request: Request):
 
         settings = save_hot_radar_settings(body)
 
+        from services.industry.config_loader import (
+            effective_config_overlays_enabled,
+            refresh_effective_cache,
+        )
+
+        if effective_config_overlays_enabled():
+            try:
+                refresh_effective_cache()
+            except Exception:
+                pass
+
         worker = getattr(request.app.state, "ingestion_worker", None)
 
         if worker is not None:
@@ -115,6 +126,35 @@ def update_hot_radar_settings_route(body: dict, request: Request):
 
 
 
+
+
+@router.get("/hot-radar/nodes")
+def list_hot_radar_nodes(refresh: bool = Query(False)):
+    from services.ingestion.hot_radar_settings import resolve_tophub_access_key
+    from services.ingestion.tophub_catalog import (
+        TophubAuthError,
+        TophubCatalogError,
+        list_tophub_nodes,
+    )
+
+    cfg = load_hot_radar_config()
+    try:
+        catalog = list_tophub_nodes(
+            refresh=refresh,
+            access_key=resolve_tophub_access_key(cfg),
+            api_base_url=str(cfg.get("api_base_url") or "https://api.tophubdata.com"),
+        )
+    except TophubAuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except TophubCatalogError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {
+        "success": True,
+        "stale": catalog.stale,
+        "fetched_at": catalog.fetched_at,
+        "count": len(catalog.items),
+        "items": catalog.items,
+    }
 
 
 @router.get("/hot-radar", response_model=HotRadarSnapshotOut)

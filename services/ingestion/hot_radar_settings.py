@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 
+from services.industry.profile import get_active_industry_id
 from src.utils.config import Config
 
 HOT_RADAR_BASE_PATH = Config.ROOT_DIR / "config" / "hot_radar.yaml"
@@ -158,14 +159,44 @@ def merge_hot_radar_config(base: dict[str, Any], local: dict[str, Any]) -> dict[
     return merged
 
 
+def apply_selected_boards(
+    merged: dict[str, Any],
+    local: dict[str, Any],
+    active_industry_id: str,
+) -> dict[str, Any]:
+    """Project per-industry selected boards after pack overlay. Empty list is not missing."""
+    selected_map = local.get("selected_by_industry")
+    if not isinstance(selected_map, dict) or active_industry_id not in selected_map:
+        return merged
+    raw_selected = selected_map.get(active_industry_id) or []
+    by_id = {str(board.get("id") or ""): board for board in merged.get("boards") or [] if board.get("id")}
+    projected: list[dict[str, Any]] = []
+    for entry in raw_selected:
+        if isinstance(entry, dict):
+            board_id = str(entry.get("id") or "").strip()
+            enabled = bool(entry.get("enabled", True))
+        else:
+            board_id = str(entry or "").strip()
+            enabled = True
+        if not board_id or board_id not in by_id:
+            continue
+        row = copy.deepcopy(by_id[board_id])
+        row["id"] = board_id
+        row["enabled"] = enabled
+        projected.append(row)
+    merged["boards"] = projected
+    return merged
+
+
 def load_merged_hot_radar_config() -> dict[str, Any]:
-    merged = merge_hot_radar_config(load_hot_radar_base(), load_hot_radar_local())
+    local = load_hot_radar_local()
+    merged = merge_hot_radar_config(load_hot_radar_base(), local)
     from services.industry.config_loader import hot_radar_from_effective_cache
 
     effective = hot_radar_from_effective_cache()
     if effective:
         merged = merge_hot_radar_config(merged, effective)
-    return merged
+    return apply_selected_boards(merged, local, get_active_industry_id())
 
 
 def load_hot_radar_config(path: Path | None = None) -> dict[str, Any]:
@@ -185,12 +216,17 @@ def enabled_boards(config: dict[str, Any] | None = None) -> list[dict[str, Any]]
 
 
 def public_hot_radar_settings() -> dict[str, Any]:
-    base = load_hot_radar_base()
     local = load_hot_radar_local()
-    merged = merge_hot_radar_config(base, local)
+    merged = load_merged_hot_radar_config()
     access_key = resolve_tophub_access_key(merged)
+    active_industry_id = get_active_industry_id()
+    selected_map = local.get("selected_by_industry") if isinstance(local.get("selected_by_industry"), dict) else {}
+    has_user_selection = active_industry_id in selected_map
+    source_boards = list(merged.get("boards") or [])
+    if not has_user_selection:
+        source_boards = [board for board in source_boards if board.get("enabled", True)]
     boards_public = []
-    for board in merged.get("boards") or []:
+    for board in source_boards:
         boards_public.append(
             {
                 "id": board.get("id"),
@@ -208,6 +244,8 @@ def public_hot_radar_settings() -> dict[str, Any]:
         "max_age_minutes": int(merged.get("max_age_minutes", 1440)),
         "title_match_threshold": float(merged.get("title_match_threshold", 0.72)),
         "boards": boards_public,
+        "active_industry_id": active_industry_id,
+        "selection_source": "user" if has_user_selection else "pack",
         "discovery": {
             "enabled": bool((merged.get("discovery") or {}).get("enabled", True)),
             "max_rank": int((merged.get("discovery") or {}).get("max_rank", 20)),
@@ -242,9 +280,57 @@ def _normalize_board_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _repo_board_index() -> tuple[dict[str, str], set[str]]:
+    """Return hashid→id for repo catalog boards, and the set of repo board ids."""
+    hash_to_id: dict[str, str] = {}
+    repo_ids: set[str] = set()
+    for board in load_hot_radar_base().get("boards") or []:
+        hashid = str(board.get("hashid") or "").strip()
+        board_id = str(board.get("id") or "").strip()
+        if board_id:
+            repo_ids.add(board_id)
+        if hashid and board_id:
+            hash_to_id[hashid] = board_id
+    return hash_to_id, repo_ids
+
+
+def _apply_selected_payload(local: dict[str, Any], payload_boards: list[Any]) -> None:
+    hash_to_id, repo_ids = _repo_board_index()
+    extras: dict[str, dict[str, Any]] = {}
+    for board in local.get("boards") or []:
+        board_id = str(board.get("id") or "").strip()
+        hashid = str(board.get("hashid") or "").strip()
+        if board_id:
+            extras[board_id] = copy.deepcopy(board)
+        if hashid and hashid not in hash_to_id:
+            hash_to_id[hashid] = board_id or hashid
+
+    selected: list[dict[str, Any]] = []
+    for row in payload_boards:
+        hashid = str((row or {}).get("hashid") or "").strip()
+        resolved_id = hash_to_id.get(hashid) or str((row or {}).get("id") or hashid).strip()
+        normalized = _normalize_board_row({**(row or {}), "id": resolved_id, "hashid": hashid})
+        selected.append({"id": normalized["id"], "enabled": normalized["enabled"]})
+        if normalized["id"] not in repo_ids:
+            extras[normalized["id"]] = {
+                "id": normalized["id"],
+                "hashid": normalized["hashid"],
+                "name": normalized["name"],
+                "display": normalized["display"],
+            }
+            hash_to_id[normalized["hashid"]] = normalized["id"]
+    local["boards"] = list(extras.values())
+    selected_map = copy.deepcopy(local.get("selected_by_industry") or {})
+    if not isinstance(selected_map, dict):
+        selected_map = {}
+    selected_map[get_active_industry_id()] = selected
+    local["selected_by_industry"] = selected_map
+
+
 def save_hot_radar_settings(payload: dict[str, Any]) -> dict[str, Any]:
     existing = load_hot_radar_local()
-    local: dict[str, Any] = {"version": payload.get("version", 1)}
+    local: dict[str, Any] = copy.deepcopy(existing) if existing else {}
+    local["version"] = payload.get("version", local.get("version", 1))
 
     if "enabled" in payload:
         local["enabled"] = bool(payload["enabled"])
@@ -264,7 +350,7 @@ def save_hot_radar_settings(payload: dict[str, Any]) -> dict[str, Any]:
         local["access_key"] = existing["access_key"]
 
     if "boards" in payload:
-        local["boards"] = [_normalize_board_row(row) for row in payload.get("boards") or []]
+        _apply_selected_payload(local, list(payload.get("boards") or []))
 
     if "discovery" in payload and isinstance(payload["discovery"], dict):
         disc_payload = payload["discovery"]
@@ -277,7 +363,7 @@ def save_hot_radar_settings(payload: dict[str, Any]) -> dict[str, Any]:
 
     if "batch" in payload and isinstance(payload["batch"], dict):
         batch_payload = payload["batch"]
-        local["batch"] = {}
+        local["batch"] = dict(local.get("batch") or {})
         if "rescore_on_refresh" in batch_payload:
             local["batch"]["rescore_on_refresh"] = bool(batch_payload["rescore_on_refresh"])
         if "rescore_days" in batch_payload:

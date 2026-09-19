@@ -44,6 +44,7 @@ boards:
         encoding="utf-8",
     )
     monkeypatch.setenv("INGESTION_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("AINEWS_DISABLE_EFFECTIVE_CONFIG", "1")
     monkeypatch.setattr("services.ingestion.hot_radar_settings.HOT_RADAR_BASE_PATH", cfg_path)
     monkeypatch.setattr("services.ingestion.hot_radar_settings.HOT_RADAR_LOCAL_PATH", tmp_path / "hot_radar.local.yaml")
     init_db()
@@ -243,3 +244,40 @@ def test_hot_radar_settings_roundtrip(client):
     data = put_resp.json()
     assert data["refresh_cron"] == "0 9 * * *"
     assert data["access_key_masked"].startswith("new-")
+
+
+def test_hot_radar_nodes_requires_access_key(client, monkeypatch):
+    monkeypatch.setattr(
+        "services.ingestion.hot_radar_settings.resolve_tophub_access_key",
+        lambda config=None: "",
+    )
+    resp = client.get("/api/ingestion/hot-radar/nodes")
+    assert resp.status_code == 400
+
+
+def test_hot_radar_nodes_returns_catalog(client, monkeypatch):
+    from services.ingestion.tophub_catalog import TophubNodeCatalog
+
+    monkeypatch.setattr(
+        "services.ingestion.tophub_catalog.list_tophub_nodes",
+        lambda **kwargs: TophubNodeCatalog(
+            items=[
+                {
+                    "hashid": "mproPpoq6O",
+                    "name": "知乎",
+                    "display": "热榜",
+                    "domain": "zhihu.com",
+                    "logo": "",
+                }
+            ],
+            stale=False,
+            fetched_at="2026-09-19T04:00:00+00:00",
+        ),
+    )
+    resp = client.get("/api/ingestion/hot-radar/nodes")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["stale"] is False
+    assert data["count"] == 1
+    assert data["items"][0]["name"] == "知乎"

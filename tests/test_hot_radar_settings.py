@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from services.ingestion.hot_radar_settings import (
+    load_hot_radar_local,
     load_merged_hot_radar_config,
     public_hot_radar_settings,
     save_hot_radar_settings,
@@ -94,3 +95,103 @@ boards: []
     merged = load_merged_hot_radar_config()
     assert merged["discovery"]["enabled"] is False
     assert merged["discovery"]["max_urls_per_refresh"] == 2
+
+
+def test_save_discovery_preserves_selected_by_industry(tmp_path, monkeypatch):
+    base_path = tmp_path / "hot_radar.yaml"
+    local_path = tmp_path / "hot_radar.local.yaml"
+    base_path.write_text("enabled: true\nboards: []\n", encoding="utf-8")
+    local_path.write_text(
+        """
+access_key: keep-me-key-1234
+selected_by_industry:
+  finance/macro:
+    - id: sina_ai
+      enabled: true
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("services.ingestion.hot_radar_settings.HOT_RADAR_BASE_PATH", base_path)
+    monkeypatch.setattr("services.ingestion.hot_radar_settings.HOT_RADAR_LOCAL_PATH", local_path)
+    monkeypatch.setenv("AINEWS_ACTIVE_INDUSTRY_ID", "tech/ai")
+
+    save_hot_radar_settings(
+        {
+            "discovery": {
+                "enabled": False,
+                "max_rank": 8,
+                "max_urls_per_refresh": 2,
+            }
+        }
+    )
+    saved_local = load_hot_radar_local()
+    assert saved_local["access_key"] == "keep-me-key-1234"
+    assert saved_local["selected_by_industry"]["finance/macro"][0]["id"] == "sina_ai"
+
+
+def test_save_boards_writes_selected_and_upserts_new_catalog_row(tmp_path, monkeypatch):
+    base_path = tmp_path / "hot_radar.yaml"
+    local_path = tmp_path / "hot_radar.local.yaml"
+    base_path.write_text(
+        """
+enabled: true
+boards:
+  - id: sina_ai
+    hashid: MZd77QpdrO
+    name: 新浪热榜
+    display: AI榜
+    enabled: true
+""".strip(),
+        encoding="utf-8",
+    )
+    local_path.write_text(
+        """
+selected_by_industry:
+  finance/macro:
+    - id: sina_ai
+      enabled: true
+boards:
+  - id: keepCustom01
+    hashid: keepCustom01
+    name: 自定义
+    display: 保留
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("services.ingestion.hot_radar_settings.HOT_RADAR_BASE_PATH", base_path)
+    monkeypatch.setattr("services.ingestion.hot_radar_settings.HOT_RADAR_LOCAL_PATH", local_path)
+    monkeypatch.setenv("AINEWS_ACTIVE_INDUSTRY_ID", "tech/ai")
+
+    saved = save_hot_radar_settings(
+        {
+            "boards": [
+                {
+                    "hashid": "MZd77QpdrO",
+                    "name": "不要覆盖全局名称",
+                    "display": "不要覆盖",
+                    "enabled": True,
+                },
+                {
+                    "hashid": "WnBe01o371",
+                    "name": "微信",
+                    "display": "24h热文榜",
+                    "enabled": False,
+                },
+            ]
+        }
+    )
+    local = load_hot_radar_local()
+    catalog_ids = {b["id"] for b in local.get("boards") or []}
+    assert "keepCustom01" in catalog_ids
+    assert "WnBe01o371" in catalog_ids
+    assert "sina_ai" not in catalog_ids
+    wechat = next(b for b in local["boards"] if b["id"] == "WnBe01o371")
+    assert wechat["name"] == "微信"
+    sina_selected = local["selected_by_industry"]["tech/ai"]
+    assert sina_selected[0]["id"] == "sina_ai"
+    assert sina_selected[1]["id"] == "WnBe01o371"
+    assert sina_selected[1]["enabled"] is False
+    assert local["selected_by_industry"]["finance/macro"][0]["id"] == "sina_ai"
+    assert saved["selection_source"] == "user"
+    assert saved["boards"][0]["id"] == "sina_ai"
+    assert saved["boards"][0]["name"] == "新浪热榜"

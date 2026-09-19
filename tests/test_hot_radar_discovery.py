@@ -82,6 +82,7 @@ discovery:
     )
     monkeypatch.setattr("services.ingestion.hot_radar_settings.HOT_RADAR_BASE_PATH", cfg_path)
     monkeypatch.setattr("services.ingestion.hot_radar_settings.HOT_RADAR_LOCAL_PATH", tmp_path / "hot_radar.local.yaml")
+    monkeypatch.setenv("AINEWS_DISABLE_EFFECTIVE_CONFIG", "1")
     return cfg_path
 
 

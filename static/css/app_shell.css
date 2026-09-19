@@ -1021,6 +1021,52 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     color: var(--app-text);
 }
 
+.app-page .app-modal.app-modal--wide {
+    width: min(720px, 92vw);
+}
+
+.app-page .hot-radar-picker-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.app-page .hot-radar-picker-toolbar .form-control {
+    flex: 1;
+    margin: 0;
+}
+
+.app-page .hot-radar-picker-list {
+    max-height: 360px;
+    overflow: auto;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md, 10px);
+}
+
+.app-page .hot-radar-picker-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--app-border);
+    color: var(--app-text);
+}
+
+.app-page .hot-radar-picker-row:last-child {
+    border-bottom: 0;
+}
+
+.app-page .hot-radar-picker-row.is-added {
+    opacity: 0.65;
+}
+
+.app-page .hot-radar-picker-meta {
+    font-size: 12px;
+    color: var(--app-muted);
+    margin: 2px 0 0;
+}
+
 .app-page .app-modal h3 {
     margin: 0 0 16px;
     font-size: 1.15rem;

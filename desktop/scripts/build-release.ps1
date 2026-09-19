@@ -12,7 +12,7 @@ $AppDst = Join-Path $BundleRoot "app"
 $PythonDst = Join-Path $BundleRoot "python"
 $PlaywrightDst = Join-Path $BundleRoot "playwright-browsers"
 
-Write-Host "==> AINews release build 1.0.6"
+Write-Host "==> AINews release build 1.0.8"
 Write-Host "    Repo: $RepoRoot"
 
 if (Test-Path $BundleRoot) {
