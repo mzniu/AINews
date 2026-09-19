@@ -22,6 +22,14 @@ from src.db.models.ingestion import IngestionJob, IngestionSource
 from src.utils.config import Config
 
 HEARTBEAT_PATH = Config.DATA_DIR / "ingestion" / "worker_heartbeat"
+SCHEDULE_RELOAD_FLAG = Config.DATA_DIR / "ingestion" / "schedule_reload_requested"
+
+
+def request_ingestion_schedule_reload() -> None:
+    """Ask a separate-process ingestion worker to rebuild cron jobs on next poll."""
+    SCHEDULE_RELOAD_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    SCHEDULE_RELOAD_FLAG.write_text(datetime.utcnow().isoformat(), encoding="utf-8")
+
 
 _embedded_instance: "IngestionWorker | None" = None
 
@@ -105,6 +113,16 @@ class IngestionWorker:
         except Exception as exc:
             logger.warning(f"Hot radar refresh job failed: {exc}")
 
+    def _consume_schedule_reload_flag(self) -> None:
+        if not SCHEDULE_RELOAD_FLAG.is_file():
+            return
+        try:
+            SCHEDULE_RELOAD_FLAG.unlink(missing_ok=True)
+        except OSError:
+            pass
+        if self.scheduler.running:
+            self.refresh_schedules()
+
     def refresh_schedules(self) -> None:
         if not self.scheduler.running:
             return
@@ -182,6 +200,7 @@ class IngestionWorker:
     def poll_jobs(self) -> None:
         """Fast scheduler tick: heartbeat + kick off background work if idle."""
         self._touch_heartbeat()
+        self._consume_schedule_reload_flag()
         if not self._poll_lock.acquire(blocking=False):
             return
 

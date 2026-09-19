@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Generator
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from services.ingestion.worker import get_ingestion_worker_mode
+from src.db.engine import get_session_factory
 
 from services.industry.config_loader import (
     PACKS_ROOT,
@@ -24,6 +29,19 @@ from services.industry.taxonomy import find_l2
 
 router = APIRouter(prefix="/api/industry", tags=["industry"])
 me_router = APIRouter(prefix="/api/me", tags=["industry"])
+
+
+def get_db() -> Generator[Session, None, None]:
+    factory = get_session_factory()
+    session = factory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 class IndustryActivateBody(BaseModel):
@@ -51,17 +69,37 @@ def _taxonomy_path() -> Path:
     return PACKS_ROOT / "taxonomy.yaml"
 
 
+def _apply_industry_runtime_reload(
+    request: Request,
+    db: Session,
+) -> dict[str, Any]:
+    from services.industry.runtime_reload import reload_industry_runtime
+
+    worker = getattr(request.app.state, "ingestion_worker", None)
+    return reload_industry_runtime(db, worker)
+
+
 @me_router.put("/industry")
-def put_my_industry(body: IndustryActivateBody) -> dict[str, Any]:
+def put_my_industry(
+    body: IndustryActivateBody,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     try:
         activate_industry_l2(body.active_industry_id.strip(), complete_onboarding=True)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _me_industry_payload()
+    payload = _me_industry_payload()
+    payload.update(_apply_industry_runtime_reload(request, db))
+    return payload
 
 
 @me_router.post("/industry/switch")
-def switch_my_industry(body: IndustryActivateBody) -> dict[str, Any]:
+def switch_my_industry(
+    body: IndustryActivateBody,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     try:
         activate_industry_l2(
             body.active_industry_id.strip(),
@@ -70,25 +108,36 @@ def switch_my_industry(body: IndustryActivateBody) -> dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     payload = _me_industry_payload()
-    payload["restart_required"] = True
-    payload["message"] = "切换垂类后请重启 Python 服务以加载新的 effective 配置。"
+    reload_meta = _apply_industry_runtime_reload(request, db)
+    payload.update(reload_meta)
+    if reload_meta.get("runtime_reloaded"):
+        payload["message"] = "已切换垂类，抓取与热榜调度已自动刷新。"
+    elif get_ingestion_worker_mode() == "separate":
+        payload["message"] = "已切换垂类，独立 ingestion worker 将在数秒内刷新调度。"
+    else:
+        payload["message"] = "已切换垂类；内嵌 worker 未运行，请启动服务后生效。"
     return payload
 
 
 @me_router.post("/industry/sync-pack")
-def sync_my_industry_pack() -> dict[str, Any]:
+def sync_my_industry_pack(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     from services.industry.pack_client import apply_cloud_manifest_to_cache
     from services.industry.profile import get_active_industry_id
 
     active = get_active_industry_id()
     effective = apply_cloud_manifest_to_cache(active)
     cached = load_effective_cache(active) or {}
-    return {
+    payload = {
         "active_industry_id": active,
         "pack_version": effective.get("pack_version"),
         "manifest_hash": cached.get("manifest_hash"),
         "pack_path": str(local_l2_pack_path(active)),
     }
+    payload.update(_apply_industry_runtime_reload(request, db))
+    return payload
 
 
 @me_router.get("/industry")

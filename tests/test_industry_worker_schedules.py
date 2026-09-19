@@ -7,7 +7,11 @@ import src.db.engine as engine_mod
 from services.industry.config_loader import build_effective_config, write_effective_cache
 from services.industry.constants import DEFAULT_INDUSTRY_ID
 from services.ingestion.registry import sync_sources_to_db
-from services.ingestion.worker import IngestionWorker
+from services.ingestion.worker import (
+    IngestionWorker,
+    SCHEDULE_RELOAD_FLAG,
+    request_ingestion_schedule_reload,
+)
 from src.db.engine import get_session_factory, init_db
 
 
@@ -83,5 +87,28 @@ def test_refresh_schedules_rebuilds_jobs_after_effective_cache_changes(
         }
         assert schedule_ids == {"schedule_kr36_ai"}
         assert "poll_ingestion" in {j.id for j in worker.scheduler.get_jobs()}
+    finally:
+        worker.scheduler.shutdown(wait=False)
+
+
+def test_poll_jobs_consumes_schedule_reload_flag(db_session, tmp_path, monkeypatch):
+    monkeypatch.setenv("AINEWS_ACTIVE_INDUSTRY_ID", DEFAULT_INDUSTRY_ID)
+    write_effective_cache(
+        DEFAULT_INDUSTRY_ID,
+        build_effective_config(DEFAULT_INDUSTRY_ID),
+        manifest_hash="test",
+    )
+    sync_sources_to_db(db_session)
+    if SCHEDULE_RELOAD_FLAG.is_file():
+        SCHEDULE_RELOAD_FLAG.unlink()
+
+    worker = IngestionWorker(embedded=True)
+    worker.scheduler.start()
+    try:
+        worker._register_schedules(db_session)
+        request_ingestion_schedule_reload()
+        assert SCHEDULE_RELOAD_FLAG.is_file()
+        worker.poll_jobs()
+        assert not SCHEDULE_RELOAD_FLAG.is_file()
     finally:
         worker.scheduler.shutdown(wait=False)
