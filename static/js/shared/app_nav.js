@@ -197,12 +197,21 @@
                 }).join('')}
             </div>
             <div class="nav-scroll">
-                <div id="global-search-root" class="nav-global-search"></div>
+                <div class="nav-sidebar-chrome" aria-label="垂类与主题">
+                    <a href="/settings#industry" class="nav-industry-chip" id="app-nav-industry" hidden title="当前垂类"></a>
+                    <div class="theme-toggle" role="group" aria-label="主题模式">
+                        <button type="button" class="theme-toggle-btn" data-theme-set="light" aria-label="浅色模式" aria-pressed="false">
+                            ${navIcon('sun')}
+                        </button>
+                        <button type="button" class="theme-toggle-btn" data-theme-set="dark" aria-label="深色模式" aria-pressed="false">
+                            ${navIcon('moon')}
+                        </button>
+                    </div>
+                </div>
                 ${groups}
             </div>
             <div class="nav-footer">
                 <div class="nav-footer-row">
-                <a href="/settings#industry" class="nav-industry-chip" id="app-nav-industry" hidden title="当前垂类"></a>
                 <div class="nav-user-menu" id="app-nav-user-menu">
                     <button type="button" class="nav-user-trigger" id="app-nav-user-trigger" aria-label="用户菜单" aria-haspopup="menu" aria-expanded="false" aria-controls="app-nav-user-dropdown">
                         <span class="nav-user-avatar" id="app-nav-user-avatar" aria-hidden="true">U</span>
@@ -215,14 +224,6 @@
                         </svg>
                     </button>
                     <div class="nav-user-dropdown" id="app-nav-user-dropdown" role="menu" hidden></div>
-                </div>
-                <div class="theme-toggle" role="group" aria-label="主题模式">
-                    <button type="button" class="theme-toggle-btn" data-theme-set="light" aria-label="浅色模式" aria-pressed="false">
-                        ${navIcon('sun')}
-                    </button>
-                    <button type="button" class="theme-toggle-btn" data-theme-set="dark" aria-label="深色模式" aria-pressed="false">
-                        ${navIcon('moon')}
-                    </button>
                 </div>
                 </div>
             </div>
@@ -571,26 +572,11 @@
         document.head.appendChild(icon);
     }
 
-    function initGlobalSearch() {
-        const host = document.getElementById('global-search-root');
-        if (!host) return;
-        const mount = () => window.AINewsGlobalSearch?.mount(host);
-        if (window.AINewsGlobalSearch) {
-            mount();
-            return;
-        }
-        const script = document.createElement('script');
-        script.src = '/static/js/shared/global_search.js?v=20260916';
-        script.onload = mount;
-        document.head.appendChild(script);
-    }
-
     function init() {
         ensureFavicon();
         const root = document.getElementById('app-nav-root');
         if (root) {
             renderNav(root);
-            initGlobalSearch();
             maybeRedirectIndustryOnboarding().catch((err) => console.warn(err));
         }
     }

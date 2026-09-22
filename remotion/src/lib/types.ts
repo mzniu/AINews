@@ -72,6 +72,8 @@ export type ClassicOverlayProps = {
   titleYPercent?: number;
   mainLine1Color?: string;
   mainLine2Color?: string;
+  subtitleBarColor?: string;
+  subtitleTextColor?: string;
   coverImagePath?: string;
   coverIntroDurationSec?: number;
 };

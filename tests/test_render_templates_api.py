@@ -36,10 +36,11 @@ def client(tmp_path, monkeypatch):
                         "builtin": True,
                         "layout_kind": "classic_overlay",
                         "canvas": {"width": 1080, "height": 1440, "fps": 24},
+                        "typography": {"title_font_size": 72},
                     },
                     {
                         "id": "chronicle_archive_tech_blue",
-                        "label": "小牛聊AI档案（科技蓝）",
+                        "label": "档案框（科技蓝）",
                         "builtin": True,
                         "layout_kind": "chronicle_frame",
                         "canvas": {"width": 1080, "height": 1920, "fps": 24},
@@ -99,6 +100,22 @@ def test_get_render_template_includes_yaml(client):
     assert loaded["id"] == "flash_news_portrait"
     assert loaded["layout_kind"] == "classic_overlay"
     assert body["template"]["id"] == "flash_news_portrait"
+
+
+def test_get_render_template_includes_filtered_schema(client):
+    resp = client.get("/api/ingestion/render-templates/flash_news_portrait")
+    assert resp.status_code == 200
+    body = resp.json()
+    fields = body["schema"]["fields"]
+    paths = {item["path"] for item in fields}
+    assert "typography.title_font_size" in paths
+    assert "chrome.brand" not in paths
+    assert "# 主标题字号" in body["yaml"]
+
+    chronicle = client.get("/api/ingestion/render-templates/chronicle_archive_tech_blue")
+    assert chronicle.status_code == 200
+    chronicle_paths = {item["path"] for item in chronicle.json()["schema"]["fields"]}
+    assert "chrome.brand" in chronicle_paths
 
 
 def test_put_render_template_yaml_updates_typography(client, tmp_path):

@@ -16,7 +16,8 @@ from src.utils.paths import get_data_dir
 
 _CACHE_FILENAME = "tophub_nodes.json"
 _TTL_SECONDS = 24 * 60 * 60
-_PAGE_SIZE = 20
+# TopHub returns up to 100 nodes per page (was 20 in older API docs).
+_PAGE_SIZE = 100
 _REQUEST_TIMEOUT_SEC = 30
 _WALL_CLOCK_SEC = 75
 

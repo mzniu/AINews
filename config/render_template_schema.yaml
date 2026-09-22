@@ -1,0 +1,716 @@
+groups:
+  - id: identity
+    label: 基本信息
+  - id: canvas
+    label: 画布
+  - id: background
+    label: 背景
+  - id: palette
+    label: 色板
+  - id: chrome
+    label: 页眉文案
+  - id: typography
+    label: 字体
+  - id: layout
+    label: 版式
+  - id: cover
+    label: 封面
+  - id: video
+    label: 视频动效与时长
+fields:
+  - path: label
+    group: identity
+    label: 模板名称
+    help: 设置页列表里显示的名字，不影响成片画面
+    widget: text
+  - path: canvas.width
+    group: canvas
+    label: 画布宽度
+    help: 封面和视频的像素宽度，通常 1080
+    widget: number
+    min: 480
+    max: 2160
+    affects: [cover, video]
+  - path: canvas.height
+    group: canvas
+    label: 画布高度
+    help: 封面和视频的像素高度。快讯竖屏与档案框目前都是 1920
+    widget: number
+    min: 480
+    max: 3840
+    affects: [cover, video]
+  - path: canvas.fps
+    group: canvas
+    label: 帧率
+    help: 成片帧率，常用 24
+    widget: number
+    min: 12
+    max: 60
+    affects: [video]
+  - path: background_image
+    group: background
+    label: 背景图
+    help: 相对仓库根目录的背景 PNG。快讯竖屏叠标题；档案框作底图
+    widget: path
+    affects: [cover, video]
+  - path: palette.bg
+    group: palette
+    label: 底色
+    help: 档案框最底层填充色
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: palette.bg_glow
+    group: palette
+    label: 辉光色
+    help: 画面中心圆形水印的淡蓝辉光
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: palette.accent
+    group: palette
+    label: 强调色
+    help: 描边、角标、副标题钩子、摘要高亮
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: palette.accent_dim
+    group: palette
+    label: 弱强调色
+    help: 弱描边、刻度、外框弱线
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: palette.text
+    group: palette
+    label: 主文字色
+    help: 主标题、页脚正文默认颜色
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: palette.text_muted
+    group: palette
+    label: 次要文字色
+    help: 英文眉题、CHRONICLE ARCHIVE 等弱文案
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: palette.card
+    group: palette
+    label: 证据卡颜色
+    help: 中间白卡（证据夹）底色
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: palette.card_tab
+    group: palette
+    label: 卡片标签底色
+    help: 证据卡左上角标签底
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: palette.frame
+    group: palette
+    label: 外框色
+    help: 画面外框与四角方块
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: chrome.brand
+    group: chrome
+    label: 页眉品牌
+    help: 页眉品牌名，如「AI 资讯」
+    widget: text
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: chrome.mark_glyph
+    group: chrome
+    label: 方标字
+    help: 页眉方标里显示的字，通常一个汉字
+    widget: text
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: chrome.mark_path
+    group: chrome
+    label: 方标图片
+    help: 页眉方标 PNG。有图时优先生图，否则画 mark_glyph
+    widget: path
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: chrome.eyebrow
+    group: chrome
+    label: 英文眉题
+    help: 页眉下方英文，如 AI CHRONICLE / ARCHIVE RECORD
+    widget: text
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: chrome.brand_sub
+    group: chrome
+    label: 品牌副文案
+    help: 页眉品牌下的口号，如「粉碎AI信息差」
+    widget: text
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: chrome.footer_left
+    group: chrome
+    label: 页脚左栏
+    help: 页脚左侧短词，如「AI 快讯」。可留空
+    widget: text
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: chrome.card_keyword_fallback
+    group: chrome
+    label: 卡片关键词兜底
+    help: 草稿没有可用标签时，证据卡顶部显示的词
+    widget: text
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: chrome.footer_strip_prefixes
+    group: chrome
+    label: 页脚去掉的前缀
+    help: 绘制页脚摘要时剥掉这些前缀，不改草稿本身
+    widget: list
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: typography.title_font_size
+    group: typography
+    label: 主标题字号
+    help: 封面和视频里 main_line1 / main_line2 的像素字号
+    widget: number
+    min: 24
+    max: 120
+    affects: [cover, video]
+  - path: typography.subtitle_font_size
+    group: typography
+    label: 副标题字号
+    help: sub_title / sub_title2 的像素字号
+    widget: number
+    min: 20
+    max: 100
+    affects: [cover, video]
+  - path: typography.summary_font_size
+    group: typography
+    label: 摘要字号
+    help: 视频摘要或页脚摘要的像素字号
+    widget: number
+    min: 18
+    max: 80
+    affects: [video]
+  - path: typography.brand_sub_font_size
+    group: typography
+    label: 品牌副文字号
+    help: 页眉口号 chrome.brand_sub 的字号
+    widget: number
+    min: 12
+    max: 48
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.footer_font_size
+    group: typography
+    label: 页脚字号
+    help: 页脚左栏与默认摘要字号
+    widget: number
+    min: 18
+    max: 72
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: typography.main_line1_color
+    group: typography
+    label: 主标题颜色
+    help: main_line1 文字颜色
+    widget: color
+    affects: [cover, video]
+  - path: typography.main_line2_color
+    group: typography
+    label: 主标题第二行颜色
+    help: main_line2 文字颜色
+    widget: color
+    affects: [cover, video]
+  - path: typography.subtitle_bar_color
+    group: typography
+    label: 副标题色条
+    help: 快讯竖屏副标题圆角色块底色。默认黄条 #FFEB3B；紫夜模板用 #6B4DFF
+    widget: color
+    layout_kinds: [classic_overlay]
+    affects: [cover, video]
+  - path: typography.subtitle_text_color
+    group: typography
+    label: 副标题文字
+    help: 快讯竖屏副标题文字颜色。默认黑字；紫夜模板用白字
+    widget: color
+    layout_kinds: [classic_overlay]
+    affects: [cover, video]
+  - path: typography.subtitle2_color
+    group: typography
+    label: 钩子行颜色
+    help: sub_title2 强调行颜色，档案框默认用强调色
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.summary_color
+    group: typography
+    label: 摘要颜色
+    help: 页脚摘要正文颜色
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: typography.title_highlight_color
+    group: typography
+    label: 标题高亮色
+    help: 主标题里高亮词的颜色
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.title_bg_color
+    group: typography
+    label: 标题底色
+    help: 主标题色块背景，介于底色与弱强调之间
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.title_bg_border_color
+    group: typography
+    label: 标题底描边
+    help: 主标题色块边框色
+    widget: color
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.title_bg_pad_x
+    group: typography
+    label: 标题底左右内边距
+    help: 主标题色块水平内边距（像素）
+    widget: number
+    min: 0
+    max: 48
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.title_bg_pad_y
+    group: typography
+    label: 标题底上下内边距
+    help: 主标题色块垂直内边距（像素）
+    widget: number
+    min: 0
+    max: 32
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.title_bg_radius
+    group: typography
+    label: 标题底圆角
+    help: 主标题色块圆角（像素）
+    widget: number
+    min: 0
+    max: 24
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.title_y_percent
+    group: typography
+    label: 主标题垂直位置
+    help: 主标题距画布顶部的百分比。快讯竖屏叠字用这个
+    widget: percent
+    min: 0
+    max: 80
+    affects: [cover, video]
+  - path: typography.title_x_percent
+    group: typography
+    label: 标题左边缘
+    help: 标题文字左边缘占画布宽度的百分比。快讯竖屏默认 8（左右各留 8%）。档案框留空则用竖线位置加内边距
+    widget: percent
+    min: 0
+    max: 40
+    affects: [cover, video]
+  - path: typography.title_width_percent
+    group: typography
+    label: 标题区域宽度
+    help: 主标题/副标题折行最大宽度，占画布百分比。快讯竖屏默认 84。档案框留空则铺到右边框内侧
+    widget: percent
+    min: 20
+    max: 100
+    affects: [cover, video]
+  - path: typography.top_pad_percent
+    group: typography
+    label: 顶部留白
+    help: 档案框页眉区顶部留白百分比
+    widget: percent
+    min: 0
+    max: 20
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: typography.summary_y_percent
+    group: typography
+    label: 摘要垂直位置
+    help: 页脚摘要距画布顶部的百分比
+    widget: percent
+    min: 40
+    max: 95
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: typography.footer_y_percent
+    group: typography
+    label: 页脚垂直位置
+    help: 页脚左栏距画布顶部的百分比
+    widget: percent
+    min: 50
+    max: 98
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: typography.summary_width_percent
+    group: typography
+    label: 摘要宽度
+    help: 摘要占画布宽度的百分比
+    widget: percent
+    min: 40
+    max: 100
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: typography.summary_align
+    group: typography
+    label: 摘要对齐
+    help: 页脚摘要水平对齐
+    widget: enum
+    options: [left, center, right]
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: layout.card_top_percent
+    group: layout
+    label: 证据卡顶边
+    help: 中间证据卡上沿距画布顶部的百分比
+    widget: percent
+    min: 0
+    max: 80
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.card_bottom_percent
+    group: layout
+    label: 证据卡底边
+    help: 中间证据卡下沿距画布顶部的百分比
+    widget: percent
+    min: 20
+    max: 100
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.card_left_percent
+    group: layout
+    label: 证据卡左边
+    help: 证据卡左沿距画布左侧的百分比
+    widget: percent
+    min: 0
+    max: 40
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.card_right_percent
+    group: layout
+    label: 证据卡右边
+    help: 证据卡右沿距画布左侧的百分比
+    widget: percent
+    min: 60
+    max: 100
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.card_inset_px
+    group: layout
+    label: 证据卡内边距
+    help: 卡内配图相对白卡边缘的像素内缩
+    widget: number
+    min: 0
+    max: 48
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.title_placement
+    group: layout
+    label: 标题位置
+    help: header 为卡上方；below_card 把主标题放在证据卡下面
+    widget: enum
+    options: [header, below_card]
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.chrome_placement
+    group: layout
+    label: 品牌位置
+    help: header 在页眉；footer 把品牌沉到页脚
+    widget: enum
+    options: [header, footer]
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.title_rule_x_percent
+    group: layout
+    label: 标题竖线水平位置
+    help: 档案框左侧装饰竖线距画布左边的百分比，默认 4.5
+    widget: percent
+    min: 0
+    max: 20
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.title_x_pad_px
+    group: layout
+    label: 标题相对竖线的间距
+    help: 标题文字相对竖线再向右的像素偏移，默认 18
+    widget: number
+    min: 0
+    max: 64
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.title_right_pad_px
+    group: layout
+    label: 标题右侧留白
+    help: 标题折行右缘再减去的像素（外框 inset 之外），默认 20
+    widget: number
+    min: 0
+    max: 80
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.title_top_percent
+    group: layout
+    label: 卡下标题顶边
+    help: title_placement 为 below_card 时，标题块上沿百分比
+    widget: percent
+    min: 20
+    max: 90
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.title_rule
+    group: layout
+    label: 标题竖线
+    help: 主标题左侧是否画装饰竖线
+    widget: bool
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: layout.title_rule_width_px
+    group: layout
+    label: 标题竖线宽度
+    help: 装饰竖线像素宽度
+    widget: number
+    min: 1
+    max: 12
+    layout_kinds: [chronicle_frame]
+    affects: [cover, video]
+  - path: cover.enabled
+    group: cover
+    label: 生成封面
+    help: 关闭后流水线仍可出视频，但不出封面图
+    widget: bool
+    affects: [cover]
+  - path: cover.width
+    group: cover
+    label: 封面宽度
+    help: 封面导出宽度；一般与画布同宽
+    widget: number
+    min: 480
+    max: 2160
+    affects: [cover]
+  - path: cover.height
+    group: cover
+    label: 封面高度
+    help: 封面导出高度；一般与画布同高
+    widget: number
+    min: 480
+    max: 3840
+    affects: [cover]
+  - path: cover.crop
+    group: cover
+    label: 封面裁切
+    help: none 用整幅画布；top 只取顶部区域
+    widget: enum
+    options: [none, top]
+    layout_kinds: [chronicle_frame]
+    affects: [cover]
+  - path: cover.card_images
+    group: cover
+    label: 封面卡内图数
+    help: 封面证据卡里放几张入选图，通常 1
+    widget: number
+    min: 1
+    max: 4
+    layout_kinds: [chronicle_frame]
+    affects: [cover]
+  - path: video.show_summary
+    group: video
+    label: 显示滚动摘要
+    help: 快讯竖屏全屏滚摘要。档案框页脚已有摘要，通常关闭
+    widget: bool
+    affects: [video]
+  - path: video.summary_scroll_mode
+    group: video
+    label: 摘要滚动方式
+    help: 快讯竖屏摘要滚动算法，常用 line_uniform
+    widget: enum
+    options: [line_uniform]
+    layout_kinds: [classic_overlay]
+    affects: [video]
+  - path: video.max_selected_images
+    group: video
+    label: 最多配图数
+    help: 成片最多选用几张配图
+    widget: number
+    min: 1
+    max: 8
+    affects: [cover, video]
+  - path: video.random_bgm
+    group: video
+    label: 随机 BGM
+    help: 从 bgm_dir 随机抽一首背景音乐
+    widget: bool
+    affects: [video]
+  - path: video.bgm_dir
+    group: video
+    label: BGM 目录
+    help: 相对仓库根目录的音乐文件夹
+    widget: path
+    affects: [video]
+  - path: video.prepend_cover_intro
+    group: video
+    label: 片头定格封面
+    help: 成片开头先播封面静止帧
+    widget: bool
+    affects: [video]
+  - path: video.cover_intro_frames
+    group: video
+    label: 片头帧数
+    help: 封面定格持续的帧数（配合画布帧率）
+    widget: number
+    min: 0
+    max: 72
+    affects: [video]
+  - path: video.clip_durations_by_count
+    group: video
+    label: 按张数的片段时长
+    help: "配图为 1/2/3 张时每段秒数，例如 2: [3.5, 3.5]"
+    widget: list
+    affects: [video]
+  - path: video.clip_sec_when_at_least.count
+    group: video
+    label: 张数阈值
+    help: 配图达到这个张数后改用统一时长
+    widget: number
+    min: 2
+    max: 8
+    affects: [video]
+  - path: video.clip_sec_when_at_least.sec
+    group: video
+    label: 阈值后每段秒数
+    help: 达到张数阈值后每张图播放秒数
+    widget: number
+    min: 0.5
+    max: 12
+    affects: [video]
+  - path: video.fallback_clip_sec
+    group: video
+    label: 兜底片段秒数
+    help: 时长表没匹配上时每段默认秒数
+    widget: number
+    min: 0.5
+    max: 12
+    affects: [video]
+  - path: video.card_ken_burns
+    group: video
+    label: 卡内 Ken Burns
+    help: 档案框证据卡内图片轻微推拉
+    widget: bool
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.ken_burns_end_scale
+    group: video
+    label: Ken Burns 结束缩放
+    help: 推拉结束时的缩放倍数，建议不超过 1.3
+    widget: number
+    min: 1
+    max: 1.5
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.summary_animation.mode
+    group: video
+    label: 摘要动画
+    help: 页脚摘要进场方式，目前支持 typewriter
+    widget: enum
+    options: [typewriter, none]
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.summary_animation.scope
+    group: video
+    label: 打字机范围
+    help: once 整段成片只打一遍；每段 clip 重复则另配
+    widget: enum
+    options: [once]
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.summary_animation.chars_per_second
+    group: video
+    label: 打字速度
+    help: 每秒出现多少字
+    widget: number
+    min: 4
+    max: 40
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.summary_animation.start_delay_sec
+    group: video
+    label: 打字延迟
+    help: 摘要开始打字前等待的秒数
+    widget: number
+    min: 0
+    max: 3
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.summary_animation.show_cursor
+    group: video
+    label: 显示光标
+    help: 打字机是否显示闪烁光标
+    widget: bool
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.summary_animation.cursor_blink_hz
+    group: video
+    label: 光标闪烁频率
+    help: 光标每秒闪烁次数
+    widget: number
+    min: 0.5
+    max: 8
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.summary_animation.cursor_hide_after_done_sec
+    group: video
+    label: 打完后藏光标
+    help: 打字结束后多少秒隐藏光标
+    widget: number
+    min: 0
+    max: 3
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.card_motion.enabled
+    group: video
+    label: 卡片运镜
+    help: 是否给证据卡配图做推拉/平移
+    widget: bool
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.card_motion.random
+    group: video
+    label: 随机运镜
+    help: 从 effects 列表里随机抽一种运镜
+    widget: bool
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.card_motion.end_scale
+    group: video
+    label: 运镜结束缩放
+    help: 卡片运镜结束时的缩放倍数
+    widget: number
+    min: 1
+    max: 1.5
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.card_motion.pan_percent
+    group: video
+    label: 平移幅度
+    help: 平移类运镜扫过画面的百分比
+    widget: percent
+    min: 0
+    max: 100
+    layout_kinds: [chronicle_frame]
+    affects: [video]
+  - path: video.card_motion.effects
+    group: video
+    label: 运镜效果列表
+    help: 可选 zoom_in / zoom_out / pan_* / zoom_in_* 等
+    widget: list
+    layout_kinds: [chronicle_frame]
+    affects: [video]

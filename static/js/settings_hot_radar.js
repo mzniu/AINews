@@ -226,6 +226,7 @@
                 if (hint) hint.textContent = `目录 ${hotRadarState.catalogItems.length} 条`;
             }
         } catch (e) {
+            hotRadarState.catalogLoaded = false;
             const hint = $('hotRadarPickerHint');
             if (hint) hint.textContent = e.message || '无法加载目录。请先填写 TopHub API Key。';
         }

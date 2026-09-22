@@ -335,7 +335,9 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                           scroll_viewport_height: Optional[int] = None,
                           clip_fps: float = 24.0,
                           main_line1_color: str = "#FFFFFF",
-                          main_line2_color: str = "#FFFFFF"):
+                          main_line2_color: str = "#FFFFFF",
+                          subtitle_bar_color: str = "#FFEB3B",
+                          subtitle_text_color: str = "#000000"):
     """
     渲染动画的某一帧（时间 t 秒）。
     anim_type: 'zoom_in'(动感放大), 'zoom_out'(动感缩小), 'unfold'(展开),
@@ -547,12 +549,14 @@ def _render_frame_animated(bg_template, user_img_resized, paste_x, final_paste_y
                 text_color=_c2, glow_color=_glow2, line_spacing=18,
                 draw_background=False,
             )
-        # 副标题：黄底黑字，紧跟主标题下方（与主标题同位移，整体自上方滑入）
+        # 副标题：圆角色条，紧跟主标题下方（与主标题同位移，整体自上方滑入）
         if sub_lines:
             sub_y = title_y_draw + main_h + MAIN_SUBTITLE_GAP_PX
             bg, _ = _draw_subtitle_yellow_bar(
                 bg, sub_lines, st_font, sub_y, img_width, margin, text_width,
                 line_spacing=14,
+                bg_color=_hex_to_rgb(subtitle_bar_color, (255, 235, 59)),
+                text_color=_hex_to_rgb(subtitle_text_color, (0, 0, 0)),
             )
 
         if not summary_info:

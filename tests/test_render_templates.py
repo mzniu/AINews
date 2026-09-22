@@ -46,7 +46,7 @@ def _write_base(path):
                     },
                     {
                         "id": "chronicle_archive_tech_blue",
-                        "label": "小牛聊AI档案（科技蓝）",
+                        "label": "档案框（科技蓝）",
                         "builtin": True,
                         "layout_kind": "chronicle_frame",
                         "canvas": {"width": 1080, "height": 1920, "fps": 24},
@@ -142,9 +142,10 @@ def test_repo_builtin_yaml_loads_three_templates():
     flash = get_render_template("flash_news_portrait")
     assert flash["canvas"] == {"width": 1080, "height": 1920, "fps": 24}
     chronicle = get_render_template("chronicle_archive_tech_blue")
+    assert chronicle["label"] == "档案框（科技蓝）"
     assert chronicle["cover"]["crop"] == "none"
     assert chronicle["cover"]["height"] == 1920
-    assert chronicle["chrome"]["brand"] == "小牛聊AI"
+    assert chronicle["chrome"]["brand"] == "AI 资讯"
     assert chronicle["chrome"]["mark_glyph"] == "牛"
     typo = chronicle["typography"]
     assert typo["subtitle_font_size"] == 52
@@ -166,7 +167,7 @@ def test_repo_builtin_yaml_loads_three_templates():
     assert "pan_left" in motion["effects"]
 
     evidence = get_render_template("chronicle_evidence_stack")
-    assert evidence["label"] == "小牛聊AI证据卡"
+    assert evidence["label"] == "证据卡"
     assert evidence["builtin"] is True
     assert evidence["layout_kind"] == "chronicle_frame"
     elayout = evidence["layout"]
@@ -187,8 +188,27 @@ def test_repo_builtin_yaml_loads_three_templates():
     emotion = (evidence.get("video") or {}).get("card_motion") or {}
     assert emotion["enabled"] is True
     assert float(emotion["end_scale"]) >= 1.22
-    assert evidence["chrome"]["brand"] == "小牛聊AI"
+    assert evidence["chrome"]["brand"] == "AI 资讯"
     assert evidence["palette"]["accent"] == "#4BE4FF"
+
+
+def test_repo_builtin_yaml_loads_violet_flash_template():
+    listed = list_render_templates()
+    ids = {item["id"] for item in listed["templates"]}
+    assert "flash_news_violet" in ids
+    spec = get_render_template("flash_news_violet")
+    assert spec["builtin"] is True
+    assert spec["layout_kind"] == "classic_overlay"
+    assert spec["label"] == "快讯竖屏（紫夜）"
+    assert spec["canvas"] == {"width": 1080, "height": 1920, "fps": 24}
+    typo = spec["typography"]
+    assert typo["main_line1_color"] == "#FFFFFF"
+    assert typo["main_line2_color"] == "#FFFFFF"
+    assert typo["subtitle_bar_color"] == "#6B4DFF"
+    assert typo["subtitle_text_color"] == "#FFFFFF"
+    assert spec["background_image"] == "static/imgs/templates/flash_news_violet/bg.png"
+    bg = Path(__file__).resolve().parents[1] / "static" / "imgs" / "templates" / "flash_news_violet" / "bg.png"
+    assert bg.is_file()
 
 
 def test_save_render_template_writes_local_override(tmp_path, monkeypatch):
@@ -204,6 +224,13 @@ def test_dump_render_template_yaml_roundtrips_id_and_layout(tmp_path, monkeypatc
     loaded = yaml.safe_load(text)
     assert loaded["id"] == "flash_news_portrait"
     assert loaded["layout_kind"] == "classic_overlay"
+
+
+def test_dump_render_template_yaml_includes_schema_comments(tmp_path, monkeypatch):
+    _patch_paths(tmp_path, monkeypatch)
+    text = dump_render_template_yaml("flash_news_portrait")
+    assert "width: 1080" in text
+    assert "# 画布宽度" in text
 
 
 def test_save_render_template_from_yaml_replaces_local_entry(tmp_path, monkeypatch):

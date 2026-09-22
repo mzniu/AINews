@@ -151,7 +151,7 @@ def test_chronicle_does_not_draw_follow_or_source(tmp_path, monkeypatch):
     assert "Follow" not in blob
     assert "量子位" not in blob
     assert "Agent" not in blob
-    assert "小牛聊AI" in blob
+    assert "AI 资讯" in blob
     assert "EVIDENCE" not in blob
 
 
@@ -279,7 +279,7 @@ def test_chronicle_header_has_extra_top_space(tmp_path, monkeypatch):
         template=template,
         include_footer=False,
     )
-    brand_y = next(xy[1] for xy, text in drawn if text == "小牛聊AI")
+    brand_y = next(xy[1] for xy, text in drawn if text == "AI 资讯")
     assert brand_y >= int(canvas_h * 0.08)
 
 
@@ -386,7 +386,7 @@ def test_chronicle_brand_sub_sits_below_brand(tmp_path, monkeypatch):
         template=_template(),
         include_footer=False,
     )
-    brand_y = next(xy[1] for xy, text in drawn if text == "小牛聊AI")
+    brand_y = next(xy[1] for xy, text in drawn if text == "AI 资讯")
     sub_y = next(xy[1] for xy, text in drawn if "粉碎AI信息差" in text)
     assert sub_y >= brand_y + 48
 
@@ -693,7 +693,7 @@ def test_evidence_cover_skips_summary_keeps_title(tmp_path, monkeypatch):
     labels = [text for _, text in drawn]
     assert any("证据封面标题" in text for text in labels)
     assert not any("这是不应出现的摘要" in text for text in labels)
-    assert "小牛聊AI" in labels
+    assert "AI 资讯" in labels
     assert not any(text == "AI 快讯" for text in labels)
 
 
@@ -718,7 +718,7 @@ def test_evidence_brand_and_record_sit_in_footer(tmp_path, monkeypatch):
         include_footer=True,
         include_summary=False,
     )
-    brand_y = next(xy[1] for xy, text in drawn if text == "小牛聊AI")
+    brand_y = next(xy[1] for xy, text in drawn if text == "AI 资讯")
     record_y = next(xy[1] for xy, text in drawn if str(text).startswith("RECORD"))
     assert brand_y >= int(canvas_h * 0.80)
     assert record_y >= int(canvas_h * 0.80)
@@ -783,7 +783,7 @@ def test_archive_brand_stays_in_header(tmp_path, monkeypatch):
         template=template,
         include_footer=True,
     )
-    brand_y = next(xy[1] for xy, text in drawn if text == "小牛聊AI")
+    brand_y = next(xy[1] for xy, text in drawn if text == "AI 资讯")
     assert brand_y < int(canvas_h * 0.20)
     assert any(text == "AI 快讯" for _, text in drawn)
 
@@ -916,3 +916,27 @@ def test_prepare_summary_lines_uses_layout_budget_not_three_line_cap():
     )
     assert len(lines) == len(wrapped)
     assert len(lines) > 3
+
+
+def test_chronicle_title_x_percent_moves_main_line(tmp_path, monkeypatch):
+    drawn: list[tuple[object, str]] = []
+    from PIL import ImageDraw
+
+    original = ImageDraw.ImageDraw.text
+
+    def spy(self, xy, text, **kwargs):
+        drawn.append((xy, str(text)))
+        return original(self, xy, text, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+    img = _red_image(tmp_path / "shot.jpg")
+    template = _template()
+    template.setdefault("typography", {})["title_x_percent"] = 20
+    render_chronicle_frame(
+        draft={"main_line1": "宽度参数化标题"},
+        image=Image.open(img).convert("RGB"),
+        template=template,
+        include_footer=False,
+    )
+    title_x = next(xy[0] for xy, text in drawn if "宽度参数化标题" in text)
+    assert title_x == int(1080 * 0.20)

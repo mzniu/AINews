@@ -11,6 +11,7 @@ import numpy as np
 from loguru import logger
 from PIL import Image, ImageDraw, ImageFont
 
+from services.ingestion.title_layout import resolve_title_box
 from src.utils.config import Config
 from src.utils.paths import path_relative_to_data, resolve_local_asset_path, to_data_url_path, use_writable_workdir
 from utils.summary_highlights import finalize_highlight_keywords
@@ -313,7 +314,7 @@ def build_summary_layout(
     summary_width_pct = float(typo.get("summary_width_percent") or 84) / 100.0
     summary_max_width = int(width * summary_width_pct)
     summary_font_size = int(typo.get("summary_font_size") or footer_size)
-    rule_x = _pct(0.045, width)
+    rule_x = resolve_title_box(width, template)[2]
     summary_align = str(typo.get("summary_align") or "left").strip().lower()
     if summary_align not in {"left", "center"}:
         summary_align = "left"
@@ -987,7 +988,7 @@ def render_chronicle_frame(
     footer_font = _truetype(footer_size)
     small_font = _truetype(max(12, int(round(footer_size * 0.9))))
 
-    brand = str(chrome.get("brand") or "小牛聊AI")
+    brand = str(chrome.get("brand") or "AI 资讯")
     glyph = str(chrome.get("mark_glyph") or "牛")
     brand_sub = str(chrome.get("brand_sub") or "")
     layout = _layout_section(template)
@@ -1012,9 +1013,7 @@ def render_chronicle_frame(
 
     placement = _title_placement(layout)
     title_top = _title_top_y(height, layout, typo)
-    rule_x = _pct(0.045, width)
-    title_x = rule_x + 18
-    title_max_w = width - title_x - inset - 20
+    title_x, title_max_w, rule_x = resolve_title_box(width, template)
     title_blob = " ".join(str(draft.get(key) or "") for key in ("main_line1", "main_line2"))
     title_keywords = finalize_highlight_keywords(
         merge_summary_highlight_keywords(

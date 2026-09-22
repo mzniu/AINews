@@ -471,9 +471,15 @@ body.app-page.nav-collapsed .nav-brand span,
 body.app-page.nav-collapsed .nav-group-label,
 body.app-page.nav-collapsed .nav-label,
 body.app-page.nav-collapsed .nav-user-copy,
-body.app-page.nav-collapsed .nav-global-search,
-body.app-page.nav-collapsed .nav-top-bar {
+body.app-page.nav-collapsed .nav-top-bar,
+body.app-page.nav-collapsed .nav-sidebar-chrome .nav-industry-chip {
     display: none;
+}
+
+body.app-page.nav-collapsed .nav-sidebar-chrome {
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 10px;
 }
 
 body.app-page.nav-collapsed .nav-refresh-btn,
@@ -710,7 +716,7 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
 }
 
 .app-page textarea.render-template-yaml {
-    min-height: 28rem;
+    min-height: 22rem;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 13px;
     line-height: 1.5;
@@ -732,6 +738,62 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     background: #000;
     display: block;
     margin-bottom: 10px;
+}
+
+.app-page .render-template-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 70vh;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.app-page .render-template-group {
+    border: 1px solid var(--app-border, rgba(255, 255, 255, 0.12));
+    border-radius: var(--app-radius-md);
+    padding: 8px 12px 12px;
+}
+
+.app-page .render-template-group > summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--app-off-white);
+    margin-bottom: 8px;
+}
+
+.app-page .render-template-field {
+    margin-bottom: 10px;
+}
+
+.app-page .render-template-field .hint {
+    margin: 4px 0 0;
+    font-size: 12px;
+}
+
+.app-page .render-template-color-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.app-page .render-template-color-row input[type="color"] {
+    width: 40px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.app-page .render-template-yaml-details {
+    margin-top: 12px;
+}
+
+.app-page .render-template-yaml-details > summary {
+    cursor: pointer;
+    font-weight: 700;
+    margin-bottom: 8px;
 }
 
 @media (max-width: 960px) {
@@ -1222,9 +1284,25 @@ body.app-page.nav-top-bar.nav-collapsed .nav-top-bar {
     min-width: 0;
 }
 
+.app-page .nav-sidebar-chrome {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--app-border, var(--color-border));
+}
+
+.app-page .nav-sidebar-chrome .nav-industry-chip {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+}
+
 .app-page .nav-industry-chip {
     flex-shrink: 0;
-    max-width: 7.5rem;
+    max-width: 9rem;
     padding: 4px 10px;
     border-radius: 999px;
     border: 1px solid var(--nav-chrome-btn-border);
@@ -1406,7 +1484,7 @@ html[data-embed="1"] .publish-hub-tabs {
     display: none !important;
 }
 
-/* Global search in sidebar */
+/* Global search (optional mount outside nav; styles kept for reuse) */
 .nav-global-search {
     margin-bottom: 12px;
     padding-bottom: 12px;

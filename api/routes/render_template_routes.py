@@ -37,6 +37,7 @@ def preview_render_template_video_route(body: dict):
 
 @router.get("/render-templates/{template_id}")
 def get_render_template_route(template_id: str):
+    from services.ingestion.render_template_schema import schema_for_layout
     from services.ingestion.render_templates import dump_render_template_yaml, get_render_template
 
     try:
@@ -45,6 +46,7 @@ def get_render_template_route(template_id: str):
             "success": True,
             "template": template,
             "yaml": dump_render_template_yaml(template_id),
+            "schema": schema_for_layout(str(template.get("layout_kind") or "")),
         }
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

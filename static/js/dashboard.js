@@ -59,8 +59,9 @@
 
         try {
             const summary = await fetchJson('/api/publishing/metrics/summary?days=7');
-            const totalViews = summary.total_views ?? summary.views ?? summary.play_count;
-            if (totalViews != null) {
+            const totals = summary.totals || {};
+            const totalViews = totals.view_count ?? summary.total_views ?? summary.views ?? summary.play_count;
+            if (totalViews != null && totalViews !== '') {
                 views = totalViews >= 1000
                     ? `${(totalViews / 1000).toFixed(1)}k`
                     : String(totalViews);

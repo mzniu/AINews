@@ -17,6 +17,48 @@ templates:
       main_line1_color: "#FFFFFF"
       main_line2_color: "#FFFFFF"
       title_y_percent: 12
+      title_x_percent: 8
+      title_width_percent: 84
+    video:
+      show_summary: true
+      summary_scroll_mode: line_uniform
+      max_selected_images: 4
+      random_bgm: true
+      bgm_dir: static/music
+      prepend_cover_intro: true
+      cover_intro_frames: 1
+      clip_durations_by_count:
+        1: [7.0]
+        2: [3.5, 3.5]
+        3: [2.5, 3.0, 3.0]
+      clip_sec_when_at_least:
+        count: 4
+        sec: 2.0
+      fallback_clip_sec: 2.5
+    cover:
+      enabled: true
+      width: 1080
+      height: 1920
+  - id: flash_news_violet
+    label: 快讯竖屏（紫夜）
+    builtin: true
+    layout_kind: classic_overlay
+    canvas:
+      width: 1080
+      height: 1920
+      fps: 24
+    background_image: static/imgs/templates/flash_news_violet/bg.png
+    typography:
+      title_font_size: 72
+      subtitle_font_size: 68
+      summary_font_size: 44
+      main_line1_color: "#FFFFFF"
+      main_line2_color: "#FFFFFF"
+      subtitle_bar_color: "#6B4DFF"
+      subtitle_text_color: "#FFFFFF"
+      title_y_percent: 12
+      title_x_percent: 8
+      title_width_percent: 84
     video:
       show_summary: true
       summary_scroll_mode: line_uniform
@@ -38,7 +80,7 @@ templates:
       width: 1080
       height: 1920
   - id: chronicle_archive_tech_blue
-    label: 小牛聊AI档案（科技蓝）
+    label: 档案框（科技蓝）
     builtin: true
     layout_kind: chronicle_frame
     canvas:
@@ -57,7 +99,7 @@ templates:
       card_tab: "#070B10"
       frame: "#1A6A8A"
     chrome:
-      brand: 小牛聊AI
+      brand: AI 资讯
       mark_glyph: 牛
       mark_path: static/imgs/templates/chronicle_tech_blue/mark_niu.png
       eyebrow: AI CHRONICLE / ARCHIVE RECORD
@@ -94,6 +136,9 @@ templates:
       card_left_percent: 3.8
       card_right_percent: 96.2
       card_inset_px: 8
+      title_rule_x_percent: 4.5
+      title_x_pad_px: 18
+      title_right_pad_px: 20
     video:
       show_summary: false
       max_selected_images: 4
@@ -142,7 +187,7 @@ templates:
       crop: none
       card_images: 1
   - id: chronicle_evidence_stack
-    label: 小牛聊AI证据卡
+    label: 证据卡
     builtin: true
     layout_kind: chronicle_frame
     canvas:
@@ -161,7 +206,7 @@ templates:
       card_tab: "#070B10"
       frame: "#1A6A8A"
     chrome:
-      brand: 小牛聊AI
+      brand: AI 资讯
       mark_glyph: 牛
       mark_path: static/imgs/templates/chronicle_tech_blue/mark_niu.png
       eyebrow: AI CHRONICLE / ARCHIVE RECORD
@@ -204,6 +249,9 @@ templates:
       title_top_percent: 55
       title_rule: true
       title_rule_width_px: 4
+      title_rule_x_percent: 4.5
+      title_x_pad_px: 18
+      title_right_pad_px: 20
     video:
       show_summary: false
       max_selected_images: 4

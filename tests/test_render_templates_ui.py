@@ -1,4 +1,4 @@
-"""Settings UI: edit the selected render template as YAML."""
+"""Settings UI: schema-driven render template form + YAML + preview."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,3 +32,16 @@ def test_settings_render_template_preview_hooks():
     assert "preview-video" in js
     assert "1000" in js
     assert "AbortController" in js
+
+
+def test_settings_render_template_schema_form():
+    html = SETTINGS_HTML.read_text(encoding="utf-8")
+    js = SETTINGS_JS.read_text(encoding="utf-8")
+
+    assert 'id="renderTemplateForm"' in html
+    assert "高级 YAML" in html
+    assert "schema" in js
+    assert "renderTemplateForm" in js
+    assert "widget" in js
+    assert "data-path" in js
+    assert "scheduleCoverPreview" in js

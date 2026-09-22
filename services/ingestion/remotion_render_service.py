@@ -132,6 +132,8 @@ def _build_classic_props(
         "titleYPercent": typo.get("title_y_percent"),
         "mainLine1Color": str(typo.get("main_line1_color") or "#FFFFFF"),
         "mainLine2Color": str(typo.get("main_line2_color") or "#FFFFFF"),
+        "subtitleBarColor": str(typo.get("subtitle_bar_color") or "#FFEB3B"),
+        "subtitleTextColor": str(typo.get("subtitle_text_color") or "#000000"),
         "coverImagePath": _rel_asset_path(cover_image_path, article_id=article_id, index=200)
         if cover_image_path
         else "",

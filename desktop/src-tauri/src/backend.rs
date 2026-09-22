@@ -11,8 +11,18 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 pub struct BackendProcess {
-    child: Child,
+    /// `None` when reusing an already-listening embedded API from a prior session.
+    child: Option<Child>,
     log_path: PathBuf,
+}
+
+impl BackendProcess {
+    pub fn adopted(log_path: PathBuf) -> Self {
+        Self {
+            child: None,
+            log_path,
+        }
+    }
 }
 
 pub fn install_dir() -> PathBuf {
@@ -536,9 +546,127 @@ pub fn spawn_backend(
 
     let child = cmd.spawn()?;
     Ok(BackendProcess {
-        child,
+        child: Some(child),
         log_path,
     })
+}
+
+/// Returns true when the local API already answers on this port.
+pub fn probe_backend_health(port: u16) -> bool {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build();
+    let client = match client {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let url = format!("http://127.0.0.1:{port}/api/health");
+    match client.get(&url).send() {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+fn local_port_in_use(port: u16) -> bool {
+    std::net::TcpListener::bind(("0.0.0.0", port)).is_err()
+}
+
+#[cfg(windows)]
+fn pids_listening_on_port(port: u16) -> Vec<u32> {
+    let output = Command::new("netstat")
+        .args(["-ano"])
+        .output()
+        .ok()
+        .map(|o| o.stdout);
+    let stdout = match output {
+        Some(s) => String::from_utf8_lossy(&s).to_string(),
+        None => return Vec::new(),
+    };
+    let needle = format!(":{port}");
+    let mut pids = Vec::new();
+    for line in stdout.lines() {
+        if !line.contains("LISTENING") || !line.contains(&needle) {
+            continue;
+        }
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if let Some(pid_str) = parts.last() {
+            if let Ok(pid) = pid_str.parse::<u32>() {
+                if pid > 0 {
+                    pids.push(pid);
+                }
+            }
+        }
+    }
+    pids.sort_unstable();
+    pids.dedup();
+    pids
+}
+
+#[cfg(not(windows))]
+fn pids_listening_on_port(_port: u16) -> Vec<u32> {
+    Vec::new()
+}
+
+#[cfg(windows)]
+fn process_command_line(pid: u32) -> Option<String> {
+    let script = format!(
+        "(Get-CimInstance Win32_Process -Filter \"ProcessId={pid}\").CommandLine"
+    );
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            &script,
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let line = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if line.is_empty() {
+        None
+    } else {
+        Some(line)
+    }
+}
+
+#[cfg(not(windows))]
+fn process_command_line(_pid: u32) -> Option<String> {
+    None
+}
+
+/// If the port is held by a dead/stuck `web_server.py` (not healthy), stop it so a new backend can bind.
+pub fn reclaim_stale_backend_port(port: u16) {
+    if probe_backend_health(port) {
+        return;
+    }
+    if !local_port_in_use(port) {
+        return;
+    }
+    for pid in pids_listening_on_port(port) {
+        let cmdline = process_command_line(pid);
+        let is_ainews = cmdline
+            .as_deref()
+            .map(|c| c.contains("web_server.py"))
+            .unwrap_or(false);
+        if !is_ainews {
+            continue;
+        }
+        let pid_arg = pid.to_string();
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid_arg, "/F", "/T"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+    }
+    for _ in 0..20 {
+        if !local_port_in_use(port) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
 }
 
 fn chrono_lite_now() -> String {
@@ -570,17 +698,19 @@ pub fn wait_for_health(
     let log_path = backend.log_path.clone();
     let start = Instant::now();
     while start.elapsed() < timeout {
-        if let Ok(Some(status)) = backend.child.try_wait() {
-            let tail = read_log_tail(&log_path, 12);
-            let mut msg = format!(
-                "Python 后端进程已退出 (code={})",
-                status.code().unwrap_or(-1)
-            );
-            msg.push_str(&format!("\n日志文件: {}", log_path.display()));
-            if !tail.is_empty() {
-                msg.push_str(&format!("\n最近日志:\n{tail}"));
+        if let Some(child) = backend.child.as_mut() {
+            if let Ok(Some(status)) = child.try_wait() {
+                let tail = read_log_tail(&log_path, 12);
+                let mut msg = format!(
+                    "Python 后端进程已退出 (code={})",
+                    status.code().unwrap_or(-1)
+                );
+                msg.push_str(&format!("\n日志文件: {}", log_path.display()));
+                if !tail.is_empty() {
+                    msg.push_str(&format!("\n最近日志:\n{tail}"));
+                }
+                return Err(msg);
             }
-            return Err(msg);
         }
         if let Ok(resp) = client.get(&url).send() {
             if resp.status().is_success() {
@@ -631,14 +761,18 @@ impl BackendProcess {
     }
 
     pub fn shutdown(mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
     }
 }
 
 impl Drop for BackendProcess {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
     }
 }

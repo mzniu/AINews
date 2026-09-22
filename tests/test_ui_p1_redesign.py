@@ -164,10 +164,11 @@ def test_global_search_api_route_exists():
     assert "published_posts" in data
 
 
-def test_global_search_ui_in_nav():
+def test_global_search_script_available_not_mounted_in_sidebar_nav():
     assert GLOBAL_SEARCH_JS.is_file()
     nav = _read(APP_NAV_JS)
-    assert "global-search" in nav or "global_search.js" in nav
+    assert "global-search-root" not in nav
+    assert "initGlobalSearch" not in nav
     search_js = _read(GLOBAL_SEARCH_JS)
     assert "/api/search" in search_js
 

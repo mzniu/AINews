@@ -62,7 +62,7 @@ def test_list_tophub_nodes_concatenates_pages(catalog_home, monkeypatch: pytest.
         calls.append(params or {})
         page = int((params or {}).get("p") or 1)
         if page == 1:
-            return _FakeResponse({"data": [_node("hashAaa00001", "知乎") for _ in range(20)]})
+            return _FakeResponse({"data": [_node("hashAaa00001", "知乎") for _ in range(100)]})
         if page == 2:
             return _FakeResponse({"data": [_node("hashBbb00002", "微博")]})
         return _FakeResponse({"data": []})
@@ -72,10 +72,32 @@ def test_list_tophub_nodes_concatenates_pages(catalog_home, monkeypatch: pytest.
         access_key="test-key",
         api_base_url="https://api.tophubdata.com",
     )
-    assert [item["hashid"] for item in catalog.items] == ["hashAaa00001"] * 20 + ["hashBbb00002"]
+    assert [item["hashid"] for item in catalog.items] == ["hashAaa00001"] * 100 + ["hashBbb00002"]
     assert catalog.stale is False
     assert catalog.fetched_at
     assert len(calls) == 2
+
+
+def test_list_tophub_nodes_stops_after_full_100_item_page(catalog_home, monkeypatch: pytest.MonkeyPatch):
+    """TopHub returns 100 rows per page; must not keep paging until wall-clock timeout."""
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        page = int((params or {}).get("p") or 1)
+        if page == 1:
+            return _FakeResponse(
+                {"data": [_node(f"hash{i:09d}", f"平台{i}") for i in range(100)]}
+            )
+        if page == 2:
+            return _FakeResponse({"data": [_node("hashLast0001", "末页")]})
+        raise AssertionError(f"unexpected page {page}")
+
+    monkeypatch.setattr("services.ingestion.tophub_catalog.requests.get", fake_get)
+    catalog = list_tophub_nodes(
+        access_key="test-key",
+        api_base_url="https://api.tophubdata.com",
+    )
+    assert len(catalog.items) == 101
+    assert catalog.items[-1]["name"] == "末页"
 
 
 def test_list_tophub_nodes_uses_fresh_cache(catalog_home, monkeypatch: pytest.MonkeyPatch):
@@ -169,7 +191,7 @@ def test_list_tophub_nodes_does_not_write_partial_cache(catalog_home, monkeypatc
     def fake_get(url, params=None, headers=None, timeout=None):
         page = int((params or {}).get("p") or 1)
         if page == 1:
-            return _FakeResponse({"data": [_node(f"page1Hash{i:04d}", "第一页") for i in range(20)]})
+            return _FakeResponse({"data": [_node(f"page1Hash{i:04d}", "第一页") for i in range(100)]})
         raise RuntimeError("page 2 failed")
 
     monkeypatch.setattr("services.ingestion.tophub_catalog.requests.get", fake_get)

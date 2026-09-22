@@ -111,8 +111,10 @@ def set_default_template_id(template_id: str) -> dict[str, Any]:
 
 
 def dump_render_template_yaml(template_id: str) -> str:
+    from services.ingestion.render_template_schema import dump_annotated_yaml
+
     spec = get_render_template(template_id)
-    return yaml.dump(spec, allow_unicode=True, sort_keys=False)
+    return dump_annotated_yaml(spec, layout_kind=str(spec.get("layout_kind") or ""))
 
 
 def save_render_template_from_yaml(template_id: str, yaml_text: str) -> dict[str, Any]:

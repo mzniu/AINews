@@ -13,7 +13,7 @@ export const defaultChronicleTemplate: ChronicleTemplate = {
     frame: '#1A6A8A',
   },
   chrome: {
-    brand: '小牛聊AI',
+    brand: 'AI 资讯',
     mark_glyph: '牛',
     brand_sub: '粉碎AI信息差 / 消除AI焦虑',
     footer_left: 'AI 快讯',

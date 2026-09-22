@@ -185,8 +185,12 @@ def render_ingested_video(
         subtitle_font_size=typo.get("subtitle_font_size"),
         summary_font_size=typo.get("summary_font_size"),
         title_y_percent=typo.get("title_y_percent"),
+        title_x_percent=typo.get("title_x_percent"),
+        title_width_percent=typo.get("title_width_percent"),
         main_line1_color=str(typo.get("main_line1_color") or "#FFFFFF"),
         main_line2_color=str(typo.get("main_line2_color") or "#FFFFFF"),
+        subtitle_bar_color=str(typo.get("subtitle_bar_color") or "#FFEB3B"),
+        subtitle_text_color=str(typo.get("subtitle_text_color") or "#000000"),
     )
 
     from api.routes.video_routes import _create_animated_video_blocking

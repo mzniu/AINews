@@ -147,6 +147,10 @@ class CreateAnimatedVideoRequest(BaseModel):
     subtitle_font_size: Optional[int] = None  # 副标题字号（px）
     summary_font_size: Optional[int] = None  # 摘要字号（px），默认 44
     title_y_percent: Optional[float] = None  # 标题/副标题顶部位置，占画布高度百分比
+    title_x_percent: Optional[float] = None  # 标题左边缘，占画布宽度百分比
+    title_width_percent: Optional[float] = None  # 标题折行宽度，占画布宽度百分比
+    subtitle_bar_color: str = "#FFEB3B"  # 副标题圆角色条底色
+    subtitle_text_color: str = "#000000"  # 副标题文字颜色
     summary_y_percent: Optional[float] = None  # 摘要顶部基准位置，占画布高度百分比（会减去摘要高度）
     first_image_effect: Optional[str] = None  # GitHub页可用：side_flip_rounded，将第一张静态图做30度侧翻圆角卡片并渐进放大
     # 摘要高亮：在「标签」串中解析 #词；或直接使用下列词在摘要中匹配着色（长词优先；服务端会收束为每词≤5字）

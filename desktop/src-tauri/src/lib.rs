@@ -93,6 +93,33 @@ impl AppState {
         let cloud_token = auth.and_then(|a| a.cloud_access_token_for_backend());
         let mut guard = self.backend.lock().unwrap();
         if guard.is_none() {
+            let log_path = backend::backend_log_path(&self.user_data);
+            if backend::probe_backend_health(self.port) {
+                *guard = Some(backend::BackendProcess::adopted(log_path));
+                self.clear_startup_error();
+                return Ok(format!("http://127.0.0.1:{}", self.port));
+            }
+            backend::reclaim_stale_backend_port(self.port);
+            if backend::probe_backend_health(self.port) {
+                *guard = Some(backend::BackendProcess::adopted(log_path));
+                self.clear_startup_error();
+                return Ok(format!("http://127.0.0.1:{}", self.port));
+            }
+            if !backend::probe_backend_health(self.port) {
+                // Still blocked — surface a clearer error before spawn exits with bind failure.
+                use std::net::TcpListener;
+                if TcpListener::bind(("0.0.0.0", self.port)).is_err() {
+                    let msg = format!(
+                        "端口 {} 已被其他程序占用，无法启动 Python 后端。\n\
+请关闭占用该端口的程序后重试，或在任务管理器中结束残留的 python.exe（web_server.py）。\n\
+数据目录: {}",
+                        self.port,
+                        self.user_data.display()
+                    );
+                    self.set_startup_error(&msg);
+                    return Err(msg);
+                }
+            }
             let mut backend = backend::spawn_backend(
                 &self.python,
                 &self.app_dir,

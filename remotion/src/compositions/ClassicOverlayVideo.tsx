@@ -151,6 +151,8 @@ export const ClassicOverlayVideo: React.FC<ClassicOverlayProps> = ({
   titleYPercent = 12,
   mainLine1Color = '#FFFFFF',
   mainLine2Color = '#FFFFFF',
+  subtitleBarColor = '#FFEB3B',
+  subtitleTextColor = '#000000',
   coverImagePath,
   coverIntroDurationSec = 0,
 }) => {
@@ -182,8 +184,8 @@ export const ClassicOverlayVideo: React.FC<ClassicOverlayProps> = ({
           style={{
             marginTop: 12,
             fontSize: Math.round(titleFontSize * 0.7),
-            background: '#FFEC30',
-            color: '#111',
+            background: hexToRgb(subtitleBarColor, '#FFEB3B'),
+            color: hexToRgb(subtitleTextColor, '#111111'),
             display: 'inline-block',
             padding: '4px 12px',
             borderRadius: 8,
@@ -198,8 +200,8 @@ export const ClassicOverlayVideo: React.FC<ClassicOverlayProps> = ({
           style={{
             marginTop: 8,
             fontSize: Math.round(titleFontSize * 0.63),
-            background: '#FFEC30',
-            color: '#111',
+            background: hexToRgb(subtitleBarColor, '#FFEB3B'),
+            color: hexToRgb(subtitleTextColor, '#111111'),
             display: 'inline-block',
             padding: '4px 12px',
             borderRadius: 8,

@@ -359,6 +359,13 @@ def test_dashboard_hot_radar_uses_ingestion_api():
     assert "/api/hot-radar/snapshots" not in js
 
 
+def test_dashboard_metrics_summary_reads_totals_view_count():
+    js = _read(STATIC / "js" / "dashboard.js")
+    assert "/api/publishing/metrics/summary" in js
+    assert "totals.view_count" in js or "totals.view_count ??" in js
+    assert "summary.totals" in js
+
+
 def test_light_contrast_stylesheet_is_imported_by_app_shell():
     shell = _read(STATIC / "css" / "app_shell.css")
     contrast = _read(STATIC / "css" / "design-system" / "light-contrast.css")

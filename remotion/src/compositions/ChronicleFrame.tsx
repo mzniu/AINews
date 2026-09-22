@@ -155,7 +155,7 @@ export const ChronicleFrame: React.FC<Props> = ({
           {String(chrome.mark_glyph || '牛')}
         </div>
         <div>
-          <div style={{color: textColor, fontSize: brandSize, ...fontStyles.title}}>{String(chrome.brand || '小牛聊AI')}</div>
+          <div style={{color: textColor, fontSize: brandSize, ...fontStyles.title}}>{String(chrome.brand || 'AI 资讯')}</div>
           {chrome.brand_sub ? (
             <div style={{color: muted, fontSize: brandSubSize, marginTop: 6, ...fontStyles.body}}>{String(chrome.brand_sub)}</div>
           ) : null}

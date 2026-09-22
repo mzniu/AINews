@@ -17,6 +17,7 @@ from api.routes.video_routes import (
     _subtitle_block_height,
 )
 from api.schemas.request_models import CreateAnimatedVideoRequest
+from services.ingestion.title_layout import resolve_title_box
 from src.utils.config import Config
 from src.utils.paths import path_relative_to_data, resolve_local_asset_path
 from utils.video_utils import _render_frame_animated
@@ -98,6 +99,8 @@ def render_article_cover(
         title_y_percent=float(((template or {}).get("typography") or {}).get("title_y_percent") or 12.0),
         main_line1_color=str(((template or {}).get("typography") or {}).get("main_line1_color") or "#FFFFFF"),
         main_line2_color=str(((template or {}).get("typography") or {}).get("main_line2_color") or "#FFFFFF"),
+        subtitle_bar_color=str(((template or {}).get("typography") or {}).get("subtitle_bar_color") or "#FFEB3B"),
+        subtitle_text_color=str(((template or {}).get("typography") or {}).get("subtitle_text_color") or "#000000"),
     )
 
     img_width, img_height = bg_template.size
@@ -108,8 +111,7 @@ def render_article_cover(
         int(typo.get("title_font_size") or COVER_TITLE_FONT_SIZE),
         subtitle_font_size=int(typo.get("subtitle_font_size") or COVER_SUBTITLE_FONT_SIZE),
     )
-    margin = int(img_width * 0.08)
-    text_width = img_width - 2 * margin
+    margin, text_width, _ = resolve_title_box(img_width, template or {})
     main_title_lines, sub_title_lines = _resolve_animated_title_lines(
         request, temp_draw, title_font, subtitle_font, text_width
     )
@@ -169,8 +171,10 @@ def render_article_cover(
         hold_with_text_start=0.8,
         anim_type="zoom_in",
         title_slide_entrance=False,
-        main_line1_color="#FFFFFF",
-        main_line2_color="#FFFFFF",
+        main_line1_color=request.main_line1_color,
+        main_line2_color=request.main_line2_color,
+        subtitle_bar_color=request.subtitle_bar_color,
+        subtitle_text_color=request.subtitle_text_color,
     )
     final = Image.fromarray(np.asarray(frame_np, dtype=np.uint8))
 

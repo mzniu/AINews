@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "ainews-desktop"
-version = "1.0.9"
+version = "1.0.11"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

@@ -21,6 +21,7 @@ from utils.video_utils import (
 )
 from utils.summary_highlights import resolve_highlight_keywords
 from services.video_service import VideoService
+from services.ingestion.title_layout import resolve_title_box
 from services.video_embedding_service import video_embedding_service
 from services.gif_processor import gif_processor
 import cv2
@@ -380,8 +381,16 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
             getattr(request, "summary_font_size", None),
         )
 
-        margin = int(img_width * 0.08)
-        text_width = img_width - 2 * margin
+        margin, text_width, _ = resolve_title_box(
+            img_width,
+            {
+                "layout_kind": "classic_overlay",
+                "typography": {
+                    "title_x_percent": getattr(request, "title_x_percent", None),
+                    "title_width_percent": getattr(request, "title_width_percent", None),
+                },
+            },
+        )
 
         # 预计算标题和摘要（新：主标题两行 + 副标题单行；旧：title 为 主|副）
         temp_draw = ImageDraw.Draw(bg_template.copy())
@@ -443,6 +452,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
         # 主标题颜色（前端传入 #RRGGBB 字符串，默认白色）
         _main_line1_color = getattr(request, 'main_line1_color', '#FFFFFF') or '#FFFFFF'
         _main_line2_color = getattr(request, 'main_line2_color', '#FFFFFF') or '#FFFFFF'
+        _subtitle_bar_color = getattr(request, 'subtitle_bar_color', '#FFEB3B') or '#FFEB3B'
+        _subtitle_text_color = getattr(request, 'subtitle_text_color', '#000000') or '#000000'
 
         clips = []
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -658,7 +669,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                                                    _anim=anim, _dur=clip_duration,
                                                    _tse=_tse,
                                                    _slot=available,
-                                                   _c1=_main_line1_color, _c2=_main_line2_color):
+                                                   _c1=_main_line1_color, _c2=_main_line2_color,
+                                                   _bar=_subtitle_bar_color, _st=_subtitle_text_color):
                                 # 计算当前应该显示哪一帧
                                 total_frames = len(_frames)
                                 current_frame_index = int((t / _dur) * total_frames) % total_frames
@@ -682,6 +694,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                                     clip_fps=FPS,
                                     main_line1_color=_c1,
                                     main_line2_color=_c2,
+                                    subtitle_bar_color=_bar,
+                                    subtitle_text_color=_st,
                                 )
                             
                             clip = VideoClip(make_gif_frame_func, duration=clip_duration).with_fps(FPS)
@@ -742,6 +756,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                                 clip_fps=FPS,
                                 main_line1_color=_main_line1_color,
                                 main_line2_color=_main_line2_color,
+                                subtitle_bar_color=_subtitle_bar_color,
+                                subtitle_text_color=_subtitle_text_color,
                             )
                             preview_path = output_dir / f"preview_{idx:02d}.png"
                             Image.fromarray(preview).save(preview_path, quality=95)
@@ -881,7 +897,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                                     _scroll=enable_summary_scroll,
                                     _tse=_tse,
                                     _slot=available,
-                                    _c1=_main_line1_color, _c2=_main_line2_color):
+                                    _c1=_main_line1_color, _c2=_main_line2_color,
+                                    _bar=_subtitle_bar_color, _st=_subtitle_text_color):
                     return _render_frame_animated(
                         _bg, _img, _px, _py, _tw, _th, img_width, img_height,
                         _ti, _si, t,
@@ -900,6 +917,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                         clip_fps=FPS,
                         main_line1_color=_c1,
                         main_line2_color=_c2,
+                        subtitle_bar_color=_bar,
+                        subtitle_text_color=_st,
                     )
                 
                 clip = VideoClip(make_frame_func, duration=clip_duration).with_fps(FPS)
@@ -925,6 +944,8 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                     clip_fps=FPS,
                     main_line1_color=_main_line1_color,
                     main_line2_color=_main_line2_color,
+                    subtitle_bar_color=_subtitle_bar_color,
+                    subtitle_text_color=_subtitle_text_color,
                 )
                 preview_path = output_dir / f"preview_{idx:02d}.png"
                 Image.fromarray(preview).save(preview_path, quality=95)
