@@ -92,3 +92,16 @@ def test_switch_industry_auto_reloads_runtime(client):
     assert body.get("runtime_reloaded") is True
     assert body.get("embedded_schedules_refreshed") is True
     worker.refresh_schedules.assert_called_once()
+
+
+def test_sync_pack_succeeds_when_worker_refresh_raises(client):
+    worker = MagicMock()
+    worker.refresh_schedules.side_effect = RuntimeError("scheduler busy")
+    client.app.state.ingestion_worker = worker
+
+    response = client.post("/api/me/industry/sync-pack")
+    assert response.status_code == 200
+    body = response.json()
+    assert body.get("pack_source") in {"bundled", "cloud"}
+    assert body.get("reload_error")
+    assert body.get("runtime_reloaded") is False

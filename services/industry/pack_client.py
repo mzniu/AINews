@@ -114,4 +114,6 @@ def apply_cloud_manifest_to_cache(industry_id: str) -> dict[str, Any]:
     manifest = fetch_pack_manifest(industry_id)
     if manifest.get("source") == "cloud":
         persist_pack_manifest(manifest)
-    return refresh_effective_cache(industry_id)
+    effective = refresh_effective_cache(industry_id)
+    effective["pack_source"] = manifest.get("source", "bundled")
+    return effective

@@ -128,15 +128,23 @@ def sync_my_industry_pack(
     from services.industry.profile import get_active_industry_id
 
     active = get_active_industry_id()
-    effective = apply_cloud_manifest_to_cache(active)
+    try:
+        effective = apply_cloud_manifest_to_cache(active)
+    except (ValueError, OSError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     cached = load_effective_cache(active) or {}
     payload = {
         "active_industry_id": active,
         "pack_version": effective.get("pack_version"),
         "manifest_hash": cached.get("manifest_hash"),
         "pack_path": str(local_l2_pack_path(active)),
+        "pack_source": effective.get("pack_source", "bundled"),
     }
     payload.update(_apply_industry_runtime_reload(request, db))
+    if payload.get("pack_source") == "bundled" and not payload.get("reload_error"):
+        payload.setdefault("message", "已使用内置行业包并刷新本地配置")
+    elif payload.get("pack_source") == "cloud" and payload.get("runtime_reloaded"):
+        payload.setdefault("message", "云端行业包已同步，调度已刷新")
     return payload
 
 
