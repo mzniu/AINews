@@ -7,64 +7,13 @@ import numpy as np
 from PIL import Image, ImageDraw
 from datetime import datetime
 from services.image_watermark_detect import detect_watermark_regions, merge_regions
+from services.watermark_inpaint import get_lama_model, inpaint_regions
 from ..schemas.request_models import (
     RemoveWatermarkRequest, DetectWatermarkRequest, DrawBordersRequest, CropImageRequest,
     DrawImageTextRequest,
 )
 
 router = APIRouter(prefix="/api", tags=["去水印"])
-
-def _make_mock_lama():
-    class MockLamaModel:
-        def __call__(self, image, mask):
-            return image.copy()
-    return MockLamaModel()
-
-
-def get_lama_model():
-    """获取LaMa去水印模型实例。先尝试 CUDA，失败则回退到 CPU。"""
-    import os
-    import torch
-
-    try:
-        from simple_lama_inpainting import SimpleLama
-    except ImportError as e:
-        logger.warning(f"LaMa模型未安装: {e}，使用模拟实现")
-        return _make_mock_lama()
-
-    # --- 尝试 CUDA ---
-    if torch.cuda.is_available():
-        try:
-            model = SimpleLama(device='cuda')
-            if hasattr(model, 'to'):
-                model = model.to('cuda')
-            logger.info("LaMa模型加载成功 (GPU加速模式)")
-            return model
-        except Exception as cuda_err:
-            logger.warning(f"CUDA 模式初始化失败，回退到 CPU: {cuda_err}")
-
-    # --- 强制 CPU ---
-    # simple_lama_inpainting 在 torch.jit.load() 时未指定 map_location，
-    # 导致 CUDA 存储的权重被映射到 CUDA 设备，在 CPU-only PyTorch 下崩溃。
-    # 通过 monkey-patch 强制注入 map_location='cpu'，确保权重加载到 CPU。
-    os.environ['CUDA_VISIBLE_DEVICES'] = ''
-    _orig_jit_load = torch.jit.load
-    try:
-        def _cpu_jit_load(f, *args, **kwargs):
-            kwargs.setdefault('map_location', torch.device('cpu'))
-            return _orig_jit_load(f, *args, **kwargs)
-        torch.jit.load = _cpu_jit_load
-
-        model = SimpleLama(device='cpu')
-        if hasattr(model, 'to'):
-            model = model.to('cpu')
-        logger.info("LaMa模型加载成功 (CPU模式)")
-        return model
-    except Exception as e:
-        logger.error(f"LaMa模型加载失败: {e}")
-        return _make_mock_lama()
-    finally:
-        torch.jit.load = _orig_jit_load  # 恢复原始函数
 
 @router.post("/detect-watermark")
 async def detect_watermark(request: DetectWatermarkRequest):
@@ -98,41 +47,19 @@ async def remove_watermark(request: RemoveWatermarkRequest):
         
         if not request.regions or len(request.regions) == 0:
             return {"success": False, "message": "请至少框选一个水印区域"}
-        
-        # 加载原图
-        img = Image.open(image_path).convert("RGB")
-        img_width, img_height = img.size
-        
-        # 根据regions创建mask（白色=需要修复的区域）
-        mask = Image.new("L", (img_width, img_height), 0)
-        mask_draw = ImageDraw.Draw(mask)
-        
-        for region in request.regions:
-            x = int(region.get('x', 0))
-            y = int(region.get('y', 0))
-            w = int(region.get('width', 0))
-            h = int(region.get('height', 0))
-            if w > 0 and h > 0:
-                # 稍微扩大区域以获得更好的效果
-                expand = 5
-                x1 = max(0, x - expand)
-                y1 = max(0, y - expand)
-                x2 = min(img_width, x + w + expand)
-                y2 = min(img_height, y + h + expand)
-                mask_draw.rectangle([(x1, y1), (x2, y2)], fill=255)
-        
-        # 使用LaMa模型进行修复
-        simple_lama = get_lama_model()
-        result = simple_lama(img, mask)
-        
-        # 保存结果
-        output_dir = image_path.parent / "watermark_removed"
-        output_dir.mkdir(exist_ok=True)
+
         timestamp = datetime.now().strftime("%H%M%S")
-        output_path = output_dir / f"{image_path.stem}_clean_{timestamp}{image_path.suffix}"
-        result.save(output_path, quality=95)
-        
-        relative_path = str(output_path.relative_to(Path("."))).replace("\\", "/")
+        output_path = inpaint_regions(
+            image_path,
+            request.regions,
+            output_stem_suffix=f"_clean_{timestamp}",
+            expand_px=5,
+            allow_mock=True,
+        )
+        try:
+            relative_path = str(output_path.relative_to(Path(".").resolve())).replace("\\", "/")
+        except ValueError:
+            relative_path = str(output_path).replace("\\", "/")
         logger.success(f"水印去除成功: {output_path}")
         
         return {

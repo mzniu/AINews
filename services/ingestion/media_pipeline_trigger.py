@@ -28,6 +28,7 @@ _FLAT_OVERRIDE_KEYS = (
     "cover_height",
     "voiceover_min_chars",
     "voiceover_max_chars",
+    "auto_remove_watermark",
 )
 
 
@@ -130,6 +131,7 @@ def load_media_pipeline_config(cfg: dict[str, Any] | None = None) -> dict[str, A
         "voiceover_max_chars": int(
             pipeline.get("voiceover_max_chars", auto.get("voiceover_max_chars", 90))
         ),
+        "auto_remove_watermark": bool(pipeline.get("auto_remove_watermark", True)),
     }
     if cfg:
         for key in _FLAT_OVERRIDE_KEYS:

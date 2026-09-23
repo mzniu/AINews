@@ -473,3 +473,75 @@ def test_pipeline_falls_back_to_pool_when_auto_selected_empty(
     image_paths = mock_render.call_args.kwargs.get("image_paths") or mock_render.call_args[1].get("image_paths")
     assert image_paths
     get_data_dir.cache_clear()
+
+
+@patch("services.ingestion.media_pipeline.clean_images_for_render")
+@patch("services.ingestion.media_pipeline.prepend_cover_intro_to_video")
+@patch("services.ingestion.media_pipeline.render_article_cover")
+@patch("services.ingestion.media_pipeline.pick_best_cover_image")
+@patch("services.ingestion.media_pipeline.render_ingested_video")
+@patch("services.ingestion.media_pipeline.pick_random_bgm")
+@patch("services.ingestion.media_pipeline.prepare_video_metadata")
+@patch("services.ingestion.media_pipeline.generate_video_content")
+@patch("services.ingestion.media_pipeline.score_article_images")
+def test_pipeline_uses_cleaned_paths_and_picks_cover_once(
+    mock_score,
+    mock_content,
+    mock_prepare,
+    mock_bgm,
+    mock_render,
+    mock_pick_cover,
+    mock_cover,
+    mock_intro,
+    mock_clean,
+    db_session,
+):
+    from services.ingestion.watermark_clean import WatermarkCleanResult
+
+    hero = _pipeline_test_image("hero.jpg")
+    cover = _pipeline_test_image("cover.jpg")
+    mock_score.return_value = {"scored_count": 1, "from_cache": True}
+    mock_content.return_value = {
+        "success": True,
+        "main_line1": "突发！",
+        "summary": "小牛说：x",
+        "tags": "#AI",
+        "model": "m",
+    }
+    mock_prepare.return_value = {
+        "auto_selected_images": [hero],
+        "images": [hero],
+    }
+    mock_bgm.return_value = "static/music/a.mp3"
+    mock_render.return_value = {"success": True, "video_path": "/data/videos/out.mp4"}
+    mock_pick_cover.return_value = cover
+    mock_cover.return_value = {"success": True, "cover_path": "data/publish/covers/out.jpg"}
+    mock_intro.return_value = {"success": True, "video_path": "/data/videos/out.mp4"}
+
+    cleaned_hero = "/data/hero_auto_clean.jpg"
+    cleaned_cover = "/data/cover_auto_clean.jpg"
+
+    def _clean(paths, *, enabled=True, **kwargs):
+        assert enabled is True
+        return {
+            path: WatermarkCleanResult(
+                path=cleaned_hero if "hero" in path else cleaned_cover,
+                status="cleaned",
+                original_path=path,
+                cleaned_path=cleaned_hero if "hero" in path else cleaned_cover,
+                regions=(),
+                reason="ok",
+            )
+            for path in paths
+        }
+
+    mock_clean.side_effect = _clean
+
+    result = run_media_pipeline(db_session, "art_pipe")
+    assert result["success"] is True
+    assert mock_pick_cover.call_count == 1
+    sent_images = mock_render.call_args.kwargs["image_paths"]
+    assert cleaned_hero in sent_images
+    assert mock_cover.call_args.kwargs["image_path"] == cleaned_cover
+    assert "clean_watermarks" in result["steps"]
+    assert "clean_watermarks:" not in " ".join(result.get("errors") or [])

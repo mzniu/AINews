@@ -21,6 +21,12 @@ def test_load_media_pipeline_config_defaults():
     assert cfg["cover_height"] == 1920
     assert cfg["render_template_id"] in {"flash_news_portrait", "chronicle_archive_tech_blue"}
     assert cfg["layout_kind"] in {"classic_overlay", "chronicle_frame"}
+    assert cfg["auto_remove_watermark"] is True
+
+
+def test_auto_remove_watermark_override():
+    cfg = load_media_pipeline_config({"auto_remove_watermark": False})
+    assert cfg["auto_remove_watermark"] is False
 
 
 def test_triggers_on_s_grade():

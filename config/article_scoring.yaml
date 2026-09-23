@@ -492,6 +492,7 @@ post_score_automation:
     clip_duration_sec: 2.5
     render_cover: true
     prepend_cover_intro: true
+    auto_remove_watermark: true
   # 出片成功后自动为所有已登录平台创建发布任务
   auto_publish:
     enabled: true

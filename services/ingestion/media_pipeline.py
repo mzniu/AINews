@@ -28,6 +28,7 @@ from services.ingestion.media_pipeline_trigger import load_media_pipeline_config
 from services.ingestion.render_image_utils import filter_renderable_image_dicts
 from services.ingestion.video_render_service import render_ingested_video, resolve_ingested_clip_durations
 from services.ingestion.media_paths import restore_generated_media_paths
+from services.ingestion.watermark_clean import clean_images_for_render
 from src.db.models.ingestion import IngestedArticle
 from src.utils.paths import to_data_url_path
 from utils.title_units import resolve_short_title, truncate_han_equiv, MAIN_LINE1_MAX_UNITS
@@ -318,10 +319,65 @@ def run_media_pipeline(
         else:
             _checkpoint(session)
 
+    cover_source = None
+    if cfg.get("render_cover", True):
+        try:
+            cover_source = pick_best_cover_image(session, article.id)
+        except Exception as exc:
+            logger.warning(f"media_pipeline pick cover before clean failed: {exc}")
+
+    clean_map: dict[str, Any] = {}
+    try:
+        pending_paths: list[str] = []
+        seen_pending: set[str] = set()
+        for img in selected_images:
+            path = _normalize_local_path(img.get("local_path"))
+            if path and path not in seen_pending:
+                seen_pending.add(path)
+                pending_paths.append(path)
+        cover_local = _normalize_local_path((cover_source or {}).get("local_path"))
+        if cover_local and cover_local not in seen_pending:
+            pending_paths.append(cover_local)
+        clean_map = clean_images_for_render(
+            pending_paths,
+            enabled=bool(cfg.get("auto_remove_watermark", True)),
+        )
+        for img in selected_images:
+            key = _normalize_local_path(img.get("local_path"))
+            cleaned = clean_map.get(key)
+            if cleaned is None:
+                continue
+            img["cleaned_path"] = cleaned.cleaned_path
+            img["watermark_clean"] = {
+                "status": cleaned.status,
+                "reason": cleaned.reason,
+                "regions": [
+                    {
+                        "x": region.x,
+                        "y": region.y,
+                        "width": region.width,
+                        "height": region.height,
+                        "kind": region.kind,
+                    }
+                    for region in cleaned.regions
+                ],
+            }
+        if selected_images:
+            article.selected_images_json = json.dumps(selected_images, ensure_ascii=False)
+        steps["clean_watermarks"] = {
+            key: {"status": item.status, "reason": item.reason}
+            for key, item in clean_map.items()
+        }
+    except Exception as exc:
+        logger.warning(f"media_pipeline clean_watermarks failed: {exc}")
+        steps["clean_watermarks"] = {"error": str(exc)}
+
     seen_render_paths: set[str] = set()
     image_paths: list[str] = []
     for img in selected_images:
-        path = _normalize_local_path(img.get("local_path"))
+        original = _normalize_local_path(img.get("local_path"))
+        cleaned = clean_map.get(original)
+        path = cleaned.path if cleaned is not None else original
         if not path or path in seen_render_paths:
             continue
         seen_render_paths.add(path)
@@ -371,12 +427,18 @@ def run_media_pipeline(
 
     if cfg.get("render_cover", True) and draft:
         try:
-            cover_source = pick_best_cover_image(session, article.id)
             if cover_source:
+                cover_key = _normalize_local_path(cover_source.get("local_path"))
+                cleaned_cover = clean_map.get(cover_key)
+                cover_image_path = (
+                    cleaned_cover.path
+                    if cleaned_cover is not None
+                    else cover_source["local_path"]
+                )
                 cover_result = render_article_cover(
                     article_id=article.id,
                     draft=draft,
-                    image_path=cover_source["local_path"],
+                    image_path=cover_image_path,
                     background_image=str(cfg.get("background_image", "static/imgs/bg.png")),
                     width=int(cfg.get("cover_width", 1080)),
                     height=int(cfg.get("cover_height", 1920)),
