@@ -218,6 +218,39 @@
             loadCandidates();
         });
 
+        document.getElementById('purgeCandidatesBtn').addEventListener('click', async () => {
+            const input = document.getElementById('purgeDays');
+            const days = Number(input.value);
+            if (!Number.isInteger(days) || days < 1 || days > 365) {
+                showToast('请输入 1 到 365 之间的天数', true);
+                return;
+            }
+            const confirmed = window.confirm(
+                `将删除发布时间早于 ${days} 天的候选（没有发布时间则按入库时间）。已入队的候选和文章本身会保留。确定清理？`
+            );
+            if (!confirmed) return;
+            const button = document.getElementById('purgeCandidatesBtn');
+            button.disabled = true;
+            try {
+                const res = await fetch(`${API_BASE}/candidates/purge`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ older_than_days: days }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    throw new Error(data.detail || '清理失败');
+                }
+                showToast(data.deleted ? `已清理 ${data.deleted} 条` : '没有可清理的过期候选');
+                currentPage = 1;
+                loadCandidates();
+            } catch (err) {
+                showToast(err.message, true);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
         ['filterPlatform', 'filterStatus', 'filterRecommended', 'filterSort'].forEach((id) => {
             document.getElementById(id).addEventListener('change', () => {
                 currentPage = 1;

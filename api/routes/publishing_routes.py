@@ -18,6 +18,8 @@ from api.schemas.publishing_models import (
     BindPublishedPostRequest,
     CandidateActionResponse,
     CandidateListResponse,
+    PurgeCandidatesRequest,
+    PurgeCandidatesResponse,
     CandidateListItem,
     CreatePublishJobRequest,
     ExtractCoverRequest,
@@ -1102,6 +1104,19 @@ def list_candidates_route(
         total=total,
         page=page,
         per_page=per_page,
+    )
+
+
+@router.post("/candidates/purge", response_model=PurgeCandidatesResponse)
+def purge_candidates_route(body: PurgeCandidatesRequest, db: Session = Depends(get_db)):
+    from services.publishing.candidate_queue import purge_stale_candidates
+
+    deleted = purge_stale_candidates(db, older_than_days=body.older_than_days)
+    db.commit()
+    return PurgeCandidatesResponse(
+        success=True,
+        deleted=deleted,
+        older_than_days=body.older_than_days,
     )
 
 

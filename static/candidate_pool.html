@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -6,13 +6,13 @@
     <title>AINews · 候选池</title>
     <link rel="stylesheet" href="/static/css/tokens.css">
     <link rel="stylesheet" href="/static/css/app_shell.css?v=20260917">
-    <link rel="stylesheet" href="/static/css/candidate_pool.css?v=20260915a">
+    <link rel="stylesheet" href="/static/css/candidate_pool.css?v=20260923a">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
     <script src="/static/js/shared/embed.js?v=20260917b"></script>
     <script src="/static/js/shared/desktop_window.js?v=20260911c" defer></script>
     <script src="/static/js/shared/theme.js?v=20260917"></script>
-    <script src="/static/js/shared/app_nav.js?v=20260917a" defer></script>
-    <script src="/static/js/candidate_pool.js?v=20260915b" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260923h" defer></script>
+    <script src="/static/js/candidate_pool.js?v=20260923a" defer></script>
 </head>
 <body class="app-page">
     <div id="app-nav-root"></div>
@@ -24,6 +24,12 @@
                 <p class="candidate-lead">查看、筛选并手动处理待发布候选。</p>
             </div>
             <div class="candidate-header-actions">
+                <label class="purge-control" for="purgeDays">
+                    超过
+                    <input id="purgeDays" type="number" min="1" max="365" value="7" inputmode="numeric">
+                    天
+                </label>
+                <button type="button" class="btn btn-danger" id="purgeCandidatesBtn">清理过期</button>
                 <button type="button" class="btn btn-soft" id="refreshCandidatesBtn">刷新</button>
                 <a class="btn btn-soft" href="/publish-center">发布中心</a>
                 <a class="btn btn-soft" href="/publish-queue">发布队列</a>

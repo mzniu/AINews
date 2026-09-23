@@ -26,8 +26,28 @@
 
 .candidate-header-actions {
     display: flex;
+    align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.purge-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--app-text-soft);
+}
+
+.purge-control input {
+    width: 64px;
+    margin: 0;
+    padding: 6px 8px;
+    font-size: 13px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: rgba(18, 52, 153, 0.25);
+    color: var(--app-text);
 }
 
 .candidate-toolbar {

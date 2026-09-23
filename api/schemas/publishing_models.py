@@ -274,3 +274,13 @@ class CandidateActionResponse(BaseModel):
     status: str
     publish_job_id: Optional[str] = None
 
+
+class PurgeCandidatesRequest(BaseModel):
+    older_than_days: int = Field(ge=1, le=365)
+
+
+class PurgeCandidatesResponse(BaseModel):
+    success: bool = True
+    deleted: int = 0
+    older_than_days: int
+

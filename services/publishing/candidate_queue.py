@@ -628,6 +628,45 @@ def dispatch_daily_candidates(
     }
 
 
+def purge_stale_candidates(
+    session: Session,
+    *,
+    older_than_days: int,
+    now: datetime | None = None,
+) -> int:
+    """Delete non-dispatched candidates whose article is older than N days.
+
+    Age uses the article publish time, falling back to ingest time when
+    publish time is missing. Dispatched rows and the articles themselves stay.
+    """
+    from sqlalchemy import func
+
+    from services.industry.query_filter import apply_active_industry_filter
+
+    days = int(older_than_days)
+    if days < 1:
+        raise ValueError("older_than_days must be at least 1")
+    cutoff = (now or datetime.utcnow()) - timedelta(days=days)
+    article_age = func.coalesce(IngestedArticle.published_at, IngestedArticle.created_at)
+    query = apply_active_industry_filter(
+        session.query(AutoPublishCandidate.id)
+        .join(IngestedArticle, AutoPublishCandidate.article_id == IngestedArticle.id)
+        .filter(AutoPublishCandidate.status != "dispatched")
+        .filter(article_age < cutoff),
+        AutoPublishCandidate,
+    )
+    ids = [row[0] for row in query.all()]
+    if not ids:
+        return 0
+    deleted = (
+        session.query(AutoPublishCandidate)
+        .filter(AutoPublishCandidate.id.in_(ids))
+        .delete(synchronize_session=False)
+    )
+    session.flush()
+    return int(deleted)
+
+
 def skip_candidate(session: Session, candidate_id: str) -> AutoPublishCandidate:
     """Mark one candidate as skipped by ID."""
     candidate = session.get(AutoPublishCandidate, candidate_id)
