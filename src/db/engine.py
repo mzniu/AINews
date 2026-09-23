@@ -113,6 +113,9 @@ def _ensure_sqlite_columns(engine) -> None:
             "comment_posted_at": "DATETIME",
             "comment_error_message": "TEXT",
             "comment_retry_count": "INTEGER DEFAULT 0",
+            "playbook_version_id": "VARCHAR(32)",
+            "copy_draft_id": "VARCHAR(32)",
+            "playbook_attribution": "VARCHAR(32)",
         }
         for name, col_type in pub_migrations.items():
             if pub_columns and name not in pub_columns:
@@ -161,6 +164,31 @@ def _ensure_sqlite_columns(engine) -> None:
         inbox_columns = {row[1] for row in inbox_rows}
         if inbox_columns and "post_context_json" not in inbox_columns:
             conn.execute(text("ALTER TABLE comment_inbox ADD COLUMN post_context_json TEXT"))
+
+        card_rows = conn.execute(text("PRAGMA table_info(pattern_cards)")).fetchall()
+        card_columns = {row[1] for row in card_rows}
+        if card_columns and "card_json" not in card_columns:
+            conn.execute(text("ALTER TABLE pattern_cards ADD COLUMN card_json TEXT DEFAULT ''"))
+
+        draft_rows = conn.execute(text("PRAGMA table_info(copy_drafts)")).fetchall()
+        draft_columns = {row[1] for row in draft_rows}
+        if draft_columns and "selection_json" not in draft_columns:
+            conn.execute(
+                text("ALTER TABLE copy_drafts ADD COLUMN selection_json TEXT DEFAULT '{}'")
+            )
+
+        settings_rows = conn.execute(text("PRAGMA table_info(copy_agent_settings)")).fetchall()
+        settings_columns = {row[1] for row in settings_rows}
+        settings_migrations = {
+            "material_adaptive_playbook": "BOOLEAN DEFAULT 1",
+            "auto_material_adaptive_playbook": "BOOLEAN DEFAULT 0",
+            "ranking_max_candidates": "INTEGER DEFAULT 40",
+        }
+        for name, col_type in settings_migrations.items():
+            if settings_columns and name not in settings_columns:
+                conn.execute(
+                    text(f"ALTER TABLE copy_agent_settings ADD COLUMN {name} {col_type}")
+                )
 
         _ensure_industry_id_columns(conn)
 
@@ -242,6 +270,7 @@ def init_db(database_url: str | None = None) -> None:
     import src.db.models.publishing  # noqa: F401 — register ORM tables
     import src.db.models.publishing_metrics  # noqa: F401 — register ORM tables
     import src.db.models.llm_usage  # noqa: F401 — register ORM tables
+    import src.db.models.playbook  # noqa: F401 — register ORM tables
 
     _engine = create_app_engine(database_url)
     _SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False)

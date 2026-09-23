@@ -29,6 +29,7 @@
         {
             label: '制作',
             items: [
+                { href: '/pattern-lab', label: '打法学习', icon: 'film' },
                 { href: '/video-maker', label: '视频制作', icon: 'film' },
                 { href: '/github-video-maker', label: 'GitHub', icon: 'github' },
                 { href: '/digital-human', label: '数字人', icon: 'user' },

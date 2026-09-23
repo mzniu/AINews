@@ -343,6 +343,11 @@
                 if (coverPath && accountPlatforms[accountId] !== 'douyin') {
                     payload.cover_path = coverPath;
                 }
+                if (draft.playbook_attribution && draft.playbook_version_id && draft.copy_draft_id) {
+                    payload.playbook_attribution = draft.playbook_attribution;
+                    payload.playbook_version_id = draft.playbook_version_id;
+                    payload.copy_draft_id = draft.copy_draft_id;
+                }
                 const resp = await fetch('/api/publishing/jobs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

@@ -24,6 +24,7 @@ loguru>=0.7.2
 numpy>=2.1.0
 fonttools>=4.0.0
 PyYAML>=6.0.0
+deepseek-harness-sdk>=0.1.5rc1
 
 # TTS / audio (IndexTTS for voice synthesis)
 pydub>=0.25.1

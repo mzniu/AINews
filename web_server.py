@@ -54,6 +54,7 @@ from api.routes.model_config_routes import router as model_config_router
 from api.routes.health_routes import router as health_router
 from api.routes.industry_routes import me_router as industry_me_router
 from api.routes.industry_routes import router as industry_router
+from api.routes.copy_agent_routes import router as copy_agent_router
 from src.utils.config import Config
 from src.utils.uvicorn_workers import effective_uvicorn_workers
 
@@ -133,6 +134,7 @@ app.include_router(search_router)
 app.include_router(model_config_router)
 app.include_router(industry_router)
 app.include_router(industry_me_router)
+app.include_router(copy_agent_router)
 # main_routes 放在最后，避免被其他路由覆盖，并添加 API 前缀
 print(f"main_router: {main_router}")
 app.include_router(main_router)
@@ -149,6 +151,11 @@ def on_startup():
     init_db()
     with get_session_factory()() as session:
         sync_sources_to_db(session)
+        from services.copy_agent.curate import fail_orphaned_curate_jobs
+
+        cleared = fail_orphaned_curate_jobs(session)
+        if cleared:
+            logger.warning("Marked %s orphaned curate job(s) as failed after startup", cleared)
         session.commit()
     logger.info("Ingestion DB initialized")
 

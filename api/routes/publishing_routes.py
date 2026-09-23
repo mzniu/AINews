@@ -45,6 +45,7 @@ from services.publishing.compliance import validate_publish_payload
 from services.publishing.job_recovery import recover_stale_publish_jobs
 from services.publishing.metadata_bridge import PublishDraftMetadata, build_wechat_description
 from services.publishing.path_guard import PathGuardError, resolve_cover_path, resolve_video_path, to_relative_posix
+from services.publishing.playbook_stamp import playbook_source_from_draft, stamp_playbook
 from services.publishing.platform_capabilities import can_account_login, can_video_publish
 from services.industry.query_filter import apply_active_industry_filter
 from services.publishing.orchestrator import PublishOrchestrator
@@ -251,6 +252,28 @@ def _resolve_job_description(body: CreatePublishJobRequest) -> str | None:
     return None
 
 
+def _playbook_source_for_request(db: Session, body: CreatePublishJobRequest) -> dict:
+    explicit = {
+        "playbook_version_id": body.playbook_version_id,
+        "copy_draft_id": body.copy_draft_id,
+        "playbook_attribution": body.playbook_attribution,
+    }
+    if any(explicit.values()):
+        return explicit
+    if not body.source_id:
+        return {}
+    article = db.get(IngestedArticle, body.source_id)
+    if article is None or not article.video_draft_json:
+        return {}
+    try:
+        data = json.loads(article.video_draft_json)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return playbook_source_from_draft(data)
+
+
 @router.post("/jobs")
 async def create_job(body: CreatePublishJobRequest, db: Session = Depends(get_db)):
     account = db.get(PublisherAccount, body.account_id)
@@ -308,6 +331,10 @@ async def create_job(body: CreatePublishJobRequest, db: Session = Depends(get_db
         first_comment_text=first_comment_text,
         comment_status="none",
     )
+    try:
+        stamp_playbook(job, _playbook_source_for_request(db, body))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.add(job)
     db.commit()
     db.refresh(job)

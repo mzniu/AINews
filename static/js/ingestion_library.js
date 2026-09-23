@@ -998,6 +998,61 @@
         }
     }
 
+    let hasCurrentPlaybook = false;
+    let materialAdaptivePlaybook = true;
+    let playbookPatternTotal = 0;
+    let playbookDraftDebounceUntil = 0;
+
+    async function refreshPlaybookDraftArticleButton() {
+        const btn = document.getElementById('playbookDraftArticleBtn');
+        const hint = document.getElementById('playbookDraftColdHint');
+        if (!btn) return;
+        try {
+            const data = await api('/api/copy-agent/settings');
+            hasCurrentPlaybook = !!data.has_current;
+            materialAdaptivePlaybook = data.material_adaptive_playbook !== false;
+            try {
+                const lib = await api('/api/copy-agent/patterns');
+                playbookPatternTotal = Number(lib.total) || 0;
+            } catch (_e) {
+                playbookPatternTotal = 0;
+            }
+            btn.disabled = !hasCurrentPlaybook;
+            const adaptive = materialAdaptivePlaybook;
+            btn.textContent = adaptive ? '按推荐打法出稿' : '按当前打法出稿';
+            btn.title = hasCurrentPlaybook
+                ? (adaptive ? '按素材从模式库推荐打法并写入成片文案' : '用当前打法生成出片文案并写入成片素材')
+                : '先在打法学习发布当前打法';
+            if (hint) {
+                hint.style.display = playbookPatternTotal > 0 && playbookPatternTotal < 3 ? '' : 'none';
+            }
+        } catch (err) {
+            hasCurrentPlaybook = false;
+            btn.disabled = true;
+            btn.title = '先在打法学习发布当前打法';
+        }
+    }
+
+    async function generatePlaybookDraftForArticle(articleId, btn) {
+        if (!articleId || !btn) return;
+        const now = Date.now();
+        if (now < playbookDraftDebounceUntil) return;
+        playbookDraftDebounceUntil = now + 2000;
+        const label = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '出稿中…';
+        try {
+            await api(`/api/ingestion/articles/${articleId}/playbook-draft`, { method: 'POST' });
+            setStatus(materialAdaptivePlaybook ? '已按推荐打法写入成片文案' : '已按当前打法写入成片文案', 'ok');
+            await selectArticle(articleId);
+        } catch (err) {
+            setStatus(err.message || '出稿失败', 'error');
+        } finally {
+            btn.textContent = label;
+            btn.disabled = !hasCurrentPlaybook;
+        }
+    }
+
     function renderDraftCopyButtons(article) {
         if (!article.generated_video_path || !article.video_draft) return '';
         return `<div class="draft-copy-actions mt-2 d-flex flex-wrap gap-2">
@@ -1045,6 +1100,19 @@
             </div>`);
         }
         const status = article.media_pipeline_status || '';
+        const playbookNote = article.video_draft && article.video_draft.playbook_attribution === 'fact_gate_fallback'
+            ? '<span class="small text-muted ml-2">打法未过闸，已用宪法版</span>'
+            : (article.video_draft && article.video_draft.playbook_attribution === 'generation_fallback'
+                ? '<span class="small text-muted ml-2">打法生成失败，已用原有回退</span>'
+                : '');
+        let selectionNote = '';
+        if (draft && draft.playbook_selection_fallback) {
+            const pname = draft.pattern_name ? escapeHtml(draft.pattern_name) : '当前打法';
+            selectionNote = `<div class="small text-warning mb-1">推荐不明显，已用当前打法：${pname} · <a href="/pattern-lab">打法学习</a></div>`;
+        } else if (draft && draft.pattern_name) {
+            const reason = draft.playbook_selection_reason ? ' — ' + escapeHtml(draft.playbook_selection_reason) : '';
+            selectionNote = `<div class="small text-muted mb-1">推荐模式：${escapeHtml(draft.pattern_name)}（${escapeHtml(draft.playbook_selection_confidence || '')}）${reason}</div>`;
+        }
         const statusBadge = status === 'succeeded' ? '<span class="badge badge-success">已出片</span>'
             : status === 'running' ? '<span class="badge badge-warning">出片中</span>'
             : status === 'pending' ? '<span class="badge badge-info">排队中</span>'
@@ -1070,7 +1138,8 @@
                </div>`;
         const bgm = article.selected_bgm_path ? `<div class="small text-muted">BGM: ${escapeHtml(article.selected_bgm_path)}</div>` : '';
         return `<div class="video-draft-panel mb-3 p-2 border rounded">
-            <div class="d-flex align-items-center gap-2 mb-2"><strong>AI 成片素材</strong>${statusBadge}</div>
+            <div class="d-flex align-items-center gap-2 mb-2"><strong>AI 成片素材</strong>${statusBadge}${playbookNote}</div>
+            ${selectionNote}
             ${lines.join('')}
             ${renderDraftCopyButtons(article)}
             ${bgm}
@@ -1081,6 +1150,7 @@
                     <option value="">成片模板（系统默认）</option>
                 </select>
                 <button class="btn btn-sm btn-outline-secondary" id="retryMediaBtn">重新出片</button>
+                <button class="btn btn-sm btn-outline-secondary ml-1" id="rerenderPlaybookBtn" type="button">按当前打法重新出片</button>
                 <label class="btn btn-sm btn-outline-secondary mb-0 ml-1" style="cursor:pointer;">
                     <input type="checkbox" id="useStoryImagesCheck" class="mr-1" style="vertical-align:middle;" />
                     使用同题图片
@@ -1160,7 +1230,9 @@
             </div>` : ''}
             ${relatedImgs.length ? renderImageGrid(relatedImgs, { title: '同题可合并图片', emptyText: '' }) : ''}
             <div style="white-space:pre-wrap;font-size:14px;max-height:240px;overflow:auto;border:1px solid #eee;padding:10px;border-radius:8px;">${escapeHtml((article.content_text || '').slice(0, 3000))}</div>
+            <p class="small text-muted mb-1" id="playbookDraftColdHint" style="display:none">模式少于 3 个，建议先在打法学习拆卡；仍会按推荐逻辑尝试。</p>
             <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-primary" id="playbookDraftArticleBtn" type="button" disabled title="先在打法学习发布当前打法">按当前打法出稿</button>
                 <button class="btn btn-sm btn-outline-secondary" id="scoreRuleBtn">规则评分</button>
                 <button class="btn btn-sm btn-outline-primary" id="scoreLlmBtn">规则+AI评语</button>
                 <button class="btn btn-sm btn-outline-info" id="scoreImagesBtn">评估配图</button>
@@ -1178,6 +1250,11 @@
             </div>
             <pre class="meta mt-2" id="prepareMeta" style="display:none"></pre>
         `;
+        refreshPlaybookDraftArticleButton();
+        const playbookDraftBtn = document.getElementById('playbookDraftArticleBtn');
+        if (playbookDraftBtn) {
+            playbookDraftBtn.onclick = () => generatePlaybookDraftForArticle(id, playbookDraftBtn);
+        }
         $('markSelectBtn').onclick = async () => {
             await api(`/api/ingestion/articles/${id}/select`, { method: 'POST' });
             setStatus('已标记为 selected', 'ok');
@@ -1202,6 +1279,23 @@
                 forceScoreCheckboxId: 'forceScoreImagesCheck',
                 button: retryBtn,
             });
+        }
+        const rerenderPlaybookBtn = document.getElementById('rerenderPlaybookBtn');
+        if (rerenderPlaybookBtn) {
+            rerenderPlaybookBtn.onclick = async () => {
+                setStatus('正在按当前打法重新出片…', 'muted');
+                rerenderPlaybookBtn.disabled = true;
+                try {
+                    await api(`/api/ingestion/articles/${id}/rerender-playbook`, { method: 'POST' });
+                    setStatus('已按当前打法重新出片', 'ok');
+                    selectArticle(id);
+                    refreshMainList();
+                } catch (e) {
+                    setStatus(e.message, 'error');
+                } finally {
+                    rerenderPlaybookBtn.disabled = false;
+                }
+            };
         }
         fillRetryTemplateSelect();
         const retryCoverBtn = document.getElementById('retryCoverBtn');

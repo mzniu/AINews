@@ -12,6 +12,7 @@ from utils.content_compliance import invoke_json_llm_with_compliance
 from services.content_prompts import get_system_role, json_main_line1_hint, json_short_title_hint, json_summary_hint
 from utils.title_units import resolve_short_title
 from utils.content_methodology import build_methodology_prompt_section
+from services.copy_agent.compose import compose_copy_messages
 from utils.summary_highlights import normalize_highlight_keywords_from_llm
 from utils.tags_normalizer import normalize_structured_tags
 
@@ -32,19 +33,17 @@ def _build_openai_client() -> tuple[OpenAI, str, str, dict]:
     return OpenAI(api_key=api_key, base_url=base_url), model, base_url, env_language_profile(model)
 
 
-def generate_video_content(
+def build_video_content_messages(
     *,
     title: str,
     content: str,
-    voiceover_min_chars: int = 70,
-    voiceover_max_chars: int = 90,
+    voiceover_min_chars: int,
+    voiceover_max_chars: int,
     content_max_chars: int = 3000,
-) -> dict[str, Any]:
-    """Generate homepage-compatible video copy (sync). Returns success payload or raises."""
-    client, model, _base_url, profile = _build_openai_client()
+    playbook_body: str | None = None,
+) -> list[dict]:
     vmin = max(20, int(voiceover_min_chars))
     vmax = max(vmin, int(voiceover_max_chars))
-
     json_template = f"""
 【输出 JSON 格式】（严格遵守，不要返回其他内容）
 {{
@@ -70,10 +69,32 @@ def generate_video_content(
 {(content or "")[:content_max_chars]}
 """
     prompt = build_methodology_prompt_section(vmin=vmin, vmax=vmax, json_template=json_template)
-    messages = [
-        {"role": "system", "content": get_system_role()},
-        {"role": "user", "content": prompt},
-    ]
+    return compose_copy_messages(
+        methodology_user=prompt,
+        playbook_body=playbook_body,
+        system_role=get_system_role(),
+    )
+
+
+def generate_video_content(
+    *,
+    title: str,
+    content: str,
+    voiceover_min_chars: int = 70,
+    voiceover_max_chars: int = 90,
+    content_max_chars: int = 3000,
+    playbook_body: str | None = None,
+) -> dict[str, Any]:
+    """Generate homepage-compatible video copy (sync). Returns success payload or raises."""
+    client, model, _base_url, profile = _build_openai_client()
+    messages = build_video_content_messages(
+        title=title,
+        content=content,
+        voiceover_min_chars=voiceover_min_chars,
+        voiceover_max_chars=voiceover_max_chars,
+        content_max_chars=content_max_chars,
+        playbook_body=playbook_body,
+    )
     result, compliance = invoke_json_llm_with_compliance(
         client=client,
         model=model,

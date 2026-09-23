@@ -9,6 +9,9 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from services.content_generation_service import generate_video_content
+from services.copy_agent.drafts import draft_selectable, generate_one_draft
+from services.copy_agent.settings_store import get_settings
+from src.db.models.playbook import PlaybookVersion
 from services.ingestion.bgm_picker import pick_random_bgm
 from services.ingestion.cover_picker import pick_best_cover_image
 from services.ingestion.cover_render_service import render_article_cover
@@ -68,6 +71,113 @@ def _fallback_draft(article: IngestedArticle) -> dict[str, Any]:
     }
 
 
+def playbook_rerender_config() -> dict[str, Any]:
+    """Force a new copy. Does not change the manual retry helper."""
+    return {
+        "skip_if_done": False,
+        "post_score_automation": {
+            "media_pipeline": {
+                "generate_content": True,
+            }
+        },
+    }
+
+
+def _current_auto_playbook(session: Session) -> PlaybookVersion | None:
+    settings = get_settings(session)
+    if not settings.auto_uses_current_playbook or not settings.current_playbook_version_id:
+        return None
+    version = session.get(PlaybookVersion, settings.current_playbook_version_id)
+    if version is None or not (version.body or "").strip():
+        return None
+    return version
+
+
+def _draft_selection_extras(copy) -> dict[str, Any]:
+    try:
+        sel = json.loads(copy.selection_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(sel, dict):
+        return {}
+    out: dict[str, Any] = {}
+    if sel.get("cluster_key"):
+        out["pattern_cluster_key"] = sel["cluster_key"]
+    if sel.get("pattern_name"):
+        out["pattern_name"] = sel["pattern_name"]
+    if sel.get("confidence"):
+        out["playbook_selection_confidence"] = sel["confidence"]
+    if sel.get("reason"):
+        out["playbook_selection_reason"] = sel["reason"]
+    if "fallback" in sel:
+        out["playbook_selection_fallback"] = bool(sel.get("fallback"))
+    return out
+
+
+def _mark_attribution(
+    draft: dict[str, Any],
+    attribution: str,
+    *,
+    version_id: str | None = None,
+    copy_draft_id: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    draft["playbook_attribution"] = attribution
+    draft["playbook_version_id"] = version_id
+    draft["copy_draft_id"] = copy_draft_id
+    if extra:
+        draft.update(extra)
+    return draft
+
+
+def _generate_pipeline_draft(
+    session: Session,
+    article: IngestedArticle,
+    content_text: str,
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    common = {
+        "title": article.title or "",
+        "content": content_text,
+        "voiceover_min_chars": int(cfg.get("voiceover_min_chars", 40)),
+        "voiceover_max_chars": int(cfg.get("voiceover_max_chars", 90)),
+    }
+    version = _current_auto_playbook(session)
+    if version is None:
+        return generate_video_content(**common)
+
+    def complete(_messages: list[dict]) -> str:
+        produced = generate_video_content(**common, playbook_body=version.body)
+        return json.dumps(produced, ensure_ascii=False)
+
+    from services.copy_agent.pattern_ranking import production_rank_complete
+
+    copy = generate_one_draft(
+        session,
+        title=common["title"],
+        content=content_text,
+        complete=complete,
+        complete_rank=production_rank_complete,
+        for_auto_pipeline=True,
+        voiceover_min_chars=common["voiceover_min_chars"],
+        voiceover_max_chars=common["voiceover_max_chars"],
+    )
+    if draft_selectable(copy):
+        payload = json.loads(json.loads(copy.body_json)["text"])
+        if not isinstance(payload, dict):
+            raise ValueError("打法稿不是对象")
+        extra = _draft_selection_extras(copy)
+        return _mark_attribution(
+            payload,
+            "playbook",
+            version_id=copy.playbook_version_id,
+            copy_draft_id=copy.id,
+            extra=extra,
+        )
+    fallback = generate_video_content(**common)
+    return _mark_attribution(fallback, "fact_gate_fallback")
+
+
 def run_media_pipeline(
     session: Session,
     article_id: str,
@@ -112,16 +222,12 @@ def run_media_pipeline(
             _checkpoint(session)
 
     if cfg.get("generate_content", True):
+        trying_playbook = _current_auto_playbook(session) is not None
         try:
             content_text = article.content_text or article.summary or ""
             if not content_text.strip():
                 raise ValueError("文章无正文")
-            draft = generate_video_content(
-                title=article.title or "",
-                content=content_text,
-                voiceover_min_chars=int(cfg.get("voiceover_min_chars", 40)),
-                voiceover_max_chars=int(cfg.get("voiceover_max_chars", 90)),
-            )
+            draft = _generate_pipeline_draft(session, article, content_text, cfg)
             article.video_draft_json = json.dumps(draft, ensure_ascii=False)
             article.video_draft_generated_at = datetime.utcnow()
             steps["generate_content"] = {"model": draft.get("model")}
@@ -135,6 +241,9 @@ def run_media_pipeline(
             else:
                 draft = _fallback_draft(article)
                 steps["generate_content"]["used_fallback_draft"] = True
+            if trying_playbook and draft is not None:
+                _mark_attribution(draft, "generation_fallback")
+                article.video_draft_json = json.dumps(draft, ensure_ascii=False)
         else:
             _checkpoint(session)
     else:

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AINews · 打法学习</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <link rel="stylesheet" href="/static/css/app_shell.css?v=20260920a">
+    <script src="/static/js/shared/theme.js?v=20260917"></script>
+    <script src="/static/js/shared/app_nav.js?v=20260922a" defer></script>
+</head>
+<body class="app-page">
+    <div id="app-nav-root"></div>
+    <div class="container">
+        <div class="page-hero">
+            <h1>打法学习</h1>
+            <p>贴一段屏幕上的爆款文案，拆成当前打法。自动出片默认仍用原来的写法。试稿请到侧栏 <a href="/scrape">内容抓取</a>，在「生成 AI 标题和摘要」下方点 <strong>按当前打法出稿</strong>。</p>
+        </div>
+        <div id="harnessBox" class="card" style="padding:16px;margin-bottom:16px;"></div>
+        <div id="workBox" class="card" style="padding:16px;margin-bottom:16px;display:none;">
+            <label for="materialText">爆款文案</label>
+            <textarea id="materialText" rows="8" style="width:100%;margin:8px 0;"></textarea>
+            <button type="button" id="curateBtn" class="btn">拆成打法</button>
+            <div id="jobProgressBox" hidden style="margin-top:12px;">
+                <div style="height:8px;background:var(--border-subtle,#e2e8f0);border-radius:999px;overflow:hidden;">
+                    <div id="jobProgressFill" style="height:100%;width:0;background:var(--accent,#2563eb);transition:width .3s ease;"></div>
+                </div>
+                <p id="jobPhase" style="margin:8px 0 4px;font-weight:600;"></p>
+                <p id="jobTurnStep" style="margin:0 0 8px;color:var(--text-muted,#64748b);font-size:13px;"></p>
+                <ol id="jobEvents" style="margin:0;padding-left:1.2rem;max-height:220px;overflow:auto;font-size:13px;"></ol>
+                <details id="sessionLogDetails" hidden style="margin-top:12px;">
+                    <summary>拆卡详细日志（进行中自动刷新）</summary>
+                    <pre id="sessionLogText" style="white-space:pre-wrap;font-size:12px;max-height:360px;overflow:auto;margin:8px 0 0;"></pre>
+                </details>
+            </div>
+            <p id="jobSummary"></p>
+            <details id="resultDetails" hidden style="margin-top:8px;">
+                <summary>模式卡与打法正文</summary>
+                <p id="trapNote" hidden style="color:#b91c1c;"></p>
+                <h3 style="font-size:14px;margin:12px 0 4px;">模式卡（抽象模式）</h3>
+                <pre id="cardPreview" style="white-space:pre-wrap;font-size:13px;"></pre>
+                <h3 style="font-size:14px;margin:12px 0 4px;">打法正文</h3>
+                <pre id="playbookBodyPreview" style="white-space:pre-wrap;font-size:13px;"></pre>
+            </details>
+            <details id="schemaIssuesDetails" hidden style="margin-top:8px;">
+                <summary>未通过的原因</summary>
+                <ul id="schemaIssuesList"></ul>
+            </details>
+            <details id="bodyIssuesDetails" hidden style="margin-top:8px;">
+                <summary>写法说明与模式卡一致性提示（可发布，建议核对）</summary>
+                <ul id="bodyIssuesList"></ul>
+            </details>
+            <details id="pathDetails" hidden>
+                <summary>这次读过的路径</summary>
+                <pre id="pathList"></pre>
+            </details>
+            <div id="publishBox" hidden style="margin-top:12px;">
+                <button type="button" id="publishBtn" class="btn">发布为当前打法</button>
+                <p id="publishMessage"></p>
+                <label style="display:block;margin-top:8px;">
+                    <input type="checkbox" id="autoSwitch"> 自动出片也用这一版
+                </label>
+                <label style="display:block;margin-top:8px;">
+                    <input type="checkbox" id="autoMaterialAdaptive"> 自动出片也按素材选打法
+                </label>
+                <p style="font-size:12px;color:var(--text-muted,#64748b);margin:4px 0 0;">
+                    需同时打开「自动出片也用这一版」；默认关闭，避免成片风格突变。
+                </p>
+                <label style="display:block;margin-top:12px;">
+                    <input type="checkbox" id="materialAdaptive" checked> 入库/主页按推荐打法出稿
+                </label>
+            </div>
+        </div>
+        <div id="patternsBox" class="card" style="padding:16px;margin-bottom:16px;display:none;">
+            <h2>模式库</h2>
+            <p style="font-size:13px;color:var(--text-muted,#64748b);margin:0 0 12px;">
+                按体裁与模式名合并历史拆卡结果。新拆卡时会写入 pattern_library.md 供智能体参考同类模式。
+            </p>
+            <div id="patternsList"></div>
+            <p id="patternsEmpty" hidden style="color:var(--text-muted,#64748b);">还没有 v2 模式卡，先完成一次拆卡。</p>
+        </div>
+        <div id="versionsBox" class="card" style="padding:16px;margin-bottom:16px;display:none;">
+            <h2>打法版本</h2>
+            <p style="font-size:13px;color:var(--text-muted,#64748b);margin:0 0 12px;">
+                当前版本用于「按当前打法出稿」和（若已打开）自动出片。历史版本只读，不会自动生效。展开某一版可查看模式卡、写法说明全文与差异稿（YAML）。
+            </p>
+            <div id="versionsList"></div>
+            <p id="versionsEmpty" hidden style="color:var(--text-muted,#64748b);">还没有任何打法版本，先在上方拆卡并发布。</p>
+        </div>
+        <div id="reportBox" class="card" style="padding:16px;">
+            <h2>发布结果</h2>
+            <div id="patternRollups" style="margin-bottom:12px;font-size:13px;"></div>
+            <p id="selectionFallbackCount" style="font-size:13px;color:var(--text-muted,#64748b);"></p>
+            <div id="reportRows"></div>
+            <button type="button" id="learnAgainBtn" hidden>带着这些结果再学</button>
+        </div>
+    </div>
+    <script src="/static/js/pattern_lab.js?v=20260923g"></script>
+</body>
+</html>

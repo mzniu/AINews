@@ -66,6 +66,9 @@ class PublishJob(Base):
     comment_posted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     comment_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     comment_retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    playbook_version_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    copy_draft_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    playbook_attribution: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class AutoPublishCandidate(Base):

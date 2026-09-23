@@ -29,6 +29,11 @@ numpy>=2.1.0
 fonttools>=4.0.0
 PyYAML>=6.0.0
 
+# DeepSeek Harness SDK. The learning loop imports deepseek_harness and
+# lets that package launch its bundled dsh. Missing install is reported
+# by GET /api/copy-agent/harness instead of failing the rest of the app.
+deepseek-harness-sdk>=0.1.5rc1
+
 # TTS / audio (IndexTTS for voice synthesis)
 pydub>=0.25.1
 # Python 3.13+ removed stdlib audioop; pydub needs this compatibility package

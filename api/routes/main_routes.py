@@ -57,6 +57,12 @@ async def ingestion_library_page():
     return _read_static_html("ingestion_library.html")
 
 
+@router.get("/pattern-lab", response_class=HTMLResponse)
+async def pattern_lab_page():
+    """打法学习：贴文拆卡、发布当前打法、看发布结果"""
+    return _read_static_html("pattern_lab.html")
+
+
 @router.get("/design-system", response_class=HTMLResponse)
 async def design_system_page():
     """设计系统组件展示（静态 Storybook）"""

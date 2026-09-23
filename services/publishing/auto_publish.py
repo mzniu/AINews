@@ -12,6 +12,7 @@ from services.ingestion.story_primary import check_story_media_pipeline_gate
 from services.publishing.compliance import validate_publish_payload
 from services.publishing.metadata_bridge import draft_from_video_draft, draft_to_publish_fields
 from services.publishing.path_guard import PathGuardError, resolve_cover_path, resolve_video_path, to_relative_posix
+from services.publishing.playbook_stamp import playbook_source_from_draft, stamp_playbook
 from services.publishing.platform_capabilities import can_video_publish
 from services.publishing.registry import PlatformNotFoundError, get_platform_config
 from src.db.models.ingestion import IngestedArticle
@@ -152,6 +153,7 @@ def create_ingestion_publish_job(
         first_comment_text=(active_draft.first_comment or "").strip() or None,
         comment_status="none",
     )
+    stamp_playbook(job, playbook_source_from_draft(_parse_video_draft(article)))
     session.add(job)
     session.flush()
     return job

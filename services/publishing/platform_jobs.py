@@ -16,6 +16,7 @@ from services.publishing.auto_publish import (
 from services.publishing.compliance import validate_publish_payload
 from services.publishing.metadata_bridge import draft_from_video_draft
 from services.publishing.platform_capabilities import can_video_publish
+from services.publishing.playbook_stamp import playbook_source_from_draft, stamp_playbook
 from services.publishing.registry import PlatformNotFoundError, get_platform_config, list_platforms
 from src.db.models.ingestion import IngestedArticle
 from src.db.models.publishing import PublishJob, PublisherAccount
@@ -136,6 +137,17 @@ def _create_job_for_platform(
         first_comment_text=first_comment_text,
         comment_status="none",
     )
+    if article is not None:
+        stamp_playbook(job, playbook_source_from_draft(_parse_video_draft(article)))
+    else:
+        stamp_playbook(
+            job,
+            {
+                "playbook_version_id": template.playbook_version_id,
+                "copy_draft_id": template.copy_draft_id,
+                "playbook_attribution": template.playbook_attribution,
+            },
+        )
     session.add(job)
     session.flush()
     return job

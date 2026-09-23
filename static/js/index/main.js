@@ -2387,16 +2387,17 @@
                     document.getElementById('editableMainLine2').value = line2;
                     document.getElementById('editableSubTitle').value = subT;
                     document.getElementById('editableSubTitle2').value = subT2;
-                    window.lastPublishDraft = {
-                        main_line1: line1,
-                        short_title: shortTitle || line1,
-                        main_line2: line2,
-                        sub_title: subT,
-                        sub_title2: subT2,
-                        praise_tags: data.praise_tags || [],
-                        tags: data.tags || [],
-                        source_type: 'index',
-                    };
+            window.lastPublishDraft = {
+                main_line1: line1,
+                short_title: shortTitle || line1,
+                main_line2: line2,
+                sub_title: subT,
+                sub_title2: subT2,
+                praise_tags: data.praise_tags || [],
+                tags: data.tags || [],
+                source_type: 'index',
+            };
+            window.lastPlaybookStamp = null;
                     document.getElementById('editableAiSummary').value = data.summary;
                     const voText = data.voiceover_script != null ? data.voiceover_script : '';
                     if (document.getElementById('editableVoiceoverScript')) {
@@ -3230,4 +3231,134 @@
                 fetchUrl();
             }
         });
+
+        async function refreshPlaybookDraftButton() {
+            const btn = document.getElementById('playbookDraftBtn');
+            if (!btn) return;
+            try {
+                const res = await fetch('/api/copy-agent/settings');
+                const data = await res.json();
+                btn.disabled = !data.has_current;
+                btn.title = data.has_current ? '用当前打法出一稿' : '先在打法学习贴一条爆款文案';
+            } catch (err) {
+                btn.disabled = true;
+                btn.title = '先在打法学习贴一条爆款文案';
+            }
+        }
+
+        function applyPlaybookFields(data) {
+            const line1 = data.main_line1 || data.main_title || '';
+            const shortTitle = data.short_title || line1;
+            document.getElementById('editableMainLine1').value = line1;
+            const shortEl = document.getElementById('editableShortTitle');
+            if (shortEl) shortEl.value = shortTitle;
+            document.getElementById('editableMainLine2').value = data.main_line2 || '';
+            document.getElementById('editableSubTitle').value = data.sub_title || '';
+            document.getElementById('editableSubTitle2').value = data.sub_title2 || '';
+            document.getElementById('editableAiSummary').value = data.summary || '';
+            document.getElementById('editableVoiceoverScript').value = data.voiceover_script || '';
+            const tags = data.tags;
+            document.getElementById('editableAiTags').value = Array.isArray(tags) ? tags.join(' ') : (tags || '');
+            window.lastPlaybookStamp = data.stamp || null;
+            window.lastPublishDraft = {
+                main_line1: line1,
+                short_title: shortTitle,
+                main_line2: data.main_line2 || '',
+                sub_title: data.sub_title || '',
+                sub_title2: data.sub_title2 || '',
+                summary: data.summary || '',
+                tags: tags || [],
+                source_type: 'index',
+                playbook_attribution: data.stamp && data.stamp.playbook_attribution,
+                playbook_version_id: data.stamp && data.stamp.playbook_version_id,
+                copy_draft_id: data.stamp && data.stamp.copy_draft_id,
+            };
+            const note = document.getElementById('playbookDraftNote');
+            if (note) note.textContent = '';
+        }
+
+        function watchPlaybookEdits() {
+            const ids = [
+                'editableMainLine1',
+                'editableShortTitle',
+                'editableMainLine2',
+                'editableSubTitle',
+                'editableSubTitle2',
+                'editableAiSummary',
+                'editableVoiceoverScript',
+                'editableAiTags',
+            ];
+            ids.forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el || el.dataset.playbookWatch === '1') return;
+                el.dataset.playbookWatch = '1';
+                el.addEventListener('input', () => { markPlaybookEdited(); });
+            });
+        }
+
+        async function markPlaybookEdited() {
+            const stamp = window.lastPlaybookStamp;
+            if (!stamp || stamp.playbook_attribution === 'edited' || !stamp.copy_draft_id) return;
+            stamp.playbook_attribution = 'edited';
+            if (window.lastPublishDraft) {
+                window.lastPublishDraft.playbook_attribution = 'edited';
+            }
+            const note = document.getElementById('playbookDraftNote');
+            if (note) note.textContent = '这版打法，之后改过';
+            try {
+                const res = await fetch('/api/copy-agent/drafts/' + stamp.copy_draft_id + '/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ edited: true }),
+                });
+                const body = await res.json();
+                if (body.stamp) window.lastPlaybookStamp = body.stamp;
+            } catch (err) {
+                showToast('改稿归因没有记下', 'error');
+            }
+        }
+
+        async function generatePlaybookDraft() {
+            const content = document.getElementById('contentEditor').value;
+            if (!content.trim()) {
+                showToast('请先输入或编辑文章内容', 'error');
+                return;
+            }
+            const summaryDiv = document.getElementById('aiSummary');
+            if (summaryDiv) summaryDiv.style.display = 'block';
+            try {
+                const response = await fetch('/api/copy-agent/drafts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: content,
+                        title: (typeof currentData !== 'undefined' && currentData && currentData.title) || ''
+                    })
+                });
+                const data = await response.json();
+                if (response.status === 409 && data.hint === 'no_playbook') {
+                    showToast(data.message || '先在打法学习贴一条爆款文案', 'error');
+                    return;
+                }
+                if (!data.selectable) {
+                    showToast('这稿没过事实闸门，不能写入编辑框', 'error');
+                    return;
+                }
+                let parsed = {};
+                try { parsed = JSON.parse(data.text || '{}'); } catch (err) { parsed = { voiceover_script: data.text || '' }; }
+                const selected = await fetch('/api/copy-agent/drafts/' + data.draft_id + '/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ edited: false })
+                });
+                const stampBody = await selected.json();
+                applyPlaybookFields(Object.assign({}, parsed, { stamp: stampBody.stamp }));
+                watchPlaybookEdits();
+                showToast('已按当前打法写入', 'success');
+            } catch (error) {
+                showToast('出稿失败: ' + error.message, 'error');
+            }
+        }
+
+        refreshPlaybookDraftButton();
 

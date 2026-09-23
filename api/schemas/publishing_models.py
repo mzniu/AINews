@@ -50,6 +50,9 @@ class CreatePublishJobRequest(BaseModel):
     source_id: Optional[str] = None
     scheduled_at: Optional[datetime] = None
     first_comment_text: Optional[str] = None
+    playbook_version_id: Optional[str] = None
+    copy_draft_id: Optional[str] = None
+    playbook_attribution: Optional[str] = None
 
 
 class ReschedulePublishJobRequest(BaseModel):

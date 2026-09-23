@@ -1,0 +1,411 @@
+"""Rank pattern clusters for a material title + summary before draft generation."""
+from __future__ import annotations
+
+import json
+import os
+import re
+from collections.abc import Callable
+from typing import Any, TypedDict
+
+from sqlalchemy.orm import Session
+
+from services.copy_agent.card_schema import card_preview_from_stored, ranking_preview_from_card
+from services.copy_agent.pattern_library import cluster_key_for, list_pattern_library
+from src.db.models.playbook import CopyAgentSettings, PatternCard, PlaybookVersion
+
+CompleteRank = Callable[[list[dict]], str]
+
+POLICY_VERSION = "rank-v1"
+
+
+def _no_playbook(message: str) -> None:
+    from services.copy_agent.drafts import NoPlaybook
+
+    raise NoPlaybook(message)
+
+
+class TooManyPatterns(RuntimeError):
+    pass
+
+
+class PlaybookSelection(TypedDict, total=False):
+    playbook_version_id: str
+    cluster_key: str | None
+    pattern_name: str | None
+    genre_label: str | None
+    confidence: str
+    reason: str
+    fallback: bool
+    recommended_version_id: str | None
+    fallback_used_version_id: str | None
+    policy_version: str
+    ranking_json: str
+
+
+def validate_ranking_response(data: dict, allowed_keys: set[str]) -> dict:
+    chosen = str(data.get("chosen_cluster_key") or "").strip()
+    if chosen not in allowed_keys:
+        raise ValueError("chosen_cluster_key not in candidates")
+    confidence = str(data.get("confidence") or "").strip().lower()
+    if confidence not in {"high", "medium", "low"}:
+        raise ValueError("invalid confidence")
+    ranked = data.get("ranked")
+    if not isinstance(ranked, list):
+        raise ValueError("ranked must be a list")
+    if len(ranked) > len(allowed_keys):
+        raise ValueError("ranked too long")
+    for row in ranked:
+        if not isinstance(row, dict):
+            raise ValueError("ranked row must be object")
+        key = str(row.get("cluster_key") or "").strip()
+        if key and key not in allowed_keys:
+            raise ValueError("ranked cluster_key not in candidates")
+        score = row.get("score")
+        if score is not None:
+            try:
+                s = float(score)
+            except (TypeError, ValueError):
+                raise ValueError("invalid score") from None
+            if s < 0 or s > 1:
+                raise ValueError("score out of range")
+        reason = str(row.get("reason") or "")
+        if len(reason) > 80:
+            raise ValueError("reason too long")
+    rejected = data.get("rejected_cluster_keys")
+    if rejected is not None:
+        if not isinstance(rejected, list):
+            raise ValueError("rejected_cluster_keys must be list")
+        for key in rejected:
+            if str(key).strip() not in allowed_keys:
+                raise ValueError("rejected key not in candidates")
+    return data
+
+
+def choose_playbook_from_ranking(
+    parsed: dict,
+    candidates: list[dict],
+    *,
+    current_version_id: str | None,
+) -> tuple[str | None, bool, str | None]:
+    by_key = {c["cluster_key"]: c for c in candidates}
+    chosen_key = str(parsed.get("chosen_cluster_key") or "").strip()
+    chosen = by_key.get(chosen_key)
+    recommended_id = (
+        str(chosen.get("representative_version_id") or "") if chosen else None
+    ) or None
+
+    ranked = parsed.get("ranked") if isinstance(parsed.get("ranked"), list) else []
+    scores: list[tuple[str, float]] = []
+    for row in ranked:
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("cluster_key") or "").strip()
+        try:
+            scores.append((key, float(row.get("score") or 0)))
+        except (TypeError, ValueError):
+            scores.append((key, 0.0))
+    scores.sort(key=lambda item: item[1], reverse=True)
+
+    confidence = str(parsed.get("confidence") or "").strip().lower()
+    use_recommended = False
+    if confidence == "high" and recommended_id:
+        use_recommended = True
+    elif confidence == "medium" and recommended_id:
+        top = scores[0][1] if scores else 0.0
+        second = scores[1][1] if len(scores) > 1 else 0.0
+        if top - second >= 0.12:
+            use_recommended = True
+
+    if use_recommended and recommended_id:
+        return recommended_id, False, recommended_id
+
+    if current_version_id:
+        return current_version_id, True, recommended_id
+
+    return None, True, recommended_id
+
+
+def resolve_representative_version_id(session: Session, version_ids: list[str]) -> str | None:
+    ids = [vid for vid in version_ids if vid]
+    if not ids:
+        return None
+    versions = [
+        session.get(PlaybookVersion, vid)
+        for vid in ids
+    ]
+    published = [
+        v
+        for v in versions
+        if v is not None
+        and (v.body or "").strip()
+        and v.status == "published"
+        and v.trap_passed
+    ]
+    if published:
+        published.sort(key=lambda v: v.created_at or v.id, reverse=True)
+        return published[0].id
+    with_body = [v for v in versions if v is not None and (v.body or "").strip()]
+    if not with_body:
+        return None
+    with_body.sort(key=lambda v: v.created_at or v.id, reverse=True)
+    return with_body[0].id
+
+
+def _latest_card_for_cluster(session: Session, genre: str, pattern_name: str) -> PatternCard | None:
+    norm = re.sub(r"\s+", "", (pattern_name or "").strip().lower())
+    cards = (
+        session.query(PatternCard)
+        .order_by(PatternCard.created_at.desc())
+        .all()
+    )
+    from services.copy_agent.card_schema import card_from_json, is_v2_card
+
+    for card in cards:
+        card_dict = card_from_json(card.card_json)
+        if not is_v2_card(card_dict):
+            continue
+        pattern = card_dict.get("pattern") if isinstance(card_dict.get("pattern"), dict) else {}
+        g = str(pattern.get("genre") or "").strip() or "unknown"
+        name = str(pattern.get("name") or "").strip() or "未命名模式"
+        if g == genre and re.sub(r"\s+", "", name.lower()) == norm:
+            return card
+    return None
+
+
+def build_ranking_candidates(session: Session) -> list[dict]:
+    data = list_pattern_library(session)
+    out: list[dict] = []
+    for row in data.get("patterns") or []:
+        if not isinstance(row, dict):
+            continue
+        genre = str(row.get("genre") or "").strip() or "unknown"
+        name = str(row.get("pattern_name") or "").strip() or "未命名模式"
+        version_ids = [str(v) for v in (row.get("version_ids") or []) if v]
+        rep_id = resolve_representative_version_id(session, version_ids)
+        if not rep_id:
+            continue
+        card = _latest_card_for_cluster(session, genre, name)
+        preview = ranking_preview_from_card(
+            card_preview_from_stored(
+                card_json=card.card_json if card else None,
+                verdict_kind=card.verdict_kind if card else "",
+                verdict_function=card.verdict_function if card else "",
+                forbidden_transfers_json=card.forbidden_transfers_json if card else "[]",
+                evidence_excerpt=card.evidence_excerpt if card else "",
+                include_evidence=False,
+            )
+        )
+        key = cluster_key_for(genre, name)
+        out.append(
+            {
+                "cluster_key": key,
+                "genre": genre,
+                "pattern_name": name,
+                "genre_label": str(row.get("genre_label") or ""),
+                "version_ids": version_ids,
+                "representative_version_id": rep_id,
+                **preview,
+            }
+        )
+    return out
+
+
+def _parse_rank_json(raw: str) -> dict:
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    loaded = json.loads(text)
+    if not isinstance(loaded, dict):
+        raise ValueError("ranking response must be object")
+    return loaded
+
+
+def _ranking_messages(title: str, content: str, candidates: list[dict]) -> list[dict]:
+    payload = {
+        "material": {"title": title, "content": content},
+        "candidates": [
+            {
+                "cluster_key": c["cluster_key"],
+                "pattern_name": c.get("pattern_name"),
+                "genre_label": c.get("genre_label"),
+                "purpose": c.get("purpose"),
+                "move_functions": c.get("move_functions"),
+                "hook_archetype_label": c.get("hook_archetype_label"),
+                "motives_primary_label": c.get("motives_primary_label"),
+                "verdict_function_label": c.get("verdict_function_label"),
+            }
+            for c in candidates
+        ],
+    }
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你只根据候选模式列表为素材选一个最合适的 cluster_key。"
+                "只输出 JSON，不要写稿。chosen_cluster_key 必须来自 candidates。"
+            ),
+        },
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+    ]
+
+
+def rank_playbook_for_material(
+    session: Session,
+    *,
+    title: str,
+    content: str,
+    complete_rank: CompleteRank,
+    adaptive: bool,
+    current_version_id: str | None,
+    max_candidates: int,
+) -> PlaybookSelection:
+    max_material = int(os.getenv("PLAYBOOK_RANK_MAX_MATERIAL_CHARS", "1200"))
+    material = (content or "")[:max_material]
+    candidates = build_ranking_candidates(session)
+
+    if not adaptive:
+        if not current_version_id:
+            _no_playbook("没有当前打法")
+        return _selection_for_version(
+            session,
+            current_version_id,
+            fallback=False,
+            reason="",
+            confidence="high",
+            ranking_json="{}",
+        )
+
+    if not candidates:
+        if not current_version_id:
+            _no_playbook("没有当前打法")
+        return _selection_for_version(
+            session,
+            current_version_id,
+            fallback=False,
+            reason="模式库为空，使用当前打法",
+            confidence="high",
+            ranking_json="{}",
+        )
+
+    if len(candidates) > max_candidates:
+        raise TooManyPatterns("模式过多，请关闭自动选型或合并模式")
+
+    messages = _ranking_messages(title, material, candidates)
+    raw = complete_rank(messages)
+    parsed = validate_ranking_response(
+        _parse_rank_json(raw),
+        {c["cluster_key"] for c in candidates},
+    )
+    version_id, fallback, recommended = choose_playbook_from_ranking(
+        parsed,
+        candidates,
+        current_version_id=current_version_id,
+    )
+    if not version_id:
+        _no_playbook("没有当前打法")
+
+    chosen_key = str(parsed.get("chosen_cluster_key") or "").strip()
+    chosen_row = next((c for c in candidates if c["cluster_key"] == chosen_key), {})
+    reason = ""
+    ranked = parsed.get("ranked") if isinstance(parsed.get("ranked"), list) else []
+    for row in ranked:
+        if isinstance(row, dict) and str(row.get("cluster_key")) == chosen_key:
+            reason = str(row.get("reason") or "")
+            break
+
+    sel = _selection_for_version(
+        session,
+        version_id,
+        fallback=fallback,
+        reason=reason,
+        confidence=str(parsed.get("confidence") or "low"),
+        ranking_json=json.dumps(parsed, ensure_ascii=False),
+        cluster_key=chosen_row.get("cluster_key") if not fallback else None,
+        pattern_name=chosen_row.get("pattern_name") if not fallback else None,
+        genre_label=chosen_row.get("genre_label") if not fallback else None,
+        recommended_version_id=recommended if fallback else recommended,
+        fallback_used_version_id=current_version_id if fallback else None,
+    )
+    if fallback:
+        sel["cluster_key"] = None
+        sel["pattern_name"] = None
+        sel["genre_label"] = None
+    return sel
+
+
+def _selection_for_version(
+    session: Session,
+    version_id: str,
+    *,
+    fallback: bool,
+    reason: str,
+    confidence: str,
+    ranking_json: str,
+    cluster_key: str | None = None,
+    pattern_name: str | None = None,
+    genre_label: str | None = None,
+    recommended_version_id: str | None = None,
+    fallback_used_version_id: str | None = None,
+) -> PlaybookSelection:
+    version = session.get(PlaybookVersion, version_id)
+    if version is None or not (version.body or "").strip():
+        _no_playbook("没有当前打法")
+    return PlaybookSelection(
+        playbook_version_id=version_id,
+        cluster_key=cluster_key,
+        pattern_name=pattern_name,
+        genre_label=genre_label,
+        confidence=confidence,
+        reason=reason,
+        fallback=fallback,
+        recommended_version_id=recommended_version_id,
+        fallback_used_version_id=fallback_used_version_id,
+        policy_version=POLICY_VERSION,
+        ranking_json=ranking_json,
+    )
+
+
+def ranking_adaptive_enabled(settings: CopyAgentSettings, *, for_auto_pipeline: bool) -> bool:
+    if for_auto_pipeline:
+        return bool(
+            settings.auto_uses_current_playbook and settings.auto_material_adaptive_playbook
+        )
+    return bool(settings.material_adaptive_playbook)
+
+
+def production_rank_complete(messages: list[dict]) -> str:
+    from services.content_generation_service import _build_openai_client
+    from utils.content_compliance import invoke_json_llm_with_compliance
+
+    client, model, _base_url, profile = _build_openai_client()
+    rank_model = os.getenv("PLAYBOOK_RANK_MODEL") or model
+    result, _compliance = invoke_json_llm_with_compliance(
+        client=client,
+        model=rank_model,
+        messages=messages,
+        temperature=0.2,
+        max_tokens=1024,
+        response_format={"type": "json_object"},
+        profile=profile,
+        task="playbook_rank",
+    )
+    return json.dumps(result, ensure_ascii=False)
+
+
+def selection_to_json(selection: PlaybookSelection, ranked_top3: list[dict] | None = None) -> str:
+    cluster = selection.get("cluster_key")
+    genre = cluster.split("|", 1)[0] if cluster and "|" in cluster else None
+    payload: dict[str, Any] = {
+        "policy_version": selection.get("policy_version") or POLICY_VERSION,
+        "cluster_key": cluster,
+        "pattern_name": selection.get("pattern_name"),
+        "genre": genre,
+        "confidence": selection.get("confidence"),
+        "reason": selection.get("reason"),
+        "fallback": selection.get("fallback"),
+        "recommended_version_id": selection.get("recommended_version_id"),
+        "fallback_used_version_id": selection.get("fallback_used_version_id"),
+        "ranked_top3": ranked_top3 or [],
+    }
+    return json.dumps(payload, ensure_ascii=False)

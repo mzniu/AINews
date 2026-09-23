@@ -481,6 +481,32 @@ def patch_video_draft(
     return _article_full(row, db)
 
 
+@router.post("/articles/{article_id}/playbook-draft", response_model=IngestedArticleOut)
+def article_playbook_draft(article_id: str, db: Session = Depends(get_db)):
+    from api.routes.copy_agent_routes import production_complete
+    from services.copy_agent.pattern_ranking import production_rank_complete
+    from services.copy_agent.drafts import DraftNotSelectable, NoPlaybook
+    from services.ingestion.playbook_draft import apply_playbook_draft_to_article
+
+    row = db.get(IngestedArticle, article_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    try:
+        apply_playbook_draft_to_article(
+            db,
+            row,
+            complete=production_complete,
+            complete_rank=production_rank_complete,
+        )
+    except NoPlaybook as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DraftNotSelectable as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _article_full(row, db)
+
+
 @router.post("/articles/{article_id}/select")
 def select_article(article_id: str, db: Session = Depends(get_db)):
     row = db.get(IngestedArticle, article_id)
@@ -645,6 +671,18 @@ def retry_media_pipeline(
         }
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/articles/{article_id}/rerender-playbook")
+def rerender_playbook(article_id: str, db: Session = Depends(get_db)):
+    from services.ingestion.media_pipeline import playbook_rerender_config
+
+    row = db.get(IngestedArticle, article_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    result = run_media_pipeline(db, article_id, config=playbook_rerender_config())
+    db.commit()
+    return {"success": True, **result}
 
 
 @router.post("/articles/{article_id}/cover/retry")
