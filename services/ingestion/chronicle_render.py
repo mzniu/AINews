@@ -52,19 +52,18 @@ DEFAULT_CARD_MOTION_EFFECTS = (
 )
 
 
-def _crop_center_to_aspect(image: Image.Image, target_w: int, target_h: int) -> Image.Image:
-    src_w, src_h = image.size
-    target_ratio = target_w / target_h
-    src_ratio = src_w / src_h if src_h else target_ratio
-    if src_ratio > target_ratio:
-        new_w = int(src_h * target_ratio)
-        left = (src_w - new_w) // 2
-        cropped = image.crop((left, 0, left + new_w, src_h))
-    else:
-        new_h = int(src_w / target_ratio)
-        top = (src_h - new_h) // 2
-        cropped = image.crop((0, top, src_w, top + new_h))
-    return cropped.resize((target_w, target_h), Image.Resampling.LANCZOS)
+HERO_LETTERBOX_BG = (17, 17, 17)
+
+
+def _letterbox_to_aspect(image: Image.Image, target_w: int, target_h: int) -> Image.Image:
+    from services.ingestion.cover_video_utils import letterbox_image_on_canvas
+
+    return letterbox_image_on_canvas(
+        image,
+        target_w,
+        target_h,
+        bg_color=HERO_LETTERBOX_BG,
+    )
 
 
 def _hex_rgb(value: Any, fallback: tuple[int, int, int]) -> tuple[int, int, int]:
@@ -609,10 +608,10 @@ def scaled_hero(
     rgb = image.convert("RGB")
     scale = max(1.0, float(scale))
     if scale <= 1.0001:
-        return _crop_center_to_aspect(rgb, inner_w, inner_h)
+        return _letterbox_to_aspect(rgb, inner_w, inner_h)
     zoom_w = max(inner_w, int(inner_w * scale))
     zoom_h = max(inner_h, int(inner_h * scale))
-    hero = _crop_center_to_aspect(rgb, zoom_w, zoom_h)
+    hero = _letterbox_to_aspect(rgb, zoom_w, zoom_h)
     max_x = max(0, zoom_w - inner_w)
     max_y = max(0, zoom_h - inner_h)
     ox = max(-1.0, min(1.0, float(offset_x)))

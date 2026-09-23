@@ -460,6 +460,36 @@ def test_ken_burns_scale_eases_from_start_to_end():
     assert 1.0 < mid < 1.15
 
 
+def test_scaled_hero_letterboxes_so_long_edge_stays_visible():
+    wide = Image.new("RGB", (200, 80), (0, 0, 180))
+    for x in range(24):
+        for y in range(80):
+            wide.putpixel((x, y), (255, 0, 0))
+            wide.putpixel((199 - x, y), (0, 255, 0))
+    wide_fitted = scaled_hero(wide, 80, 80, 1.0)
+    assert wide_fitted.size == (80, 80)
+    left = wide_fitted.getpixel((2, 40))
+    right = wide_fitted.getpixel((77, 40))
+    bar = wide_fitted.getpixel((40, 2))
+    assert left[0] > 180 and left[1] < 40
+    assert right[1] > 180 and right[0] < 40
+    assert bar[2] < 80
+
+    tall = Image.new("RGB", (80, 200), (0, 0, 180))
+    for y in range(24):
+        for x in range(80):
+            tall.putpixel((x, y), (255, 0, 0))
+            tall.putpixel((x, 199 - y), (0, 255, 0))
+    tall_fitted = scaled_hero(tall, 80, 80, 1.0)
+    assert tall_fitted.size == (80, 80)
+    top = tall_fitted.getpixel((40, 2))
+    bottom = tall_fitted.getpixel((40, 77))
+    side = tall_fitted.getpixel((2, 40))
+    assert top[0] > 180 and top[1] < 40
+    assert bottom[1] > 180 and bottom[0] < 40
+    assert side[2] < 80
+
+
 def test_scaled_hero_zoom_changes_pixels(tmp_path):
     img = Image.new("RGB", (200, 200), (0, 0, 180))
     img.putpixel((100, 100), (255, 0, 0))
@@ -758,7 +788,8 @@ def test_evidence_card_fills_top_space(tmp_path):
         template=template,
         include_footer=False,
     )
-    sample = frame.getpixel((540, int(canvas_h * 0.10)))
+    left, top, right, bottom = hero_inner_box(1080, canvas_h, template)
+    sample = frame.getpixel(((left + right) // 2, (top + bottom) // 2))
     assert sample[0] > 150
     assert sample[1] < 80
 

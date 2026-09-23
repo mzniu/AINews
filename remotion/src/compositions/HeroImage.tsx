@@ -46,7 +46,7 @@ export const HeroImage: React.FC<Props> = ({
         src={src}
         width="100%"
         height="100%"
-        objectFit="cover"
+        objectFit="contain"
         playbackRate={1}
         style={{
           transform,
