@@ -20,6 +20,7 @@ from api.schemas.ingestion_models import (
     JobOut,
     MergeStoriesRequest,
     PatchVideoDraftRequest,
+    PlaybookFlagsRequest,
     PrepareVideoResponse,
     ArticleImageOut,
     ScoreArticleRequest,
@@ -476,6 +477,21 @@ def patch_video_draft(
         else:
             draft.pop("first_comment", None)
     row.video_draft_json = json.dumps(draft, ensure_ascii=False)
+    db.commit()
+    db.refresh(row)
+    return _article_full(row, db)
+
+
+@router.patch("/articles/{article_id}/playbook-flags", response_model=IngestedArticleOut)
+def patch_article_playbook_flags(
+    article_id: str,
+    body: PlaybookFlagsRequest,
+    db: Session = Depends(get_db),
+):
+    row = db.get(IngestedArticle, article_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    row.playbook_force_current = bool(body.force_current_playbook)
     db.commit()
     db.refresh(row)
     return _article_full(row, db)
@@ -1065,6 +1081,7 @@ def _article_full(row: IngestedArticle, db: Session) -> IngestedArticleOut:
         generated_video_at=row.generated_video_at,
         selected_bgm_path=row.selected_bgm_path,
         media_pipeline_status=row.media_pipeline_status,
+        playbook_force_current=bool(row.playbook_force_current),
         selected_images=_parse_selected_images(row),
         images=[
             ArticleImageOut(

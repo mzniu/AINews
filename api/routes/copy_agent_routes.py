@@ -30,7 +30,12 @@ from services.copy_agent.drafts import (
     generate_one_draft,
     select_draft,
 )
-from services.copy_agent.pattern_ranking import production_rank_complete
+from services.copy_agent.pattern_ranking import (
+    TooManyPatterns,
+    production_rank_complete,
+    rank_playbook_for_material,
+    selection_for_api,
+)
 from services.copy_agent.settings_store import (
     AutoSwitchBlocksPublish,
     TrapCheckFailed,
@@ -84,6 +89,12 @@ class RankingSettingsBody(BaseModel):
 class DraftBody(BaseModel):
     title: str = ""
     content: str = ""
+
+
+class RankPreviewBody(BaseModel):
+    title: str = ""
+    content: str = ""
+    article_id: str | None = None
 
 
 class SelectDraftBody(BaseModel):
@@ -257,6 +268,36 @@ def production_complete(messages: list[dict]) -> str:
         task="content_gen",
     )
     return json.dumps(result, ensure_ascii=False)
+
+
+@router.post("/rank-preview")
+def rank_preview(body: RankPreviewBody):
+    session = get_session_factory()()
+    try:
+        settings = get_settings(session)
+        selection = rank_playbook_for_material(
+            session,
+            title=body.title,
+            content=body.content,
+            complete_rank=production_rank_complete,
+            adaptive=bool(settings.material_adaptive_playbook),
+            current_version_id=settings.current_playbook_version_id,
+            max_candidates=int(settings.ranking_max_candidates or 40),
+            article_id=body.article_id,
+            use_selection_cache=False,
+        )
+        return {
+            "success": True,
+            "selection": selection_for_api(selection),
+            "candidates_count": selection.get("candidates_count") or 0,
+            "prefiltered_from": selection.get("prefiltered_from"),
+        }
+    except NoPlaybook as exc:
+        return JSONResponse(status_code=409, content={"message": str(exc), "hint": "no_playbook"})
+    except TooManyPatterns as exc:
+        return JSONResponse(status_code=409, content={"message": str(exc)})
+    finally:
+        session.close()
 
 
 @router.get("/patterns")

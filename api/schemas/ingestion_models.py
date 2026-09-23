@@ -73,6 +73,11 @@ class IngestedArticleOut(BaseModel):
     media_pipeline_status: Optional[str] = None
     selected_images: List[Dict[str, Any]] = Field(default_factory=list)
     images: List[ArticleImageOut] = Field(default_factory=list)
+    playbook_force_current: bool = False
+
+
+class PlaybookFlagsRequest(BaseModel):
+    force_current_playbook: bool = False
 
 
 class ScoreArticleRequest(BaseModel):

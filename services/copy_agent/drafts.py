@@ -11,6 +11,7 @@ from services.copy_agent.fact_gate import fact_gate
 from services.copy_agent.pattern_ranking import (
     CompleteRank,
     PlaybookSelection,
+    material_fingerprint,
     rank_playbook_for_material,
     ranking_adaptive_enabled,
     selection_to_json,
@@ -88,6 +89,7 @@ def generate_one_draft(
     complete_rank: CompleteRank | None = None,
     force_current_playbook: bool = False,
     for_auto_pipeline: bool = False,
+    article_id: str | None = None,
     voiceover_min_chars: int = 70,
     voiceover_max_chars: int = 90,
 ) -> CopyDraft:
@@ -111,6 +113,8 @@ def generate_one_draft(
                 adaptive=True,
                 current_version_id=current_id,
                 max_candidates=int(settings.ranking_max_candidates or 40),
+                article_id=article_id,
+                use_selection_cache=True,
             )
             version_id = selection.get("playbook_version_id")
         except Exception:
@@ -152,7 +156,16 @@ def generate_one_draft(
     text = complete(messages)
     source = f"{title}\n{content}"
     gate = fact_gate(_prose_for_gate(text or ""), source)
-    sel_json = selection_to_json(selection, _ranked_top3(selection)) if selection else "{}"
+    sel_json = (
+        selection_to_json(
+            selection,
+            _ranked_top3(selection),
+            material_fingerprint_value=material_fingerprint(title, content),
+            article_id=article_id,
+        )
+        if selection
+        else "{}"
+    )
     draft = CopyDraft(
         playbook_version_id=version.id,
         body_json=json.dumps({"text": text or ""}, ensure_ascii=False),

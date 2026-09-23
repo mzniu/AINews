@@ -98,6 +98,7 @@ class IngestedArticle(Base):
     selected_images_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     media_pipeline_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     generated_cover_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    playbook_force_current: Mapped[bool] = mapped_column(Boolean, default=False)
     industry_id: Mapped[str] = mapped_column(
         String(64), nullable=False, default=DEFAULT_INDUSTRY_ID, index=True
     )

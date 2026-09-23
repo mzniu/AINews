@@ -1038,6 +1038,10 @@
         const now = Date.now();
         if (now < playbookDraftDebounceUntil) return;
         playbookDraftDebounceUntil = now + 2000;
+        const forceEl = document.getElementById('playbookForceCurrentCheck');
+        if (forceEl && materialAdaptivePlaybook) {
+            btn.textContent = forceEl.checked ? '按当前打法出稿' : '按推荐打法出稿';
+        }
         const label = btn.textContent;
         btn.disabled = true;
         btn.textContent = '出稿中…';
@@ -1232,6 +1236,10 @@
             <div style="white-space:pre-wrap;font-size:14px;max-height:240px;overflow:auto;border:1px solid #eee;padding:10px;border-radius:8px;">${escapeHtml((article.content_text || '').slice(0, 3000))}</div>
             <p class="small text-muted mb-1" id="playbookDraftColdHint" style="display:none">模式少于 3 个，建议先在打法学习拆卡；仍会按推荐逻辑尝试。</p>
             <div class="mt-3 d-flex flex-wrap align-items-center gap-2">
+                <label class="small mb-0 d-inline-flex align-items-center" style="cursor:pointer;">
+                    <input type="checkbox" id="playbookForceCurrentCheck" class="mr-1" />
+                    本条固定当前打法
+                </label>
                 <button class="btn btn-sm btn-outline-primary" id="playbookDraftArticleBtn" type="button" disabled title="先在打法学习发布当前打法">按当前打法出稿</button>
                 <button class="btn btn-sm btn-outline-secondary" id="scoreRuleBtn">规则评分</button>
                 <button class="btn btn-sm btn-outline-primary" id="scoreLlmBtn">规则+AI评语</button>
@@ -1254,6 +1262,25 @@
         const playbookDraftBtn = document.getElementById('playbookDraftArticleBtn');
         if (playbookDraftBtn) {
             playbookDraftBtn.onclick = () => generatePlaybookDraftForArticle(id, playbookDraftBtn);
+        }
+        const forceCurrentCheck = document.getElementById('playbookForceCurrentCheck');
+        if (forceCurrentCheck) {
+            forceCurrentCheck.checked = !!article.playbook_force_current;
+            forceCurrentCheck.onchange = async () => {
+                try {
+                    await api(`/api/ingestion/articles/${id}/playbook-flags`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            force_current_playbook: forceCurrentCheck.checked,
+                        }),
+                    });
+                    setStatus(forceCurrentCheck.checked ? '已固定本条用当前打法' : '已恢复推荐打法', 'ok');
+                    await refreshPlaybookDraftArticleButton();
+                } catch (err) {
+                    setStatus(err.message || '保存失败', 'error');
+                    forceCurrentCheck.checked = !forceCurrentCheck.checked;
+                }
+            };
         }
         $('markSelectBtn').onclick = async () => {
             await api(`/api/ingestion/articles/${id}/select`, { method: 'POST' });

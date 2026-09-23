@@ -11,6 +11,9 @@ from services.copy_agent.pattern_library import cluster_key_for
 from services.copy_agent.pattern_ranking import (
     build_ranking_candidates,
     choose_playbook_from_ranking,
+    lookup_cached_selection,
+    material_fingerprint,
+    prefilter_candidates,
     rank_playbook_for_material,
     resolve_representative_version_id,
     validate_ranking_response,
@@ -245,6 +248,72 @@ def test_no_candidates_and_no_current_raises(db_session):
             current_version_id=None,
             max_candidates=40,
         )
+
+
+def test_prefilter_limits_large_pool():
+    candidates = [
+        {
+            "cluster_key": f"g|p{i}",
+            "pattern_name": f"模式{i}",
+            "purpose": "",
+            "genre_label": "",
+            "verdict_function_label": "",
+            "move_functions": [],
+        }
+        for i in range(50)
+    ]
+    candidates[3]["pattern_name"] = "对照节奏短评"
+    out = prefilter_candidates(candidates, "对照节奏短评", "快讯", k=12)
+    assert len(out) == 12
+    assert any(c["pattern_name"] == "对照节奏短评" for c in out)
+
+
+def test_selection_cache_reuses_recent_draft(db_session):
+    from services.copy_agent.drafts import generate_one_draft
+
+    key = _seed_ranked_cluster(db_session, version_id="v_rank", current_id="v_cur")
+    fp = material_fingerprint("t", "c")
+
+    def complete_rank(_messages):
+        return json.dumps(
+            {
+                "chosen_cluster_key": key,
+                "confidence": "high",
+                "ranked": [{"cluster_key": key, "score": 0.9, "reason": "ok"}],
+            },
+            ensure_ascii=False,
+        )
+
+    generate_one_draft(
+        db_session,
+        title="t",
+        content="c",
+        complete=lambda _m: "大约快 8 倍",
+        complete_rank=complete_rank,
+        article_id="art1",
+    )
+    rank_calls = {"n": 0}
+
+    def counting_rank(msgs):
+        rank_calls["n"] += 1
+        return complete_rank(msgs)
+
+    cached = lookup_cached_selection(
+        db_session, title="t", content="c", article_id="art1"
+    )
+    assert cached is not None
+    assert cached.get("from_cache") is True
+    assert cached.get("playbook_version_id") == "v_rank"
+
+    generate_one_draft(
+        db_session,
+        title="t",
+        content="c",
+        complete=lambda _m: "大约快 8 倍",
+        complete_rank=counting_rank,
+        article_id="art1",
+    )
+    assert rank_calls["n"] == 0
 
 
 def test_build_candidates_skips_empty_body(db_session):

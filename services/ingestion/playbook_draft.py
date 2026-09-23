@@ -52,6 +52,8 @@ def apply_playbook_draft_to_article(
         content=content,
         complete=complete,
         complete_rank=complete_rank,
+        force_current_playbook=bool(article.playbook_force_current),
+        article_id=article.id,
     )
     if not draft_selectable(draft):
         raise DraftNotSelectable("这稿没过事实闸门，不能写入出片文案")

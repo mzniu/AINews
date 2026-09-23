@@ -95,6 +95,7 @@ def _ensure_sqlite_columns(engine) -> None:
             "selected_images_json": "TEXT",
             "media_pipeline_status": "VARCHAR(32)",
             "generated_cover_path": "VARCHAR(512)",
+            "playbook_force_current": "BOOLEAN DEFAULT 0",
         }
         for name, col_type in migrations.items():
             if name not in columns:

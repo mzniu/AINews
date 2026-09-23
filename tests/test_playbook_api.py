@@ -51,6 +51,31 @@ def test_orphaned_running_curate_is_cleared_on_startup(db_session):
     assert job.status == "failed"
 
 
+def test_rank_preview_uses_mock_rank(client, db_session, monkeypatch):
+    db_session.add(
+        PlaybookVersion(
+            id="v",
+            body="正文",
+            status="published",
+            trap_passed=True,
+        )
+    )
+    db_session.commit()
+    settings = get_settings(db_session)
+    settings.current_playbook_version_id = "v"
+    settings.material_adaptive_playbook = False
+    db_session.commit()
+
+    res = client.post(
+        "/api/copy-agent/rank-preview",
+        json={"title": "标题", "content": "摘要"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["selection"]["playbook_version_id"] == "v"
+
+
 def test_harness_not_ready_copy(client, monkeypatch):
     monkeypatch.setattr("api.routes.copy_agent_routes.dsh_installed", lambda: False)
     body = client.get("/api/copy-agent/harness").json()

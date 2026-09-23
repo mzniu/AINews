@@ -411,10 +411,17 @@
             rows.forEach((row) => {
                 const p = document.createElement('p');
                 p.style.margin = '0 0 6px';
+                const sel7 = row.selection_count_7d != null ? '7日选型 ' + row.selection_count_7d : '';
+                const pass7 =
+                    row.selection_pass_rate_7d != null
+                        ? '过闸率 ' + Math.round(row.selection_pass_rate_7d * 100) + '%'
+                        : '';
                 p.textContent = [
                     row.pattern_name,
                     row.genre_label || row.genre,
                     row.count + ' 个版本',
+                    sel7,
+                    pass7,
                     row.motives_primary || '',
                     row.hook_archetype || '',
                 ]

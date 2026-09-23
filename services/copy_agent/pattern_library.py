@@ -4,7 +4,8 @@ from __future__ import annotations
 import json
 import re
 from collections import defaultdict
-from datetime import datetime
+from collections import defaultdict
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -71,7 +72,46 @@ def list_pattern_library(session: Session) -> dict[str, Any]:
         clusters.values(),
         key=lambda row: (-int(row["count"]), row["pattern_name"]),
     )
+    _attach_selection_stats(session, patterns, days=7)
     return {"patterns": patterns, "total": len(patterns)}
+
+
+def _attach_selection_stats(session: Session, patterns: list[dict[str, Any]], *, days: int) -> None:
+    from src.db.models.playbook import CopyDraft
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    buckets: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"selection_count": 0, "draft_count": 0, "pass_count": 0}
+    )
+    for draft in session.query(CopyDraft).filter(CopyDraft.created_at >= cutoff).all():
+        try:
+            sel = json.loads(draft.selection_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(sel, dict):
+            continue
+        key = str(sel.get("cluster_key") or "").strip()
+        if not key:
+            continue
+        bucket = buckets[key]
+        bucket["selection_count"] += 1
+        bucket["draft_count"] += 1
+        try:
+            gate = json.loads(draft.fact_gate_json or "{}")
+            if gate.get("passed"):
+                bucket["pass_count"] += 1
+        except json.JSONDecodeError:
+            pass
+    for row in patterns:
+        genre = str(row.get("genre") or "").strip() or "unknown"
+        name = str(row.get("pattern_name") or "").strip() or "未命名模式"
+        key = cluster_key_for(genre, name)
+        stats = buckets.get(key, {"selection_count": 0, "draft_count": 0, "pass_count": 0})
+        row["selection_count_7d"] = stats["selection_count"]
+        dc = stats["draft_count"]
+        row["selection_pass_rate_7d"] = (
+            round(stats["pass_count"] / dc, 3) if dc else None
+        )
 
 
 def build_pattern_library_markdown(session: Session, *, limit: int = 24) -> str:

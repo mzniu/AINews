@@ -1,17 +1,19 @@
 """Rank pattern clusters for a material title + summary before draft generation."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from typing import Any, TypedDict
 
 from sqlalchemy.orm import Session
 
 from services.copy_agent.card_schema import card_preview_from_stored, ranking_preview_from_card
 from services.copy_agent.pattern_library import cluster_key_for, list_pattern_library
-from src.db.models.playbook import CopyAgentSettings, PatternCard, PlaybookVersion
+from src.db.models.playbook import CopyAgentSettings, CopyDraft, PatternCard, PlaybookVersion
 
 CompleteRank = Callable[[list[dict]], str]
 
@@ -40,6 +42,9 @@ class PlaybookSelection(TypedDict, total=False):
     fallback_used_version_id: str | None
     policy_version: str
     ranking_json: str
+    candidates_count: int
+    prefiltered_from: int | None
+    from_cache: bool
 
 
 def validate_ranking_response(data: dict, allowed_keys: set[str]) -> dict:
@@ -210,6 +215,109 @@ def build_ranking_candidates(session: Session) -> list[dict]:
     return out
 
 
+PREFILTER_TOP_K = 12
+
+
+def material_fingerprint(title: str, content: str) -> str:
+    text = f"{(title or '').strip()}\n{(content or '').strip()}"
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def prefilter_candidates(
+    candidates: list[dict],
+    title: str,
+    content: str,
+    *,
+    k: int = PREFILTER_TOP_K,
+) -> list[dict]:
+    if len(candidates) <= k:
+        return candidates
+    haystack = f"{title}\n{content}".lower()
+    scored: list[tuple[int, dict]] = []
+    for cand in candidates:
+        score = 0
+        for field in (
+            cand.get("pattern_name"),
+            cand.get("purpose"),
+            cand.get("genre_label"),
+            cand.get("verdict_function_label"),
+        ):
+            token = str(field or "").strip().lower()
+            if len(token) >= 2 and token in haystack:
+                score += 2
+        for move_fn in cand.get("move_functions") or []:
+            token = str(move_fn or "").strip().lower()
+            if len(token) >= 2 and token in haystack:
+                score += 1
+        scored.append((score, cand))
+    scored.sort(key=lambda item: (-item[0], str(item[1].get("pattern_name") or "")))
+    chosen = [cand for _, cand in scored[:k]]
+    if len(chosen) < k:
+        seen = {c["cluster_key"] for c in chosen}
+        for cand in candidates:
+            if cand["cluster_key"] in seen:
+                continue
+            chosen.append(cand)
+            seen.add(cand["cluster_key"])
+            if len(chosen) >= k:
+                break
+    return chosen
+
+
+def lookup_cached_selection(
+    session: Session,
+    *,
+    title: str,
+    content: str,
+    article_id: str | None,
+    ttl_sec: int = 60,
+) -> PlaybookSelection | None:
+    fp = material_fingerprint(title, content)
+    cutoff = datetime.utcnow() - timedelta(seconds=ttl_sec)
+    drafts = (
+        session.query(CopyDraft)
+        .filter(CopyDraft.created_at >= cutoff)
+        .order_by(CopyDraft.created_at.desc())
+        .limit(30)
+        .all()
+    )
+    for draft in drafts:
+        try:
+            sel = json.loads(draft.selection_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(sel, dict):
+            continue
+        if sel.get("material_fingerprint") != fp:
+            continue
+        stored_article = sel.get("article_id")
+        if article_id and stored_article and stored_article != article_id:
+            continue
+        version_id = draft.playbook_version_id
+        if not version_id:
+            continue
+        version = session.get(PlaybookVersion, version_id)
+        if version is None or not (version.body or "").strip():
+            continue
+        return PlaybookSelection(
+            playbook_version_id=version_id,
+            cluster_key=sel.get("cluster_key"),
+            pattern_name=sel.get("pattern_name"),
+            genre_label=None,
+            confidence=str(sel.get("confidence") or "high"),
+            reason=str(sel.get("reason") or ""),
+            fallback=bool(sel.get("fallback")),
+            recommended_version_id=sel.get("recommended_version_id"),
+            fallback_used_version_id=sel.get("fallback_used_version_id"),
+            policy_version=str(sel.get("policy_version") or POLICY_VERSION),
+            ranking_json=str(sel.get("ranking_json") or "{}"),
+            candidates_count=int(sel.get("candidates_count") or 0),
+            prefiltered_from=sel.get("prefiltered_from"),
+            from_cache=True,
+        )
+    return None
+
+
 def _parse_rank_json(raw: str) -> dict:
     text = (raw or "").strip()
     if text.startswith("```"):
@@ -259,10 +367,13 @@ def rank_playbook_for_material(
     adaptive: bool,
     current_version_id: str | None,
     max_candidates: int,
+    article_id: str | None = None,
+    use_selection_cache: bool = True,
 ) -> PlaybookSelection:
     max_material = int(os.getenv("PLAYBOOK_RANK_MAX_MATERIAL_CHARS", "1200"))
     material = (content or "")[:max_material]
-    candidates = build_ranking_candidates(session)
+    all_candidates = build_ranking_candidates(session)
+    prefiltered_from: int | None = None
 
     if not adaptive:
         if not current_version_id:
@@ -274,9 +385,12 @@ def rank_playbook_for_material(
             reason="",
             confidence="high",
             ranking_json="{}",
+            candidates_count=len(all_candidates),
+            prefiltered_from=None,
+            from_cache=False,
         )
 
-    if not candidates:
+    if not all_candidates:
         if not current_version_id:
             _no_playbook("没有当前打法")
         return _selection_for_version(
@@ -286,10 +400,22 @@ def rank_playbook_for_material(
             reason="模式库为空，使用当前打法",
             confidence="high",
             ranking_json="{}",
+            candidates_count=0,
+            prefiltered_from=None,
+            from_cache=False,
         )
 
+    if use_selection_cache:
+        cached = lookup_cached_selection(
+            session, title=title, content=material, article_id=article_id
+        )
+        if cached is not None:
+            return cached
+
+    candidates = all_candidates
     if len(candidates) > max_candidates:
-        raise TooManyPatterns("模式过多，请关闭自动选型或合并模式")
+        prefiltered_from = len(candidates)
+        candidates = prefilter_candidates(candidates, title, material, k=PREFILTER_TOP_K)
 
     messages = _ranking_messages(title, material, candidates)
     raw = complete_rank(messages)
@@ -326,6 +452,9 @@ def rank_playbook_for_material(
         genre_label=chosen_row.get("genre_label") if not fallback else None,
         recommended_version_id=recommended if fallback else recommended,
         fallback_used_version_id=current_version_id if fallback else None,
+        candidates_count=len(candidates),
+        prefiltered_from=prefiltered_from,
+        from_cache=False,
     )
     if fallback:
         sel["cluster_key"] = None
@@ -347,6 +476,9 @@ def _selection_for_version(
     genre_label: str | None = None,
     recommended_version_id: str | None = None,
     fallback_used_version_id: str | None = None,
+    candidates_count: int = 0,
+    prefiltered_from: int | None = None,
+    from_cache: bool = False,
 ) -> PlaybookSelection:
     version = session.get(PlaybookVersion, version_id)
     if version is None or not (version.body or "").strip():
@@ -363,6 +495,9 @@ def _selection_for_version(
         fallback_used_version_id=fallback_used_version_id,
         policy_version=POLICY_VERSION,
         ranking_json=ranking_json,
+        candidates_count=candidates_count,
+        prefiltered_from=prefiltered_from,
+        from_cache=from_cache,
     )
 
 
@@ -393,7 +528,13 @@ def production_rank_complete(messages: list[dict]) -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-def selection_to_json(selection: PlaybookSelection, ranked_top3: list[dict] | None = None) -> str:
+def selection_to_json(
+    selection: PlaybookSelection,
+    ranked_top3: list[dict] | None = None,
+    *,
+    material_fingerprint_value: str | None = None,
+    article_id: str | None = None,
+) -> str:
     cluster = selection.get("cluster_key")
     genre = cluster.split("|", 1)[0] if cluster and "|" in cluster else None
     payload: dict[str, Any] = {
@@ -407,5 +548,31 @@ def selection_to_json(selection: PlaybookSelection, ranked_top3: list[dict] | No
         "recommended_version_id": selection.get("recommended_version_id"),
         "fallback_used_version_id": selection.get("fallback_used_version_id"),
         "ranked_top3": ranked_top3 or [],
+        "candidates_count": selection.get("candidates_count"),
+        "prefiltered_from": selection.get("prefiltered_from"),
+        "from_cache": selection.get("from_cache"),
+        "ranking_json": selection.get("ranking_json"),
     }
+    if material_fingerprint_value:
+        payload["material_fingerprint"] = material_fingerprint_value
+    if article_id:
+        payload["article_id"] = article_id
     return json.dumps(payload, ensure_ascii=False)
+
+
+def selection_for_api(selection: PlaybookSelection) -> dict[str, Any]:
+    return {
+        "playbook_version_id": selection.get("playbook_version_id"),
+        "cluster_key": selection.get("cluster_key"),
+        "pattern_name": selection.get("pattern_name"),
+        "genre_label": selection.get("genre_label"),
+        "confidence": selection.get("confidence"),
+        "reason": selection.get("reason"),
+        "fallback": selection.get("fallback"),
+        "recommended_version_id": selection.get("recommended_version_id"),
+        "fallback_used_version_id": selection.get("fallback_used_version_id"),
+        "policy_version": selection.get("policy_version"),
+        "candidates_count": selection.get("candidates_count"),
+        "prefiltered_from": selection.get("prefiltered_from"),
+        "from_cache": selection.get("from_cache"),
+    }
