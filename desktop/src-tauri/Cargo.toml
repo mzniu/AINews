@@ -1,6 +1,6 @@
 [package]
 name = "ainews-desktop"
-version = "1.0.14"
+version = "1.0.15"
 description = "AINews desktop shell"
 authors = ["AINews"]
 edition = "2021"
@@ -21,6 +21,7 @@ chrono = { version = "0.4", features = ["clock", "serde"] }
 base64 = "0.22"
 log = "0.4"
 ed25519-dalek = { version = "2", features = ["pkcs8"] }
+sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [

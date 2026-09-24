@@ -2,7 +2,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$AppVersion = "1.0.14"
+$AppVersion = "1.0.15"
 
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 
@@ -78,7 +78,21 @@ Get-ChildItem -Path $RepoRoot -Force | ForEach-Object {
 
 }
 
+$AppVersionFile = Join-Path $AppDst "config\app_version.txt"
+New-Item -ItemType Directory -Force -Path (Split-Path $AppVersionFile) | Out-Null
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($AppVersionFile, $AppVersion, $utf8NoBom)
 
+$RemotionLock = Join-Path $AppDst "remotion\package-lock.json"
+if (-not (Test-Path $RemotionLock)) {
+    throw "Bundled app missing remotion/package-lock.json (required for desktop Remotion runtime)."
+}
+
+$ManifestSrc = Join-Path $TauriDir "remotion-runtime-manifest.json"
+$ManifestDst = Join-Path $BundleRoot "remotion-runtime-manifest.json"
+if (Test-Path $ManifestSrc) {
+    Copy-Item $ManifestSrc $ManifestDst -Force
+}
 
 Get-ChildItem -Path $AppDst -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue |
 

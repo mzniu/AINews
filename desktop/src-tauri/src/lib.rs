@@ -1,6 +1,7 @@
 mod auth;
 mod backend;
 mod commands;
+mod remotion_setup;
 mod runtime_setup;
 
 use std::path::PathBuf;
@@ -43,6 +44,7 @@ pub struct AppState {
     app_dir: PathBuf,
     install_dir: PathBuf,
     user_data: PathBuf,
+    app_version: String,
     last_startup_error: Mutex<Option<String>>,
 }
 
@@ -127,6 +129,7 @@ impl AppState {
                 &self.user_data,
                 self.port,
                 cloud_token.as_deref(),
+                &self.app_version,
             )
             .map_err(|e| {
                 let msg = format!(
@@ -159,6 +162,13 @@ impl AppState {
                 proc.shutdown();
             }
         }
+    }
+
+    /// Restart Python backend so new process env (e.g. Remotion paths) takes effect.
+    pub fn restart_backend(&self, auth: Option<&AuthService>) -> Result<String, String> {
+        self.shutdown_backend();
+        backend::stop_backend_on_port(self.port);
+        self.ensure_backend_running(auth)
     }
 }
 
@@ -330,6 +340,7 @@ pub fn run() {
         app_dir,
         install_dir,
         user_data: user_data.clone(),
+        app_version: env!("CARGO_PKG_VERSION").to_string(),
         last_startup_error: Mutex::new(None),
     };
 
@@ -461,6 +472,8 @@ pub fn run() {
             commands::auth_get_startup_diagnostics,
             commands::runtime_setup_status,
             commands::runtime_setup_run,
+            commands::remotion_setup_status,
+            commands::remotion_setup_run,
             auth_start_app,
             ainews_show_login,
             commands::desktop_window_minimize,

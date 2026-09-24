@@ -3,18 +3,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from src.app_version import get_app_version
 from src.utils.paths import get_data_dir, is_packaged
 
 router = APIRouter(prefix="/api", tags=["health"])
-
-APP_VERSION = "1.0.3"
 
 
 @router.get("/health")
 def health():
     return {
         "status": "ok",
-        "version": APP_VERSION,
+        "version": get_app_version(),
         "data_dir": str(get_data_dir()),
         "packaged": is_packaged(),
     }

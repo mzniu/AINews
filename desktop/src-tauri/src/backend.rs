@@ -467,6 +467,32 @@ pub fn read_log_tail(path: &Path, max_lines: usize) -> String {
     }
 }
 
+pub fn apply_remotion_runtime_env(
+    cmd: &mut Command,
+    data_dir: &Path,
+    app_dir: &Path,
+    app_version: &str,
+) {
+    let status = crate::remotion_setup::status(data_dir, app_dir, app_version);
+    if !status.ready {
+        return;
+    }
+    let node_home = crate::remotion_setup::node_home(data_dir);
+    let project = crate::remotion_setup::remotion_project_dir(data_dir);
+    cmd.env("AINEWS_NODE_HOME", node_home.to_string_lossy().to_string());
+    cmd.env(
+        "REMOTION_PROJECT_DIR",
+        project.to_string_lossy().to_string(),
+    );
+    let node = node_home.to_string_lossy().to_string();
+    let path = std::env::var("PATH").unwrap_or_default();
+    if path.is_empty() {
+        cmd.env("PATH", node);
+    } else {
+        cmd.env("PATH", format!("{};{}", node, path));
+    }
+}
+
 pub fn spawn_backend(
     python: &Path,
     app_dir: &Path,
@@ -474,6 +500,7 @@ pub fn spawn_backend(
     data_dir: &Path,
     port: u16,
     cloud_access_token: Option<&str>,
+    app_version: &str,
 ) -> std::io::Result<BackendProcess> {
     let launch = prepare_python_runtime(python)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
@@ -502,6 +529,9 @@ pub fn spawn_backend(
         .env("AINEWS_DATA_DIR", data_dir)
         .env("AINEWS_RESOURCE_DIR", app_dir)
         .env("PORT", port.to_string());
+    if !app_version.is_empty() {
+        cmd.env("AINEWS_APP_VERSION", app_version);
+    }
 
     if let Some(token) = cloud_access_token.filter(|t| !t.is_empty()) {
         cmd.env("AINEWS_CLOUD_ACCESS_TOKEN", token);
@@ -538,6 +568,8 @@ pub fn spawn_backend(
             ffmpeg.to_string_lossy().to_string(),
         );
     }
+
+    apply_remotion_runtime_env(&mut cmd, data_dir, app_dir, app_version);
 
     #[cfg(windows)]
     if !cfg!(debug_assertions) {
@@ -638,14 +670,7 @@ fn process_command_line(_pid: u32) -> Option<String> {
     None
 }
 
-/// If the port is held by a dead/stuck `web_server.py` (not healthy), stop it so a new backend can bind.
-pub fn reclaim_stale_backend_port(port: u16) {
-    if probe_backend_health(port) {
-        return;
-    }
-    if !local_port_in_use(port) {
-        return;
-    }
+fn kill_web_server_listeners_on_port(port: u16) {
     for pid in pids_listening_on_port(port) {
         let cmdline = process_command_line(pid);
         let is_ainews = cmdline
@@ -656,17 +681,42 @@ pub fn reclaim_stale_backend_port(port: u16) {
             continue;
         }
         let pid_arg = pid.to_string();
-        let _ = Command::new("taskkill")
-            .args(["/PID", &pid_arg, "/F", "/T"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .status();
+        let mut cmd = Command::new("taskkill");
+        cmd.args(["/PID", &pid_arg, "/F", "/T"]);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let _ = cmd.status();
     }
-    for _ in 0..20 {
+}
+
+fn wait_for_port_release(port: u16) {
+    for _ in 0..30 {
         if !local_port_in_use(port) {
             break;
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+/// Stop the embedded AINews `web_server.py` on this port (even when health checks still pass).
+pub fn stop_backend_on_port(port: u16) {
+    if !local_port_in_use(port) {
+        return;
+    }
+    kill_web_server_listeners_on_port(port);
+    wait_for_port_release(port);
+}
+
+/// If the port is held by a dead/stuck `web_server.py` (not healthy), stop it so a new backend can bind.
+pub fn reclaim_stale_backend_port(port: u16) {
+    if probe_backend_health(port) {
+        return;
+    }
+    if !local_port_in_use(port) {
+        return;
+    }
+    kill_web_server_listeners_on_port(port);
+    wait_for_port_release(port);
 }
 
 fn chrono_lite_now() -> String {

@@ -1,6 +1,8 @@
 use tauri::{AppHandle, Emitter, State, WebviewWindow};
 
 use crate::auth::{AuthHealthDto, AuthService, AuthStatusDto};
+use crate::remotion_setup;
+use crate::remotion_setup::RemotionSetupStatusDto;
 use crate::runtime_setup;
 use crate::runtime_setup::RuntimeSetupStatusDto;
 use crate::{AppState, StartupDiagnosticsDto};
@@ -221,14 +223,55 @@ pub fn runtime_setup_status(state: State<'_, AppState>) -> RuntimeSetupStatusDto
 }
 
 #[tauri::command]
-pub fn runtime_setup_run(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    runtime_setup::run(
-        &app,
-        &state.python,
-        &state.install_dir,
-        &state.user_data,
-        &state.app_dir,
-    )
+pub async fn runtime_setup_run(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let app = app.clone();
+    let python = state.python.clone();
+    let install_dir = state.install_dir.clone();
+    let user_data = state.user_data.clone();
+    let app_dir = state.app_dir.clone();
+    tokio::task::spawn_blocking(move || {
+        runtime_setup::run(&app, &python, &install_dir, &user_data, &app_dir)
+    })
+    .await
+    .map_err(|e| format!("运行环境安装任务异常: {e}"))??;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remotion_setup_status(state: State<'_, AppState>) -> RemotionSetupStatusDto {
+    remotion_setup::status(&state.user_data, &state.app_dir, &state.app_version)
+}
+
+#[tauri::command]
+pub async fn remotion_setup_run(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    auth: State<'_, AuthService>,
+) -> Result<(), String> {
+    let app_install = app.clone();
+    let install_dir = state.install_dir.clone();
+    let user_data = state.user_data.clone();
+    let app_dir = state.app_dir.clone();
+    let app_version = state.app_version.clone();
+
+    tokio::task::spawn_blocking(move || {
+        remotion_setup::run(
+            &app_install,
+            &install_dir,
+            &user_data,
+            &app_dir,
+            &app_version,
+        )
+    })
+    .await
+    .map_err(|e| format!("Remotion 安装任务异常: {e}"))??;
+
+    state
+        .restart_backend(Some(&auth))
+        .map_err(|e| format!("Remotion 已安装，但重启后端失败: {e}"))?;
+
+    let _ = app.emit("ainews:backend-restarted", ());
+    Ok(())
 }
 
 #[tauri::command]

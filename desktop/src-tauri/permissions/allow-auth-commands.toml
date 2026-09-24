@@ -25,6 +25,8 @@ commands.allow = [
   "auth_get_startup_diagnostics",
   "runtime_setup_status",
   "runtime_setup_run",
+  "remotion_setup_status",
+  "remotion_setup_run",
   "auth_start_app",
   "ainews_show_login",
   "desktop_window_minimize",

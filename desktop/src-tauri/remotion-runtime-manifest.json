@@ -1,0 +1,10 @@
+{
+  "install_id": "remotion_v1",
+  "node": {
+    "version": "20.18.1",
+    "win_x64": {
+      "url": "https://nodejs.org/dist/v20.18.1/node-v20.18.1-win-x64.zip",
+      "sha256": ""
+    }
+  }
+}
