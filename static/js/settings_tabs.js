@@ -22,6 +22,9 @@
             if (tab === 'render-templates') {
                 window.loadRenderTemplateSettings?.();
             }
+            if (tab === 'video-renderer') {
+                window.loadVideoRendererSettings?.();
+            }
             if (tab === 'title-prompts') {
                 window.loadTitlePromptSettings?.();
             }
@@ -46,6 +49,9 @@
     }
     if (hash === 'render-templates') {
         document.querySelector('.settings-tab[data-tab="render-templates"]')?.click();
+    }
+    if (hash === 'video-renderer') {
+        document.querySelector('.settings-tab[data-tab="video-renderer"]')?.click();
     }
     if (hash === 'title-prompts') {
         document.querySelector('.settings-tab[data-tab="title-prompts"]')?.click();

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/static/css/app_shell.css?v=20260920a">
     <script src="/static/js/shared/datetime.js?v=20260813f"></script>
     <script src="/static/js/shared/theme.js?v=20260917"></script>
-    <script src="/static/js/shared/app_nav.js?v=20260923h" defer></script>
+    <script src="/static/js/shared/app_nav.js?v=20260924e" defer></script>
     <link rel="stylesheet" href="/static/css/model_settings.css?v=20260917">
 </head>
 <body class="app-page">
@@ -28,6 +28,7 @@
             <button type="button" class="settings-tab" data-tab="scoring">📊 文章评分</button>
             <button type="button" class="settings-tab" data-tab="image-scoring">🖼️ 配图评分</button>
             <button type="button" class="settings-tab" data-tab="render-templates">🎬 成片模板</button>
+            <button type="button" class="settings-tab" data-tab="video-renderer">⚙️ 成片引擎</button>
             <button type="button" class="settings-tab" data-tab="ingestion">🕷️ 爬取设定</button>
             <button type="button" class="settings-tab" data-tab="hot-radar">📡 热榜雷达</button>
             <button type="button" class="settings-tab" data-tab="industry">🎯 我的垂类</button>
@@ -245,6 +246,7 @@
         </div>
 
         <div id="panel-render-templates" class="settings-panel" hidden>
+            <div id="renderTemplateEngineBanner" class="status-bar" role="status" hidden></div>
             <div class="card">
                 <h2>成片模板</h2>
                 <p class="section-desc">视频和封面共用一套模板、同一分辨率。封面不写摘要，其余版式与成片一致。自动出片使用系统默认；主页生成和重新出片可以另选。</p>
@@ -277,6 +279,46 @@
                     <button type="button" class="btn btn-outline" id="duplicateRenderTemplateBtn">复制</button>
                 </div>
                 <div id="renderTemplateStatusBar" class="status-bar"></div>
+            </div>
+        </div>
+
+        <div id="panel-video-renderer" class="settings-panel" hidden>
+            <div class="card">
+                <h2>成片引擎</h2>
+                <p class="section-desc">控制自动出片与重新出片时优先使用 Remotion 还是 Python（MoviePy / 纪年模板）。桌面安装包默认「自动」：已配置 Remotion 时用 Remotion，否则用 Python。</p>
+                <div id="videoRendererSummary" class="hint" aria-live="polite">加载中…</div>
+                <div class="form-grid" style="margin-top:1rem;">
+                    <div>
+                        <label class="field-label" for="videoRendererPreferred">首选引擎</label>
+                        <select id="videoRendererPreferred" class="form-control">
+                            <option value="auto">自动（推荐）</option>
+                            <option value="remotion">始终 Remotion</option>
+                            <option value="python">始终 Python</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="videoRendererAllowFallback">
+                            <input type="checkbox" id="videoRendererAllowFallback" checked>
+                            Remotion 不可用时允许回退到 Python
+                        </label>
+                        <p class="hint">关闭后，在首选 Remotion 但未安装或渲染失败时将直接报错，不会静默出片。</p>
+                    </div>
+                </div>
+                <div id="videoRendererDetail" class="hint" style="margin-top:0.75rem;"></div>
+            </div>
+            <div class="card" id="videoRendererInstallBlock" hidden>
+                <h2>Remotion 运行环境</h2>
+                <p class="section-desc">桌面版可将 Node 与 Remotion 依赖安装到用户数据目录（不写入安装目录）。</p>
+                <button type="button" class="btn btn-outline" id="videoRendererInstallBtn">下载并配置 Remotion</button>
+                <p class="hint">首次安装需联网下载 Node 与 npm 依赖，体积较大。纯 Web 开发可在仓库 <code>remotion/</code> 下自行 <code>npm ci</code>。</p>
+            </div>
+            <div class="card">
+                <div class="footer-actions">
+                    <button type="button" class="btn" id="saveVideoRendererBtn">保存</button>
+                    <button type="button" class="btn btn-outline" id="reloadVideoRendererBtn">重新加载</button>
+                </div>
+                <div id="videoRendererStatusBar" class="status-bar"></div>
+                <p class="hint">偏好保存在 <code>config/desktop_runtime.local.yaml</code>（不提交 Git）。</p>
             </div>
         </div>
 
@@ -497,12 +539,13 @@
     <script src="/static/js/settings_content_prompts.js?v=20260815b"></script>
     <script src="/static/js/settings_scoring.js?v=20260813e"></script>
     <script src="/static/js/settings_image_scoring.js?v=20260814a"></script>
-    <script src="/static/js/settings_render_templates.js?v=20260920a"></script>
+    <script src="/static/js/settings_render_templates.js?v=20260924a"></script>
+    <script src="/static/js/settings_video_renderer.js?v=20260924d"></script>
     <script src="/static/js/settings_ingestion.js?v=20260813d"></script>
     <script src="/static/js/settings_hot_radar.js?v=20260919a"></script>
     <script src="/static/js/settings_media_pipeline.js?v=20260813d"></script>
     <script src="/static/js/settings_token_usage.js?v=20260824a"></script>
     <script src="/static/js/settings_industry.js?v=20260919"></script>
-    <script src="/static/js/settings_tabs.js?v=20260919"></script>
+    <script src="/static/js/settings_tabs.js?v=20260924a"></script>
 </body>
 </html>

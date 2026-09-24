@@ -12,7 +12,7 @@
 - 🌐 **智能网页抓取** - 基于 Playwright，支持 JavaScript 渲染页面，自动提取正文和图片
 - 🤖 **AI 内容总结** - 接入 DeepSeek API，自动生成标题、摘要、口播稿，以及「赛道+垂直+精准+热点+个人IP+5个其他」结构的 10 个标签
 - 🎨 **关键帧生成** - 自动合成竖屏关键帧（1080×1920），包含背景模板、文章图片、标题和摘要
-- 🎬 **视频合成** - Remotion（默认）一键合成 MP4，支持纪年模板、打字机摘要、GIF/BGM；MoviePy 路径可回退
+- 🎬 **视频合成** - Remotion 或 Python（MoviePy / 纪年模板）出片；桌面安装包默认「自动」选择可用引擎
 - 🧹 **图片去水印** - 基于 LaMa 模型的 AI 图片修复，框选区域即可去除水印
 - 📱 **Web 可视化界面** - 全流程浏览器操作，无需命令行
 
@@ -75,6 +75,17 @@ python web_server.py
 
 访问 http://localhost:8000 即可使用。API 文档：http://localhost:8000/docs
 
+### 桌面版成片引擎（与 Web 开发差异）
+
+| 场景 | 默认首选 | Remotion 依赖 |
+|------|----------|----------------|
+| 开发仓库直接跑 `web_server.py` | `remotion`（可在 `.env` 设 `VIDEO_RENDERER=python`） | 需在仓库 `remotion/` 下执行 `npm ci` |
+| Tauri 桌面安装包 | `auto`（有运行环境用 Remotion，否则 Python） | 可选；P1 支持在设置页一键安装到用户数据目录 |
+
+- 用户在 **设置 → 成片引擎** 修改 `preferred` / `allow_python_fallback`，写入 `config/desktop_runtime.local.yaml`（不提交 Git）。
+- 运维可用环境变量 `VIDEO_RENDERER=remotion|python` 强制覆盖（优先级最高）。
+- API：`GET/PUT /api/runtime/video-renderer` 查看当前实际引擎（`active`）与 Remotion 就绪状态。
+
 ## 📖 使用说明
 
 ### 基本流程
@@ -102,7 +113,7 @@ python web_server.py
 | 网页抓取 | Playwright (Chromium) + BeautifulSoup4 |
 | AI 引擎 | DeepSeek API（OpenAI SDK 兼容） |
 | 图像处理 | Pillow（合成、文字渲染、半透明遮罩） |
-| 视频合成 | Remotion（默认，`VIDEO_RENDERER=remotion`）+ MoviePy 回退 |
+| 视频合成 | Remotion + Python（MoviePy / 纪年）；`desktop_runtime.local.yaml` + `VIDEO_RENDERER` |
 | 去水印 | simple-lama-inpainting（LaMa 模型） |
 | 前端 | 原生 HTML/CSS/JavaScript |
 

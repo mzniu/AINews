@@ -406,8 +406,27 @@
         }
     }
 
+    async function refreshRenderTemplateEngineBanner() {
+        const banner = $('renderTemplateEngineBanner');
+        if (!banner) return;
+        try {
+            const resp = await fetch('/api/runtime/video-renderer');
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
+            const active = data.active === 'remotion' ? 'Remotion' : 'Python';
+            banner.hidden = false;
+            banner.className = 'status-bar ok';
+            banner.innerHTML =
+                `当前出片引擎：<strong>${active}</strong>（首选 ${data.preferred}）` +
+                ' — <a href="/settings.html#video-renderer">在「成片引擎」中修改</a>';
+        } catch (_err) {
+            banner.hidden = true;
+        }
+    }
+
     async function loadRenderTemplateSettings() {
         setStatus('加载中…');
+        refreshRenderTemplateEngineBanner();
         try {
             const resp = await fetch('/api/ingestion/render-templates');
             const data = await resp.json();
@@ -547,4 +566,5 @@
     document.getElementById('previewRenderTemplateVideoBtn')?.addEventListener('click', previewVideoNow);
 
     window.loadRenderTemplateSettings = loadRenderTemplateSettings;
+    window.refreshRenderTemplateEngineBanner = refreshRenderTemplateEngineBanner;
 })();
