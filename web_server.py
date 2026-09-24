@@ -52,6 +52,7 @@ from api.routes.publishing_routes import router as publishing_router
 from api.routes.search_routes import router as search_router
 from api.routes.model_config_routes import router as model_config_router
 from api.routes.health_routes import router as health_router
+from api.routes.runtime_routes import router as runtime_router
 from api.routes.industry_routes import me_router as industry_me_router
 from api.routes.industry_routes import router as industry_router
 from api.routes.copy_agent_routes import router as copy_agent_router
@@ -113,6 +114,7 @@ async def theme_js():
 # 注册路由
 print("正在注册路由...")
 app.include_router(health_router)
+app.include_router(runtime_router)
 app.include_router(crawler_router)
 app.include_router(video_router)
 app.include_router(watermark_router)

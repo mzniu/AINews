@@ -65,6 +65,7 @@ config/image_scoring.local.yaml
 config/render_templates.local.yaml
 config/content_prompts.local.yaml
 config/hot_radar.local.yaml
+config/desktop_runtime.local.yaml
 
 # LaMa 模型缓存
 .cache/

@@ -17,6 +17,7 @@ from api.routes.video_routes import (
     _subtitle_block_height,
 )
 from api.schemas.request_models import CreateAnimatedVideoRequest
+from services.ingestion.cover_video_utils import fit_rgba_within_box
 from services.ingestion.title_layout import resolve_title_box
 from src.utils.config import Config
 from src.utils.paths import path_relative_to_data, resolve_local_asset_path
@@ -141,17 +142,18 @@ def render_article_cover(
         text_width,
     )
 
+    content_bottom = img_height - 40
+    available = content_bottom - (title_start_y + title_height + 30)
+    max_img_w = img_width
+    max_img_h = max(1, available)
+
     with Image.open(asset_path) as user_img:
         if user_img.mode != "RGBA":
             user_img = user_img.convert("RGBA")
-        target_w = img_width
-        ratio = target_w / max(user_img.width, 1)
-        target_h = int(user_img.height * ratio)
-        user_img_resized = user_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        user_img_resized = fit_rgba_within_box(user_img, max_img_w, max_img_h)
 
+    target_w, target_h = user_img_resized.size
     paste_x = (img_width - target_w) // 2
-    content_bottom = img_height - 40
-    available = content_bottom - (title_start_y + title_height + 30)
     final_paste_y = title_start_y + title_height + 30 + max(0, (available - target_h) // 2)
     final_paste_y = max(title_start_y + title_height + 30, final_paste_y)
 

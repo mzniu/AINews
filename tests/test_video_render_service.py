@@ -5,6 +5,7 @@ from services.ingestion.video_render_service import (
     resolve_ingested_clip_durations,
     resolve_video_renderer,
 )
+from services.ingestion.video_renderer_config import save_desktop_runtime_config
 
 
 def test_resolve_ingested_clip_durations_two_images():
@@ -65,6 +66,14 @@ def test_render_ingested_video_allows_single_image(mock_renderable, mock_chronic
 
 def test_resolve_video_renderer_defaults_to_remotion(monkeypatch):
     monkeypatch.delenv("VIDEO_RENDERER", raising=False)
+    monkeypatch.setattr(
+        "services.ingestion.remotion_render_service.remotion_available",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "services.ingestion.video_renderer_config.is_packaged",
+        lambda: False,
+    )
     assert resolve_video_renderer() == "remotion"
     assert resolve_video_renderer(None) == "remotion"
 
@@ -73,3 +82,80 @@ def test_resolve_video_renderer_python_override(monkeypatch):
     monkeypatch.setenv("VIDEO_RENDERER", "python")
     assert resolve_video_renderer() == "python"
     assert resolve_video_renderer("remotion") == "remotion"
+
+
+def test_resolve_video_renderer_packaged_auto_falls_back_to_python(monkeypatch, tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setattr(
+        "services.ingestion.video_renderer_config.CONFIG_PATH",
+        config_dir / "desktop_runtime.local.yaml",
+    )
+    monkeypatch.setattr(
+        "services.ingestion.video_renderer_config.is_packaged",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "services.ingestion.remotion_render_service.remotion_available",
+        lambda: False,
+    )
+    monkeypatch.delenv("VIDEO_RENDERER", raising=False)
+    assert resolve_video_renderer() == "python"
+
+
+@patch("services.ingestion.render_image_utils.is_renderable_local_image", return_value=True)
+@patch("services.ingestion.chronicle_render.render_chronicle_video")
+def test_render_ingested_video_blocks_when_remotion_required_not_ready(
+    mock_chronicle, mock_renderable, monkeypatch, tmp_path
+):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setattr(
+        "services.ingestion.video_renderer_config.CONFIG_PATH",
+        config_dir / "desktop_runtime.local.yaml",
+    )
+    save_desktop_runtime_config({"preferred": "remotion", "allow_python_fallback": False})
+    monkeypatch.setattr(
+        "services.ingestion.remotion_render_service.remotion_available",
+        lambda: False,
+    )
+    result = render_ingested_video(
+        article_id="art1",
+        draft={"main_line1": "标题"},
+        image_paths=["/data/a.jpg"],
+        bgm_path="static/music/a.mp3",
+        template={"layout_kind": "chronicle_frame"},
+    )
+    assert result["success"] is False
+    assert result["error"] == "remotion_not_ready"
+    mock_chronicle.assert_not_called()
+
+
+@patch("services.ingestion.render_image_utils.is_renderable_local_image", return_value=True)
+@patch("services.ingestion.remotion_render_service.render_with_remotion")
+@patch("services.ingestion.chronicle_render.render_chronicle_video")
+def test_render_ingested_video_no_fallback_on_remotion_failure(
+    mock_chronicle, mock_remotion, mock_renderable, monkeypatch, tmp_path
+):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setattr(
+        "services.ingestion.video_renderer_config.CONFIG_PATH",
+        config_dir / "desktop_runtime.local.yaml",
+    )
+    save_desktop_runtime_config({"preferred": "remotion", "allow_python_fallback": False})
+    monkeypatch.setattr(
+        "services.ingestion.remotion_render_service.remotion_available",
+        lambda: True,
+    )
+    mock_remotion.return_value = {"success": False, "error": "remotion_render_failed"}
+    result = render_ingested_video(
+        article_id="art1",
+        draft={"main_line1": "标题"},
+        image_paths=["/data/a.jpg"],
+        bgm_path="static/music/a.mp3",
+        template={"layout_kind": "chronicle_frame"},
+    )
+    assert result["success"] is False
+    assert result["error"] == "remotion_render_failed"
+    mock_chronicle.assert_not_called()

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -11,15 +12,116 @@ from loguru import logger
 
 from src.utils.config import Config
 
-REMOTION_DIR = Config.ROOT_DIR / "remotion"
-NODE_MODULES = REMOTION_DIR / "node_modules"
-RUNTIME_PUBLIC_DIR = REMOTION_DIR / "public" / "runtime"
 DEFAULT_COVER_INTRO_SEC = 1.0
+
+
+def remotion_project_dir() -> Path:
+    raw = os.environ.get("REMOTION_PROJECT_DIR")
+    if raw and str(raw).strip():
+        return Path(str(raw).strip())
+    return Config.ROOT_DIR / "remotion"
+
+
+def runtime_public_dir() -> Path:
+    return remotion_project_dir() / "public" / "runtime"
+
+
+# Kept for tests that monkeypatch module-level paths.
+REMOTION_DIR = Config.ROOT_DIR / "remotion"
+RUNTIME_PUBLIC_DIR = REMOTION_DIR / "public" / "runtime"
 
 
 def remotion_available() -> bool:
     """Return True when Remotion dependencies are installed."""
-    return (REMOTION_DIR / "package.json").is_file() and NODE_MODULES.is_dir()
+    root = remotion_project_dir()
+    return (root / "package.json").is_file() and (root / "node_modules").is_dir()
+
+
+def resolve_npx_argv() -> list[str]:
+    """Prefer portable Node from desktop shell (`AINEWS_NODE_HOME`)."""
+    raw = os.environ.get("AINEWS_NODE_HOME")
+    if raw and str(raw).strip():
+        home = Path(str(raw).strip())
+        if os.name == "nt":
+            candidate = home / "npx.cmd"
+        else:
+            candidate = home / "bin" / "npx"
+        if candidate.is_file():
+            return [str(candidate)]
+    return ["npx"]
+
+
+def _node_executable() -> str | None:
+    raw = os.environ.get("AINEWS_NODE_HOME")
+    if not raw or not str(raw).strip():
+        return None
+    home = Path(str(raw).strip())
+    if os.name == "nt":
+        candidate = home / "node.exe"
+    else:
+        candidate = home / "bin" / "node"
+    return str(candidate) if candidate.is_file() else None
+
+
+def probe_remotion_runtime(timeout_sec: float = 10.0) -> dict[str, Any]:
+    """Run lightweight Node/Remotion probes and refresh marker timestamp."""
+    from services.ingestion.video_renderer_config import load_remotion_marker, remotion_marker_path
+
+    if not remotion_available():
+        return {"success": False, "error": "remotion_not_installed"}
+
+    node = _node_executable()
+    env = os.environ.copy()
+    project = remotion_project_dir()
+    if node:
+        node_dir = str(Path(node).parent)
+        env["PATH"] = node_dir + os.pathsep + env.get("PATH", "")
+
+    node_version: str | None = None
+    try:
+        if node:
+            node_proc = subprocess.run(
+                [node, "-v"],
+                capture_output=True,
+                text=True,
+                timeout=timeout_sec,
+                check=False,
+                env=env,
+            )
+            if node_proc.returncode != 0:
+                return {"success": False, "error": "node_probe_failed", "stderr": node_proc.stderr}
+            if node_proc.stdout.strip():
+                node_version = node_proc.stdout.strip()
+        npx = resolve_npx_argv()
+        remotion_proc = subprocess.run(
+            [*npx, "remotion", "versions"],
+            cwd=str(project),
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+            check=False,
+            env=env,
+        )
+        if remotion_proc.returncode != 0:
+            return {
+                "success": False,
+                "error": "remotion_probe_failed",
+                "stderr": remotion_proc.stderr[-2000:],
+            }
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "remotion_probe_timeout"}
+    except OSError as exc:
+        return {"success": False, "error": f"remotion_probe_spawn_failed: {exc}"}
+
+    marker = load_remotion_marker() or {"install_id": "remotion_v1"}
+    marker["last_probe_at"] = datetime.now(timezone.utc).isoformat()
+    if node_version:
+        marker["node_version"] = node_version
+
+    path = remotion_marker_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(marker, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"success": True, "marker": marker}
 
 
 def _composition_for_layout(layout_kind: str) -> str:
@@ -160,7 +262,7 @@ def _stage_asset(path: str, article_id: str, index: int) -> str:
     if source is None:
         return str(path or "").lstrip("/")
 
-    public_root = (REMOTION_DIR / "public").resolve()
+    public_root = (remotion_project_dir() / "public").resolve()
     try:
         rel = source.relative_to(public_root)
         return rel.as_posix()
@@ -174,7 +276,7 @@ def _stage_asset(path: str, article_id: str, index: int) -> str:
     except ValueError:
         pass
 
-    staged_dir = RUNTIME_PUBLIC_DIR / article_id
+    staged_dir = runtime_public_dir() / article_id
     staged_dir.mkdir(parents=True, exist_ok=True)
     suffix = source.suffix or ".bin"
     staged = staged_dir / f"asset_{index:02d}{suffix}"
@@ -255,9 +357,10 @@ def render_with_remotion(
         "REMOTION_CHROME_ARGS",
         "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage",
     )
+    node = _node_executable()
 
     cmd = [
-        "npx",
+        *resolve_npx_argv(),
         "remotion",
         "render",
         composition,
@@ -265,11 +368,14 @@ def render_with_remotion(
         f"--props={props_path}",
         "--codec=h264",
     ]
+    if node:
+        node_dir = str(Path(node).parent)
+        env["PATH"] = node_dir + os.pathsep + env.get("PATH", "")
     logger.info(f"Remotion render start article={article_id} composition={composition}")
     try:
         proc = subprocess.run(
             cmd,
-            cwd=str(REMOTION_DIR),
+            cwd=str(remotion_project_dir()),
             env=env,
             capture_output=True,
             text=True,

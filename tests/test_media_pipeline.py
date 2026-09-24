@@ -116,11 +116,15 @@ def test_pipeline_runs_all_steps_and_persists_video(
     mock_render.return_value = {
         "success": True,
         "video_path": "/data/videos/ingested_art_pipe.mp4",
+        "renderer": "python",
+        "fallback_from": "remotion",
     }
 
     result = run_media_pipeline(db_session, "art_pipe")
 
     assert result["success"] is True
+    assert result["steps"]["render_video"]["renderer"] == "python"
+    assert result["steps"]["render_video"]["fallback_from"] == "remotion"
     article = db_session.get(IngestedArticle, "art_pipe")
     assert article.video_draft_json is not None
     assert article.generated_video_path == "/data/videos/ingested_art_pipe.mp4"

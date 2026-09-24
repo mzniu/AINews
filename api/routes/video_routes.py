@@ -21,6 +21,7 @@ from utils.video_utils import (
 )
 from utils.summary_highlights import resolve_highlight_keywords
 from services.video_service import VideoService
+from services.ingestion.cover_video_utils import fit_rgba_within_box
 from services.ingestion.title_layout import resolve_title_box
 from services.video_embedding_service import video_embedding_service
 from services.gif_processor import gif_processor
@@ -618,22 +619,15 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                             if first_frame.mode != 'RGBA':
                                 first_frame = first_frame.convert('RGBA')
                             
-                            # 缩放GIF帧
-                            target_w = img_width
-                            ratio = target_w / first_frame.width
-                            target_h = int(first_frame.height * ratio)
-                            # 取消60%高度限制，允许图片延伸到背景底部
-                            # max_h = int(img_height * 0.6)
-                            # if target_h > max_h:
-                            #     target_h = max_h
-                            #     ratio = target_h / first_frame.height
-                            #     target_w = int(first_frame.width * ratio)
-                            
-                            first_frame_resized = first_frame.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                            
+                            available = summary_start_y - 40 - (title_start_y + title_height + 30)
+                            first_frame_resized = fit_rgba_within_box(
+                                first_frame,
+                                img_width,
+                                max(1, available),
+                            )
+                            target_w, target_h = first_frame_resized.size
                             paste_x = (img_width - target_w) // 2
                             # 图片在标题和摘要之间居中
-                            available = summary_start_y - 40 - (title_start_y + title_height + 30)
                             final_paste_y = title_start_y + title_height + 30 + (available - target_h) // 2
                             final_paste_y = max(title_start_y + title_height + 30, final_paste_y)
                             # 用户纵向偏移：负数上移，正数下移（占画面高度百分比）
@@ -778,22 +772,15 @@ def _create_animated_video_blocking(request: CreateAnimatedVideoRequest):
                 if user_img.mode != 'RGBA':
                     user_img = user_img.convert('RGBA')
 
-                # 缩放
-                target_w = img_width - 40
-                ratio = target_w / user_img.width
-                target_h = int(user_img.height * ratio)
-                # 取消60%高度限制，允许图片延伸到背景底部
-                # max_h = int(img_height * 0.6)
-                # if target_h > max_h:
-                #     target_h = max_h
-                #     ratio = target_h / user_img.height
-                #     target_w = int(user_img.width * ratio)
-
-                user_img_resized = user_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-
+                available = summary_start_y - 40 - (title_start_y + title_height + 30)
+                user_img_resized = fit_rgba_within_box(
+                    user_img,
+                    img_width - 40,
+                    max(1, available),
+                )
+                target_w, target_h = user_img_resized.size
                 paste_x = (img_width - target_w) // 2
                 # 图片在标题和摘要之间居中
-                available = summary_start_y - 40 - (title_start_y + title_height + 30)
                 final_paste_y = title_start_y + title_height + 30 + (available - target_h) // 2
                 final_paste_y = max(title_start_y + title_height + 30, final_paste_y)
                 # 用户纵向偏移：负数上移，正数下移（占画面高度百分比）

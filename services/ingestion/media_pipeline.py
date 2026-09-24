@@ -418,7 +418,16 @@ def run_media_pipeline(
                     "duration": render_result.get("duration"),
                     "clip_durations": resolve_ingested_clip_durations(len(image_paths)),
                     "image_count": len(image_paths),
+                    "renderer": render_result.get("renderer"),
+                    "fallback_from": render_result.get("fallback_from"),
                 }
+                if render_result.get("renderer"):
+                    try:
+                        from api.routes.runtime_routes import set_last_render_renderer
+
+                        set_last_render_renderer(str(render_result.get("renderer")))
+                    except Exception:
+                        pass
             else:
                 errors.append(f"render_video: {render_result.get('error')}")
                 steps["render_video"] = render_result

@@ -8,19 +8,57 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from api.schemas.request_models import CreateAnimatedVideoRequest, ImageWithDuration
+from services.ingestion.video_renderer_config import (
+    choose_renderer_for_render,
+    env_renderer_override,
+    load_desktop_runtime_config,
+    load_remotion_marker,
+    remotion_runtime_ready,
+)
 
 MIN_VIDEO_DURATION_SEC = 8.0
-DEFAULT_VIDEO_RENDERER = "remotion"
 PYTHON_VIDEO_RENDERER_ALIASES = frozenset({"python", "moviepy"})
 
 
-def resolve_video_renderer(renderer: str | None = None) -> str:
-    """Return ``remotion`` (default) or ``python`` when explicitly requested."""
-    raw = renderer if renderer is not None else os.environ.get("VIDEO_RENDERER", DEFAULT_VIDEO_RENDERER)
-    choice = str(raw).strip().lower()
+def _normalize_call_override(renderer: str | None) -> str | None:
+    if renderer is None:
+        return None
+    choice = str(renderer).strip().lower()
     if choice in PYTHON_VIDEO_RENDERER_ALIASES:
         return "python"
-    return "remotion"
+    if choice == "remotion":
+        return "remotion"
+    return None
+
+
+def _ingest_render_choice(renderer: str | None = None):
+    from services.ingestion.remotion_render_service import remotion_available
+
+    cfg = load_desktop_runtime_config()
+    vr = cfg.get("video_renderer") or {}
+    preferred = str(vr.get("preferred") or "auto").strip().lower()
+    if preferred not in ("auto", "remotion", "python"):
+        preferred = "auto"
+    allow_fallback = bool(vr.get("allow_python_fallback", True))
+    ready, _ = remotion_runtime_ready(
+        remotion_available=remotion_available(),
+        marker=load_remotion_marker(),
+    )
+    return choose_renderer_for_render(
+        preferred=preferred,  # type: ignore[arg-type]
+        allow_python_fallback=allow_fallback,
+        remotion_ready=ready,
+        env_override=env_renderer_override(),
+        call_override=_normalize_call_override(renderer),
+    )
+
+
+def resolve_video_renderer(renderer: str | None = None) -> str:
+    """Return ``remotion`` or ``python`` using yaml/env/call override chain."""
+    choice = _ingest_render_choice(renderer)
+    if choice.action == "fail":
+        return "remotion"
+    return choice.action
 
 
 def _normalize_image_path(path: str) -> str:
@@ -89,6 +127,14 @@ def ensure_min_total_duration(
     return [round(float(item) * scale, 3) for item in durations]
 
 
+def _attach_renderer_meta(result: dict[str, Any], *, renderer: str, fallback_from: str | None) -> dict[str, Any]:
+    merged = dict(result)
+    merged["renderer"] = renderer
+    if fallback_from:
+        merged["fallback_from"] = fallback_from
+    return merged
+
+
 def render_ingested_video(
     *,
     article_id: str,
@@ -127,33 +173,51 @@ def render_ingested_video(
     durations = ensure_min_total_duration(durations, min_total=min_total)
     image_paths = renderable_paths
 
-    if resolve_video_renderer(renderer) == "remotion":
-        from services.ingestion.remotion_render_service import remotion_available, render_with_remotion
+    cfg = load_desktop_runtime_config()
+    allow_fallback = bool((cfg.get("video_renderer") or {}).get("allow_python_fallback", True))
+    choice = _ingest_render_choice(renderer)
+    if choice.action == "fail":
+        return {
+            "success": False,
+            "error": choice.error or "remotion_not_ready",
+        }
 
-        if remotion_available():
-            remotion_result = render_with_remotion(
-                article_id=article_id,
-                draft=draft,
-                image_paths=image_paths,
-                bgm_path=bgm_path,
-                background_image=background_image,
-                durations=durations,
-                template=template,
+    fallback_from = choice.fallback_from
+    if choice.action == "remotion":
+        from services.ingestion.remotion_render_service import render_with_remotion
+
+        remotion_result = render_with_remotion(
+            article_id=article_id,
+            draft=draft,
+            image_paths=image_paths,
+            bgm_path=bgm_path,
+            background_image=background_image,
+            durations=durations,
+            template=template,
+        )
+        if remotion_result.get("success"):
+            return _attach_renderer_meta(remotion_result, renderer="remotion", fallback_from=fallback_from)
+        logger.warning(
+            "Remotion render failed for article={}: {}",
+            article_id,
+            remotion_result.get("error"),
+        )
+        if not allow_fallback:
+            return _attach_renderer_meta(
+                {
+                    "success": False,
+                    "error": remotion_result.get("error") or "remotion_render_failed",
+                    "detail": remotion_result,
+                },
+                renderer="remotion",
+                fallback_from=None,
             )
-            if remotion_result.get("success"):
-                return remotion_result
-            logger.warning(
-                "Remotion render failed for article={}: {}; falling back to Python",
-                article_id,
-                remotion_result.get("error"),
-            )
-        else:
-            logger.warning("Remotion not installed; falling back to Python renderer for article={}", article_id)
+        fallback_from = "remotion"
 
     if (template or {}).get("layout_kind") == "chronicle_frame":
         from services.ingestion.chronicle_render import render_chronicle_video
 
-        return render_chronicle_video(
+        result = render_chronicle_video(
             article_id=article_id,
             draft=draft,
             image_paths=image_paths,
@@ -161,6 +225,7 @@ def render_ingested_video(
             template=template or {},
             durations=durations,
         )
+        return _attach_renderer_meta(result, renderer="python", fallback_from=fallback_from)
 
     images = [
         ImageWithDuration(path=_normalize_image_path(p), duration=durations[index])
@@ -205,4 +270,4 @@ def render_ingested_video(
         return {"success": False, "error": "video_render_rejected"}
     if not isinstance(result, dict) or not result.get("success"):
         return {"success": False, "error": "video_render_failed", "detail": result}
-    return result
+    return _attach_renderer_meta(result, renderer="python", fallback_from=fallback_from)

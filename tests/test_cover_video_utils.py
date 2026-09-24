@@ -9,9 +9,19 @@ from PIL import Image
 
 from services.ingestion.cover_video_utils import (
     fit_audio_to_duration,
+    fit_rgba_within_box,
     letterbox_image_on_canvas,
     shift_audio_for_cover_intro,
 )
+
+
+def test_fit_rgba_within_box_limits_long_edge():
+    wide = Image.new("RGBA", (400, 100), color=(255, 0, 0, 255))
+    fitted = fit_rgba_within_box(wide, 200, 200)
+    assert fitted.size == (200, 50)
+    tall = Image.new("RGBA", (100, 400), color=(0, 255, 0, 255))
+    fitted_tall = fit_rgba_within_box(tall, 200, 200)
+    assert fitted_tall.size == (50, 200)
 
 
 def test_letterbox_image_on_canvas_centers_image():

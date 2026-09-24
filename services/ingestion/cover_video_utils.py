@@ -133,6 +133,22 @@ def fit_audio_clip_to_duration(audio_clip, duration: float):
     return audio_clip
 
 
+def fit_rgba_within_box(image: Image.Image, max_w: int, max_h: int) -> Image.Image:
+    """Scale image to fit inside max_w x max_h (long edge limited), preserving aspect."""
+    img = image.convert("RGBA")
+    src_w, src_h = img.size
+    max_w = max(1, int(max_w))
+    max_h = max(1, int(max_h))
+    if src_w <= 0 or src_h <= 0:
+        return Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    scale = min(max_w / src_w, max_h / src_h)
+    new_w = max(1, int(src_w * scale))
+    new_h = max(1, int(src_h * scale))
+    if (new_w, new_h) == (src_w, src_h):
+        return img
+    return img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+
 def letterbox_image_on_canvas(
     image: Image.Image,
     canvas_w: int,
