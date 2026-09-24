@@ -23,6 +23,7 @@ def get_settings(session: Session) -> CopyAgentSettings:
             material_adaptive_playbook=True,
             auto_material_adaptive_playbook=False,
             ranking_max_candidates=40,
+            fact_gate_enabled=False,
         )
         session.add(row)
         session.flush()
@@ -64,6 +65,12 @@ def set_material_adaptive(session: Session, enabled: bool) -> None:
 def set_auto_material_adaptive(session: Session, enabled: bool) -> None:
     settings = get_settings(session)
     settings.auto_material_adaptive_playbook = enabled
+    session.commit()
+
+
+def set_fact_gate_enabled(session: Session, enabled: bool) -> None:
+    settings = get_settings(session)
+    settings.fact_gate_enabled = enabled
     session.commit()
 
 

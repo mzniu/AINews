@@ -48,6 +48,7 @@ def test_draft_with_ten_x_is_not_selectable(db_session):
     db_session.commit()
     settings = get_settings(db_session)
     settings.current_playbook_version_id = "v"
+    settings.fact_gate_enabled = True
     db_session.commit()
 
     draft = generate_one_draft(

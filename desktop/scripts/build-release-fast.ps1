@@ -2,7 +2,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$AppVersion = "1.0.13"
+$AppVersion = "1.0.14"
 
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 

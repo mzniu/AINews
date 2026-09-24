@@ -175,8 +175,20 @@ def _generate_pipeline_draft(
             copy_draft_id=copy.id,
             extra=extra,
         )
+    from services.copy_agent.fact_gate import fact_gate_summary
+
+    try:
+        gate = json.loads(copy.fact_gate_json or "{}")
+    except json.JSONDecodeError:
+        gate = {}
     fallback = generate_video_content(**common)
-    return _mark_attribution(fallback, "fact_gate_fallback")
+    gate_extra = {
+        "fact_gate_violations": gate.get("violations") if isinstance(gate.get("violations"), list) else [],
+        "fact_gate_reason": fact_gate_summary(gate),
+        "attempted_playbook_version_id": copy.playbook_version_id,
+        "failed_copy_draft_id": copy.id,
+    }
+    return _mark_attribution(fallback, "fact_gate_fallback", extra=gate_extra)
 
 
 def run_media_pipeline(

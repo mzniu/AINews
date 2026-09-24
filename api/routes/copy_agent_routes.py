@@ -43,6 +43,7 @@ from services.copy_agent.settings_store import (
     publish_version,
     set_auto_material_adaptive,
     set_auto_switch,
+    set_fact_gate_enabled,
     set_material_adaptive,
     set_ranking_max_candidates,
 )
@@ -84,6 +85,7 @@ class RankingSettingsBody(BaseModel):
     material_adaptive_playbook: bool | None = None
     auto_material_adaptive_playbook: bool | None = None
     ranking_max_candidates: int | None = None
+    fact_gate_enabled: bool | None = None
 
 
 class DraftBody(BaseModel):
@@ -333,6 +335,7 @@ def copy_settings():
             "material_adaptive_playbook": settings.material_adaptive_playbook,
             "auto_material_adaptive_playbook": settings.auto_material_adaptive_playbook,
             "ranking_max_candidates": settings.ranking_max_candidates,
+            "fact_gate_enabled": settings.fact_gate_enabled,
         }
     finally:
         session.close()
@@ -348,12 +351,15 @@ def patch_copy_settings(body: RankingSettingsBody):
             set_auto_material_adaptive(session, body.auto_material_adaptive_playbook)
         if body.ranking_max_candidates is not None:
             set_ranking_max_candidates(session, body.ranking_max_candidates)
+        if body.fact_gate_enabled is not None:
+            set_fact_gate_enabled(session, body.fact_gate_enabled)
         settings = get_settings(session)
         return {
             "success": True,
             "material_adaptive_playbook": settings.material_adaptive_playbook,
             "auto_material_adaptive_playbook": settings.auto_material_adaptive_playbook,
             "ranking_max_candidates": settings.ranking_max_candidates,
+            "fact_gate_enabled": settings.fact_gate_enabled,
         }
     except ValueError as exc:
         return JSONResponse(status_code=400, content={"message": str(exc)})

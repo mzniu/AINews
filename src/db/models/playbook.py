@@ -75,3 +75,4 @@ class CopyAgentSettings(Base):
     material_adaptive_playbook: Mapped[bool] = mapped_column(Boolean, default=True)
     auto_material_adaptive_playbook: Mapped[bool] = mapped_column(Boolean, default=False)
     ranking_max_candidates: Mapped[int] = mapped_column(Integer, default=40)
+    fact_gate_enabled: Mapped[bool] = mapped_column(Boolean, default=False)

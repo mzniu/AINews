@@ -69,6 +69,12 @@
                 <label style="display:block;margin-top:12px;">
                     <input type="checkbox" id="materialAdaptive" checked> 入库/主页按推荐打法出稿
                 </label>
+                <label style="display:block;margin-top:12px;">
+                    <input type="checkbox" id="factGateEnabled"> 打法稿事实闸门（规则核对，默认关）
+                </label>
+                <p style="font-size:12px;color:var(--text-muted,#64748b);margin:4px 0 0;">
+                    打开后：稿中数字/倍数等须在素材中有出处，否则自动出片退回宪法版。关闭时 ranking 后直接采用打法稿。
+                </p>
             </div>
         </div>
         <div id="patternsBox" class="card" style="padding:16px;margin-bottom:16px;display:none;">
@@ -95,6 +101,6 @@
             <button type="button" id="learnAgainBtn" hidden>带着这些结果再学</button>
         </div>
     </div>
-    <script src="/static/js/pattern_lab.js?v=20260923h"></script>
+    <script src="/static/js/pattern_lab.js?v=20260924b"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from services.content_generation_service import build_video_content_messages
-from services.copy_agent.fact_gate import fact_gate
+from services.copy_agent.fact_gate import evaluate_fact_gate
 from services.copy_agent.pattern_ranking import (
     CompleteRank,
     PlaybookSelection,
@@ -155,7 +155,11 @@ def generate_one_draft(
     )
     text = complete(messages)
     source = f"{title}\n{content}"
-    gate = fact_gate(_prose_for_gate(text or ""), source)
+    gate = evaluate_fact_gate(
+        _prose_for_gate(text or ""),
+        source,
+        enabled=bool(settings.fact_gate_enabled),
+    )
     sel_json = (
         selection_to_json(
             selection,

@@ -526,6 +526,8 @@
             if (autoSw && data.auto_uses_current_playbook != null) {
                 autoSw.checked = !!data.auto_uses_current_playbook;
             }
+            const factGate = document.getElementById('factGateEnabled');
+            if (factGate) factGate.checked = !!data.fact_gate_enabled;
         } catch (_e) {
             /* ignore */
         }
@@ -605,6 +607,11 @@
     if (matEl) {
         matEl.onchange = () =>
             patchRankingSettings({ material_adaptive_playbook: matEl.checked });
+    }
+    const factGateEl = document.getElementById('factGateEnabled');
+    if (factGateEl) {
+        factGateEl.onchange = () =>
+            patchRankingSettings({ fact_gate_enabled: factGateEl.checked });
     }
     document.getElementById('learnAgainBtn').onclick = () => {
         document.getElementById('materialText').focus();

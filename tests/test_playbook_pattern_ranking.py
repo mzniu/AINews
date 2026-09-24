@@ -46,6 +46,7 @@ def test_settings_defaults_for_ranking(db_session):
     assert settings.material_adaptive_playbook is True
     assert settings.auto_material_adaptive_playbook is False
     assert settings.ranking_max_candidates == 40
+    assert settings.fact_gate_enabled is False
 
 
 def test_cluster_key_normalizes_name():

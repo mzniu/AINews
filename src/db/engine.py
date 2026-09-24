@@ -184,6 +184,7 @@ def _ensure_sqlite_columns(engine) -> None:
             "material_adaptive_playbook": "BOOLEAN DEFAULT 1",
             "auto_material_adaptive_playbook": "BOOLEAN DEFAULT 0",
             "ranking_max_candidates": "INTEGER DEFAULT 40",
+            "fact_gate_enabled": "BOOLEAN DEFAULT 0",
         }
         for name, col_type in settings_migrations.items():
             if settings_columns and name not in settings_columns:

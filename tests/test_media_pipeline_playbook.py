@@ -78,6 +78,7 @@ def test_gate_failure_falls_back_without_playbook(db_session, monkeypatch):
     settings = get_settings(db_session)
     settings.current_playbook_version_id = "v"
     settings.auto_uses_current_playbook = True
+    settings.fact_gate_enabled = True
     db_session.commit()
     article = _article(db_session)
     calls = []
@@ -105,6 +106,43 @@ def test_gate_failure_falls_back_without_playbook(db_session, monkeypatch):
     assert saved["playbook_attribution"] == "fact_gate_fallback"
     assert saved["playbook_version_id"] is None
     assert saved["copy_draft_id"] is None
+    assert saved.get("fact_gate_reason")
+    assert saved.get("fact_gate_violations")
+    assert saved.get("failed_copy_draft_id")
+
+
+def test_gate_disabled_keeps_playbook_draft(db_session, monkeypatch):
+    db_session.add(
+        PlaybookVersion(id="v", body="快 10 倍", status="published", trap_passed=False)
+    )
+    db_session.commit()
+    settings = get_settings(db_session)
+    settings.current_playbook_version_id = "v"
+    settings.auto_uses_current_playbook = True
+    settings.fact_gate_enabled = False
+    db_session.commit()
+    article = _article(db_session)
+
+    def fake_generate(**kwargs):
+        if kwargs.get("playbook_body"):
+            return {
+                "success": True,
+                "title": "标题",
+                "main_line1": "标题",
+                "summary": "快 10 倍",
+                "voiceover_script": "快 10 倍",
+                "tags": [],
+                "model": "fake",
+            }
+        raise AssertionError("should not fall back to constitution")
+
+    monkeypatch.setattr("services.ingestion.media_pipeline.generate_video_content", fake_generate)
+    run_media_pipeline(db_session, article.id, config=_content_only_config())
+    db_session.refresh(article)
+    saved = json.loads(article.video_draft_json)
+    assert saved["playbook_attribution"] == "playbook"
+    assert saved["playbook_version_id"] == "v"
+    assert saved.get("copy_draft_id")
 
 
 def test_switch_off_omits_playbook_fields(db_session, monkeypatch):

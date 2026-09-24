@@ -1104,11 +1104,24 @@
             </div>`);
         }
         const status = article.media_pipeline_status || '';
-        const playbookNote = article.video_draft && article.video_draft.playbook_attribution === 'fact_gate_fallback'
-            ? '<span class="small text-muted ml-2">打法未过闸，已用宪法版</span>'
-            : (article.video_draft && article.video_draft.playbook_attribution === 'generation_fallback'
-                ? '<span class="small text-muted ml-2">打法生成失败，已用原有回退</span>'
-                : '');
+        const playbookNote = (() => {
+            const vd = article.video_draft;
+            if (!vd) return '';
+            if (vd.playbook_attribution === 'fact_gate_fallback') {
+                let reason = (vd.fact_gate_reason || '').trim();
+                if (!reason && Array.isArray(vd.fact_gate_violations) && vd.fact_gate_violations.length) {
+                    reason = '素材中找不到对应出处：' + vd.fact_gate_violations.slice(0, 6).join('、');
+                }
+                if (!reason) {
+                    reason = '口播数字/比较级与素材正文不一致（事实闸门）';
+                }
+                return `<span class="small text-warning ml-2" title="自动出片时打法稿未通过事实核对，成片文案改回宪法提示词生成">打法未过闸，已用宪法版：${escapeHtml(reason)}</span>`;
+            }
+            if (vd.playbook_attribution === 'generation_fallback') {
+                return '<span class="small text-muted ml-2">打法生成失败，已用原有回退</span>';
+            }
+            return '';
+        })();
         let selectionNote = '';
         if (draft && draft.playbook_selection_fallback) {
             const pname = draft.pattern_name ? escapeHtml(draft.pattern_name) : '当前打法';
