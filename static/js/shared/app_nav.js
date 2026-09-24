@@ -2,7 +2,7 @@
  * 全站统一左侧导航 — 挂到 #app-nav-root
  */
 (function () {
-    const SPRITE = '/static/icons/sprites.svg';
+    const SPRITE = '/static/icons/sprites.svg?v=20260924';
     const PATH_ALIASES = {
         '/model-settings': '/settings',
         '/index.html': '/',
@@ -29,7 +29,7 @@
         {
             label: '制作',
             items: [
-                { href: '/pattern-lab', label: '打法学习', icon: 'film' },
+                { href: '/pattern-lab', label: '打法学习', icon: 'playbook' },
                 { href: '/video-maker', label: '视频制作', icon: 'film' },
                 { href: '/github-video-maker', label: 'GitHub', icon: 'github' },
                 { href: '/digital-human', label: '数字人', icon: 'user' },
@@ -67,7 +67,7 @@
 
     const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
     const NAV_COLLAPSE_KEY = 'ainews-nav-collapsed';
-    const APP_VERSION_FALLBACK = '1.0.4';
+    const APP_VERSION_FALLBACK = '1.0.15';
     let userMenuOpen = false;
     let userMenuDocListenerBound = false;
 

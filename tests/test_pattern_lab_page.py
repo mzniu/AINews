@@ -29,7 +29,7 @@ def test_nav_and_homepage_expose_playbook():
     index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
     scrape = (ROOT / "static" / "scrape.html").read_text(encoding="utf-8")
     settings = (ROOT / "static" / "settings.html").read_text(encoding="utf-8")
-    assert "{ href: '/pattern-lab', label: '打法学习', icon: 'film' }" in nav
+    assert "{ href: '/pattern-lab', label: '打法学习', icon: 'playbook' }" in nav
     assert nav.index("打法学习") < nav.index("视频制作")
     assert 'id="playbookDraftBtn"' in index
     assert 'id="playbookDraftBtn"' in scrape
