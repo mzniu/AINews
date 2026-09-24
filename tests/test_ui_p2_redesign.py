@@ -143,6 +143,13 @@ def test_ingestion_library_highlights_hot_radar_deeplink():
     assert re.search(r"highlight-hot|hot-radar-highlight|article-hot-highlight", js + _read(INGESTION_LIBRARY_CSS))
 
 
+def test_ingestion_library_article_detail_has_playbook_rank_preview():
+    js = _read(INGESTION_LIBRARY_JS)
+    assert "playbookRankPreviewBtn" in js
+    assert "/api/copy-agent/rank-preview" in js
+    assert "runPlaybookRankPreview" in js
+
+
 def test_hot_radar_hot_list_links_to_ingestion_library():
     js = _read(HOT_RADAR_JS)
     assert "/ingestion-library?article_id=" in js

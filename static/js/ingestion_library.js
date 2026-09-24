@@ -1003,8 +1003,89 @@
     let playbookPatternTotal = 0;
     let playbookDraftDebounceUntil = 0;
 
+    function renderPlaybookRankPanel(data) {
+        const panel = document.getElementById('playbookRankPanel');
+        if (!panel) return;
+        if (!data || !data.success) {
+            panel.style.display = 'none';
+            panel.innerHTML = '';
+            return;
+        }
+        const sel = data.selection || {};
+        const adaptive = data.material_adaptive_playbook !== false;
+        if (!adaptive) {
+            panel.style.display = '';
+            panel.innerHTML = '<div class="small text-muted">设置中未开启「素材自适应打法」，出稿将始终使用当前打法；开启后可在此查看 Ranking。</div>';
+            return;
+        }
+        const ranked = Array.isArray(data.ranked) ? data.ranked : [];
+        const pre = data.prefiltered_from
+            ? `<span class="text-muted">（从 ${data.prefiltered_from} 个模式预筛到 ${data.candidates_count || ranked.length} 个）</span>`
+            : '';
+        let headline = '';
+        if (sel.fallback) {
+            headline = `<div class="small text-warning mb-1">推荐不明显，已回退当前打法${sel.reason ? `：${escapeHtml(sel.reason)}` : ''}</div>`;
+        } else {
+            const name = escapeHtml(sel.pattern_name || '—');
+            const conf = sel.confidence ? `（${escapeHtml(sel.confidence)}）` : '';
+            const reason = sel.reason ? ` — ${escapeHtml(sel.reason)}` : '';
+            headline = `<div class="small mb-1"><strong>推荐：</strong>${name}${conf}${reason}</div>`;
+        }
+        let list = '';
+        if (ranked.length) {
+            const rows = ranked.map((row, i) => {
+                const mark = row.chosen ? ' ★' : '';
+                const score = row.score != null ? Number(row.score).toFixed(2) : '—';
+                const pname = escapeHtml(row.pattern_name || row.cluster_key || '—');
+                const genre = row.genre_label ? ` · ${escapeHtml(row.genre_label)}` : '';
+                const reason = row.reason ? `<div class="text-muted">${escapeHtml(row.reason)}</div>` : '';
+                return `<li class="mb-1"><span class="text-muted">${i + 1}.</span> ${pname}${genre} <span class="text-muted">score ${score}</span>${mark}${reason}</li>`;
+            }).join('');
+            list = `<ol class="small pl-3 mb-0">${rows}</ol>`;
+        } else {
+            list = '<div class="small text-muted">无 Ranking 明细（模式库为空或未跑模型）。</div>';
+        }
+        panel.style.display = '';
+        panel.innerHTML = `<div class="border rounded p-2 mt-2 bg-light"><div class="small font-weight-bold mb-1">打法 Ranking ${pre}</div>${headline}${list}</div>`;
+    }
+
+    async function runPlaybookRankPreview(articleId, article, btn) {
+        if (!articleId || !btn) return;
+        const panel = document.getElementById('playbookRankPanel');
+        if (panel) {
+            panel.style.display = '';
+            panel.innerHTML = '<div class="small text-muted mt-2">正在 Ranking…</div>';
+        }
+        const label = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Ranking…';
+        try {
+            const material = (article.content_text || article.summary || '').trim();
+            const data = await api('/api/copy-agent/rank-preview', {
+                method: 'POST',
+                body: JSON.stringify({
+                    title: article.title || '',
+                    content: material,
+                    article_id: articleId,
+                }),
+            });
+            renderPlaybookRankPanel(data);
+            setStatus('打法 Ranking 完成', 'ok');
+        } catch (err) {
+            if (panel) {
+                panel.style.display = '';
+                panel.innerHTML = `<div class="small text-danger mt-2">${escapeHtml(err.message || 'Ranking 失败')}</div>`;
+            }
+            setStatus(err.message || 'Ranking 失败', 'error');
+        } finally {
+            btn.disabled = !hasCurrentPlaybook;
+            btn.textContent = label;
+        }
+    }
+
     async function refreshPlaybookDraftArticleButton() {
         const btn = document.getElementById('playbookDraftArticleBtn');
+        const rankBtn = document.getElementById('playbookRankPreviewBtn');
         const hint = document.getElementById('playbookDraftColdHint');
         if (!btn) return;
         try {
@@ -1026,10 +1107,20 @@
             if (hint) {
                 hint.style.display = playbookPatternTotal > 0 && playbookPatternTotal < 3 ? '' : 'none';
             }
+            if (rankBtn) {
+                rankBtn.disabled = !hasCurrentPlaybook;
+                rankBtn.title = hasCurrentPlaybook
+                    ? '按本文标题与正文预览模式库 Ranking（会调用模型，不写稿）'
+                    : '先在打法学习发布当前打法';
+            }
         } catch (err) {
             hasCurrentPlaybook = false;
             btn.disabled = true;
             btn.title = '先在打法学习发布当前打法';
+            if (rankBtn) {
+                rankBtn.disabled = true;
+                rankBtn.title = '先在打法学习发布当前打法';
+            }
         }
     }
 
@@ -1046,8 +1137,11 @@
         btn.disabled = true;
         btn.textContent = '出稿中…';
         try {
-            await api(`/api/ingestion/articles/${articleId}/playbook-draft`, { method: 'POST' });
-            setStatus(materialAdaptivePlaybook ? '已按推荐打法写入成片文案' : '已按当前打法写入成片文案', 'ok');
+            const updated = await api(`/api/ingestion/articles/${articleId}/playbook-draft`, { method: 'POST' });
+            const vd = updated && updated.video_draft;
+            const pattern = vd && vd.pattern_name ? vd.pattern_name : '当前打法';
+            const base = materialAdaptivePlaybook ? '已按推荐打法写入成片文案' : '已按当前打法写入成片文案';
+            setStatus(`${base}（使用打法：${pattern}）`, 'ok');
             await selectArticle(articleId);
         } catch (err) {
             setStatus(err.message || '出稿失败', 'error');
@@ -1123,12 +1217,21 @@
             return '';
         })();
         let selectionNote = '';
-        if (draft && draft.playbook_selection_fallback) {
+        if (draft) {
+            const attr = draft.playbook_attribution || '';
             const pname = draft.pattern_name ? escapeHtml(draft.pattern_name) : '当前打法';
-            selectionNote = `<div class="small text-warning mb-1">推荐不明显，已用当前打法：${pname} · <a href="/pattern-lab">打法学习</a></div>`;
-        } else if (draft && draft.pattern_name) {
-            const reason = draft.playbook_selection_reason ? ' — ' + escapeHtml(draft.playbook_selection_reason) : '';
-            selectionNote = `<div class="small text-muted mb-1">推荐模式：${escapeHtml(draft.pattern_name)}（${escapeHtml(draft.playbook_selection_confidence || '')}）${reason}</div>`;
+            const conf = draft.playbook_selection_confidence
+                ? `（${escapeHtml(draft.playbook_selection_confidence)}）`
+                : '';
+            const reason = draft.playbook_selection_reason
+                ? ` — ${escapeHtml(draft.playbook_selection_reason)}`
+                : '';
+            if (draft.playbook_selection_fallback) {
+                selectionNote = `<div class="small text-warning mb-1">推荐不明显，已用当前打法：${pname}${reason} · <a href="/pattern-lab">打法学习</a></div>`;
+            } else if (attr === 'playbook' || attr === 'edited' || draft.pattern_name) {
+                const prefix = attr === 'edited' ? '人工改稿 · ' : '';
+                selectionNote = `<div class="small text-muted mb-1">${prefix}使用打法：${pname}${conf}${reason}</div>`;
+            }
         }
         const statusBadge = status === 'succeeded' ? '<span class="badge badge-success">已出片</span>'
             : status === 'running' ? '<span class="badge badge-warning">出片中</span>'
@@ -1254,6 +1357,7 @@
                     本条固定当前打法
                 </label>
                 <button class="btn btn-sm btn-outline-primary" id="playbookDraftArticleBtn" type="button" disabled title="先在打法学习发布当前打法">按当前打法出稿</button>
+                <button class="btn btn-sm btn-outline-secondary" id="playbookRankPreviewBtn" type="button" disabled title="预览打法 Ranking">打法 Ranking</button>
                 <button class="btn btn-sm btn-outline-secondary" id="scoreRuleBtn">规则评分</button>
                 <button class="btn btn-sm btn-outline-primary" id="scoreLlmBtn">规则+AI评语</button>
                 <button class="btn btn-sm btn-outline-info" id="scoreImagesBtn">评估配图</button>
@@ -1269,12 +1373,22 @@
                     重新评估配图
                 </label>
             </div>
+            <div id="playbookRankPanel" style="display:none"></div>
             <pre class="meta mt-2" id="prepareMeta" style="display:none"></pre>
         `;
         refreshPlaybookDraftArticleButton();
         const playbookDraftBtn = document.getElementById('playbookDraftArticleBtn');
         if (playbookDraftBtn) {
             playbookDraftBtn.onclick = () => generatePlaybookDraftForArticle(id, playbookDraftBtn);
+        }
+        const playbookRankBtn = document.getElementById('playbookRankPreviewBtn');
+        if (playbookRankBtn) {
+            playbookRankBtn.onclick = () => runPlaybookRankPreview(id, article, playbookRankBtn);
+        }
+        const rankPanel = document.getElementById('playbookRankPanel');
+        if (rankPanel) {
+            rankPanel.style.display = 'none';
+            rankPanel.innerHTML = '';
         }
         const forceCurrentCheck = document.getElementById('playbookForceCurrentCheck');
         if (forceCurrentCheck) {
