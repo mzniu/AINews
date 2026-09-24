@@ -3246,6 +3246,28 @@
             }
         }
 
+        function formatPlaybookUsageNote(selection, stamp) {
+            if (!stamp || (stamp.playbook_attribution !== 'playbook' && stamp.playbook_attribution !== 'edited')) {
+                return '';
+            }
+            const sel = selection || {};
+            const name = sel.pattern_name || '当前打法';
+            if (sel.playbook_selection_fallback) {
+                return `推荐不明显，已用当前打法：${name}`;
+            }
+            let text = `使用打法：${name}`;
+            if (sel.playbook_selection_confidence) {
+                text += `（${sel.playbook_selection_confidence}）`;
+            }
+            if (sel.playbook_selection_reason) {
+                text += ` — ${sel.playbook_selection_reason}`;
+            }
+            if (stamp.playbook_attribution === 'edited') {
+                text = `人工改稿 · ${text}`;
+            }
+            return text;
+        }
+
         function applyPlaybookFields(data) {
             const line1 = data.main_line1 || data.main_title || '';
             const shortTitle = data.short_title || line1;
@@ -3274,7 +3296,9 @@
                 copy_draft_id: data.stamp && data.stamp.copy_draft_id,
             };
             const note = document.getElementById('playbookDraftNote');
-            if (note) note.textContent = '';
+            if (note) {
+                note.textContent = formatPlaybookUsageNote(data.selection, data.stamp || window.lastPlaybookStamp);
+            }
         }
 
         function watchPlaybookEdits() {
@@ -3352,7 +3376,10 @@
                     body: JSON.stringify({ edited: false })
                 });
                 const stampBody = await selected.json();
-                applyPlaybookFields(Object.assign({}, parsed, { stamp: stampBody.stamp }));
+                applyPlaybookFields(Object.assign({}, parsed, {
+                    stamp: stampBody.stamp,
+                    selection: data.selection,
+                }));
                 watchPlaybookEdits();
                 showToast('已按当前打法写入', 'success');
             } catch (error) {

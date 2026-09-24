@@ -15,7 +15,12 @@ from services.copy_agent.pattern_ranking import (
     material_fingerprint,
     prefilter_candidates,
     rank_playbook_for_material,
+    ranked_rows_for_api,
     resolve_representative_version_id,
+    clamp_rank_reason,
+    normalize_rank_confidence,
+    parse_ranking_json_object,
+    repair_truncated_json_object,
     validate_ranking_response,
 )
 from services.copy_agent.settings_store import get_settings
@@ -76,6 +81,86 @@ def test_validate_rejects_unknown_cluster():
             {"chosen_cluster_key": "b|two", "ranked": [], "confidence": "high"},
             {"a|one"},
         )
+
+
+def test_normalize_rank_confidence_accepts_aliases():
+    assert normalize_rank_confidence("HIGH") == "high"
+    assert normalize_rank_confidence("中等") == "medium"
+    assert normalize_rank_confidence("somewhat low") == "low"
+    assert normalize_rank_confidence("") == "low"
+
+
+def test_validate_normalizes_unknown_confidence_to_low():
+    parsed = validate_ranking_response(
+        {"chosen_cluster_key": "a|one", "ranked": [], "confidence": "not_sure"},
+        {"a|one"},
+    )
+    assert parsed["confidence"] == "low"
+    assert len(parsed["ranked"]) == 1
+    assert parsed["ranked"][0]["cluster_key"] == "a|one"
+
+
+def test_validate_coerces_missing_ranked_to_chosen_row():
+    parsed = validate_ranking_response(
+        {"chosen_cluster_key": "a|one", "confidence": "high"},
+        {"a|one"},
+    )
+    assert parsed["ranked"][0]["cluster_key"] == "a|one"
+
+
+def test_parse_ranking_json_recovers_truncated_string():
+    key = "short_news_commentary|test"
+    broken = (
+        '{"chosen_cluster_key":"'
+        + key
+        + '","confidence":"high","ranked":[{"cluster_key":"'
+        + key
+        + '","score":0.9,"reason":"这是一段被截断的理由'
+    )
+    parsed = parse_ranking_json_object(broken)
+    assert parsed["chosen_cluster_key"] == key
+    assert isinstance(parsed.get("ranked"), list)
+
+
+def test_repair_truncated_json_closes_brackets():
+    raw = '{"a":1,"b":[2,3'
+    repaired = repair_truncated_json_object(raw)
+    loaded = json.loads(repaired)
+    assert loaded["a"] == 1
+
+
+def test_clamp_rank_reason_truncates_long_text():
+    long = "理" * 100
+    out = clamp_rank_reason(long)
+    assert len(out) == 80
+    assert out.endswith("…")
+
+
+def test_validate_truncates_long_rank_reason():
+    key = "a|one"
+    long_reason = "因" * 120
+    parsed = validate_ranking_response(
+        {
+            "chosen_cluster_key": key,
+            "confidence": "high",
+            "ranked": [{"cluster_key": key, "score": 0.9, "reason": long_reason}],
+        },
+        {key},
+    )
+    assert len(parsed["ranked"][0]["reason"]) == 80
+
+
+def test_validate_coerces_ranked_dict_map():
+    parsed = validate_ranking_response(
+        {
+            "chosen_cluster_key": "a|one",
+            "confidence": "high",
+            "ranked": {"a|one": 0.9, "b|two": 0.1},
+        },
+        {"a|one", "b|two"},
+    )
+    assert len(parsed["ranked"]) == 2
+    assert parsed["ranked"][0]["cluster_key"] == "a|one"
 
 
 def test_low_confidence_falls_back_to_current():
@@ -344,3 +429,53 @@ def test_build_candidates_skips_empty_body(db_session):
     )
     db_session.commit()
     assert build_ranking_candidates(db_session) == []
+
+
+def test_ranked_rows_for_api_enriches_pattern_names(db_session):
+    key = cluster_key_for("short_news_commentary", "测试模式")
+    ranking_json = json.dumps(
+        {
+            "chosen_cluster_key": key,
+            "confidence": "high",
+            "ranked": [{"cluster_key": key, "score": 0.9, "reason": "贴合"}],
+        },
+        ensure_ascii=False,
+    )
+    db_session.add(
+        PlaybookVersion(
+            id="pv-rank-rows",
+            body="正文",
+            status="published",
+            trap_passed=True,
+        )
+    )
+    db_session.add(
+        CopyAgentJob(
+            id="job-rank-rows",
+            kind="curate",
+            status="candidate",
+            result_json=json.dumps({"playbook_version_id": "pv-rank-rows"}, ensure_ascii=False),
+        )
+    )
+    card = {
+        "pattern": {"name": "测试模式", "genre": "short_news_commentary", "purpose": "测"},
+        "moves": [{"id": "hook", "function": "钩"}],
+        "hook": {"archetype": "curiosity_gap"},
+        "motives": {"primary": "emotional_arousal"},
+        "verdict": {"kind": "opinion", "function": "controversy_commentary"},
+    }
+    db_session.add(
+        PatternCard(
+            source_job_id="job-rank-rows",
+            card_json=json.dumps(card, ensure_ascii=False),
+            verdict_kind="opinion",
+            verdict_function="controversy_commentary",
+        )
+    )
+    db_session.commit()
+    selection = {"ranking_json": ranking_json}
+    rows = ranked_rows_for_api(db_session, selection)
+    assert len(rows) == 1
+    assert rows[0]["pattern_name"] == "测试模式"
+    assert rows[0]["chosen"] is True
+    assert rows[0]["score"] == 0.9

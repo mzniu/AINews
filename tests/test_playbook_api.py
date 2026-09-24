@@ -74,6 +74,8 @@ def test_rank_preview_uses_mock_rank(client, db_session, monkeypatch):
     body = res.json()
     assert body["success"] is True
     assert body["selection"]["playbook_version_id"] == "v"
+    assert body["material_adaptive_playbook"] is False
+    assert body["ranked"] == []
 
 
 def test_harness_not_ready_copy(client, monkeypatch):

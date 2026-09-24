@@ -5,6 +5,7 @@ import json
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
+from loguru import logger
 from pydantic import BaseModel
 
 from services.copy_agent.battle_report import build_battle_report
@@ -28,12 +29,14 @@ from services.copy_agent.drafts import (
     draft_selectable,
     draft_stamp_source,
     generate_one_draft,
+    playbook_selection_fields,
     select_draft,
 )
 from services.copy_agent.pattern_ranking import (
     TooManyPatterns,
     production_rank_complete,
     rank_playbook_for_material,
+    ranked_rows_for_api,
     selection_for_api,
 )
 from services.copy_agent.settings_store import (
@@ -290,7 +293,9 @@ def rank_preview(body: RankPreviewBody):
         )
         return {
             "success": True,
+            "material_adaptive_playbook": bool(settings.material_adaptive_playbook),
             "selection": selection_for_api(selection),
+            "ranked": ranked_rows_for_api(session, selection),
             "candidates_count": selection.get("candidates_count") or 0,
             "prefiltered_from": selection.get("prefiltered_from"),
         }
@@ -298,6 +303,19 @@ def rank_preview(body: RankPreviewBody):
         return JSONResponse(status_code=409, content={"message": str(exc), "hint": "no_playbook"})
     except TooManyPatterns as exc:
         return JSONResponse(status_code=409, content={"message": str(exc)})
+    except (ValueError, json.JSONDecodeError) as exc:
+        return JSONResponse(
+            status_code=422,
+            content={"message": f"Ranking 结果无法解析：{exc}"},
+        )
+    except RuntimeError as exc:
+        return JSONResponse(status_code=503, content={"message": str(exc)})
+    except Exception as exc:
+        logger.exception("rank-preview failed")
+        return JSONResponse(
+            status_code=502,
+            content={"message": f"Ranking 调用失败：{exc}"},
+        )
     finally:
         session.close()
 
@@ -385,6 +403,7 @@ def create_draft(body: DraftBody):
             "text": json.loads(draft.body_json or "{}").get("text") or "",
             "fact_gate": gate,
             "playbook_version_id": draft.playbook_version_id,
+            "selection": playbook_selection_fields(draft),
         }
     except NoPlaybook as exc:
         return JSONResponse(

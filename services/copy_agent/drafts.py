@@ -203,7 +203,7 @@ def select_draft(session: Session, draft_id: str, *, edited: bool = False) -> Co
     return draft
 
 
-def _selection_fields(draft: CopyDraft) -> dict:
+def playbook_selection_fields(draft: CopyDraft) -> dict:
     try:
         sel = json.loads(draft.selection_json or "{}")
     except json.JSONDecodeError:
@@ -231,5 +231,5 @@ def draft_stamp_source(draft: CopyDraft) -> dict:
         "playbook_attribution": "edited" if draft.edited_after_select else "playbook",
         "playbook_version_id": draft.playbook_version_id,
         "copy_draft_id": draft.id,
-        **_selection_fields(draft),
+        **playbook_selection_fields(draft),
     }

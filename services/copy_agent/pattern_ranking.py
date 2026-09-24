@@ -18,6 +18,117 @@ from src.db.models.playbook import CopyAgentSettings, CopyDraft, PatternCard, Pl
 CompleteRank = Callable[[list[dict]], str]
 
 POLICY_VERSION = "rank-v1"
+RANK_REASON_MAX_CHARS = 80
+
+
+def clamp_rank_reason(text: object) -> str:
+    reason = str(text or "").strip()
+    if len(reason) <= RANK_REASON_MAX_CHARS:
+        return reason
+    return reason[: RANK_REASON_MAX_CHARS - 1] + "…"
+
+
+def _strip_json_fence(raw: str) -> str:
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    return text.strip()
+
+
+def repair_truncated_json_object(raw: str) -> str:
+    s = _strip_json_fence(raw)
+    if not s:
+        return s
+    start = s.find("{")
+    if start > 0:
+        s = s[start:]
+    if s.count('"') % 2 == 1:
+        s += '"'
+    s = re.sub(r",\s*$", "", s)
+    stack: list[str] = []
+    in_string = False
+    escape = False
+    for ch in s:
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            stack.append("}")
+        elif ch == "[":
+            stack.append("]")
+        elif ch in "}]" and stack and stack[-1] == ch:
+            stack.pop()
+    while stack:
+        s += stack.pop()
+    return s
+
+
+def _extract_ranking_from_fragment(text: str) -> dict | None:
+    chosen = None
+    m = re.search(r'"chosen_cluster_key"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', text)
+    if m:
+        chosen = m.group(1).replace("\\\"", '"').strip()
+    if not chosen:
+        m2 = re.search(r'"cluster_key"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', text)
+        if m2:
+            chosen = m2.group(1).replace("\\\"", '"').strip()
+    if not chosen:
+        return None
+    conf = "low"
+    mc = re.search(r'"confidence"\s*:\s*"([^"]+)"', text)
+    if mc:
+        conf = normalize_rank_confidence(mc.group(1))
+    ranked: list[dict] = []
+    block = re.search(r'"ranked"\s*:\s*\[', text)
+    if block:
+        tail = text[block.end() :]
+        for row_m in re.finditer(
+            r'\{\s*"cluster_key"\s*:\s*"([^"]+)"\s*,\s*"score"\s*:\s*([0-9.]+)\s*,\s*"reason"\s*:\s*"([^"]*)"',
+            tail,
+        ):
+            ranked.append(
+                {
+                    "cluster_key": row_m.group(1),
+                    "score": float(row_m.group(2)),
+                    "reason": clamp_rank_reason(row_m.group(3)),
+                }
+            )
+    if not ranked:
+        ranked = [{"cluster_key": chosen, "score": 1.0, "reason": ""}]
+    return {
+        "chosen_cluster_key": chosen,
+        "confidence": conf,
+        "ranked": ranked,
+    }
+
+
+def parse_ranking_json_object(raw: str) -> dict:
+    text = _strip_json_fence(raw)
+    if not text:
+        raise ValueError("ranking response empty")
+    attempts = [text, repair_truncated_json_object(text)]
+    for candidate in attempts:
+        if not candidate:
+            continue
+        try:
+            loaded = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(loaded, dict):
+            return loaded
+    extracted = _extract_ranking_from_fragment(text)
+    if extracted is not None:
+        return extracted
+    raise ValueError("ranking response must be object")
 
 
 def _no_playbook(message: str) -> None:
@@ -28,6 +139,94 @@ def _no_playbook(message: str) -> None:
 
 class TooManyPatterns(RuntimeError):
     pass
+
+
+def normalize_rank_confidence(raw: object) -> str:
+    text = str(raw or "").strip().lower()
+    if text in {"high", "medium", "low"}:
+        return text
+    aliases = {
+        "h": "high",
+        "高": "high",
+        "较高": "high",
+        "m": "medium",
+        "mid": "medium",
+        "中": "medium",
+        "中等": "medium",
+        "l": "low",
+        "低": "low",
+        "较低": "low",
+    }
+    if text in aliases:
+        return aliases[text]
+    for level in ("high", "medium", "low"):
+        if level in text:
+            return level
+    return "low"
+
+
+def _coerce_ranked_list(data: dict, *, chosen: str, allowed_keys: set[str]) -> list[dict]:
+    ranked = data.get("ranked")
+    if ranked is None:
+        for alias in ("rankings", "ranking", "candidates_ranked", "ranked_patterns"):
+            if data.get(alias) is not None:
+                ranked = data.get(alias)
+                break
+    if isinstance(ranked, str):
+        text = ranked.strip()
+        if text.startswith("["):
+            try:
+                loaded = json.loads(text)
+                ranked = loaded
+            except json.JSONDecodeError:
+                ranked = None
+    if isinstance(ranked, dict):
+        if ranked.get("cluster_key") or ranked.get("clusterKey"):
+            ranked = [ranked]
+        else:
+            rows: list[dict] = []
+            for key, val in ranked.items():
+                cluster = str(key).strip()
+                if not cluster:
+                    continue
+                if isinstance(val, dict):
+                    row = dict(val)
+                    row.setdefault("cluster_key", cluster)
+                    rows.append(row)
+                elif isinstance(val, (int, float)):
+                    rows.append({"cluster_key": cluster, "score": float(val), "reason": ""})
+                else:
+                    rows.append(
+                        {
+                            "cluster_key": cluster,
+                            "score": None,
+                            "reason": clamp_rank_reason(val),
+                        }
+                    )
+            ranked = rows
+    if not isinstance(ranked, list):
+        if chosen:
+            return [{"cluster_key": chosen, "score": 1.0, "reason": ""}]
+        return []
+    rows: list[dict] = []
+    for item in ranked:
+        if isinstance(item, str):
+            key = item.strip()
+            if key in allowed_keys:
+                rows.append({"cluster_key": key, "score": None, "reason": ""})
+            continue
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        key = str(row.get("cluster_key") or row.get("clusterKey") or "").strip()
+        if not key:
+            continue
+        row["cluster_key"] = key
+        row.pop("clusterKey", None)
+        rows.append(row)
+    if not rows and chosen:
+        rows = [{"cluster_key": chosen, "score": 1.0, "reason": ""}]
+    return rows
 
 
 class PlaybookSelection(TypedDict, total=False):
@@ -48,15 +247,19 @@ class PlaybookSelection(TypedDict, total=False):
 
 
 def validate_ranking_response(data: dict, allowed_keys: set[str]) -> dict:
-    chosen = str(data.get("chosen_cluster_key") or "").strip()
+    chosen = str(
+        data.get("chosen_cluster_key")
+        or data.get("cluster_key")
+        or data.get("chosen")
+        or ""
+    ).strip()
+    data["chosen_cluster_key"] = chosen
     if chosen not in allowed_keys:
         raise ValueError("chosen_cluster_key not in candidates")
-    confidence = str(data.get("confidence") or "").strip().lower()
-    if confidence not in {"high", "medium", "low"}:
-        raise ValueError("invalid confidence")
-    ranked = data.get("ranked")
-    if not isinstance(ranked, list):
-        raise ValueError("ranked must be a list")
+    confidence = normalize_rank_confidence(data.get("confidence"))
+    data["confidence"] = confidence
+    ranked = _coerce_ranked_list(data, chosen=chosen, allowed_keys=allowed_keys)
+    data["ranked"] = ranked
     if len(ranked) > len(allowed_keys):
         raise ValueError("ranked too long")
     for row in ranked:
@@ -73,9 +276,8 @@ def validate_ranking_response(data: dict, allowed_keys: set[str]) -> dict:
                 raise ValueError("invalid score") from None
             if s < 0 or s > 1:
                 raise ValueError("score out of range")
-        reason = str(row.get("reason") or "")
-        if len(reason) > 80:
-            raise ValueError("reason too long")
+        reason = clamp_rank_reason(row.get("reason"))
+        row["reason"] = reason
     rejected = data.get("rejected_cluster_keys")
     if rejected is not None:
         if not isinstance(rejected, list):
@@ -319,14 +521,7 @@ def lookup_cached_selection(
 
 
 def _parse_rank_json(raw: str) -> dict:
-    text = (raw or "").strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
-    loaded = json.loads(text)
-    if not isinstance(loaded, dict):
-        raise ValueError("ranking response must be object")
-    return loaded
+    return parse_ranking_json_object(raw)
 
 
 def _ranking_messages(title: str, content: str, candidates: list[dict]) -> list[dict]:
@@ -352,6 +547,9 @@ def _ranking_messages(title: str, content: str, candidates: list[dict]) -> list[
             "content": (
                 "你只根据候选模式列表为素材选一个最合适的 cluster_key。"
                 "只输出 JSON，不要写稿。chosen_cluster_key 必须来自 candidates。"
+                '格式：{"chosen_cluster_key":"...","confidence":"high|medium|low",'
+                '"ranked":[{"cluster_key":"...","score":0.0,"reason":"..."}]}。'
+                "ranked 必须是数组，至少包含 chosen 对应的一项；每条 reason 不超过 40 字。"
             ),
         },
         {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
@@ -511,20 +709,26 @@ def ranking_adaptive_enabled(settings: CopyAgentSettings, *, for_auto_pipeline: 
 
 def production_rank_complete(messages: list[dict]) -> str:
     from services.content_generation_service import _build_openai_client
-    from utils.content_compliance import invoke_json_llm_with_compliance
+    from utils.content_compliance import _complete_json_text
 
     client, model, _base_url, profile = _build_openai_client()
     rank_model = os.getenv("PLAYBOOK_RANK_MODEL") or model
-    result, _compliance = invoke_json_llm_with_compliance(
+    create_kwargs: dict[str, Any] = {
+        "model": rank_model,
+        "messages": messages,
+        "temperature": 0.2,
+        "max_tokens": int(os.getenv("PLAYBOOK_RANK_MAX_TOKENS", "2048")),
+        "response_format": {"type": "json_object"},
+    }
+    _response, result_text, _tokens = _complete_json_text(
         client=client,
+        create_kwargs=create_kwargs,
         model=rank_model,
-        messages=messages,
-        temperature=0.2,
-        max_tokens=1024,
-        response_format={"type": "json_object"},
+        kind="language",
         profile=profile,
         task="playbook_rank",
     )
+    result = parse_ranking_json_object(result_text)
     return json.dumps(result, ensure_ascii=False)
 
 
@@ -576,3 +780,32 @@ def selection_for_api(selection: PlaybookSelection) -> dict[str, Any]:
         "prefiltered_from": selection.get("prefiltered_from"),
         "from_cache": selection.get("from_cache"),
     }
+
+
+def ranked_rows_for_api(session: Session, selection: PlaybookSelection) -> list[dict[str, Any]]:
+    try:
+        parsed = json.loads(selection.get("ranking_json") or "{}")
+    except json.JSONDecodeError:
+        parsed = {}
+    ranked = parsed.get("ranked") if isinstance(parsed.get("ranked"), list) else []
+    if not ranked:
+        return []
+    by_key = {c["cluster_key"]: c for c in build_ranking_candidates(session)}
+    chosen = str(parsed.get("chosen_cluster_key") or "").strip()
+    out: list[dict[str, Any]] = []
+    for row in ranked:
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("cluster_key") or "").strip()
+        meta = by_key.get(key, {})
+        out.append(
+            {
+                "cluster_key": key,
+                "pattern_name": meta.get("pattern_name") or "",
+                "genre_label": meta.get("genre_label") or "",
+                "score": row.get("score"),
+                "reason": str(row.get("reason") or ""),
+                "chosen": key == chosen,
+            }
+        )
+    return out
